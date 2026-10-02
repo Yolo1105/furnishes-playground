@@ -2,16 +2,16 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  assetGroups,
   CATEGORY_NAMES,
   pieceTotals,
   sgd,
-  topLevelAssets,
   type AssetCategory,
   type AssetGroup,
   type AssetKind,
   type AssetNode,
 } from "./assets-data";
+import { ProductsTab } from "./ProductsTab";
+import { products, useScene } from "./scene-store";
 import {
   ChevronRightIcon,
   CubeIcon,
@@ -22,6 +22,7 @@ import {
 } from "./icons";
 
 type KindFilter = "all" | "piece" | "room";
+type Tab = "assets" | "products";
 
 const matches = (n: AssetNode, q: string): boolean =>
   n.name.toLowerCase().includes(q) ||
@@ -39,6 +40,8 @@ const keeps = (n: AssetNode, kind: KindFilter) =>
  * a category and/or one of the two kinds.
  */
 export function AssetsPanel() {
+  const [tab, setTab] = useState<Tab>("assets");
+  const assetGroups = useScene((s) => s.groups);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<AssetCategory | null>(null);
   const [kind, setKind] = useState<KindFilter>("all");
@@ -46,7 +49,10 @@ export function AssetsPanel() {
   const [closed, setClosed] = useState<Record<string, boolean>>({});
   const filterWrap = useRef<HTMLDivElement>(null);
   const q = query.trim().toLowerCase();
-  const totals = useMemo(() => pieceTotals(topLevelAssets()), []);
+  const totals = useMemo(
+    () => pieceTotals(assetGroups.flatMap((g) => g.items)),
+    [assetGroups],
+  );
 
   useEffect(() => {
     if (!filterOpen) return;
@@ -73,26 +79,38 @@ export function AssetsPanel() {
           items: g.items.filter((n) => keeps(n, kind) && (!q || matches(n, q))),
         }))
         .filter((g) => g.items.length > 0),
-    [category, kind, q],
+    [assetGroups, category, kind, q],
   );
-  const active = (category ? 1 : 0) + (kind !== "all" ? 1 : 0);
+  const active =
+    (category ? 1 : 0) + (tab === "assets" && kind !== "all" ? 1 : 0);
   const toggle = (id: string) => setClosed((c) => ({ ...c, [id]: !c[id] }));
 
   return (
     <div className="assets">
       <div className="shell-subbar">
         <div className="shell-tabs-inline" role="tablist" aria-label="Project">
-          <button
-            type="button"
-            role="tab"
-            className="shell-tabbtn"
-            aria-selected="true"
-          >
-            Assets
-          </button>
+          {(
+            [
+              ["assets", "Assets"],
+              ["products", "Products"],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              className="shell-tabbtn"
+              aria-selected={tab === id}
+              onClick={() => setTab(id)}
+            >
+              {label}
+            </button>
+          ))}
         </div>
         <span className="assets-count f-num">
-          {totals.pieces} pieces · {sgd(totals.total)}
+          {tab === "assets"
+            ? `${totals.pieces} pieces · ${sgd(totals.total)}`
+            : `${products.length} in the catalogue`}
         </span>
       </div>
 
@@ -102,8 +120,8 @@ export function AssetsPanel() {
           <input
             type="search"
             className="assets-input"
-            placeholder="Search"
-            aria-label="Search assets"
+            placeholder={tab === "assets" ? "Search" : "Search the catalogue"}
+            aria-label={tab === "assets" ? "Search assets" : "Search products"}
             autoComplete="off"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -125,31 +143,35 @@ export function AssetsPanel() {
           </button>
           {filterOpen && (
             <div className="shell-menu assets-filter-menu" role="dialog">
-              <p className="assets-filter-label">Show</p>
-              <div className="assets-kinds">
-                {(
-                  [
-                    ["all", "Everything"],
-                    ["piece", "Furnishes pieces"],
-                    ["room", "Room items"],
-                  ] as const
-                ).map(([id, label]) => (
-                  <button
-                    key={id}
-                    type="button"
-                    className="assets-chip"
-                    aria-pressed={kind === id}
-                    onClick={() => setKind(id)}
-                  >
-                    {id === "piece" && <span className="assets-dot" />}
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <p className="assets-filter-hint">
-                Furnishes pieces are the ones you can edit and buy. Room items
-                only set the scene.
-              </p>
+              {tab === "assets" && (
+                <>
+                  <p className="assets-filter-label">Show</p>
+                  <div className="assets-kinds">
+                    {(
+                      [
+                        ["all", "Everything"],
+                        ["piece", "Furnishes pieces"],
+                        ["room", "Room items"],
+                      ] as const
+                    ).map(([id, label]) => (
+                      <button
+                        key={id}
+                        type="button"
+                        className="assets-chip"
+                        aria-pressed={kind === id}
+                        onClick={() => setKind(id)}
+                      >
+                        {id === "piece" && <span className="assets-dot" />}
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="assets-filter-hint">
+                    Furnishes pieces are the ones you can edit and buy. Room
+                    items only set the scene.
+                  </p>
+                </>
+              )}
               <p className="assets-filter-label">Category</p>
               <div className="assets-kinds">
                 <button
@@ -179,7 +201,7 @@ export function AssetsPanel() {
 
       {active > 0 && (
         <div className="assets-active">
-          {kind !== "all" && (
+          {tab === "assets" && kind !== "all" && (
             <button
               type="button"
               className="assets-chip assets-chip-x"
@@ -200,7 +222,13 @@ export function AssetsPanel() {
         </div>
       )}
 
-      <div className="assets-tree" role="tree" aria-label="Assets">
+      {tab === "products" && <ProductsTab query={query} category={category} />}
+      <div
+        className="assets-tree"
+        role="tree"
+        aria-label="Assets"
+        hidden={tab !== "assets"}
+      >
         {shown.length === 0 && (
           <p className="assets-empty">Nothing here matches.</p>
         )}
@@ -215,11 +243,13 @@ export function AssetsPanel() {
               count={g.items.length}
             />
             {!closed[g.id] &&
-              g.items.map((n) => (
+              g.items.map((n, i, arr) => (
                 <Node
                   key={n.id}
                   node={n}
                   depth={1}
+                  trail={[]}
+                  last={i === arr.length - 1}
                   q={q}
                   closed={closed}
                   onToggle={toggle}
@@ -235,12 +265,17 @@ export function AssetsPanel() {
 function Node({
   node: n,
   depth,
+  trail,
+  last,
   q,
   closed,
   onToggle,
 }: {
   node: AssetNode;
   depth: number;
+  /** for each ancestor level, whether its guide line continues past this row */
+  trail: boolean[];
+  last: boolean;
   q: string;
   closed: Record<string, boolean>;
   onToggle: (id: string) => void;
@@ -256,15 +291,19 @@ function Node({
         kind={n.kind}
         price={n.price}
         open={open}
+        trail={trail}
+        last={last}
         onToggle={hasKids ? () => onToggle(n.id) : undefined}
       />
       {hasKids &&
         open &&
-        kids.map((c) => (
+        kids.map((c, i) => (
           <Node
             key={c.id}
             node={c}
             depth={depth + 1}
+            trail={[...trail, !last]}
+            last={i === kids.length - 1}
             q={q}
             closed={closed}
             onToggle={onToggle}
@@ -281,6 +320,8 @@ function Row({
   price,
   count,
   open = false,
+  trail = [],
+  last = true,
   onToggle,
 }: {
   depth: number;
@@ -289,6 +330,8 @@ function Row({
   price?: number | undefined;
   count?: number;
   open?: boolean;
+  trail?: boolean[];
+  last?: boolean;
   onToggle?: (() => void) | undefined;
 }) {
   return (
@@ -300,6 +343,23 @@ function Row({
       aria-expanded={onToggle ? open : undefined}
       style={{ ["--depth" as string]: depth }}
     >
+      {/* the lines back to the parent: one per ancestor level, the own
+          level ending in a tick, stopping halfway on the last child */}
+      {Array.from({ length: depth }, (_, i) => {
+        const own = i === depth - 1;
+        const cont = own ? !last : (trail[i] ?? false);
+        if (!own && !cont) return null;
+        return (
+          <span
+            key={i}
+            className="assets-guide"
+            data-own={own}
+            data-cont={cont}
+            style={{ left: 11 + i * 18 }}
+            aria-hidden="true"
+          />
+        );
+      })}
       <button
         type="button"
         className="assets-twisty"

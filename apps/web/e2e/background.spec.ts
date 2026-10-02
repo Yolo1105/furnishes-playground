@@ -247,3 +247,38 @@ test("the right rail holds the other view, and the swap trades them", async ({
     "3d",
   );
 });
+
+test("the outliner draws hierarchy lines and the Products tab adds to the room", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  const tree = page.getByRole("tree", { name: "Assets" });
+  // a child row carries a guide back to its parent
+  const segA = tree.locator(".assets-row", { hasText: "Segment A" });
+  await expect(segA.locator(".assets-guide")).toHaveCount(2);
+  // the sub-bar's hairline spans the panel like the head's
+  const head = (await page
+    .locator(".shell-rail-left .shell-panel-head")
+    .boundingBox())!;
+  const sub = (await page
+    .locator(".shell-rail-left .shell-subbar")
+    .boundingBox())!;
+  expect(Math.abs(sub.width - head.width)).toBeLessThanOrEqual(1);
+
+  await page.getByRole("tab", { name: "Products" }).click();
+  await expect(page.locator(".assets-count")).toHaveText("12 in the catalogue");
+  await expect(page.locator(".product")).toHaveCount(12);
+  await page.getByRole("searchbox", { name: "Search products" }).fill("coat");
+  await expect(page.locator(".product")).toHaveCount(1);
+  await page
+    .getByRole("button", { name: "Add Coat stand to the room" })
+    .click();
+  await page.getByRole("tab", { name: "Assets" }).click();
+  await expect(page.locator(".assets-count")).toHaveText("6 pieces · S$ 1,750");
+  await expect(page.locator(".main-shelf-tab")).toContainText("6 pieces");
+  await page.getByRole("searchbox", { name: "Search assets" }).fill("coat");
+  await expect(
+    tree.locator(".assets-row", { hasText: "Coat stand" }),
+  ).toBeVisible();
+});

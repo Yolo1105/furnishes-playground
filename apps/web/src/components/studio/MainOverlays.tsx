@@ -1,13 +1,9 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import {
-  pieceTotals,
-  sgd,
-  topLevelAssets,
-  type AssetNode,
-} from "./assets-data";
+import { pieceTotals, sgd } from "./assets-data";
 import { ChevronUpDownIcon } from "./icons";
+import { useTopLevel } from "./scene-store";
 
 /**
  * What floats over the main surface: a thin toolbar across the top and a
@@ -56,11 +52,8 @@ export function MainTopBar({
  * sums them; the chevron beside it folds the cards away, leaving only
  * that row along the bottom.
  */
-export function MainShelf({
-  items = topLevelAssets(),
-}: {
-  items?: AssetNode[];
-}) {
+export function MainShelf() {
+  const items = useTopLevel();
   const [collapsed, setCollapsed] = useState(false);
   const t = pieceTotals(items);
   return (
