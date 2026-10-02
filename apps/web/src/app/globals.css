@@ -1,0 +1,184 @@
+@import "tailwindcss";
+
+@source "../**/*.{ts,tsx}";
+
+/* ─── Brand tokens ──────────────────────────────────────────────────────
+ * The studio palette, carried over unchanged from the standalone
+ * playground: cream paper, one orange accent, near-black ink.
+ * ─────────────────────────────────────────────────────────────────────── */
+@theme {
+  --color-cream: #fff4ec;
+  --color-accent: #ff5a1f;
+  --color-ink: #1a1a1a;
+}
+
+/* ─── Reset / page setup ────────────────────────────────────────────────
+ * The studio is a fixed-viewport app: no page scroll, no overscroll
+ * bounce. The 3D canvas will fill the viewport; chat and cards float
+ * on top.
+ * ─────────────────────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  /* Paint cream before anything mounts so the first frame is never the
+     browser's default white. Matches the body gradient start. */
+  background-color: #fff4e3;
+}
+
+:root {
+  --font-app: var(--font-syne);
+}
+
+body {
+  /* Static base layer under the animated blobs: the warm cream-to-peach
+     wash that is always present even when the blobs drift to a corner. */
+  background: linear-gradient(135deg, #fff4e3 0%, #ffd1ad 55%, #f8b78a 100%);
+  background-attachment: fixed;
+  color: #1a1a1a;
+  position: relative;
+}
+
+/* ─── Fluid background blobs ────────────────────────────────────────────
+ * Three softly blurred radial blobs drift across the viewport on
+ * independent loops (29s / 41s / 53s) so the composite never repeats.
+ * The layer sits at z-index 0 with pointer-events none, behind every
+ * studio surface. prefers-reduced-motion hides the blobs and leaves the
+ * base gradient still.
+ * ─────────────────────────────────────────────────────────────────────── */
+.bg-fluid {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.bg-fluid .bg-blob {
+  position: absolute;
+  width: 90vmax;
+  height: 90vmax;
+  border-radius: 50%;
+  filter: blur(80px);
+  will-change: transform;
+}
+
+.bg-fluid .bg-blob-1 {
+  background: radial-gradient(
+    circle,
+    rgba(255, 232, 200, 0.85) 0%,
+    rgba(255, 232, 200, 0) 60%
+  );
+  top: -20%;
+  left: -25%;
+  animation: blob-drift-1 29s ease-in-out infinite;
+}
+
+.bg-fluid .bg-blob-2 {
+  background: radial-gradient(
+    circle,
+    rgba(255, 198, 156, 0.7) 0%,
+    rgba(255, 198, 156, 0) 60%
+  );
+  top: -10%;
+  right: -30%;
+  animation: blob-drift-2 41s ease-in-out infinite;
+}
+
+.bg-fluid .bg-blob-3 {
+  background: radial-gradient(
+    circle,
+    rgba(255, 248, 235, 0.9) 0%,
+    rgba(255, 248, 235, 0) 60%
+  );
+  bottom: -25%;
+  left: 10%;
+  animation: blob-drift-3 53s ease-in-out infinite;
+}
+
+@keyframes blob-drift-1 {
+  0% {
+    transform: translate(0, 0);
+  }
+  22% {
+    transform: translate(35vmax, 18vmax);
+  }
+  47% {
+    transform: translate(20vmax, 40vmax);
+  }
+  71% {
+    transform: translate(-12vmax, 28vmax);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes blob-drift-2 {
+  0% {
+    transform: translate(0, 0);
+  }
+  19% {
+    transform: translate(-28vmax, 22vmax);
+  }
+  43% {
+    transform: translate(-45vmax, -8vmax);
+  }
+  68% {
+    transform: translate(-14vmax, 35vmax);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes blob-drift-3 {
+  0% {
+    transform: translate(0, 0);
+  }
+  27% {
+    transform: translate(28vmax, -32vmax);
+  }
+  54% {
+    transform: translate(45vmax, 8vmax);
+  }
+  79% {
+    transform: translate(8vmax, -22vmax);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bg-fluid {
+    display: none;
+  }
+}
+
+/* ─── Focus rings ───────────────────────────────────────────────────────
+ * Brand orange instead of the browser blue; keyboard only.
+ * ─────────────────────────────────────────────────────────────────────── */
+*:focus {
+  outline: none;
+}
+button:focus-visible,
+[role="button"]:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid #ff5a1f;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
