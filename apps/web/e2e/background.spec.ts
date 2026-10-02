@@ -125,3 +125,35 @@ test("rails collapse into the toolbar and come back", async ({ page }) => {
     "New chat",
   );
 });
+
+test("Eva's input box and the user bar", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  // edges line up: toolbar top on the rails' top, shelf bottom on their bottom
+  const left = (await page.locator(".shell-panel-left").boundingBox())!;
+  const top = (await page.locator(".main-top").boundingBox())!;
+  const shelf = (await page.locator(".main-shelf").boundingBox())!;
+  const main = (await page.locator(".shell-main").boundingBox())!;
+  expect(Math.abs(top.y - left.y)).toBeLessThanOrEqual(1);
+  expect(
+    Math.abs(shelf.y + shelf.height - (left.y + left.height)),
+  ).toBeLessThanOrEqual(1);
+  expect(Math.abs(shelf.x - main.x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(top.width - main.width)).toBeLessThanOrEqual(1);
+
+  const send = page.getByRole("button", { name: "Voice input" });
+  await expect(send).toBeVisible();
+  await page
+    .getByRole("textbox", { name: "Message Eva" })
+    .fill("a calm bedroom");
+  await expect(page.getByRole("button", { name: "Send" })).toBeVisible();
+  await page.getByRole("button", { name: /^Ask/ }).click();
+  await page.getByRole("menuitemradio", { name: "Room layout" }).click();
+  await expect(
+    page.getByRole("button", { name: /^Room layout/ }),
+  ).toBeVisible();
+
+  await expect(page.locator(".user-name")).toHaveText("Studio User");
+  await page.getByRole("button", { name: "More" }).click();
+  await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
+});

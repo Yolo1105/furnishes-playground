@@ -137,15 +137,31 @@
   border-radius: 8px;
   display: inline-grid;
   place-items: center;
-  color: rgba(26, 26, 26, 0.6);
+  color: rgba(26, 26, 26, 0.55);
   font: inherit;
   font-size: 18px;
   line-height: 1;
   cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 .shell-iconbtn:hover {
   background: rgba(26, 26, 26, 0.06);
-  color: #1a1a1a;
+  color: rgba(26, 26, 26, 0.85);
+}
+.shell-iconbtn[aria-pressed="true"] {
+  color: #ff5a1f;
+  background: rgba(255, 90, 31, 0.08);
+}
+/* the one primary action in a panel head: orange, never ink */
+.shell-primary {
+  color: #ff5a1f;
+  background: rgba(255, 90, 31, 0.1);
+}
+.shell-primary:hover {
+  color: #ff5a1f;
+  background: rgba(255, 90, 31, 0.18);
 }
 
 /* ---- project switcher: Furnishes / Project 0 ▾ ---- */
@@ -232,6 +248,19 @@
   color: #ff5a1f;
   background: rgba(255, 90, 31, 0.08);
 }
+.shell-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.shell-menu-row svg {
+  color: rgba(26, 26, 26, 0.55);
+}
+.shell-menu-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--shell-line);
+}
 
 /* ---- Eva's sub-bar: Agent · History · Preference  [+] ---- */
 .shell-subbar {
@@ -280,8 +309,10 @@
   top: calc(100% + 6px);
   right: 0;
   padding: 5px 9px;
-  background: rgba(26, 26, 26, 0.92);
-  color: #fff4ec;
+  background: rgba(255, 250, 244, 0.96);
+  color: rgba(26, 26, 26, 0.85);
+  border: 1px solid rgba(124, 80, 50, 0.2);
+  box-shadow: 0 10px 24px -12px rgba(26, 18, 10, 0.3);
   border-radius: 6px;
   font-size: 10.5px;
   font-weight: 500;
@@ -317,6 +348,236 @@
   scrollbar-color: rgba(26, 26, 26, 0.2) transparent;
 }
 
+/* ---- panel feet ---- */
+.shell-panel-foot {
+  border-top: 1px solid var(--shell-line);
+  padding: 8px 10px;
+}
+.shell-panel-foot-chat {
+  padding: 10px;
+}
+
+/* the user bar at the foot of the project rail */
+.user-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 0 2px 2px;
+}
+.user-avatar {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #ff5a1f;
+  background: rgba(255, 90, 31, 0.12);
+  border: 1px solid rgba(255, 90, 31, 0.25);
+}
+.user-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.user-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: rgba(26, 26, 26, 0.85);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.user-line {
+  font-size: 11px;
+  color: rgba(26, 26, 26, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.user-menu {
+  top: auto;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  min-width: 0;
+}
+.user-bar .shell-tip::after {
+  top: auto;
+  bottom: calc(100% + 6px);
+  right: auto;
+  left: 50%;
+  transform: translate(-50%, 2px);
+}
+.user-bar .shell-tip:hover::after {
+  transform: translate(-50%, 0);
+}
+
+/* ---- Eva's input box: the playground's chat input ---- */
+.chat-input {
+  background: rgba(255, 250, 244, 0.55);
+  border: 1px solid var(--shell-line);
+  border-radius: 18px;
+  padding: 12px 14px 10px;
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.6) inset,
+    0 8px 24px -14px rgba(124, 80, 50, 0.12);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.shell[data-corners="square"] .chat-input {
+  border-radius: 0;
+}
+.chat-input[data-focused="true"] {
+  border-color: #ff5a1f;
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.6) inset,
+    0 8px 28px -14px rgba(255, 90, 31, 0.22);
+}
+.chat-textarea {
+  display: block;
+  width: 100%;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  letter-spacing: -0.005em;
+  color: #1a1a1a;
+  padding: 4px 0 8px;
+  min-height: 24px;
+  max-height: 160px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(26, 26, 26, 0.2) transparent;
+  transition: opacity 0.2s ease;
+}
+.chat-textarea::placeholder {
+  color: rgba(26, 26, 26, 0.35);
+}
+.chat-input-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+}
+.chat-input-left,
+.chat-input-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.chat-input-right {
+  gap: 6px;
+}
+.chat-mode {
+  position: relative;
+}
+.chat-mode-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: rgba(26, 26, 26, 0.85);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.chat-mode-btn:hover {
+  background: rgba(26, 26, 26, 0.05);
+}
+.chat-mode-sub {
+  font-weight: 500;
+  color: rgba(26, 26, 26, 0.45);
+}
+.chat-mode-caret {
+  display: inline-flex;
+  color: rgba(26, 26, 26, 0.5);
+}
+.chat-mode-menu {
+  top: auto;
+  bottom: calc(100% + 8px);
+  left: auto;
+  right: 0;
+  min-width: 150px;
+}
+.chat-eva {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px 4px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(124, 80, 50, 0.2);
+  background: rgba(255, 255, 255, 0.55);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: rgba(26, 26, 26, 0.78);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.chat-eva:hover {
+  background: rgba(255, 90, 31, 0.08);
+}
+.chat-eva-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff5a1f;
+}
+.chat-send {
+  appearance: none;
+  border: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  background: rgba(26, 26, 26, 0.06);
+  color: rgba(26, 26, 26, 0.55);
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.15s ease,
+    box-shadow 0.2s ease;
+}
+.chat-send[data-ready="true"] {
+  background: #ff5a1f;
+  color: #fff4ec;
+  box-shadow: 0 4px 12px -3px rgba(255, 90, 31, 0.4);
+}
+.chat-send[data-ready="true"]:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 16px -4px rgba(255, 90, 31, 0.5);
+}
+.chat-send:not([data-ready="true"]):hover {
+  background: rgba(26, 26, 26, 0.1);
+  color: rgba(26, 26, 26, 0.85);
+}
+
 /* ghost rows: where real controls go */
 .shell-row {
   height: 36px;
@@ -341,7 +602,7 @@
 
 .main-restore {
   position: absolute;
-  top: 14px;
+  top: 0;
   z-index: 2;
   padding: 4px;
   border-radius: 10px;
@@ -354,10 +615,10 @@
   border-radius: 0;
 }
 .main-restore-left {
-  left: 14px;
+  left: 0;
 }
 .main-restore-right {
-  right: 14px;
+  right: 0;
 }
 
 .shell-main-hint {

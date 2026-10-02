@@ -1,50 +1,155 @@
-/** Small line icons, 16px, drawn in the current colour. */
-type P = { size?: number };
+/**
+ * Inline line icons, the playground's set: 24×24 viewBox, no fill,
+ * stroke 1.8 (UI) or 2 (chevrons, send arrow), rounded caps and joins.
+ * Drawn in currentColor, which is never black: ink at 55% for rest,
+ * 85% on hover, orange for the one primary action.
+ */
+export type IconProps = { size?: number };
 
-const base = (size: number) => ({
-  width: size,
-  height: size,
-  viewBox: "0 0 16 16",
+const s18 = {
   fill: "none",
   stroke: "currentColor",
-  strokeWidth: 1.5,
+  strokeWidth: 1.8,
   strokeLinecap: "round" as const,
   strokeLinejoin: "round" as const,
   "aria-hidden": true,
+};
+const s20 = { ...s18, strokeWidth: 2 };
+
+const svg = (size: number, p = s18) => ({
+  width: size,
+  height: size,
+  viewBox: "0 0 24 24",
+  ...p,
 });
 
 /** a panel with its left column marked: collapse / expand the left rail */
-export function PanelLeftIcon({ size = 16 }: P) {
+export function PanelLeftIcon({ size = 16 }: IconProps) {
   return (
-    <svg {...base(size)}>
-      <rect x="1.5" y="2.5" width="13" height="11" rx="2" />
-      <path d="M6 2.5v11" />
+    <svg {...svg(size)}>
+      <rect x="3" y="4" width="18" height="16" rx="3" />
+      <path d="M9 4v16" />
     </svg>
   );
 }
 
 /** a panel with its right column marked: collapse / expand the right rail */
-export function PanelRightIcon({ size = 16 }: P) {
+export function PanelRightIcon({ size = 16 }: IconProps) {
   return (
-    <svg {...base(size)}>
-      <rect x="1.5" y="2.5" width="13" height="11" rx="2" />
-      <path d="M10 2.5v11" />
+    <svg {...svg(size)}>
+      <rect x="3" y="4" width="18" height="16" rx="3" />
+      <path d="M15 4v16" />
     </svg>
   );
 }
 
-export function ChevronDownIcon({ size = 14 }: P) {
+export function ChevronDownIcon({
+  size = 12,
+  rotated = false,
+}: IconProps & { rotated?: boolean }) {
   return (
-    <svg {...base(size)}>
-      <path d="M4 6l4 4 4-4" />
+    <svg
+      {...svg(size, s20)}
+      style={{
+        transform: rotated ? "rotate(180deg)" : undefined,
+        transition: "transform 0.15s ease",
+      }}
+    >
+      <path d="m6 9 6 6 6-6" />
     </svg>
   );
 }
 
-export function PlusIcon({ size = 16 }: P) {
+export function PlusIcon({ size = 16 }: IconProps) {
   return (
-    <svg {...base(size)}>
-      <path d="M8 3v10M3 8h10" />
+    <svg {...svg(size, s20)}>
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
+export function ImageIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <rect x="3" y="3" width="18" height="18" rx="2.5" />
+      <circle cx="9" cy="9" r="1.5" />
+      <path d="m21 15-4-4a2 2 0 0 0-2.8 0L4 21" />
+    </svg>
+  );
+}
+
+export function LightbulbIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <path d="M9 18h6" />
+      <path d="M10 22h4" />
+      <path d="M12 2a7 7 0 0 0-4 12.7V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.3A7 7 0 0 0 12 2z" />
+    </svg>
+  );
+}
+
+export function SendArrowIcon({ size = 15 }: IconProps) {
+  return (
+    <svg {...svg(size, s20)}>
+      <path d="M12 19V5" />
+      <path d="m5 12 7-7 7 7" />
+    </svg>
+  );
+}
+
+export function MicIcon({ size = 15 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M19 11v1a7 7 0 0 1-14 0v-1" />
+      <path d="M12 19v3M9 22h6" />
+    </svg>
+  );
+}
+
+export function GearIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
+    </svg>
+  );
+}
+
+export function HelpIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7" />
+      <path d="M12 17h.01" />
+    </svg>
+  );
+}
+
+export function MoreIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <circle cx="5" cy="12" r="1.2" fill="currentColor" />
+      <circle cx="12" cy="12" r="1.2" fill="currentColor" />
+      <circle cx="19" cy="12" r="1.2" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function SignOutIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4" />
+      <path d="M15 8l5 4-5 4M20 12H9" />
+    </svg>
+  );
+}
+
+export function KeyboardIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <rect x="3" y="6" width="18" height="12" rx="2" />
+      <path d="M7 10h.01M11 10h.01M15 10h.01M7 14h10" />
     </svg>
   );
 }

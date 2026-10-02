@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { ChatInput } from "./ChatInput";
 import { MainTopBar } from "./MainOverlays";
+import { UserBar } from "./UserBar";
 import {
   ChevronDownIcon,
   PanelLeftIcon,
@@ -109,6 +111,9 @@ export function StudioShell({
             </div>
           </div>
           <div className="shell-panel-body">{left}</div>
+          <div className="shell-panel-foot">
+            <UserBar />
+          </div>
         </div>
       </aside>
 
@@ -181,7 +186,7 @@ export function StudioShell({
             </div>
             <button
               type="button"
-              className="shell-iconbtn shell-tip"
+              className="shell-iconbtn shell-tip shell-primary"
               data-tooltip="New chat"
               aria-label="New chat"
             >
@@ -190,6 +195,9 @@ export function StudioShell({
           </div>
           <div className="shell-panel-body" data-tab={tab}>
             {right}
+          </div>
+          <div className="shell-panel-foot shell-panel-foot-chat">
+            <ChatInput />
           </div>
         </div>
       </aside>

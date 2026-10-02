@@ -18,17 +18,37 @@
     0 8px 24px -14px rgba(124, 80, 50, 0.12);
 }
 
-/* ---- top toolbar: thin, rounded, icon groups ---- */
+/* ---- top toolbar: thin, same width as the main surface, its top edge on
+   the rails' top edge; the icon groups sit in the middle, the restore
+   slots at the ends ---- */
 .main-top {
-  top: 14px;
+  top: 0;
+  width: 100%;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
   height: 44px;
   padding: 0 8px;
-  border-radius: 999px;
-  max-width: calc(100% - 28px);
+  border-radius: var(--shell-radius, 0px);
   overflow: hidden;
+}
+.main-top-lead,
+.main-top-trail {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.main-top-lead {
+  left: 6px;
+}
+.main-top-trail {
+  right: 6px;
+}
+.main-top-group + .main-top-lead,
+.main-top-group + .main-top-trail,
+.main-top-lead + .main-top-group {
+  border-left: 0;
 }
 
 .main-top-group {
@@ -60,15 +80,17 @@
   width: 16px;
   height: 16px;
   border-radius: 4px;
-  background: rgba(26, 26, 26, 0.16);
+  border: 1.5px solid rgba(124, 80, 50, 0.35);
+  background: rgba(255, 255, 255, 0.35);
 }
 
-/* ---- bottom shelf: rounded, cards scroll sideways ---- */
+/* ---- bottom shelf: same width as the main surface, its bottom edge on
+   the rails' bottom edge; cards scroll sideways ---- */
 .main-shelf {
-  bottom: 14px;
-  width: min(100% - 28px, 1100px);
+  bottom: 0;
+  width: 100%;
   padding: 12px;
-  border-radius: 20px;
+  border-radius: var(--shell-radius, 0px);
 }
 
 .main-shelf-scroll {
@@ -141,12 +163,10 @@
     display: none;
   }
   .main-top {
-    top: 10px;
     height: 40px;
   }
   .main-shelf {
     bottom: calc(68px + env(safe-area-inset-bottom));
-    width: calc(100% - 20px);
     padding: 10px;
   }
   .shelf-card {
