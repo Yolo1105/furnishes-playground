@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CATEGORY_NAMES, sgd, type AssetCategory } from "./assets-data";
 import { PlusIcon } from "./icons";
-import { products, useScene } from "./scene-store";
+import { products } from "./catalogue";
+import { useScene } from "./scene-store";
 
 /**
  * The catalogue as a grid of cards: a picture, the name, the price. One
@@ -19,6 +20,8 @@ export function ProductsTab({
 }) {
   const add = useScene((s) => s.addProduct);
   const [justAdded, setJustAdded] = useState<string | null>(null);
+  const flash = useRef(0);
+  useEffect(() => () => window.clearTimeout(flash.current), []);
   const q = query.trim().toLowerCase();
   const shown = products.filter(
     (p) =>
@@ -30,7 +33,8 @@ export function ProductsTab({
     if (!p) return;
     add(p);
     setJustAdded(id);
-    window.setTimeout(() => setJustAdded((c) => (c === id ? null : c)), 1200);
+    window.clearTimeout(flash.current);
+    flash.current = window.setTimeout(() => setJustAdded(null), 1200);
   };
   return (
     <div className="products" aria-label="Products">

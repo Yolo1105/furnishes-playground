@@ -1,5 +1,3 @@
-"use client";
-
 import { CubeIcon, PlanIcon, SwapIcon } from "./icons";
 
 export type View = "3d" | "2d";

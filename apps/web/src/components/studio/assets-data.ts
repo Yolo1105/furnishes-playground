@@ -136,10 +136,6 @@ export const assetGroups: AssetGroup[] = [
   },
 ];
 
-/** top-level things only: what the shelf shows and the tab counts */
-export const topLevelAssets = (): AssetNode[] =>
-  assetGroups.flatMap((g) => g.items);
-
 export const pieceTotals = (nodes: AssetNode[]) => {
   const pieces = nodes.filter((n) => n.kind === "piece");
   return {
@@ -149,4 +145,15 @@ export const pieceTotals = (nodes: AssetNode[]) => {
   };
 };
 
-export const sgd = (n: number) => `S$ ${n.toLocaleString("en-SG")}`;
+/** Singapore dollars, whole numbers, written "S$1,540". Intl alone prints
+    a bare "$" for SGD in the Singapore locale, so the symbol is set here. */
+const sgdFormat = new Intl.NumberFormat("en-SG", {
+  style: "currency",
+  currency: "SGD",
+  maximumFractionDigits: 0,
+});
+export const sgd = (n: number) =>
+  sgdFormat
+    .formatToParts(n)
+    .map((p) => (p.type === "currency" ? "S$" : p.value))
+    .join("");

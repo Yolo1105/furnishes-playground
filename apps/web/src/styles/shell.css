@@ -15,8 +15,6 @@
   --shell-right: clamp(280px, 22vw, 380px);
   --shell-gap: 0px;
   --shell-radius: 0px;
-  --shell-line: rgba(124, 80, 50, 0.18);
-  --shell-glass: rgba(255, 250, 244, 0.55);
   --shell-left-col: calc(var(--shell-left) + var(--shell-gap));
   --shell-right-col: calc(var(--shell-right) + var(--shell-gap));
   position: relative;
@@ -26,7 +24,7 @@
       --shell-right-col
     );
   grid-template-areas: "left main right";
-  transition: grid-template-columns 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: grid-template-columns 0.28s var(--ease);
   height: 100dvh;
   width: 100%;
   padding: var(--shell-gap);
@@ -55,14 +53,7 @@
   min-height: 0;
   min-width: 0;
   overflow: hidden;
-  background: var(--shell-glass);
-  backdrop-filter: blur(14px) saturate(1.2);
-  -webkit-backdrop-filter: blur(14px) saturate(1.2);
-  border: 1px solid var(--shell-line);
   border-radius: var(--shell-radius);
-  box-shadow:
-    0 1px 0 0 rgba(255, 255, 255, 0.6) inset,
-    0 8px 24px -14px rgba(124, 80, 50, 0.12);
 }
 
 /* a rail: the column a side's panels stack in; it is what slides */
@@ -72,7 +63,7 @@
   gap: var(--shell-gap);
   min-height: 0;
   min-width: 0;
-  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 0.28s var(--ease);
 }
 .shell-rail-left {
   grid-area: left;
@@ -86,9 +77,6 @@
   flex: 1 1 0;
 }
 /* the right rail: the other view takes a third, Eva the rest */
-.shell-rail-right > .shell-panel-view {
-  flex: 1 1 0;
-}
 .shell-rail-right > .shell-panel-eva {
   flex: 2 1 0;
 }
@@ -127,7 +115,7 @@
   border-right: 0;
 }
 .shell[data-corners="square"] .shell-rail > .shell-panel + .shell-panel {
-  border-top: 1px solid var(--shell-line);
+  border-top: 1px solid var(--line);
 }
 
 .shell-panel-head {
@@ -137,7 +125,7 @@
   gap: 8px;
   min-height: 48px;
   padding: 8px 10px 8px 14px;
-  border-bottom: 1px solid var(--shell-line);
+  border-bottom: 1px solid var(--line);
 }
 
 .shell-panel-head-sm {
@@ -164,8 +152,15 @@
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(124, 80, 50, 0.1) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(124, 80, 50, 0.1) 1px, transparent 1px);
+    linear-gradient(
+      rgb(from var(--color-line) r g b / 0.1) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      rgb(from var(--color-line) r g b / 0.1) 1px,
+      transparent 1px
+    );
   background-size: 24px 24px;
   background-position: center;
 }
@@ -176,7 +171,7 @@
   top: 18%;
   width: 64%;
   height: 64%;
-  border: 2px solid rgba(124, 80, 50, 0.45);
+  border: 2px solid rgb(from var(--color-line) r g b / 0.45);
   background: rgba(255, 255, 255, 0.25);
 }
 .view-plan-main {
@@ -193,7 +188,7 @@
   inset: 0;
   display: grid;
   place-items: center;
-  color: rgba(124, 80, 50, 0.45);
+  color: rgb(from var(--color-line) r g b / 0.45);
   background: radial-gradient(
     circle at 50% 60%,
     rgba(255, 255, 255, 0.35),
@@ -216,7 +211,7 @@
   border-radius: 8px;
   display: inline-grid;
   place-items: center;
-  color: rgba(26, 26, 26, 0.55);
+  color: rgb(from var(--color-ink) r g b / 0.55);
   font: inherit;
   font-size: 18px;
   line-height: 1;
@@ -226,21 +221,21 @@
     color 0.15s ease;
 }
 .shell-iconbtn:hover {
-  background: rgba(26, 26, 26, 0.06);
-  color: rgba(26, 26, 26, 0.85);
+  background: rgb(from var(--color-ink) r g b / 0.06);
+  color: rgb(from var(--color-ink) r g b / 0.85);
 }
 .shell-iconbtn[aria-pressed="true"] {
-  color: #ff5a1f;
-  background: rgba(255, 90, 31, 0.08);
+  color: var(--color-accent);
+  background: rgb(from var(--color-accent) r g b / 0.08);
 }
 /* the one primary action in a panel head: orange, never ink */
 .shell-primary {
-  color: #ff5a1f;
-  background: rgba(255, 90, 31, 0.1);
+  color: var(--color-accent);
+  background: rgb(from var(--color-accent) r g b / 0.1);
 }
 .shell-primary:hover {
-  color: #ff5a1f;
-  background: rgba(255, 90, 31, 0.18);
+  color: var(--color-accent);
+  background: rgb(from var(--color-accent) r g b / 0.18);
 }
 
 /* ---- project switcher: Furnishes / Project 0 ▾ ---- */
@@ -261,22 +256,22 @@
   border-radius: 8px;
   font: inherit;
   font-size: 13px;
-  color: #1a1a1a;
+  color: var(--color-ink);
   cursor: pointer;
 }
 .shell-project-btn:hover {
-  background: rgba(26, 26, 26, 0.06);
+  background: rgb(from var(--color-ink) r g b / 0.06);
 }
 .shell-project-brand {
   font-weight: 700;
   letter-spacing: -0.01em;
 }
 .shell-project-sep {
-  color: rgba(26, 26, 26, 0.35);
+  color: rgb(from var(--color-ink) r g b / 0.35);
 }
 .shell-project-name {
   font-weight: 500;
-  color: rgba(26, 26, 26, 0.8);
+  color: rgb(from var(--color-ink) r g b / 0.8);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -284,7 +279,7 @@
 .shell-project-caret {
   display: inline-grid;
   place-items: center;
-  color: rgba(26, 26, 26, 0.5);
+  color: rgb(from var(--color-ink) r g b / 0.5);
 }
 
 .shell-menu {
@@ -295,13 +290,17 @@
   min-width: 180px;
   padding: 6px;
   border-radius: 12px;
-  background: rgba(255, 250, 244, 0.94);
-  border: 1px solid rgba(124, 80, 50, 0.2);
+}
+/* menus and tooltips: denser glass so rows stay readable over the scene */
+.shell-menu,
+.shell-tip::after {
+  background: rgb(from var(--color-glass) r g b / 0.95);
+  border: 1px solid rgb(from var(--color-line) r g b / 0.2);
   backdrop-filter: blur(18px) saturate(1.25);
   -webkit-backdrop-filter: blur(18px) saturate(1.25);
   box-shadow:
     0 1px 0 0 rgba(255, 255, 255, 0.7) inset,
-    0 14px 36px -14px rgba(26, 18, 10, 0.32);
+    0 14px 36px -14px rgb(from var(--color-shadow) r g b / 0.32);
 }
 .shell[data-corners="square"] .shell-menu {
   border-radius: 0;
@@ -310,35 +309,32 @@
   appearance: none;
   border: 0;
   background: transparent;
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
   text-align: left;
   padding: 8px 10px;
   border-radius: 8px;
   font: inherit;
   font-size: 13px;
-  color: rgba(26, 26, 26, 0.85);
+  color: rgb(from var(--color-ink) r g b / 0.85);
   cursor: pointer;
 }
 .shell-menu-row:hover {
-  background: rgba(26, 26, 26, 0.05);
+  background: rgb(from var(--color-ink) r g b / 0.05);
 }
 .shell-menu-row[aria-checked="true"] {
-  color: #ff5a1f;
-  background: rgba(255, 90, 31, 0.08);
-}
-.shell-menu-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  color: var(--color-accent);
+  background: rgb(from var(--color-accent) r g b / 0.08);
 }
 .shell-menu-row svg {
-  color: rgba(26, 26, 26, 0.55);
+  color: rgb(from var(--color-ink) r g b / 0.55);
 }
 .shell-menu-sep {
   height: 1px;
   margin: 4px 6px;
-  background: var(--shell-line);
+  background: var(--line);
 }
 
 /* ---- Eva's sub-bar: Agent · History · Preference  [+] ---- */
@@ -348,7 +344,7 @@
   justify-content: space-between;
   gap: 8px;
   padding: 8px 10px 8px 12px;
-  border-bottom: 1px solid var(--shell-line);
+  border-bottom: 1px solid var(--line);
 }
 .shell-tabs-inline {
   display: flex;
@@ -365,17 +361,17 @@
   font: inherit;
   font-size: 12.5px;
   font-weight: 500;
-  color: rgba(26, 26, 26, 0.65);
+  color: rgb(from var(--color-ink) r g b / 0.65);
   white-space: nowrap;
   cursor: pointer;
 }
 .shell-tabbtn:hover {
-  background: rgba(26, 26, 26, 0.05);
-  color: #1a1a1a;
+  background: rgb(from var(--color-ink) r g b / 0.05);
+  color: rgb(from var(--color-ink) r g b / 0.85);
 }
 .shell-tabbtn[aria-selected="true"] {
-  background: rgba(255, 90, 31, 0.12);
-  color: #ff5a1f;
+  background: rgb(from var(--color-accent) r g b / 0.12);
+  color: var(--color-accent);
 }
 
 /* a tooltip under an icon button, from data-tooltip */
@@ -388,10 +384,7 @@
   top: calc(100% + 6px);
   right: 0;
   padding: 5px 9px;
-  background: rgba(255, 250, 244, 0.96);
-  color: rgba(26, 26, 26, 0.85);
-  border: 1px solid rgba(124, 80, 50, 0.2);
-  box-shadow: 0 10px 24px -12px rgba(26, 18, 10, 0.3);
+  color: rgb(from var(--color-ink) r g b / 0.85);
   border-radius: 6px;
   font-size: 10.5px;
   font-weight: 500;
@@ -415,7 +408,7 @@
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgba(26, 26, 26, 0.7);
+  color: rgb(from var(--color-ink) r g b / 0.7);
 }
 
 .shell-panel-body {
@@ -424,12 +417,12 @@
   overflow: auto;
   padding: 12px;
   scrollbar-width: thin;
-  scrollbar-color: rgba(26, 26, 26, 0.2) transparent;
+  scrollbar-color: rgb(from var(--color-ink) r g b / 0.2) transparent;
 }
 
 /* ---- panel feet ---- */
 .shell-panel-foot {
-  border-top: 1px solid var(--shell-line);
+  border-top: 1px solid var(--line);
   padding: 8px 10px;
 }
 .shell-panel-foot-chat {
@@ -454,9 +447,9 @@
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.02em;
-  color: #ff5a1f;
-  background: rgba(255, 90, 31, 0.12);
-  border: 1px solid rgba(255, 90, 31, 0.25);
+  color: var(--color-accent);
+  background: rgb(from var(--color-accent) r g b / 0.12);
+  border: 1px solid rgb(from var(--color-accent) r g b / 0.25);
 }
 .user-text {
   flex: 1;
@@ -468,14 +461,14 @@
 .user-name {
   font-size: 12.5px;
   font-weight: 600;
-  color: rgba(26, 26, 26, 0.85);
+  color: rgb(from var(--color-ink) r g b / 0.85);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .user-line {
   font-size: 11px;
-  color: rgba(26, 26, 26, 0.5);
+  color: rgb(from var(--color-ink) r g b / 0.5);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -500,15 +493,8 @@
 
 /* ---- Eva's input box: the playground's chat input ---- */
 .chat-input {
-  background: rgba(255, 250, 244, 0.55);
-  border: 1px solid var(--shell-line);
   border-radius: 18px;
   padding: 12px 14px 10px;
-  backdrop-filter: blur(14px) saturate(1.2);
-  -webkit-backdrop-filter: blur(14px) saturate(1.2);
-  box-shadow:
-    0 1px 0 0 rgba(255, 255, 255, 0.6) inset,
-    0 8px 24px -14px rgba(124, 80, 50, 0.12);
   transition:
     border-color 0.2s ease,
     box-shadow 0.2s ease;
@@ -517,10 +503,10 @@
   border-radius: 0;
 }
 .chat-input[data-focused="true"] {
-  border-color: #ff5a1f;
+  border-color: var(--color-accent);
   box-shadow:
     0 1px 0 0 rgba(255, 255, 255, 0.6) inset,
-    0 8px 28px -14px rgba(255, 90, 31, 0.22);
+    0 8px 28px -14px rgb(from var(--color-accent) r g b / 0.22);
 }
 .chat-textarea {
   display: block;
@@ -533,16 +519,16 @@
   font-size: 14px;
   line-height: 1.5;
   letter-spacing: -0.005em;
-  color: #1a1a1a;
+  color: var(--color-ink);
   padding: 4px 0 8px;
   min-height: 24px;
   max-height: 160px;
   scrollbar-width: thin;
-  scrollbar-color: rgba(26, 26, 26, 0.2) transparent;
+  scrollbar-color: rgb(from var(--color-ink) r g b / 0.2) transparent;
   transition: opacity 0.2s ease;
 }
 .chat-textarea::placeholder {
-  color: rgba(26, 26, 26, 0.35);
+  color: rgb(from var(--color-ink) r g b / 0.35);
 }
 .chat-input-bar {
   display: flex;
@@ -577,20 +563,20 @@
   font-size: 12px;
   font-weight: 600;
   letter-spacing: -0.005em;
-  color: rgba(26, 26, 26, 0.85);
+  color: rgb(from var(--color-ink) r g b / 0.85);
   cursor: pointer;
   transition: background 0.15s ease;
 }
 .chat-mode-btn:hover {
-  background: rgba(26, 26, 26, 0.05);
+  background: rgb(from var(--color-ink) r g b / 0.05);
 }
 .chat-mode-sub {
   font-weight: 500;
-  color: rgba(26, 26, 26, 0.45);
+  color: rgb(from var(--color-ink) r g b / 0.45);
 }
 .chat-mode-caret {
   display: inline-flex;
-  color: rgba(26, 26, 26, 0.5);
+  color: rgb(from var(--color-ink) r g b / 0.5);
 }
 .chat-mode-menu {
   top: auto;
@@ -606,24 +592,24 @@
   gap: 6px;
   padding: 4px 9px 4px 6px;
   border-radius: 999px;
-  border: 1px solid rgba(124, 80, 50, 0.2);
+  border: 1px solid rgb(from var(--color-line) r g b / 0.2);
   background: rgba(255, 255, 255, 0.55);
   font: inherit;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: -0.01em;
-  color: rgba(26, 26, 26, 0.78);
+  color: rgb(from var(--color-ink) r g b / 0.78);
   cursor: pointer;
   flex-shrink: 0;
 }
 .chat-eva:hover {
-  background: rgba(255, 90, 31, 0.08);
+  background: rgb(from var(--color-accent) r g b / 0.08);
 }
 .chat-eva-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #ff5a1f;
+  background: var(--color-accent);
 }
 .chat-send {
   appearance: none;
@@ -635,8 +621,8 @@
   place-items: center;
   cursor: pointer;
   flex-shrink: 0;
-  background: rgba(26, 26, 26, 0.06);
-  color: rgba(26, 26, 26, 0.55);
+  background: rgb(from var(--color-ink) r g b / 0.06);
+  color: rgb(from var(--color-ink) r g b / 0.55);
   transition:
     background 0.2s ease,
     color 0.2s ease,
@@ -644,17 +630,17 @@
     box-shadow 0.2s ease;
 }
 .chat-send[data-ready="true"] {
-  background: #ff5a1f;
-  color: #fff4ec;
-  box-shadow: 0 4px 12px -3px rgba(255, 90, 31, 0.4);
+  background: var(--color-accent);
+  color: var(--color-cream);
+  box-shadow: 0 4px 12px -3px rgb(from var(--color-accent) r g b / 0.4);
 }
 .chat-send[data-ready="true"]:hover {
   transform: scale(1.05);
-  box-shadow: 0 6px 16px -4px rgba(255, 90, 31, 0.5);
+  box-shadow: 0 6px 16px -4px rgb(from var(--color-accent) r g b / 0.5);
 }
 .chat-send:not([data-ready="true"]):hover {
-  background: rgba(26, 26, 26, 0.1);
-  color: rgba(26, 26, 26, 0.85);
+  background: rgb(from var(--color-ink) r g b / 0.1);
+  color: rgb(from var(--color-ink) r g b / 0.85);
 }
 
 /* ghost rows: where real controls go */
@@ -663,7 +649,7 @@
   margin-bottom: 8px;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.45);
-  border: 1px solid rgba(124, 80, 50, 0.12);
+  border: 1px solid rgb(from var(--color-line) r g b / 0.12);
 }
 .shell-row:nth-child(3n) {
   width: 72%;
@@ -685,10 +671,6 @@
   z-index: 2;
   padding: 4px;
   border-radius: 10px;
-  background: var(--shell-glass);
-  border: 1px solid var(--shell-line);
-  backdrop-filter: blur(14px) saturate(1.2);
-  -webkit-backdrop-filter: blur(14px) saturate(1.2);
 }
 .shell[data-corners="square"] .main-restore {
   border-radius: 0;
@@ -706,7 +688,7 @@
   display: grid;
   place-items: center;
   pointer-events: none;
-  color: rgba(26, 26, 26, 0.35);
+  color: rgb(from var(--color-ink) r g b / 0.35);
   font-size: 13px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -718,20 +700,6 @@
 /* ---- drawers and tab bar (narrow screens) ---- */
 .shell-close {
   display: none;
-  appearance: none;
-  border: 0;
-  background: transparent;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  color: rgba(26, 26, 26, 0.6);
-  font-size: 18px;
-  line-height: 1;
-  cursor: pointer;
-}
-.shell-close:hover {
-  background: rgba(26, 26, 26, 0.06);
-  color: #1a1a1a;
 }
 
 .shell-tabs {
@@ -744,11 +712,8 @@
   gap: 6px;
   padding: 6px;
   border-radius: 999px;
-  background: rgba(255, 250, 244, 0.85);
-  backdrop-filter: blur(14px) saturate(1.2);
-  -webkit-backdrop-filter: blur(14px) saturate(1.2);
-  border: 1px solid var(--shell-line);
-  box-shadow: 0 10px 28px -14px rgba(26, 18, 10, 0.32);
+  background: rgb(from var(--color-glass) r g b / 0.85);
+  box-shadow: 0 10px 28px -14px rgb(from var(--color-shadow) r g b / 0.32);
 }
 .shell[data-corners="square"] .shell-tabs {
   border-radius: 0;
@@ -763,15 +728,15 @@
   font: inherit;
   font-size: 13px;
   font-weight: 500;
-  color: rgba(26, 26, 26, 0.75);
+  color: rgb(from var(--color-ink) r g b / 0.75);
   cursor: pointer;
 }
 .shell[data-corners="square"] .shell-tab {
   border-radius: 0;
 }
 .shell-tab[aria-pressed="true"] {
-  background: rgba(255, 90, 31, 0.12);
-  color: #ff5a1f;
+  background: rgb(from var(--color-accent) r g b / 0.12);
+  color: var(--color-accent);
 }
 
 .shell-scrim {
@@ -779,7 +744,7 @@
   position: fixed;
   inset: 0;
   z-index: 1;
-  background: rgba(26, 18, 10, 0.12);
+  background: rgb(from var(--color-shadow) r g b / 0.12);
 }
 
 @media (max-width: 1023px) {
@@ -808,7 +773,7 @@
   }
   .shell[data-corners="square"] .shell-rail-right > .shell-panel {
     border-right: 0;
-    border-left: 1px solid var(--shell-line);
+    border-left: 1px solid var(--line);
   }
   .shell[data-open="right"] .shell-rail-right {
     transform: none !important;
@@ -853,7 +818,7 @@
     width: auto;
   }
   .shell[data-corners="square"] .shell-rail-left > .shell-panel {
-    border-right: 1px solid var(--shell-line);
+    border-right: 1px solid var(--line);
   }
   .shell[data-open="left"] .shell-rail-left {
     transform: none !important;

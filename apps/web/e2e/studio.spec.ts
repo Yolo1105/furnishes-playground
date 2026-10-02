@@ -1,4 +1,26 @@
 import { expect, test } from "@playwright/test";
+import {
+  assetGroups,
+  pieceTotals,
+  sgd,
+} from "../src/components/studio/assets-data";
+import { products } from "../src/components/studio/catalogue";
+
+/* expectations come from the same data the app renders */
+const top = assetGroups.flatMap((g) => g.items);
+const totals = pieceTotals(top);
+const rows =
+  assetGroups.length +
+  top.length +
+  top.reduce((n, a) => n + (a.children?.length ?? 0), 0);
+const first = top[0]!;
+const coat = products.find((p) => p.name === "Coat stand")!;
+const lampRows = assetGroups
+  .filter((g) => g.items.some((a) => /lamp/i.test(a.name)))
+  .reduce(
+    (n, g) => n + 1 + g.items.filter((a) => /lamp/i.test(a.name)).length,
+    0,
+  );
 
 /** The background is the studio palette: cream→peach gradient + blobs. */
 test("background paints the playground palette", async ({ page }) => {
@@ -72,10 +94,10 @@ test("/rounded has a toolbar on top and a sideways-scrolling shelf below", async
   expect(await scroll.evaluate((el) => el.scrollLeft)).toBeGreaterThan(0);
   await expect(
     page.locator(".shelf-card").first().locator(".shelf-card-name"),
-  ).toHaveText("Bookwall");
+  ).toHaveText(first.name);
   await expect(
     page.locator(".shelf-card").first().locator(".shelf-card-price"),
-  ).toHaveText("S$ 540");
+  ).toHaveText(sgd(first.price!));
 });
 
 test("rails collapse into the toolbar and come back", async ({ page }) => {
@@ -164,13 +186,13 @@ test("the outliner searches, filters and marks the pieces", async ({
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   const tree = page.getByRole("tree", { name: "Assets" });
-  await expect(tree.getByRole("treeitem")).toHaveCount(24);
+  await expect(tree.getByRole("treeitem")).toHaveCount(rows);
   // a Furnishes piece carries the mark and a price; a room item does not
   const bookwall = tree.locator(".assets-row", { hasText: "Bookwall" }).first();
   await expect(
     bookwall.locator(".assets-mark[data-kind='piece']"),
   ).toBeVisible();
-  await expect(bookwall.locator(".assets-price")).toHaveText("S$ 540");
+  await expect(bookwall.locator(".assets-price")).toHaveText(sgd(first.price!));
   const sofa = tree.locator(".assets-row", { hasText: "Sofa" });
   await expect(sofa.locator(".assets-mark[data-kind='piece']")).toHaveCount(0);
   // hierarchy: a piece built from segments folds
@@ -183,7 +205,7 @@ test("the outliner searches, filters and marks the pieces", async ({
   ).toHaveCount(0);
   // search
   await page.getByRole("searchbox", { name: "Search assets" }).fill("lamp");
-  await expect(tree.getByRole("treeitem")).toHaveCount(3);
+  await expect(tree.getByRole("treeitem")).toHaveCount(lampRows);
   await page.getByRole("searchbox", { name: "Search assets" }).fill("");
   // filter: only the pieces
   await page.getByRole("button", { name: "Filter assets" }).click();
@@ -193,7 +215,9 @@ test("the outliner searches, filters and marks the pieces", async ({
   await expect(
     tree.locator(".assets-row[data-kind='piece']").first(),
   ).toBeVisible();
-  await expect(page.locator(".assets-count")).toHaveText("5 pieces · S$ 1,540");
+  await expect(page.locator(".assets-count")).toHaveText(
+    `${totals.pieces} pieces · ${sgd(totals.total)}`,
+  );
 });
 
 test("the shelf's tab counts the pieces and folds the cards away", async ({
@@ -202,10 +226,14 @@ test("the shelf's tab counts the pieces and folds the cards away", async ({
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   const shelf = page.locator(".main-shelf");
-  await expect(shelf.locator(".main-shelf-tab")).toContainText("5 pieces");
-  await expect(shelf.locator(".main-shelf-tab")).toContainText("S$ 1,540");
   await expect(shelf.locator(".main-shelf-tab")).toContainText(
-    "+ 11 room items",
+    `${totals.pieces} pieces`,
+  );
+  await expect(shelf.locator(".main-shelf-tab")).toContainText(
+    sgd(totals.total),
+  );
+  await expect(shelf.locator(".main-shelf-tab")).toContainText(
+    `+ ${totals.others} room items`,
   );
   const tall = (await shelf.boundingBox())!.height;
   await page.getByRole("button", { name: "Hide pieces" }).click();
@@ -267,16 +295,20 @@ test("the outliner draws hierarchy lines and the Products tab adds to the room",
   expect(Math.abs(sub.width - head.width)).toBeLessThanOrEqual(1);
 
   await page.getByRole("tab", { name: "Products" }).click();
-  await expect(page.locator(".assets-count")).toHaveText("12 in the catalogue");
-  await expect(page.locator(".product")).toHaveCount(12);
+  await expect(page.locator(".assets-count")).toBeHidden();
+  await expect(page.locator(".product")).toHaveCount(products.length);
   await page.getByRole("searchbox", { name: "Search products" }).fill("coat");
   await expect(page.locator(".product")).toHaveCount(1);
   await page
     .getByRole("button", { name: "Add Coat stand to the room" })
     .click();
   await page.getByRole("tab", { name: "Assets" }).click();
-  await expect(page.locator(".assets-count")).toHaveText("6 pieces · S$ 1,750");
-  await expect(page.locator(".main-shelf-tab")).toContainText("6 pieces");
+  await expect(page.locator(".assets-count")).toHaveText(
+    `${totals.pieces + 1} pieces · ${sgd(totals.total + coat.price)}`,
+  );
+  await expect(page.locator(".main-shelf-tab")).toContainText(
+    `${totals.pieces + 1} pieces`,
+  );
   await page.getByRole("searchbox", { name: "Search assets" }).fill("coat");
   await expect(
     tree.locator(".assets-row", { hasText: "Coat stand" }),

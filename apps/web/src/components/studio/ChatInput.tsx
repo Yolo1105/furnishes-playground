@@ -8,6 +8,8 @@ import {
   MicIcon,
   SendArrowIcon,
 } from "./icons";
+import { RadioMenu } from "./RadioMenu";
+import { useDismiss } from "./useDismiss";
 
 /** The playground's modes, as the dropdown lists them. */
 const MODES = ["Ask", "Furniture", "Room layout"] as const;
@@ -52,33 +54,24 @@ export function ChatInput() {
   // rotate the placeholder while the box is empty and unfocused
   useEffect(() => {
     if (focused || message.length > 0) return;
+    let fade = 0;
     const id = window.setInterval(() => {
       setDim(true);
-      window.setTimeout(() => {
+      fade = window.setTimeout(() => {
         setPlaceholder((i) => (i + 1) % PLACEHOLDERS.length);
         setDim(false);
       }, 200);
     }, 4000);
-    return () => window.clearInterval(id);
+    return () => {
+      window.clearInterval(id);
+      window.clearTimeout(fade);
+    };
   }, [focused, message.length]);
 
-  useEffect(() => {
-    if (!menu) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMenu(false);
-    const onDown = (e: PointerEvent) => {
-      if (wrap.current && !wrap.current.contains(e.target as Node))
-        setMenu(false);
-    };
-    window.addEventListener("keydown", onKey);
-    window.addEventListener("pointerdown", onDown);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("pointerdown", onDown);
-    };
-  }, [menu]);
+  useDismiss(wrap, menu, () => setMenu(false));
 
   return (
-    <div className="chat-input" data-focused={focused}>
+    <div className="glass chat-input" data-focused={focused}>
       <textarea
         ref={area}
         className="chat-textarea"
@@ -129,23 +122,15 @@ export function ChatInput() {
               </span>
             </button>
             {menu && (
-              <div className="shell-menu chat-mode-menu" role="menu">
-                {MODES.map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    role="menuitemradio"
-                    aria-checked={m === mode}
-                    className="shell-menu-row"
-                    onClick={() => {
-                      setMode(m);
-                      setMenu(false);
-                    }}
-                  >
-                    {m}
-                  </button>
-                ))}
-              </div>
+              <RadioMenu
+                className="chat-mode-menu"
+                options={MODES}
+                value={mode}
+                onChange={(m) => {
+                  setMode(m);
+                  setMenu(false);
+                }}
+              />
             )}
           </div>
           <button type="button" className="chat-eva" aria-label="Open Eva">

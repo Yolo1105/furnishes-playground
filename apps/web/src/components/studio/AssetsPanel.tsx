@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   CATEGORY_NAMES,
   pieceTotals,
@@ -11,7 +11,8 @@ import {
   type AssetNode,
 } from "./assets-data";
 import { ProductsTab } from "./ProductsTab";
-import { products, useScene } from "./scene-store";
+import { useScene } from "./scene-store";
+import { useDismiss } from "./useDismiss";
 import {
   ChevronRightIcon,
   CubeIcon,
@@ -54,21 +55,7 @@ export function AssetsPanel() {
     [assetGroups],
   );
 
-  useEffect(() => {
-    if (!filterOpen) return;
-    const onKey = (e: KeyboardEvent) =>
-      e.key === "Escape" && setFilterOpen(false);
-    const onDown = (e: PointerEvent) => {
-      if (filterWrap.current && !filterWrap.current.contains(e.target as Node))
-        setFilterOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    window.addEventListener("pointerdown", onDown);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("pointerdown", onDown);
-    };
-  }, [filterOpen]);
+  useDismiss(filterWrap, filterOpen, () => setFilterOpen(false));
 
   const shown: AssetGroup[] = useMemo(
     () =>
@@ -107,11 +94,11 @@ export function AssetsPanel() {
             </button>
           ))}
         </div>
-        <span className="assets-count f-num">
-          {tab === "assets"
-            ? `${totals.pieces} pieces · ${sgd(totals.total)}`
-            : `${products.length} in the catalogue`}
-        </span>
+        {tab === "assets" && (
+          <span className="assets-count f-num">
+            {totals.pieces} pieces · {sgd(totals.total)}
+          </span>
+        )}
       </div>
 
       <div className="assets-search">
@@ -340,6 +327,7 @@ function Row({
       role="treeitem"
       aria-selected={false}
       data-kind={kind}
+      data-leaf={!onToggle}
       aria-expanded={onToggle ? open : undefined}
       style={{ ["--depth" as string]: depth }}
     >
@@ -355,7 +343,7 @@ function Row({
             className="assets-guide"
             data-own={own}
             data-cont={cont}
-            style={{ left: 11 + i * 18 }}
+            style={{ ["--level" as string]: i }}
             aria-hidden="true"
           />
         );

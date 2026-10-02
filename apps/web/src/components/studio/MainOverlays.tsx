@@ -22,8 +22,8 @@ export function MainTopBar({
   trailing?: ReactNode;
 }) {
   return (
-    <div className="main-top" role="toolbar" aria-label="Tools">
-      {leading && <div className="main-top-group main-top-lead">{leading}</div>}
+    <div className="glass main-top" role="toolbar" aria-label="Tools">
+      {leading && <div className="main-top-slot main-top-lead">{leading}</div>}
       {groups.map((n, g) => (
         <div key={g} className="main-top-group">
           {Array.from({ length: n }, (_, i) => (
@@ -39,7 +39,7 @@ export function MainTopBar({
         </div>
       ))}
       {trailing && (
-        <div className="main-top-group main-top-trail">{trailing}</div>
+        <div className="main-top-slot main-top-trail">{trailing}</div>
       )}
     </div>
   );
@@ -57,7 +57,11 @@ export function MainShelf() {
   const [collapsed, setCollapsed] = useState(false);
   const t = pieceTotals(items);
   return (
-    <div className="main-shelf" aria-label="Pieces" data-collapsed={collapsed}>
+    <div
+      className="glass main-shelf"
+      aria-label="Pieces"
+      data-collapsed={collapsed}
+    >
       <div className="main-shelf-head">
         <div className="main-shelf-tab">
           <span className="assets-dot" aria-hidden="true" />

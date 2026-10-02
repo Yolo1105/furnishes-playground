@@ -6,10 +6,42 @@
  * The studio palette, carried over unchanged from the standalone
  * playground: cream paper, one orange accent, near-black ink.
  * ─────────────────────────────────────────────────────────────────────── */
-@theme {
+/* `static`: the tokens are read from plain CSS, not only from utility
+   classes, so Tailwind must emit all of them */
+@theme static {
   --color-cream: #fff4ec;
+  --color-paper: #fff4e3;
   --color-accent: #ff5a1f;
   --color-ink: #1a1a1a;
+  /* brown hairlines and warm shadows, used through alpha */
+  --color-line: #7c5032;
+  --color-shadow: #1a120a;
+  /* the glass panels' base, used through alpha */
+  --color-glass: #fffaf4;
+}
+
+/* alpha steps of the tokens that every surface shares */
+:root {
+  --font-app: var(--font-syne);
+  --line: rgb(from var(--color-line) r g b / 0.18);
+  --glass: rgb(from var(--color-glass) r g b / 0.55);
+  --glass-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.6) inset,
+    0 8px 24px -14px rgb(from var(--color-line) r g b / 0.12);
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* the glass recipe, once: panels, bars, menus and the chat box share it */
+.glass {
+  background: var(--glass);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  border: 1px solid var(--line);
+  box-shadow: var(--glass-shadow);
+}
+
+.f-num {
+  font-variant-numeric: tabular-nums;
 }
 
 /* ─── Reset / page setup ────────────────────────────────────────────────
@@ -32,19 +64,21 @@ body {
   overscroll-behavior: none;
   /* Paint cream before anything mounts so the first frame is never the
      browser's default white. Matches the body gradient start. */
-  background-color: #fff4e3;
-}
-
-:root {
-  --font-app: var(--font-syne);
+  background-color: var(--color-paper);
 }
 
 body {
   /* Static base layer under the animated blobs: the warm cream-to-peach
      wash that is always present even when the blobs drift to a corner. */
-  background: linear-gradient(135deg, #fff4e3 0%, #ffd1ad 55%, #f8b78a 100%);
+  background: linear-gradient(
+    135deg,
+    var(--color-paper) 0%,
+    #ffd1ad 55%,
+    #f8b78a 100%
+  );
   background-attachment: fixed;
-  color: #1a1a1a;
+  color: var(--color-ink);
+  font-family: var(--font-app), system-ui, sans-serif;
   position: relative;
 }
 
@@ -178,7 +212,7 @@ input:focus-visible,
 textarea:focus-visible,
 select:focus-visible,
 [tabindex]:focus-visible {
-  outline: 2px solid #ff5a1f;
+  outline: 2px solid var(--color-accent);
   outline-offset: 2px;
   border-radius: 4px;
 }

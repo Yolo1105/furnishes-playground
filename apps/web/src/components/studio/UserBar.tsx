@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   GearIcon,
   HelpIcon,
@@ -8,6 +8,7 @@ import {
   MoreIcon,
   SignOutIcon,
 } from "./icons";
+import { useDismiss } from "./useDismiss";
 
 /**
  * The foot of the project rail: who is signed in, and the handful of
@@ -30,20 +31,7 @@ export function UserBar({
     .slice(0, 2)
     .toUpperCase();
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    const onDown = (e: PointerEvent) => {
-      if (wrap.current && !wrap.current.contains(e.target as Node))
-        setOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    window.addEventListener("pointerdown", onDown);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("pointerdown", onDown);
-    };
-  }, [open]);
+  useDismiss(wrap, open, () => setOpen(false));
 
   return (
     <div ref={wrap} className="user-bar">

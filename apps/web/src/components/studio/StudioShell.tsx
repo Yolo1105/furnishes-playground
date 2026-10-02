@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { ChatInput } from "./ChatInput";
 import { MainTopBar } from "./MainOverlays";
+import { RadioMenu } from "./RadioMenu";
+import { useDismiss } from "./useDismiss";
 import { UserBar } from "./UserBar";
 import { MainView, other, ViewPanel, type View } from "./ViewPanel";
 import {
@@ -18,7 +20,8 @@ type Drawer = "left" | "right" | null;
 type Side = "left" | "right";
 
 /** Placeholder projects until the project store exists. */
-const PROJECTS = ["Project 0", "Project 1", "Project 2"];
+const PROJECTS = ["Project 0", "Project 1", "Project 2"] as const;
+type Project = (typeof PROJECTS)[number];
 
 export type EvaTab = "agent" | "history" | "preference";
 
@@ -48,7 +51,7 @@ export function StudioShell({
     left: false,
     right: false,
   });
-  const [project, setProject] = useState(PROJECTS[0] ?? "Project 0");
+  const [project, setProject] = useState<Project>(PROJECTS[0]);
   const [tab, setTab] = useState<EvaTab>("agent");
   const [view, setView] = useState<View>("3d");
 
@@ -89,7 +92,7 @@ export function StudioShell({
     >
       {/* ---- left: the project ---- */}
       <aside className="shell-rail shell-rail-left" aria-label="Project">
-        <div className="shell-panel shell-panel-inner">
+        <div className="glass shell-panel shell-panel-inner">
           <div className="shell-panel-head">
             <ProjectSwitcher value={project} onChange={setProject} />
             <div className="shell-head-acts">
@@ -126,12 +129,12 @@ export function StudioShell({
         ) : (
           <>
             {restoreLeft && (
-              <div className="main-restore main-restore-left">
+              <div className="glass main-restore main-restore-left">
                 {restoreLeft}
               </div>
             )}
             {restoreRight && (
-              <div className="main-restore main-restore-right">
+              <div className="glass main-restore main-restore-right">
                 {restoreRight}
               </div>
             )}
@@ -144,13 +147,13 @@ export function StudioShell({
       {/* ---- right: Eva ---- */}
       <aside className="shell-rail shell-rail-right" aria-label="Eva and views">
         <section
-          className="shell-panel shell-panel-view"
+          className="glass shell-panel shell-panel-view"
           aria-label="Other view"
         >
           <ViewPanel main={view} onSwap={() => setView(other(view))} />
         </section>
         <section
-          className="shell-panel shell-panel-inner shell-panel-eva"
+          className="glass shell-panel shell-panel-inner shell-panel-eva"
           aria-label="EVA Chatbot"
         >
           <div className="shell-panel-head">
@@ -216,7 +219,7 @@ export function StudioShell({
 
       {/* narrow screens: the panels are drawers, this opens them */}
       <div className="shell-scrim" onClick={() => setOpen(null)} />
-      <nav className="shell-tabs" aria-label="Panels">
+      <nav className="glass shell-tabs" aria-label="Panels">
         <button
           type="button"
           className="shell-tab shell-tab-left"
@@ -243,25 +246,12 @@ function ProjectSwitcher({
   value,
   onChange,
 }: {
-  value: string;
-  onChange: (v: string) => void;
+  value: Project;
+  onChange: (v: Project) => void;
 }) {
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    const onDown = (e: PointerEvent) => {
-      if (wrap.current && !wrap.current.contains(e.target as Node))
-        setOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    window.addEventListener("pointerdown", onDown);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("pointerdown", onDown);
-    };
-  }, [open]);
+  useDismiss(wrap, open, () => setOpen(false));
   return (
     <div ref={wrap} className="shell-project">
       <button
@@ -281,23 +271,14 @@ function ProjectSwitcher({
         </span>
       </button>
       {open && (
-        <div className="shell-menu glass-popover" role="menu">
-          {PROJECTS.map((p) => (
-            <button
-              key={p}
-              type="button"
-              role="menuitemradio"
-              aria-checked={p === value}
-              className="shell-menu-row"
-              onClick={() => {
-                onChange(p);
-                setOpen(false);
-              }}
-            >
-              {p}
-            </button>
-          ))}
-        </div>
+        <RadioMenu
+          options={PROJECTS}
+          value={value}
+          onChange={(p) => {
+            onChange(p);
+            setOpen(false);
+          }}
+        />
       )}
     </div>
   );

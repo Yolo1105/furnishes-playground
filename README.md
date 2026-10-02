@@ -37,6 +37,8 @@ Notes:
 
 ## Status
 
-Scaffold only. The page renders the studio background (cream → peach
-gradient with three drifting blobs, the standalone playground's palette)
-and nothing else.
+UI shell only, no scene and no AI yet. `/` is the square-cornered studio
+and `/rounded` the floating one: a project rail with an outliner and a
+catalogue tab, the main surface with a toolbar and a shelf of pieces, and a
+right rail with the other view (2D or 3D) over Eva's panel. Data behind the
+panels is placeholder, held in a small Zustand store.

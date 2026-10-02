@@ -27,18 +27,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html
-      lang="en"
-      className={syne.variable}
-      style={{ backgroundColor: "#fff4e3" }}
-    >
-      <body
-        className="h-full w-full antialiased"
-        style={{
-          fontFamily: "var(--font-app), system-ui, sans-serif",
-          color: "#1a1a1a",
-        }}
-      >
+    <html lang="en" className={syne.variable}>
+      <body className="h-full w-full antialiased">
         {/* Animated fluid background: three blurred warm blobs drifting on
             independent loops behind every studio surface. Pure CSS, see
             globals.css `.bg-fluid`. */}
