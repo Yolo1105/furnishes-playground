@@ -167,10 +167,12 @@ test("the outliner searches, filters and marks the pieces", async ({
   await expect(tree.getByRole("treeitem")).toHaveCount(24);
   // a Furnishes piece carries the mark and a price; a room item does not
   const bookwall = tree.locator(".assets-row", { hasText: "Bookwall" }).first();
-  await expect(bookwall.locator(".assets-dot")).toBeVisible();
+  await expect(
+    bookwall.locator(".assets-mark[data-kind='piece']"),
+  ).toBeVisible();
   await expect(bookwall.locator(".assets-price")).toHaveText("S$ 540");
   const sofa = tree.locator(".assets-row", { hasText: "Sofa" });
-  await expect(sofa.locator(".assets-dot")).toHaveCount(0);
+  await expect(sofa.locator(".assets-mark[data-kind='piece']")).toHaveCount(0);
   // hierarchy: a piece built from segments folds
   await expect(
     tree.locator(".assets-row", { hasText: "Segment A" }),

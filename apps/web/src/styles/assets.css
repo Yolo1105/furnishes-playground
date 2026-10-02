@@ -163,16 +163,18 @@
   color: rgba(26, 26, 26, 0.5);
 }
 .assets-group + .assets-group {
-  margin-top: 2px;
+  margin-top: 0;
 }
+
 .assets-row {
   --depth: 0;
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 4px;
-  height: 30px;
-  padding-left: calc(4px + var(--depth) * 16px);
-  padding-right: 4px;
+  gap: 6px;
+  height: 28px;
+  padding-left: calc(2px + var(--depth) * 18px);
+  padding-right: 6px;
   border-radius: 8px;
   font-size: 12.5px;
   color: rgba(26, 26, 26, 0.85);
@@ -185,11 +187,16 @@
   background: rgba(26, 26, 26, 0.04);
 }
 .assets-row[data-kind="group"] {
+  height: 30px;
+  margin-top: 6px;
   font-weight: 600;
-  color: rgba(26, 26, 26, 0.7);
-  font-size: 11.5px;
-  letter-spacing: 0.02em;
+  color: rgba(26, 26, 26, 0.6);
+  font-size: 11px;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+.assets-group:first-child .assets-row[data-kind="group"] {
+  margin-top: 0;
 }
 .assets-row[data-kind="decor"],
 .assets-row[data-kind="fixed"] {
@@ -212,20 +219,24 @@
   background: rgba(26, 26, 26, 0.06);
   color: rgba(26, 26, 26, 0.85);
 }
+/* the mark: a cube for every item; orange when it is a Furnishes piece
+   (editable, purchasable), muted for a room item, a lock for architecture */
 .assets-mark {
   width: 16px;
   display: inline-grid;
   place-items: center;
   flex: 0 0 auto;
-  color: rgba(26, 26, 26, 0.4);
+  color: rgba(26, 26, 26, 0.38);
+}
+.assets-mark[data-kind="piece"] {
+  color: #ff5a1f;
 }
 .assets-dot {
   display: inline-block;
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: #ff5a1f;
-  box-shadow: 0 0 0 2px rgba(255, 90, 31, 0.18);
   flex: 0 0 auto;
 }
 .assets-name {
@@ -235,23 +246,33 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.assets-n {
+/* counts and prices share one right-aligned column */
+.assets-n,
+.assets-price {
+  flex: 0 0 auto;
+  min-width: 40px;
+  text-align: right;
   font-size: 10.5px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.assets-n {
   font-weight: 500;
   color: rgba(26, 26, 26, 0.4);
-  padding-right: 4px;
 }
 .assets-price {
-  font-size: 11.5px;
   color: rgba(26, 26, 26, 0.6);
-  flex: 0 0 auto;
 }
 .assets-eye {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  translate: 0 -50%;
   appearance: none;
   border: 0;
-  background: transparent;
-  width: 22px;
-  height: 22px;
+  background: rgba(255, 250, 244, 0.9);
+  width: 20px;
+  height: 20px;
   border-radius: 6px;
   display: inline-grid;
   place-items: center;
@@ -264,6 +285,9 @@
 .assets-row:hover .assets-eye,
 .assets-eye:focus-visible {
   opacity: 1;
+}
+.assets-row:hover .assets-price {
+  opacity: 0;
 }
 .assets-eye:hover {
   background: rgba(26, 26, 26, 0.06);

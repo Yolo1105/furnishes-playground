@@ -311,15 +311,11 @@ function Row({
       >
         <ChevronRightIcon open={open} />
       </button>
-      <span className="assets-mark" aria-hidden="true">
-        {kind === "piece" ? (
-          <span className="assets-dot" />
-        ) : kind === "fixed" ? (
-          <LockIcon />
-        ) : kind === "group" ? null : (
-          <CubeIcon />
-        )}
-      </span>
+      {kind !== "group" && (
+        <span className="assets-mark" data-kind={kind} aria-hidden="true">
+          {kind === "fixed" ? <LockIcon /> : <CubeIcon />}
+        </span>
+      )}
       <span className="assets-name">{name}</span>
       {kind === "group" && count !== undefined && (
         <span className="assets-n f-num">{count}</span>
