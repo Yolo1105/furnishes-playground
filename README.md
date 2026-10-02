@@ -13,7 +13,8 @@ packages/domain   product model (Project → Room → Scheme → Instance → Co
 packages/scene    one world frame, coordinate adapters, geometry vocabulary
 ```
 
-pnpm 10 workspace. Node 24.21 (see `.nvmrc`). TypeScript 6.
+pnpm 10 workspace. Any Node 24 (24.21 recommended, see `.nvmrc`). TypeScript 6.
+Use pnpm, not npm: `npm install` will refuse the workspace.
 
 ## Run
 
