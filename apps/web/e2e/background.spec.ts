@@ -44,7 +44,7 @@ for (const [path, corners] of [
     const left = page.locator(".shell-panel-left");
     const before = await left.boundingBox();
     expect(before!.x + before!.width).toBeLessThanOrEqual(1);
-    await page.getByRole("button", { name: "Tools", exact: true }).click();
+    await page.getByRole("button", { name: "Project", exact: true }).click();
     await expect(page.locator(".shell")).toHaveAttribute("data-open", "left");
     await expect
       .poll(async () => (await left.boundingBox())!.x)
@@ -76,4 +76,52 @@ test("/rounded has a toolbar on top and a sideways-scrolling shelf below", async
   await expect(
     page.locator(".shelf-card").first().locator(".shelf-card-price"),
   ).toHaveText("S$ 60");
+});
+
+test("rails collapse into the toolbar and come back", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  const shell = page.locator(".shell");
+  const main = page.locator(".shell-main");
+  const wide = (await main.boundingBox())!.width;
+
+  await expect(page.locator(".shell-project-name")).toHaveText("Project 0");
+  await page.getByRole("button", { name: /Furnishes/ }).click();
+  await page.getByRole("menuitemradio", { name: "Project 2" }).click();
+  await expect(page.locator(".shell-project-name")).toHaveText("Project 2");
+
+  await page.getByRole("button", { name: "Collapse project panel" }).click();
+  await expect(shell).toHaveAttribute("data-left", "collapsed");
+  await expect
+    .poll(async () => (await main.boundingBox())!.width)
+    .toBeGreaterThan(wide + 100);
+  const restore = page.getByRole("button", { name: "Show project panel" });
+  const bar = (await page.locator(".main-top").boundingBox())!;
+  const rb = (await restore.boundingBox())!;
+  expect(rb.x).toBeGreaterThanOrEqual(bar.x);
+  expect(rb.x).toBeLessThan(bar.x + bar.width / 2);
+  await restore.click();
+  await expect(shell).toHaveAttribute("data-left", "open");
+
+  await page.getByRole("button", { name: "Collapse Eva panel" }).click();
+  await expect(shell).toHaveAttribute("data-right", "collapsed");
+  const back = page.getByRole("button", { name: "Show Eva panel" });
+  const bb = (await back.boundingBox())!;
+  expect(bb.x).toBeGreaterThan(bar.x + bar.width / 2);
+  await back.click();
+  await expect(shell).toHaveAttribute("data-right", "open");
+
+  await expect(page.getByRole("tab", { name: "Agent" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await page.getByRole("tab", { name: "History" }).click();
+  await expect(page.getByRole("tab", { name: "History" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(page.getByRole("button", { name: "New chat" })).toHaveAttribute(
+    "data-tooltip",
+    "New chat",
+  );
 });

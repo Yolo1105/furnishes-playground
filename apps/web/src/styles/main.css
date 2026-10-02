@@ -131,7 +131,15 @@
   color: rgba(26, 26, 26, 0.6);
 }
 
+@media (max-width: 1023px) {
+  .main-top-trail {
+    display: none;
+  }
+}
 @media (max-width: 767px) {
+  .main-top-lead {
+    display: none;
+  }
   .main-top {
     top: 10px;
     height: 40px;

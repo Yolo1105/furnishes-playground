@@ -17,12 +17,16 @@
   --shell-radius: 0px;
   --shell-line: rgba(124, 80, 50, 0.18);
   --shell-glass: rgba(255, 250, 244, 0.55);
+  --shell-left-col: calc(var(--shell-left) + var(--shell-gap));
+  --shell-right-col: calc(var(--shell-right) + var(--shell-gap));
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: var(--shell-left) minmax(0, 1fr) var(--shell-right);
+  grid-template-columns: var(--shell-left-col) minmax(0, 1fr) var(
+      --shell-right-col
+    );
   grid-template-areas: "left main right";
-  gap: var(--shell-gap);
+  transition: grid-template-columns 0.28s cubic-bezier(0.22, 1, 0.36, 1);
   height: 100dvh;
   width: 100%;
   padding: var(--shell-gap);
@@ -34,6 +38,14 @@
 .shell[data-corners="rounded"] {
   --shell-gap: 14px;
   --shell-radius: 18px;
+}
+
+/* a collapsed rail: its column closes and the panel slides out behind the edge */
+.shell[data-left="collapsed"] {
+  --shell-left-col: 0px;
+}
+.shell[data-right="collapsed"] {
+  --shell-right-col: 0px;
 }
 
 /* ---- panels ---- */
@@ -55,9 +67,37 @@
 
 .shell-panel-left {
   grid-area: left;
+  margin-right: var(--shell-gap);
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .shell-panel-right {
   grid-area: right;
+  margin-left: var(--shell-gap);
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.shell[data-left="collapsed"] .shell-panel-left {
+  transform: translateX(calc(-100% - var(--shell-gap)));
+  margin-right: 0;
+  border-right: 0;
+}
+.shell[data-right="collapsed"] .shell-panel-right {
+  transform: translateX(calc(100% + var(--shell-gap)));
+  margin-left: 0;
+  border-left: 0;
+}
+
+/* the content keeps the rail's width while the column animates shut */
+.shell-panel-inner {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+.shell-panel-left .shell-panel-inner {
+  width: var(--shell-left);
+}
+.shell-panel-right .shell-panel-inner {
+  width: var(--shell-right);
 }
 
 /* square: edge to edge, one hairline facing the main surface */
@@ -77,8 +117,187 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 14px 16px 10px;
+  min-height: 48px;
+  padding: 8px 10px 8px 14px;
   border-bottom: 1px solid var(--shell-line);
+}
+
+.shell-head-acts {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.shell-iconbtn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: inline-grid;
+  place-items: center;
+  color: rgba(26, 26, 26, 0.6);
+  font: inherit;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.shell-iconbtn:hover {
+  background: rgba(26, 26, 26, 0.06);
+  color: #1a1a1a;
+}
+
+/* ---- project switcher: Furnishes / Project 0 ▾ ---- */
+.shell-project {
+  position: relative;
+  min-width: 0;
+}
+.shell-project-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 6px 8px;
+  margin-left: -8px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  color: #1a1a1a;
+  cursor: pointer;
+}
+.shell-project-btn:hover {
+  background: rgba(26, 26, 26, 0.06);
+}
+.shell-project-brand {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.shell-project-sep {
+  color: rgba(26, 26, 26, 0.35);
+}
+.shell-project-name {
+  font-weight: 500;
+  color: rgba(26, 26, 26, 0.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.shell-project-caret {
+  display: inline-grid;
+  place-items: center;
+  color: rgba(26, 26, 26, 0.5);
+}
+
+.shell-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: -8px;
+  z-index: 5;
+  min-width: 180px;
+  padding: 6px;
+  border-radius: 12px;
+  background: rgba(255, 250, 244, 0.94);
+  border: 1px solid rgba(124, 80, 50, 0.2);
+  backdrop-filter: blur(18px) saturate(1.25);
+  -webkit-backdrop-filter: blur(18px) saturate(1.25);
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.7) inset,
+    0 14px 36px -14px rgba(26, 18, 10, 0.32);
+}
+.shell[data-corners="square"] .shell-menu {
+  border-radius: 0;
+}
+.shell-menu-row {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  color: rgba(26, 26, 26, 0.85);
+  cursor: pointer;
+}
+.shell-menu-row:hover {
+  background: rgba(26, 26, 26, 0.05);
+}
+.shell-menu-row[aria-checked="true"] {
+  color: #ff5a1f;
+  background: rgba(255, 90, 31, 0.08);
+}
+
+/* ---- Eva's sub-bar: Agent · History · Preference  [+] ---- */
+.shell-subbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px 8px 12px;
+  border-bottom: 1px solid var(--shell-line);
+}
+.shell-tabs-inline {
+  display: flex;
+  gap: 2px;
+  min-width: 0;
+  overflow: hidden;
+}
+.shell-tabbtn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: rgba(26, 26, 26, 0.65);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.shell-tabbtn:hover {
+  background: rgba(26, 26, 26, 0.05);
+  color: #1a1a1a;
+}
+.shell-tabbtn[aria-selected="true"] {
+  background: rgba(255, 90, 31, 0.12);
+  color: #ff5a1f;
+}
+
+/* a tooltip under an icon button, from data-tooltip */
+.shell-tip {
+  position: relative;
+}
+.shell-tip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  padding: 5px 9px;
+  background: rgba(26, 26, 26, 0.92);
+  color: #fff4ec;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-2px);
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+  z-index: 10;
+}
+.shell-tip:hover::after,
+.shell-tip:focus-visible::after {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .shell-panel-title {
@@ -118,6 +337,27 @@
   min-height: 0;
   overflow: hidden;
   border-radius: var(--shell-radius);
+}
+
+.main-restore {
+  position: absolute;
+  top: 14px;
+  z-index: 2;
+  padding: 4px;
+  border-radius: 10px;
+  background: var(--shell-glass);
+  border: 1px solid var(--shell-line);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+}
+.shell[data-corners="square"] .main-restore {
+  border-radius: 0;
+}
+.main-restore-left {
+  left: 14px;
+}
+.main-restore-right {
+  right: 14px;
 }
 
 .shell-main-hint {
@@ -201,8 +441,17 @@
 
 @media (max-width: 1023px) {
   .shell {
-    grid-template-columns: var(--shell-left) minmax(0, 1fr);
+    grid-template-columns: var(--shell-left-col) minmax(0, 1fr);
     grid-template-areas: "left main";
+  }
+  .shell[data-right="collapsed"] .shell-panel-right {
+    margin-left: 0;
+    border-left: 1px solid var(--shell-line);
+  }
+  .shell-panel-right .shell-collapse,
+  .shell-panel-right ~ .main-top .main-top-trail,
+  .main-restore-right {
+    display: none;
   }
   .shell-panel-right {
     position: fixed;
@@ -219,7 +468,7 @@
     border-left: 1px solid var(--shell-line);
   }
   .shell[data-open="right"] .shell-panel-right {
-    transform: none;
+    transform: none !important;
   }
   .shell[data-open] .shell-scrim {
     display: block;
@@ -241,6 +490,14 @@
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas: "main";
   }
+  .shell[data-left="collapsed"] .shell-panel-left {
+    margin-right: 0;
+    border-right: 1px solid var(--shell-line);
+  }
+  .shell-panel-left .shell-collapse,
+  .main-restore-left {
+    display: none;
+  }
   .shell-panel-left {
     position: fixed;
     z-index: 2;
@@ -255,7 +512,7 @@
     border-right: 1px solid var(--shell-line);
   }
   .shell[data-open="left"] .shell-panel-left {
-    transform: none;
+    transform: none !important;
   }
   .shell-tab-left {
     display: inline-block;
@@ -267,6 +524,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .shell,
   .shell-panel-left,
   .shell-panel-right {
     transition: none;

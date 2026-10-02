@@ -1,13 +1,25 @@
+import type { ReactNode } from "react";
+
 /**
  * What floats over the main surface: a thin toolbar across the top and a
  * shelf of cards along the bottom. Both are glass, both are placeholders
  * until real tools and real pieces arrive.
  */
 
-/** Ghost icon buttons in two groups, the way a toolbar reads. */
-export function MainTopBar({ groups = [4, 3, 2] }: { groups?: number[] }) {
+/** Ghost icon buttons in groups, the way a toolbar reads. `leading` and
+    `trailing` are the slots the collapsed rails' restore icons dock into. */
+export function MainTopBar({
+  groups = [4, 3, 2],
+  leading,
+  trailing,
+}: {
+  groups?: number[];
+  leading?: ReactNode;
+  trailing?: ReactNode;
+}) {
   return (
     <div className="main-top" role="toolbar" aria-label="Tools">
+      {leading && <div className="main-top-group main-top-lead">{leading}</div>}
       {groups.map((n, g) => (
         <div key={g} className="main-top-group">
           {Array.from({ length: n }, (_, i) => (
@@ -22,6 +34,9 @@ export function MainTopBar({ groups = [4, 3, 2] }: { groups?: number[] }) {
           ))}
         </div>
       ))}
+      {trailing && (
+        <div className="main-top-group main-top-trail">{trailing}</div>
+      )}
     </div>
   );
 }

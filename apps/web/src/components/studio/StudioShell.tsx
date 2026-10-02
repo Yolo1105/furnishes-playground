@@ -1,74 +1,197 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { MainTopBar } from "./MainOverlays";
+import {
+  ChevronDownIcon,
+  PanelLeftIcon,
+  PanelRightIcon,
+  PlusIcon,
+} from "./icons";
 
 export type ShellCorners = "square" | "rounded";
 
 type Drawer = "left" | "right" | null;
+type Side = "left" | "right";
+
+/** Placeholder projects until the project store exists. */
+const PROJECTS = ["Project 0", "Project 1", "Project 2"];
+
+export type EvaTab = "agent" | "history" | "preference";
 
 /**
- * The studio's three panes on one fixed viewport: a left rail, the main
- * surface, a right inspector. Layout and breakpoints live in
- * styles/shell.css; this component only owns which drawer is open on
- * narrow screens.
+ * The studio's three panes on one fixed viewport: a left rail (the project),
+ * the main surface, a right rail (Eva). Layout and breakpoints live in
+ * styles/shell.css; this component owns which rail is collapsed on wide
+ * screens, which drawer is open on narrow ones, the project switcher and
+ * Eva's tabs.
  */
 export function StudioShell({
   corners,
   left,
   right,
   children,
-  leftTitle = "Tools",
-  rightTitle = "Properties",
+  topBar = false,
 }: {
   corners: ShellCorners;
   left?: ReactNode;
   right?: ReactNode;
   children?: ReactNode;
-  leftTitle?: string;
-  rightTitle?: string;
+  /** draw the thin toolbar over the main surface (collapse icons dock in it) */
+  topBar?: boolean;
 }) {
   const [open, setOpen] = useState<Drawer>(null);
-  const toggle = (d: Exclude<Drawer, null>) =>
-    setOpen((cur) => (cur === d ? null : d));
+  const [collapsed, setCollapsed] = useState<Record<Side, boolean>>({
+    left: false,
+    right: false,
+  });
+  const [project, setProject] = useState(PROJECTS[0] ?? "Project 0");
+  const [tab, setTab] = useState<EvaTab>("agent");
+
+  const toggleDrawer = (d: Side) => setOpen((cur) => (cur === d ? null : d));
+  const collapse = (s: Side, v: boolean) =>
+    setCollapsed((c) => ({ ...c, [s]: v }));
+
+  const restoreLeft = collapsed.left ? (
+    <button
+      type="button"
+      className="main-icon"
+      aria-label="Show project panel"
+      title="Show project panel"
+      onClick={() => collapse("left", false)}
+    >
+      <PanelLeftIcon />
+    </button>
+  ) : null;
+  const restoreRight = collapsed.right ? (
+    <button
+      type="button"
+      className="main-icon"
+      aria-label="Show Eva panel"
+      title="Show Eva panel"
+      onClick={() => collapse("right", false)}
+    >
+      <PanelRightIcon />
+    </button>
+  ) : null;
 
   return (
     <div
       className="shell"
       data-corners={corners}
+      data-left={collapsed.left ? "collapsed" : "open"}
+      data-right={collapsed.right ? "collapsed" : "open"}
       {...(open ? { "data-open": open } : {})}
     >
-      <aside className="shell-panel shell-panel-left" aria-label={leftTitle}>
-        <div className="shell-panel-head">
-          <span className="shell-panel-title">{leftTitle}</span>
-          <button
-            type="button"
-            className="shell-close"
-            aria-label={`Close ${leftTitle}`}
-            onClick={() => setOpen(null)}
-          >
-            ×
-          </button>
+      {/* ---- left: the project ---- */}
+      <aside className="shell-panel shell-panel-left" aria-label="Project">
+        <div className="shell-panel-inner">
+          <div className="shell-panel-head">
+            <ProjectSwitcher value={project} onChange={setProject} />
+            <div className="shell-head-acts">
+              <button
+                type="button"
+                className="shell-iconbtn shell-collapse"
+                aria-label="Collapse project panel"
+                title="Collapse"
+                onClick={() => collapse("left", true)}
+              >
+                <PanelLeftIcon />
+              </button>
+              <button
+                type="button"
+                className="shell-iconbtn shell-close"
+                aria-label="Close project panel"
+                onClick={() => setOpen(null)}
+              >
+                ×
+              </button>
+            </div>
+          </div>
+          <div className="shell-panel-body">{left}</div>
         </div>
-        <div className="shell-panel-body">{left}</div>
       </aside>
 
+      {/* ---- main ---- */}
       <main className="shell-main" aria-label="Studio">
+        {topBar ? (
+          <MainTopBar leading={restoreLeft} trailing={restoreRight} />
+        ) : (
+          <>
+            {restoreLeft && (
+              <div className="main-restore main-restore-left">
+                {restoreLeft}
+              </div>
+            )}
+            {restoreRight && (
+              <div className="main-restore main-restore-right">
+                {restoreRight}
+              </div>
+            )}
+          </>
+        )}
         {children}
       </main>
 
-      <aside className="shell-panel shell-panel-right" aria-label={rightTitle}>
-        <div className="shell-panel-head">
-          <span className="shell-panel-title">{rightTitle}</span>
-          <button
-            type="button"
-            className="shell-close"
-            aria-label={`Close ${rightTitle}`}
-            onClick={() => setOpen(null)}
-          >
-            ×
-          </button>
+      {/* ---- right: Eva ---- */}
+      <aside className="shell-panel shell-panel-right" aria-label="EVA Chatbot">
+        <div className="shell-panel-inner">
+          <div className="shell-panel-head">
+            <span className="shell-panel-title">EVA Chatbot</span>
+            <div className="shell-head-acts">
+              <button
+                type="button"
+                className="shell-iconbtn shell-collapse"
+                aria-label="Collapse Eva panel"
+                title="Collapse"
+                onClick={() => collapse("right", true)}
+              >
+                <PanelRightIcon />
+              </button>
+              <button
+                type="button"
+                className="shell-iconbtn shell-close"
+                aria-label="Close Eva panel"
+                onClick={() => setOpen(null)}
+              >
+                ×
+              </button>
+            </div>
+          </div>
+          <div className="shell-subbar">
+            <div className="shell-tabs-inline" role="tablist" aria-label="Eva">
+              {(
+                [
+                  ["agent", "Agent"],
+                  ["history", "History"],
+                  ["preference", "Preference"],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  className="shell-tabbtn"
+                  aria-selected={tab === id}
+                  onClick={() => setTab(id)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="shell-iconbtn shell-tip"
+              data-tooltip="New chat"
+              aria-label="New chat"
+            >
+              <PlusIcon />
+            </button>
+          </div>
+          <div className="shell-panel-body" data-tab={tab}>
+            {right}
+          </div>
         </div>
-        <div className="shell-panel-body">{right}</div>
       </aside>
 
       {/* narrow screens: the panels are drawers, this opens them */}
@@ -78,19 +201,84 @@ export function StudioShell({
           type="button"
           className="shell-tab shell-tab-left"
           aria-pressed={open === "left"}
-          onClick={() => toggle("left")}
+          onClick={() => toggleDrawer("left")}
         >
-          {leftTitle}
+          Project
         </button>
         <button
           type="button"
           className="shell-tab"
           aria-pressed={open === "right"}
-          onClick={() => toggle("right")}
+          onClick={() => toggleDrawer("right")}
         >
-          {rightTitle}
+          Eva
         </button>
       </nav>
+    </div>
+  );
+}
+
+/** "Furnishes / Project 0" with a menu of the other projects. */
+function ProjectSwitcher({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const onDown = (e: PointerEvent) => {
+      if (wrap.current && !wrap.current.contains(e.target as Node))
+        setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("pointerdown", onDown);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pointerdown", onDown);
+    };
+  }, [open]);
+  return (
+    <div ref={wrap} className="shell-project">
+      <button
+        type="button"
+        className="shell-project-btn"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="shell-project-brand">Furnishes</span>
+        <span className="shell-project-sep" aria-hidden="true">
+          /
+        </span>
+        <span className="shell-project-name">{value}</span>
+        <span className="shell-project-caret">
+          <ChevronDownIcon />
+        </span>
+      </button>
+      {open && (
+        <div className="shell-menu glass-popover" role="menu">
+          {PROJECTS.map((p) => (
+            <button
+              key={p}
+              type="button"
+              role="menuitemradio"
+              aria-checked={p === value}
+              className="shell-menu-row"
+              onClick={() => {
+                onChange(p);
+                setOpen(false);
+              }}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
