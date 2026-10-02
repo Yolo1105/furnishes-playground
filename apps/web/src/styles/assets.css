@@ -1,0 +1,271 @@
+/* ─── The outliner in the project rail ──────────────────────────────────
+ * Search and filter at the top, then groups and rows the way a 3D tool
+ * lists a scene: indented, a chevron per group, hover-only controls.
+ * The orange dot is the one mark that matters: a Furnishes piece, which
+ * can be edited and bought. Room items read muted; architecture is locked.
+ * ─────────────────────────────────────────────────────────────────────── */
+.assets {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+.assets-count {
+  font-size: 11.5px;
+  color: rgba(26, 26, 26, 0.55);
+  white-space: nowrap;
+}
+.f-num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- search + filter row ---- */
+.assets-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 10px 6px 12px;
+}
+.assets-field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(124, 80, 50, 0.14);
+  color: rgba(26, 26, 26, 0.45);
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+.shell[data-corners="square"] .assets-field {
+  border-radius: 0;
+}
+.assets-field:focus-within {
+  border-color: rgba(255, 90, 31, 0.55);
+  background: rgba(255, 255, 255, 0.65);
+}
+.assets-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  color: #1a1a1a;
+}
+.assets-input::placeholder {
+  color: rgba(26, 26, 26, 0.4);
+}
+.assets-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+}
+.assets-filter {
+  position: relative;
+}
+.assets-filter-n {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 4px;
+  border-radius: 7px;
+  background: #ff5a1f;
+  color: #fff4ec;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+}
+.assets-filter-menu {
+  top: calc(100% + 6px);
+  left: auto;
+  right: 0;
+  width: 248px;
+  padding: 10px;
+}
+.assets-filter-label {
+  margin: 0 0 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(26, 26, 26, 0.5);
+}
+.assets-filter-label + .assets-kinds + .assets-filter-label {
+  margin-top: 10px;
+}
+.assets-filter-hint {
+  margin: 8px 0 10px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: rgba(26, 26, 26, 0.5);
+}
+.assets-kinds,
+.assets-active {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.assets-active {
+  padding: 0 12px 6px;
+}
+.assets-chip {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(124, 80, 50, 0.18);
+  background: rgba(255, 255, 255, 0.45);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: rgba(26, 26, 26, 0.7);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+.shell[data-corners="square"] .assets-chip {
+  border-radius: 0;
+}
+.assets-chip:hover {
+  background: rgba(255, 255, 255, 0.7);
+}
+.assets-chip[aria-pressed="true"],
+.assets-chip-x {
+  color: #ff5a1f;
+  background: rgba(255, 90, 31, 0.08);
+  border-color: rgba(255, 90, 31, 0.35);
+}
+
+/* ---- the tree ---- */
+.assets-tree {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 2px 6px 10px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(26, 26, 26, 0.2) transparent;
+}
+.assets-empty {
+  margin: 12px 6px;
+  font-size: 12px;
+  color: rgba(26, 26, 26, 0.5);
+}
+.assets-group + .assets-group {
+  margin-top: 2px;
+}
+.assets-row {
+  --depth: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 30px;
+  padding-left: calc(4px + var(--depth) * 16px);
+  padding-right: 4px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: rgba(26, 26, 26, 0.85);
+  cursor: default;
+}
+.shell[data-corners="square"] .assets-row {
+  border-radius: 0;
+}
+.assets-row:hover {
+  background: rgba(26, 26, 26, 0.04);
+}
+.assets-row[data-kind="group"] {
+  font-weight: 600;
+  color: rgba(26, 26, 26, 0.7);
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.assets-row[data-kind="decor"],
+.assets-row[data-kind="fixed"] {
+  color: rgba(26, 26, 26, 0.55);
+}
+.assets-twisty {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  display: inline-grid;
+  place-items: center;
+  color: rgba(26, 26, 26, 0.5);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.assets-twisty:hover {
+  background: rgba(26, 26, 26, 0.06);
+  color: rgba(26, 26, 26, 0.85);
+}
+.assets-mark {
+  width: 16px;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  color: rgba(26, 26, 26, 0.4);
+}
+.assets-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff5a1f;
+  box-shadow: 0 0 0 2px rgba(255, 90, 31, 0.18);
+  flex: 0 0 auto;
+}
+.assets-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.assets-n {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: rgba(26, 26, 26, 0.4);
+  padding-right: 4px;
+}
+.assets-price {
+  font-size: 11.5px;
+  color: rgba(26, 26, 26, 0.6);
+  flex: 0 0 auto;
+}
+.assets-eye {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  display: inline-grid;
+  place-items: center;
+  color: rgba(26, 26, 26, 0.5);
+  cursor: pointer;
+  opacity: 0;
+  flex: 0 0 auto;
+  transition: opacity 0.12s ease;
+}
+.assets-row:hover .assets-eye,
+.assets-eye:focus-visible {
+  opacity: 1;
+}
+.assets-eye:hover {
+  background: rgba(26, 26, 26, 0.06);
+  color: rgba(26, 26, 26, 0.85);
+}

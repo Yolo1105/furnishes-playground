@@ -1,0 +1,152 @@
+/**
+ * Everything standing in the room, as the outliner and the shelf see it.
+ *
+ * Two kinds of thing share the scene:
+ *   piece  — a Furnishes modular piece: editable, purchasable, priced
+ *   decor  — something placed so the scene reads as a room (sofa, plant)
+ *   fixed  — architecture: walls, floor, window
+ *
+ * Groups follow how furniture relates (storage, seating, tables…), never
+ * what can be edited: that is a mark on the row, not a folder.
+ *
+ * Placeholder data until the domain model and the catalogue are wired.
+ */
+export type AssetKind = "piece" | "decor" | "fixed";
+
+export type AssetCategory =
+  | "storage"
+  | "seating"
+  | "tables"
+  | "lighting"
+  | "decor"
+  | "architecture";
+
+export const CATEGORY_NAMES: Record<AssetCategory, string> = {
+  storage: "Storage",
+  seating: "Seating",
+  tables: "Tables",
+  lighting: "Lighting",
+  decor: "Plants & décor",
+  architecture: "Architecture",
+};
+
+export type AssetNode = {
+  id: string;
+  name: string;
+  kind: AssetKind;
+  category: AssetCategory;
+  /** S$, only pieces carry one */
+  price?: number;
+  /** a piece built from parts, or a set that stands together */
+  children?: AssetNode[];
+};
+
+export type AssetGroup = {
+  id: AssetCategory;
+  name: string;
+  items: AssetNode[];
+};
+
+const piece = (
+  id: string,
+  name: string,
+  category: AssetCategory,
+  price: number,
+  children?: AssetNode[],
+): AssetNode => ({
+  id,
+  name,
+  kind: "piece",
+  category,
+  price,
+  ...(children ? { children } : {}),
+});
+const decor = (
+  id: string,
+  name: string,
+  category: AssetCategory,
+): AssetNode => ({
+  id,
+  name,
+  kind: "decor",
+  category,
+});
+const fixed = (id: string, name: string): AssetNode => ({
+  id,
+  name,
+  kind: "fixed",
+  category: "architecture",
+});
+
+export const assetGroups: AssetGroup[] = [
+  {
+    id: "storage",
+    name: CATEGORY_NAMES.storage,
+    items: [
+      piece("bookwall", "Bookwall", "storage", 540, [
+        piece("bookwall-a", "Segment A", "storage", 270),
+        piece("bookwall-b", "Segment B", "storage", 270),
+      ]),
+      piece("sideboard", "Three-bay sideboard", "storage", 360),
+      piece("entry", "Entry organiser", "storage", 180),
+    ],
+  },
+  {
+    id: "seating",
+    name: CATEGORY_NAMES.seating,
+    items: [
+      decor("sofa", "Sofa", "seating"),
+      decor("armchair", "Armchair", "seating"),
+      piece("bench", "Storage bench", "seating", 240),
+    ],
+  },
+  {
+    id: "tables",
+    name: CATEGORY_NAMES.tables,
+    items: [
+      decor("coffee-table", "Coffee table", "tables"),
+      piece("work-cart", "Work cart", "tables", 220),
+    ],
+  },
+  {
+    id: "lighting",
+    name: CATEGORY_NAMES.lighting,
+    items: [
+      decor("floor-lamp", "Floor lamp", "lighting"),
+      decor("desk-lamp", "Desk lamp", "lighting"),
+    ],
+  },
+  {
+    id: "decor",
+    name: CATEGORY_NAMES.decor,
+    items: [
+      decor("plant", "Potted plant", "decor"),
+      decor("vase", "Ceramic vase", "decor"),
+      decor("rug", "Rug", "decor"),
+    ],
+  },
+  {
+    id: "architecture",
+    name: CATEGORY_NAMES.architecture,
+    items: [
+      fixed("walls", "Walls"),
+      fixed("floor", "Floor"),
+      fixed("window", "Window"),
+    ],
+  },
+];
+
+/** top-level things only: what the shelf shows and the tab counts */
+export const topLevelAssets = (): AssetNode[] =>
+  assetGroups.flatMap((g) => g.items);
+
+export const pieceTotals = (nodes: AssetNode[]) => {
+  const pieces = nodes.filter((n) => n.kind === "piece");
+  return {
+    pieces: pieces.length,
+    others: nodes.length - pieces.length,
+    total: pieces.reduce((s, n) => s + (n.price ?? 0), 0),
+  };
+};
+
+export const sgd = (n: number) => `S$ ${n.toLocaleString("en-SG")}`;

@@ -3,6 +3,7 @@ import { Syne } from "next/font/google";
 import "./globals.css";
 import "@/styles/shell.css";
 import "@/styles/main.css";
+import "@/styles/assets.css";
 
 /**
  * Syne is the studio's typeface, exposed as --font-syne and aliased to

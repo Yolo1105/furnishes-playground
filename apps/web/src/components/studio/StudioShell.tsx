@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChatInput } from "./ChatInput";
 import { MainTopBar } from "./MainOverlays";
 import { UserBar } from "./UserBar";
+import { MainView, other, ViewPanel, type View } from "./ViewPanel";
 import {
   ChevronDownIcon,
   PanelLeftIcon,
@@ -49,6 +50,7 @@ export function StudioShell({
   });
   const [project, setProject] = useState(PROJECTS[0] ?? "Project 0");
   const [tab, setTab] = useState<EvaTab>("agent");
+  const [view, setView] = useState<View>("3d");
 
   const toggleDrawer = (d: Side) => setOpen((cur) => (cur === d ? null : d));
   const collapse = (s: Side, v: boolean) =>
@@ -86,8 +88,8 @@ export function StudioShell({
       {...(open ? { "data-open": open } : {})}
     >
       {/* ---- left: the project ---- */}
-      <aside className="shell-panel shell-panel-left" aria-label="Project">
-        <div className="shell-panel-inner">
+      <aside className="shell-rail shell-rail-left" aria-label="Project">
+        <div className="shell-panel shell-panel-inner">
           <div className="shell-panel-head">
             <ProjectSwitcher value={project} onChange={setProject} />
             <div className="shell-head-acts">
@@ -135,12 +137,22 @@ export function StudioShell({
             )}
           </>
         )}
+        <MainView view={view} />
         {children}
       </main>
 
       {/* ---- right: Eva ---- */}
-      <aside className="shell-panel shell-panel-right" aria-label="EVA Chatbot">
-        <div className="shell-panel-inner">
+      <aside className="shell-rail shell-rail-right" aria-label="Eva and views">
+        <section
+          className="shell-panel shell-panel-view"
+          aria-label="Other view"
+        >
+          <ViewPanel main={view} onSwap={() => setView(other(view))} />
+        </section>
+        <section
+          className="shell-panel shell-panel-inner shell-panel-eva"
+          aria-label="EVA Chatbot"
+        >
           <div className="shell-panel-head">
             <span className="shell-panel-title">EVA Chatbot</span>
             <div className="shell-head-acts">
@@ -199,7 +211,7 @@ export function StudioShell({
           <div className="shell-panel-foot shell-panel-foot-chat">
             <ChatInput />
           </div>
-        </div>
+        </section>
       </aside>
 
       {/* narrow screens: the panels are drawers, this opens them */}

@@ -89,8 +89,73 @@
 .main-shelf {
   bottom: 0;
   width: 100%;
-  padding: 12px;
+  padding: 0 12px 12px;
   border-radius: var(--shell-radius, 0px);
+  transition: padding 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* the tab at the top-left: what is here and what it comes to; the
+   chevron at the right folds the cards away */
+.main-shelf-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 40px;
+  margin: 0 -4px;
+}
+.main-shelf-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 0 4px;
+  font-size: 12px;
+  color: rgba(26, 26, 26, 0.85);
+}
+.main-shelf-tab b {
+  font-weight: 600;
+}
+.main-shelf-sep {
+  color: rgba(26, 26, 26, 0.35);
+}
+.main-shelf-more {
+  margin-left: 6px;
+  font-size: 11px;
+  color: rgba(26, 26, 26, 0.45);
+  white-space: nowrap;
+}
+.main-shelf-toggle {
+  width: 28px;
+  height: 28px;
+}
+.main-shelf-toggle::after {
+  right: auto;
+  left: 50%;
+  transform: translate(-50%, -2px);
+}
+.main-shelf-toggle:hover::after {
+  transform: translate(-50%, 0);
+}
+
+/* folded: the cards sink out of the box, the head row stays */
+.main-shelf-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition:
+    grid-template-rows 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.2s ease;
+}
+.main-shelf-body > * {
+  min-height: 0;
+}
+.main-shelf[data-collapsed="true"] {
+  padding-bottom: 0;
+}
+.main-shelf[data-collapsed="true"] .main-shelf-body {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .main-shelf-scroll {
@@ -117,10 +182,6 @@
   scroll-snap-align: start;
   width: 132px;
 }
-.shelf-card-pic[data-shape="wide"] ~ .shelf-card-row,
-.shelf-card:has(.shelf-card-pic[data-shape="wide"]) {
-  width: 196px;
-}
 
 .shelf-card-pic {
   height: 108px;
@@ -128,6 +189,22 @@
   background: rgba(255, 255, 255, 0.55);
   border: 1px solid rgba(124, 80, 50, 0.14);
   box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.6) inset;
+}
+/* a room item: there to make it a room, not for sale */
+.shelf-card[data-kind="decor"] .shelf-card-pic,
+.shelf-card[data-kind="fixed"] .shelf-card-pic {
+  background: rgba(255, 255, 255, 0.3);
+  border-style: dashed;
+}
+.shelf-card[data-kind="decor"] .shelf-card-name,
+.shelf-card[data-kind="fixed"] .shelf-card-name {
+  color: rgba(26, 26, 26, 0.55);
+  font-weight: 500;
+}
+.shelf-card-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .shelf-card-row {
@@ -167,13 +244,13 @@
   }
   .main-shelf {
     bottom: calc(68px + env(safe-area-inset-bottom));
-    padding: 10px;
+    padding: 0 10px 10px;
+  }
+  .main-shelf-more {
+    display: none;
   }
   .shelf-card {
     width: 112px;
-  }
-  .shelf-card:has(.shelf-card-pic[data-shape="wide"]) {
-    width: 168px;
   }
   .shelf-card-pic {
     height: 92px;

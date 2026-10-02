@@ -1,10 +1,13 @@
+import { AssetsPanel } from "@/components/studio/AssetsPanel";
 import { GhostRows, StudioShell } from "@/components/studio/StudioShell";
 
 /** The studio: square, edge-to-edge glass panels either side of the main surface. */
 export default function Page() {
   return (
-    <StudioShell corners="square" left={<GhostRows />} right={<GhostRows />}>
-      <div className="shell-main-hint">Main</div>
-    </StudioShell>
+    <StudioShell
+      corners="square"
+      left={<AssetsPanel />}
+      right={<GhostRows />}
+    ></StudioShell>
   );
 }

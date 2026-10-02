@@ -1,9 +1,17 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { useState, type ReactNode } from "react";
+import {
+  pieceTotals,
+  sgd,
+  topLevelAssets,
+  type AssetNode,
+} from "./assets-data";
+import { ChevronUpDownIcon } from "./icons";
 
 /**
  * What floats over the main surface: a thin toolbar across the top and a
- * shelf of cards along the bottom. Both are glass, both are placeholders
- * until real tools and real pieces arrive.
+ * shelf of cards along the bottom. Both are glass.
  */
 
 /** Ghost icon buttons in groups, the way a toolbar reads. `leading` and
@@ -41,44 +49,65 @@ export function MainTopBar({
   );
 }
 
-export type ShelfCard = {
-  id: string;
-  name: string;
-  price: string;
-  /** "square" or "wide" placeholder until an image is set */
-  shape?: "square" | "wide";
-};
-
-/** Cards in a row that scrolls sideways; the scrollbar is hidden. */
-export function MainShelf({ cards }: { cards: ShelfCard[] }) {
+/**
+ * The shelf: everything in the room as cards that scroll sideways. A
+ * Furnishes piece carries the orange mark and its price; a room item
+ * reads muted and says so. The tab at the top-left counts the pieces and
+ * sums them; the chevron beside it folds the cards away, leaving only
+ * that row along the bottom.
+ */
+export function MainShelf({
+  items = topLevelAssets(),
+}: {
+  items?: AssetNode[];
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+  const t = pieceTotals(items);
   return (
-    <div className="main-shelf" aria-label="Pieces">
-      <div className="main-shelf-scroll no-scrollbar">
-        {cards.map((c) => (
-          <article key={c.id} className="shelf-card">
-            <div
-              className="shelf-card-pic"
-              data-shape={c.shape ?? "square"}
-              aria-hidden="true"
-            />
-            <div className="shelf-card-row">
-              <span className="shelf-card-name">{c.name}</span>
-              <span className="shelf-card-price">{c.price}</span>
-            </div>
-          </article>
-        ))}
+    <div className="main-shelf" aria-label="Pieces" data-collapsed={collapsed}>
+      <div className="main-shelf-head">
+        <div className="main-shelf-tab">
+          <span className="assets-dot" aria-hidden="true" />
+          <b className="f-num">{t.pieces} pieces</b>
+          <span className="main-shelf-sep" aria-hidden="true">
+            ·
+          </span>
+          <b className="f-num">{sgd(t.total)}</b>
+          <span className="main-shelf-more f-num">+ {t.others} room items</span>
+        </div>
+        <button
+          type="button"
+          className="shell-iconbtn shell-tip main-shelf-toggle"
+          data-tooltip={collapsed ? "Show pieces" : "Hide pieces"}
+          aria-label={collapsed ? "Show pieces" : "Hide pieces"}
+          aria-expanded={!collapsed}
+          onClick={() => setCollapsed((v) => !v)}
+        >
+          <ChevronUpDownIcon up={collapsed} />
+        </button>
+      </div>
+      <div className="main-shelf-body">
+        <div className="main-shelf-scroll no-scrollbar">
+          {items.map((c) => (
+            <article key={c.id} className="shelf-card" data-kind={c.kind}>
+              <div className="shelf-card-pic" aria-hidden="true" />
+              <div className="shelf-card-row">
+                <span className="shelf-card-name">
+                  {c.kind === "piece" && (
+                    <span className="assets-dot" aria-hidden="true" />
+                  )}
+                  {c.name}
+                </span>
+                <span className="shelf-card-price f-num">
+                  {c.kind === "piece" && c.price !== undefined
+                    ? sgd(c.price)
+                    : "Room"}
+                </span>
+              </div>
+            </article>
+          ))}
+        </div>
       </div>
     </div>
   );
 }
-
-/** Placeholder cards until the catalogue is wired. */
-export const placeholderCards: ShelfCard[] = Array.from(
-  { length: 14 },
-  (_, i) => ({
-    id: `p${i + 1}`,
-    name: `Piece ${String(i + 1).padStart(2, "0")}`,
-    price: `S$ ${(i + 1) * 60}`,
-    shape: i % 4 === 3 ? "wide" : "square",
-  }),
-);

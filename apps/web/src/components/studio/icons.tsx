@@ -153,3 +153,101 @@ export function KeyboardIcon({ size = 16 }: IconProps) {
     </svg>
   );
 }
+
+export function SearchIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <circle cx="11" cy="11" r="6.5" />
+      <path d="m20 20-4.2-4.2" />
+    </svg>
+  );
+}
+
+/** three lines, shorter each step: filter */
+export function FilterIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <path d="M4 7h16M7 12h10M10 17h4" />
+    </svg>
+  );
+}
+
+export function ChevronRightIcon({
+  size = 12,
+  open = false,
+}: IconProps & { open?: boolean }) {
+  return (
+    <svg
+      {...svg(size, s20)}
+      style={{
+        transform: open ? "rotate(90deg)" : undefined,
+        transition: "transform 0.15s ease",
+      }}
+    >
+      <path d="m9 6 6 6-6 6" />
+    </svg>
+  );
+}
+
+export function ChevronUpDownIcon({
+  size = 14,
+  up = false,
+}: IconProps & { up?: boolean }) {
+  return (
+    <svg
+      {...svg(size, s20)}
+      style={{
+        transform: up ? "rotate(180deg)" : undefined,
+        transition: "transform 0.2s ease",
+      }}
+    >
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
+export function EyeIcon({ size = 14 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+export function LockIcon({ size = 12 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <rect x="5" y="11" width="14" height="10" rx="2" />
+      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+    </svg>
+  );
+}
+
+export function CubeIcon({ size = 14 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3z" />
+      <path d="M12 12 4 7.5M12 12l8-4.5M12 12v9" />
+    </svg>
+  );
+}
+
+/** two arrows trading places: swap the main and the small view */
+export function SwapIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <path d="M4 7h13l-3-3M20 17H7l3 3" />
+    </svg>
+  );
+}
+
+/** a floor plan: the 2D view */
+export function PlanIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <path d="M3 12h9M12 3v9M12 12v9M16 12v4" />
+    </svg>
+  );
+}

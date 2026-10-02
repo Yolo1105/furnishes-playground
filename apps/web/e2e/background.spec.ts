@@ -23,9 +23,9 @@ for (const [path, corners] of [
     const shell = page.locator(".shell");
     await expect(shell).toHaveAttribute("data-corners", corners);
     const [l, m, r] = await Promise.all([
-      page.locator(".shell-panel-left").boundingBox(),
+      page.locator(".shell-rail-left").boundingBox(),
       page.locator(".shell-main").boundingBox(),
-      page.locator(".shell-panel-right").boundingBox(),
+      page.locator(".shell-rail-right").boundingBox(),
     ]);
     expect(l && m && r).toBeTruthy();
     expect(l!.x + l!.width).toBeLessThanOrEqual(m!.x + 1);
@@ -33,7 +33,7 @@ for (const [path, corners] of [
     expect(m!.width).toBeGreaterThan(l!.width);
     expect(m!.width).toBeGreaterThan(r!.width);
     const radius = await page
-      .locator(".shell-panel-left")
+      .locator(".shell-rail-left > .shell-panel")
       .evaluate((el) => getComputedStyle(el).borderTopLeftRadius);
     expect(radius).toBe(corners === "rounded" ? "18px" : "0px");
   });
@@ -41,7 +41,7 @@ for (const [path, corners] of [
   test(`${path} turns the panels into drawers on a phone`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(path);
-    const left = page.locator(".shell-panel-left");
+    const left = page.locator(".shell-rail-left");
     const before = await left.boundingBox();
     expect(before!.x + before!.width).toBeLessThanOrEqual(1);
     await page.getByRole("button", { name: "Project", exact: true }).click();
@@ -72,10 +72,10 @@ test("/rounded has a toolbar on top and a sideways-scrolling shelf below", async
   expect(await scroll.evaluate((el) => el.scrollLeft)).toBeGreaterThan(0);
   await expect(
     page.locator(".shelf-card").first().locator(".shelf-card-name"),
-  ).toHaveText("Piece 01");
+  ).toHaveText("Bookwall");
   await expect(
     page.locator(".shelf-card").first().locator(".shelf-card-price"),
-  ).toHaveText("S$ 60");
+  ).toHaveText("S$ 540");
 });
 
 test("rails collapse into the toolbar and come back", async ({ page }) => {
@@ -130,7 +130,7 @@ test("Eva's input box and the user bar", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   // edges line up: toolbar top on the rails' top, shelf bottom on their bottom
-  const left = (await page.locator(".shell-panel-left").boundingBox())!;
+  const left = (await page.locator(".shell-rail-left").boundingBox())!;
   const top = (await page.locator(".main-top").boundingBox())!;
   const shelf = (await page.locator(".main-shelf").boundingBox())!;
   const main = (await page.locator(".shell-main").boundingBox())!;
@@ -156,4 +156,92 @@ test("Eva's input box and the user bar", async ({ page }) => {
   await expect(page.locator(".user-name")).toHaveText("Studio User");
   await page.getByRole("button", { name: "More" }).click();
   await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
+});
+
+test("the outliner searches, filters and marks the pieces", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  const tree = page.getByRole("tree", { name: "Assets" });
+  await expect(tree.getByRole("treeitem")).toHaveCount(24);
+  // a Furnishes piece carries the mark and a price; a room item does not
+  const bookwall = tree.locator(".assets-row", { hasText: "Bookwall" }).first();
+  await expect(bookwall.locator(".assets-dot")).toBeVisible();
+  await expect(bookwall.locator(".assets-price")).toHaveText("S$ 540");
+  const sofa = tree.locator(".assets-row", { hasText: "Sofa" });
+  await expect(sofa.locator(".assets-dot")).toHaveCount(0);
+  // hierarchy: a piece built from segments folds
+  await expect(
+    tree.locator(".assets-row", { hasText: "Segment A" }),
+  ).toBeVisible();
+  await bookwall.getByRole("button", { name: "Collapse" }).click();
+  await expect(
+    tree.locator(".assets-row", { hasText: "Segment A" }),
+  ).toHaveCount(0);
+  // search
+  await page.getByRole("searchbox", { name: "Search assets" }).fill("lamp");
+  await expect(tree.getByRole("treeitem")).toHaveCount(3);
+  await page.getByRole("searchbox", { name: "Search assets" }).fill("");
+  // filter: only the pieces
+  await page.getByRole("button", { name: "Filter assets" }).click();
+  await page.getByRole("button", { name: "Furnishes pieces" }).click();
+  await page.keyboard.press("Escape");
+  await expect(tree.locator(".assets-row[data-kind='decor']")).toHaveCount(0);
+  await expect(
+    tree.locator(".assets-row[data-kind='piece']").first(),
+  ).toBeVisible();
+  await expect(page.locator(".assets-count")).toHaveText("5 pieces · S$ 1,540");
+});
+
+test("the shelf's tab counts the pieces and folds the cards away", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  const shelf = page.locator(".main-shelf");
+  await expect(shelf.locator(".main-shelf-tab")).toContainText("5 pieces");
+  await expect(shelf.locator(".main-shelf-tab")).toContainText("S$ 1,540");
+  await expect(shelf.locator(".main-shelf-tab")).toContainText(
+    "+ 11 room items",
+  );
+  const tall = (await shelf.boundingBox())!.height;
+  await page.getByRole("button", { name: "Hide pieces" }).click();
+  await expect(shelf).toHaveAttribute("data-collapsed", "true");
+  await expect
+    .poll(async () => (await shelf.boundingBox())!.height)
+    .toBeLessThan(tall / 2);
+  await expect(shelf.locator(".main-shelf-tab")).toBeVisible();
+  await page.getByRole("button", { name: "Show pieces" }).click();
+  await expect(shelf).toHaveAttribute("data-collapsed", "false");
+});
+
+test("the right rail holds the other view, and the swap trades them", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  const view = page.locator(".shell-panel-view");
+  const eva = page.locator(".shell-panel-eva");
+  const v = (await view.boundingBox())!;
+  const e = (await eva.boundingBox())!;
+  expect(v.y + v.height).toBeLessThanOrEqual(e.y);
+  expect(e.height / v.height).toBeGreaterThan(1.7);
+  expect(e.height / v.height).toBeLessThan(2.3);
+  await expect(page.locator(".shell-main-hint")).toHaveAttribute(
+    "data-view",
+    "3d",
+  );
+  await expect(view.locator(".view-stub")).toHaveAttribute("data-view", "2d");
+  await page.getByRole("button", { name: "Show 2D plan in main" }).click();
+  await expect(page.locator(".shell-main-hint")).toHaveAttribute(
+    "data-view",
+    "2d",
+  );
+  await expect(view.locator(".view-stub")).toHaveAttribute("data-view", "3d");
+  await page.getByRole("button", { name: "Show 3D view in main" }).click();
+  await expect(page.locator(".shell-main-hint")).toHaveAttribute(
+    "data-view",
+    "3d",
+  );
 });
