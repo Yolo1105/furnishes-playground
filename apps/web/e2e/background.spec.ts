@@ -51,3 +51,29 @@ for (const [path, corners] of [
       .toBeGreaterThanOrEqual(0);
   });
 }
+
+test("/rounded has a toolbar on top and a sideways-scrolling shelf below", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  const main = (await page.locator(".shell-main").boundingBox())!;
+  const top = (await page.locator(".main-top").boundingBox())!;
+  const shelf = (await page.locator(".main-shelf").boundingBox())!;
+  expect(top.y).toBeGreaterThanOrEqual(main.y);
+  expect(top.height).toBeLessThan(shelf.height);
+  expect(shelf.y + shelf.height).toBeLessThanOrEqual(main.y + main.height + 1);
+  const scroll = page.locator(".main-shelf-scroll");
+  const overflow = await scroll.evaluate(
+    (el) => el.scrollWidth > el.clientWidth,
+  );
+  expect(overflow).toBe(true);
+  await scroll.evaluate((el) => el.scrollBy({ left: 300 }));
+  expect(await scroll.evaluate((el) => el.scrollLeft)).toBeGreaterThan(0);
+  await expect(
+    page.locator(".shelf-card").first().locator(".shelf-card-name"),
+  ).toHaveText("Piece 01");
+  await expect(
+    page.locator(".shelf-card").first().locator(".shelf-card-price"),
+  ).toHaveText("S$ 60");
+});

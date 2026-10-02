@@ -1,0 +1,153 @@
+/* ─── Over the main surface ─────────────────────────────────────────────
+ * A thin toolbar at the top and a shelf of cards at the bottom, both
+ * floating on glass inside .shell-main. The 3D canvas later sits under
+ * them, so both keep clear of the edges and never take the whole width.
+ * ─────────────────────────────────────────────────────────────────────── */
+.main-top,
+.main-shelf {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  background: var(--shell-glass, rgba(255, 250, 244, 0.55));
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  border: 1px solid var(--shell-line, rgba(124, 80, 50, 0.18));
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.6) inset,
+    0 8px 24px -14px rgba(124, 80, 50, 0.12);
+}
+
+/* ---- top toolbar: thin, rounded, icon groups ---- */
+.main-top {
+  top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 44px;
+  padding: 0 8px;
+  border-radius: 999px;
+  max-width: calc(100% - 28px);
+  overflow: hidden;
+}
+
+.main-top-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 4px;
+}
+.main-top-group + .main-top-group {
+  border-left: 1px solid var(--shell-line, rgba(124, 80, 50, 0.18));
+}
+
+.main-icon {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: rgba(26, 26, 26, 0.7);
+}
+.main-icon:hover {
+  background: rgba(26, 26, 26, 0.06);
+}
+.main-icon-glyph {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: rgba(26, 26, 26, 0.16);
+}
+
+/* ---- bottom shelf: rounded, cards scroll sideways ---- */
+.main-shelf {
+  bottom: 14px;
+  width: min(100% - 28px, 1100px);
+  padding: 12px;
+  border-radius: 20px;
+}
+
+.main-shelf-scroll {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x proximity;
+  overscroll-behavior-x: contain;
+  padding: 2px;
+}
+
+/* keep scroll, hide the bar */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.shelf-card {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  width: 132px;
+}
+.shelf-card-pic[data-shape="wide"] ~ .shelf-card-row,
+.shelf-card:has(.shelf-card-pic[data-shape="wide"]) {
+  width: 196px;
+}
+
+.shelf-card-pic {
+  height: 108px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(124, 80, 50, 0.14);
+  box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.6) inset;
+}
+
+.shelf-card-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 2px 0;
+  font-size: 12px;
+  line-height: 1.2;
+}
+.shelf-card-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+.shelf-card-price {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  color: rgba(26, 26, 26, 0.6);
+}
+
+@media (max-width: 767px) {
+  .main-top {
+    top: 10px;
+    height: 40px;
+  }
+  .main-shelf {
+    bottom: calc(68px + env(safe-area-inset-bottom));
+    width: calc(100% - 20px);
+    padding: 10px;
+  }
+  .shelf-card {
+    width: 112px;
+  }
+  .shelf-card:has(.shelf-card-pic[data-shape="wide"]) {
+    width: 168px;
+  }
+  .shelf-card-pic {
+    height: 92px;
+  }
+}
