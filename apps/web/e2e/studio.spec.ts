@@ -31,6 +31,19 @@ test("background paints the playground palette", async ({ page }) => {
   );
   expect(image).toContain("linear-gradient");
   expect(image).toContain("rgb(255, 244, 227)");
+  // the theme tokens must reach plain CSS: the accent resolves on :root and
+  // actually paints (a blank token once turned every orange invisible)
+  const accent = await page.evaluate(() =>
+    getComputedStyle(document.documentElement)
+      .getPropertyValue("--color-accent")
+      .trim(),
+  );
+  expect(accent).toBe("#ff5a1f");
+  const painted = await page
+    .locator(".assets-mark[data-kind='piece']")
+    .first()
+    .evaluate((el) => getComputedStyle(el).color);
+  expect(painted).toBe("rgb(255, 90, 31)");
 });
 
 for (const [path, corners] of [
