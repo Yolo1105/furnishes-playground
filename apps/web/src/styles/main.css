@@ -412,9 +412,8 @@
   position: absolute;
   inset: 0;
 }
+/* its box, between the rails, is set with the stage in shell.css */
 .preview-stage {
-  position: absolute;
-  inset: 0;
   overflow: hidden;
   touch-action: none;
   user-select: none;
@@ -720,15 +719,9 @@
   min-width: 0;
   padding: 10px 12px 8px;
 }
-.add-strip-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
 .add-strip-chips {
-  flex: 1;
-  min-width: 0;
+  display: flex;
+  gap: 6px;
   flex-wrap: nowrap;
   overflow-x: auto;
   scrollbar-width: none;
@@ -738,9 +731,6 @@
 }
 .add-strip-chips .assets-chip {
   flex: 0 0 auto;
-}
-.add-strip-search {
-  flex: 0 0 180px;
 }
 .add-strip-row {
   display: flex;
@@ -794,12 +784,6 @@
   font-size: 11px;
   color: rgb(from var(--color-ink) r g b / 0.55);
 }
-.add-strip-hint {
-  margin: 8px 0 0;
-  font-size: 11px;
-  color: rgb(from var(--color-ink) r g b / 0.45);
-}
-
 /* dragging a product over the room */
 .product[draggable="true"] {
   cursor: grab;

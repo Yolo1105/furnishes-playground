@@ -14,6 +14,7 @@
   --shell-left: clamp(240px, 18vw, 320px);
   --shell-right: clamp(280px, 22vw, 380px);
   --shell-gap: 0px;
+  --shell-edge: 0px;
   --shell-radius: 0px;
   --shell-left-col: calc(var(--shell-left) + var(--shell-gap));
   --shell-right-col: calc(var(--shell-right) + var(--shell-gap));
@@ -27,14 +28,16 @@
   transition: grid-template-columns 0.28s var(--ease);
   height: 100dvh;
   width: 100%;
-  padding: var(--shell-gap);
-  padding-top: calc(var(--shell-gap) + env(safe-area-inset-top));
-  padding-bottom: calc(var(--shell-gap) + env(safe-area-inset-bottom));
+  padding: var(--shell-edge);
+  padding-top: calc(var(--shell-edge) + env(safe-area-inset-top));
+  padding-bottom: calc(var(--shell-edge) + env(safe-area-inset-bottom));
   overflow: hidden;
 }
 
+/* rounded: the panels float, close to the screen's edge, a gap apart */
 .shell[data-corners="rounded"] {
-  --shell-gap: 20px;
+  --shell-edge: 10px;
+  --shell-gap: 16px;
   --shell-radius: var(--r-panel);
 }
 
@@ -171,10 +174,7 @@
   opacity: 0.8;
 }
 .view-plan-main::after {
-  left: 28%;
-  top: 22%;
-  width: 44%;
-  height: 56%;
+  content: none;
 }
 .view-iso {
   position: absolute;
@@ -670,9 +670,27 @@
 .shell-stage {
   /* the room's footprint on the stage, shared by the view and the render */
   --room-w: min(40vw, 560px);
+  /* the room, the sweep and the divider keep between the rails: from the
+     left panel's right edge to the right panel's left edge */
+  --stage-l: max(
+    0px,
+    calc(var(--shell-edge) + var(--shell-left-col) - var(--shell-gap))
+  );
+  --stage-r: max(
+    0px,
+    calc(var(--shell-edge) + var(--shell-right-col) - var(--shell-gap))
+  );
   position: absolute;
   inset: 0;
   z-index: 0;
+}
+.stage-room,
+.preview-stage {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--stage-l);
+  right: var(--stage-r);
 }
 .shell-rail,
 .shell-main {
@@ -695,7 +713,7 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
-.shell-main-hint > span {
+.stage-room > span {
   position: absolute;
   left: 50%;
   top: calc(50% + var(--room-w) * 0.35 + 14px);
@@ -778,12 +796,15 @@
     grid-template-columns: var(--shell-left-col) minmax(0, 1fr);
     grid-template-areas: "left main";
   }
+  .shell-stage {
+    --stage-r: 0px;
+  }
   .shell-rail-right {
     position: fixed;
     z-index: 2;
-    top: var(--shell-gap);
-    bottom: var(--shell-gap);
-    right: var(--shell-gap);
+    top: var(--shell-edge);
+    bottom: var(--shell-edge);
+    right: var(--shell-edge);
     width: min(380px, 88vw);
     transform: translateX(calc(100% + var(--shell-gap)));
   }
@@ -817,6 +838,9 @@
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas: "main";
   }
+  .shell-stage {
+    --stage-l: 0px;
+  }
   .shell[data-left="collapsed"] .shell-rail-left {
     margin-right: 0;
   }
@@ -827,9 +851,9 @@
   .shell-rail-left {
     position: fixed;
     z-index: 2;
-    top: var(--shell-gap);
-    bottom: var(--shell-gap);
-    left: var(--shell-gap);
+    top: var(--shell-edge);
+    bottom: var(--shell-edge);
+    left: var(--shell-edge);
     width: min(320px, 88vw);
     transform: translateX(calc(-100% - var(--shell-gap)));
   }

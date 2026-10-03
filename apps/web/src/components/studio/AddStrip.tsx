@@ -4,13 +4,12 @@ import { useMemo, useState } from "react";
 import { CATEGORY_NAMES, sgd, type AssetCategory } from "./assets-data";
 import { products } from "./catalogue";
 import { startProductDrag } from "./dnd";
-import { SearchIcon } from "./icons";
 import { useScene } from "./scene-store";
 
 /**
  * What the + in the toolbar opens: a strip under the bar with the parts
- * and pieces to put in the room. Chips narrow it by category, the search
- * by name. A tile goes into the room on a click, or can be dragged onto
+ * and pieces to put in the room. One line of chips narrows it by
+ * category. A tile goes into the room on a click, or can be dragged onto
  * the surface and dropped where it should stand.
  */
 type Chip = "all" | AssetCategory;
@@ -26,16 +25,9 @@ export function AddStrip({ onAdded }: { onAdded: (id: string) => void }) {
   const add = useScene((s) => s.addProduct);
   const select = useScene((s) => s.select);
   const [category, setCategory] = useState<Chip>("all");
-  const [query, setQuery] = useState("");
-  const q = query.trim().toLowerCase();
   const shown = useMemo(
-    () =>
-      products.filter(
-        (p) =>
-          (category === "all" || p.category === category) &&
-          (!q || p.name.toLowerCase().includes(q)),
-      ),
-    [category, q],
+    () => products.filter((p) => category === "all" || p.category === category),
+    [category],
   );
   return (
     <div
@@ -43,36 +35,18 @@ export function AddStrip({ onAdded }: { onAdded: (id: string) => void }) {
       role="dialog"
       aria-label="Add to the room"
     >
-      <div className="add-strip-head">
-        <div
-          className="assets-kinds add-strip-chips"
-          role="group"
-          aria-label="Category"
-        >
-          {CHIPS.map((c) => (
-            <button
-              key={c}
-              type="button"
-              className="assets-chip"
-              aria-pressed={category === c}
-              onClick={() => setCategory(c)}
-            >
-              {c === "all" ? "All" : CATEGORY_NAMES[c]}
-            </button>
-          ))}
-        </div>
-        <label className="assets-field add-strip-search">
-          <SearchIcon />
-          <input
-            type="search"
-            className="assets-input"
-            placeholder="Search"
-            aria-label="Search parts and pieces"
-            autoComplete="off"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </label>
+      <div className="add-strip-chips" role="group" aria-label="Category">
+        {CHIPS.map((c) => (
+          <button
+            key={c}
+            type="button"
+            className="assets-chip"
+            aria-pressed={category === c}
+            onClick={() => setCategory(c)}
+          >
+            {c === "all" ? "All" : CATEGORY_NAMES[c]}
+          </button>
+        ))}
       </div>
       <div className="add-strip-row no-scrollbar">
         {shown.length === 0 && (
@@ -98,7 +72,6 @@ export function AddStrip({ onAdded }: { onAdded: (id: string) => void }) {
           </button>
         ))}
       </div>
-      <p className="add-strip-hint">Click to add, or drag onto the room.</p>
     </div>
   );
 }

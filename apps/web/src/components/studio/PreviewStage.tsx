@@ -5,13 +5,13 @@ import { CompareIcon } from "./icons";
 import { useStudio } from "./studio-store";
 
 /**
- * Preview on the full stage, behind the panels. Once the line on the
- * toolbar has run, a divider sweeps from the right edge to the left and
- * the render fills in behind it, so the sketch is left of the line and
- * the render right; both draw only the room, so the studio's gradient
- * stays behind them. With the panels hidden, the compare button in the
- * peek bar brings the divider back to the middle to be dragged. Nothing
- * renders yet, so the sketch and the render stand in.
+ * Preview on the stage, between the rails and behind the panels. Once the
+ * line on the toolbar has run, a divider sweeps from the left rail to the
+ * right one and the render fills in behind it; both draw only the room,
+ * so the studio's gradient stays behind them. With the panels hidden, the
+ * compare button in the peek bar brings the divider in from the left to
+ * the middle, the sketch left of it and the render right, to be dragged.
+ * Nothing renders yet, so the sketch and the render stand in.
  */
 export function PreviewStage() {
   const status = useStudio((s) => s.preview);
@@ -20,7 +20,7 @@ export function PreviewStage() {
   const stage = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
 
-  // mounted while generating too, with the divider at the right edge, so
+  // mounted while generating too, with the divider at the left rail, so
   // the sweep has a start to transition from
   if (status === "idle") return null;
 
@@ -69,7 +69,14 @@ export function PreviewStage() {
         <div
           className="preview-after"
           aria-label="Rendered"
-          style={{ clipPath: `inset(0 0 0 ${split}%)` }}
+          style={{
+            // while revealing the render is left of the line; while
+            // comparing it is right of it
+            clipPath:
+              status === "compare"
+                ? `inset(0 0 0 ${split}%)`
+                : `inset(0 ${100 - split}% 0 0)`,
+          }}
           onTransitionEnd={(e) => {
             if (e.propertyName === "clip-path") revealed();
           }}

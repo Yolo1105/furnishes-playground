@@ -544,9 +544,16 @@ test("Preview runs a line along the top, sweeps the render in, then compares on 
     "background-color",
     "rgba(0, 0, 0, 0)",
   );
-  // the sweep ends at the left edge: all render, the sketch gone
+  // the sweep runs between the rails and ends at the right one: all render
+  const sb = (await page.locator(".preview-stage").boundingBox())!;
+  const [leftRail, rightRail] = await Promise.all([
+    page.locator(".shell-rail-left").boundingBox(),
+    page.locator(".shell-rail-right").boundingBox(),
+  ]);
+  expect(Math.abs(sb.x - (leftRail!.x + leftRail!.width))).toBeLessThan(2);
+  expect(Math.abs(sb.x + sb.width - rightRail!.x)).toBeLessThan(2);
   const handle = page.getByRole("slider", { name: "Before and after" });
-  await expect(handle).toHaveAttribute("aria-valuenow", "0");
+  await expect(handle).toHaveAttribute("aria-valuenow", "100");
   // comparing is for looking: it comes with the panels hidden
   const compare = page.getByRole("button", {
     name: "Compare before and after",
@@ -565,16 +572,17 @@ test("Preview runs a line along the top, sweeps the render in, then compares on 
     page.locator(".preview-tag", { hasText: "Before" }).boundingBox(),
     page.locator(".preview-tag", { hasText: "Rendered" }).boundingBox(),
   ]);
-  expect(before!.x + before!.width).toBeLessThan(720);
-  expect(after!.x).toBeGreaterThan(720);
+  const mid = sb.x + sb.width / 2;
+  expect(before!.x + before!.width).toBeLessThan(mid);
+  expect(after!.x).toBeGreaterThan(mid);
   expect(before!.y).toBeLessThan(120);
   expect(after!.y).toBeLessThan(120);
   await handle.focus();
   await page.keyboard.press("ArrowRight");
   await expect(handle).toHaveAttribute("aria-valuenow", "52");
-  await page.mouse.move(stageBox.width * 0.8, 300);
+  await page.mouse.move(sb.x + sb.width * 0.8, 300);
   await page.mouse.down();
-  await page.mouse.move(stageBox.width * 0.25, 300, { steps: 4 });
+  await page.mouse.move(sb.x + sb.width * 0.25, 300, { steps: 4 });
   await page.mouse.up();
   await expect(handle).toHaveAttribute("aria-valuenow", "25");
   await page.getByRole("button", { name: "Show panels" }).click();
@@ -697,6 +705,15 @@ test("the + opens the strip of parts; a click adds, a drag places", async ({
   await page.getByRole("button", { name: "Add", exact: true }).click();
   const strip = page.getByRole("dialog", { name: "Add to the room" });
   await expect(strip).toBeVisible();
+  // one line of chips, no search, no hint
+  await expect(strip.getByRole("searchbox")).toHaveCount(0);
+  const chips = strip
+    .getByRole("group", { name: "Category" })
+    .getByRole("button");
+  const tops = await chips.evaluateAll((els) =>
+    els.map((e) => Math.round(e.getBoundingClientRect().top)),
+  );
+  expect(new Set(tops).size).toBe(1);
   const parts = products.filter((p) => p.category === "components");
   await strip.getByRole("button", { name: "Components" }).click();
   await expect(strip.locator(".add-tile")).toHaveCount(parts.length);

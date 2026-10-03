@@ -5,10 +5,10 @@ import { create } from "zustand";
  * which view is on the main surface, whether the panels are hidden to
  * look at the room, the loading line, and the Preview run. Preview walks
  * a fixed path: generating (the line on the toolbar's edge), revealing
- * (the divider sweeps from the right edge to the left, the render filling
+ * (the divider sweeps left to right between the rails, the render filling
  * in behind it), done (the render stands alone), compare (with the panels
- * hidden, the divider sits in the middle and can be dragged: the sketch
- * stays left of it, the render right).
+ * hidden, the divider comes in from the left to the middle and can be
+ * dragged: the sketch is left of it, the render right).
  */
 export type Mode = "edit" | "preview";
 export type Tool = "select" | "wall";
@@ -32,7 +32,7 @@ type StudioState = {
   /** counts each start, so a repeat of the same kind restarts the line */
   loadingAt: number;
   preview: PreviewStatus;
-  /** where the divider stands, 0 (all render) to 100 (all sketch) */
+  /** where the divider stands, as a percent of the stage's width */
   split: number;
   setMode: (mode: Mode) => void;
   setTool: (tool: Tool) => void;
@@ -67,7 +67,7 @@ export const useStudio = create<StudioState>((set, get) => ({
         ? {
             mode,
             preview: "generating",
-            split: 100,
+            split: 0,
             loading: "render",
             loadingAt: s.loadingAt + 1,
           }
@@ -85,13 +85,20 @@ export const useStudio = create<StudioState>((set, get) => ({
     const s = get();
     set(
       s.loading === "render" && s.preview === "generating"
-        ? { loading: null, preview: "revealing", split: 0 }
+        ? { loading: null, preview: "revealing", split: 100 }
         : { loading: null },
     );
   },
   revealed: () => {
     if (get().preview === "revealing") set({ preview: "done" });
   },
-  compare: () => set({ preview: "compare", split: 50 }),
+  compare: () => {
+    // the render is already everywhere: the sketch slides in from the
+    // left once that frame has painted
+    set({ preview: "compare", split: 0 });
+    window.setTimeout(() => {
+      if (get().preview === "compare") set({ split: 50 });
+    }, 40);
+  },
   setSplit: (split) => set({ split: clamp(split) }),
 }));

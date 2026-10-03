@@ -244,10 +244,17 @@ export function MainShelf() {
     [],
   );
   useLayoutEffect(() => {
-    if (!selected) return;
-    scroller.current
-      ?.querySelector<HTMLElement>(`[data-id="${CSS.escape(selected)}"]`)
-      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    const el = scroller.current;
+    const card = selected
+      ? el?.querySelector<HTMLElement>(`[data-id="${CSS.escape(selected)}"]`)
+      : null;
+    if (!el || !card) return;
+    // after the next layout, so an unfolding shelf has its width back
+    const id = requestAnimationFrame(() => {
+      const left = card.offsetLeft - (el.clientWidth - card.offsetWidth) / 2;
+      el.scrollTo({ left: Math.max(0, left) });
+    });
+    return () => cancelAnimationFrame(id);
   }, [selected, selectedAt, tab, collapsed]);
 
   const shown = tab === "saved" ? items : inCart;

@@ -45,16 +45,18 @@ export function ViewPanel({
 }
 
 /** The stage's placeholder for whichever view it holds: the room's
-    outline on the plan grid, or the room as a box, on the gradient. */
+    sketch between the rails, on the plan grid (which runs under the
+    rails) or on the gradient. */
 export function MainView({ view }: { view: View }) {
   return (
     <div className="shell-main-hint" data-view={view}>
-      {view === "2d" ? (
+      {view === "2d" && (
         <div className="view-plan view-plan-main" aria-hidden="true" />
-      ) : (
-        <div className="preview-room preview-room-sketch" aria-hidden="true" />
       )}
-      <span>{viewName(view)}</span>
+      <div className="stage-room">
+        <div className="preview-room preview-room-sketch" aria-hidden="true" />
+        <span>{viewName(view)}</span>
+      </div>
     </div>
   );
 }
