@@ -1,12 +1,14 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type DragEvent, type ReactNode } from "react";
 import { ChatInput } from "./ChatInput";
 import { HistoryTab } from "./HistoryTab";
 import { PreferenceTab } from "./PreferenceTab";
 import { GuideCard } from "./GuideCard";
 import { MainTopBar } from "./MainOverlays";
 import { PreviewStage } from "./PreviewStage";
+import { carriesProduct, readProductDrag } from "./dnd";
+import { useScene } from "./scene-store";
 import { RadioMenu } from "./RadioMenu";
 import { useDismiss } from "./useDismiss";
 import { UserBar } from "./UserBar";
@@ -58,6 +60,34 @@ export function StudioShell({
   const [project, setProject] = useState<Project>(PROJECTS[0]);
   const [tab, setTab] = useState<EvaTab>("agent");
   const [view, setView] = useState<View>("3d");
+  const [dropping, setDropping] = useState(false);
+  const dragDepth = useRef(0);
+
+  // a product dragged from the + strip or the Products tab lands here
+  const onDragEnter = (e: DragEvent) => {
+    if (!carriesProduct(e)) return;
+    dragDepth.current += 1;
+    setDropping(true);
+  };
+  const onDragLeave = (e: DragEvent) => {
+    if (!carriesProduct(e)) return;
+    dragDepth.current = Math.max(0, dragDepth.current - 1);
+    if (dragDepth.current === 0) setDropping(false);
+  };
+  const onDragOver = (e: DragEvent) => {
+    if (!carriesProduct(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  };
+  const onDrop = (e: DragEvent) => {
+    const p = readProductDrag(e);
+    dragDepth.current = 0;
+    setDropping(false);
+    if (!p) return;
+    e.preventDefault();
+    const { addProduct, select } = useScene.getState();
+    select(addProduct(p));
+  };
 
   const toggleDrawer = (d: Side) => setOpen((cur) => (cur === d ? null : d));
   const collapse = (s: Side, v: boolean) =>
@@ -127,7 +157,15 @@ export function StudioShell({
       </aside>
 
       {/* ---- main ---- */}
-      <main className="shell-main" aria-label="Studio">
+      <main
+        className="shell-main"
+        aria-label="Studio"
+        data-dropping={dropping}
+        onDragEnter={onDragEnter}
+        onDragLeave={onDragLeave}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
+      >
         {topBar ? (
           <MainTopBar leading={restoreLeft} trailing={restoreRight} />
         ) : (
@@ -145,6 +183,11 @@ export function StudioShell({
           </>
         )}
         <MainView view={view} />
+        {dropping && (
+          <div className="shell-drop" aria-hidden="true">
+            <span>Drop to place</span>
+          </div>
+        )}
         <PreviewStage />
         {children}
         <GuideCard />

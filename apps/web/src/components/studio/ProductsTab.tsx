@@ -2,14 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CATEGORY_NAMES, sgd, type AssetCategory } from "./assets-data";
-import { PlusIcon } from "./icons";
 import { products } from "./catalogue";
+import { startProductDrag } from "./dnd";
+import { PlusIcon } from "./icons";
 import { useScene } from "./scene-store";
 
 /**
  * The catalogue as a grid of cards: a picture, the name, the price. One
  * press puts the piece into the room; it appears in the outliner, on the
- * shelf and in the count at once.
+ * shelf and in the count at once. A card can also be dragged onto the
+ * room and dropped where it should stand.
  */
 export function ProductsTab({
   query,
@@ -19,6 +21,7 @@ export function ProductsTab({
   category: AssetCategory | null;
 }) {
   const add = useScene((s) => s.addProduct);
+  const select = useScene((s) => s.select);
   const [justAdded, setJustAdded] = useState<string | null>(null);
   const flash = useRef(0);
   useEffect(() => () => window.clearTimeout(flash.current), []);
@@ -31,7 +34,7 @@ export function ProductsTab({
   const onAdd = (id: string) => {
     const p = products.find((x) => x.id === id);
     if (!p) return;
-    add(p);
+    select(add(p));
     setJustAdded(id);
     window.clearTimeout(flash.current);
     flash.current = window.setTimeout(() => setJustAdded(null), 1200);
@@ -64,6 +67,8 @@ export function ProductsTab({
                 key={p.id}
                 className="product"
                 data-added={justAdded === p.id}
+                draggable
+                onDragStart={(e) => startProductDrag(e, p)}
               >
                 <div className="product-pic" aria-hidden="true" />
                 <div className="product-row">

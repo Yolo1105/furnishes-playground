@@ -654,3 +654,16 @@
 .room-template[aria-checked="true"] .room-template-name {
   color: var(--color-accent);
 }
+
+/* the picked row, the same orange as its card on the shelf */
+.assets-row[aria-selected="true"] {
+  background: rgb(from var(--color-accent) r g b / 0.08);
+}
+.assets-row[aria-selected="true"] .assets-name {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+.assets-row[tabindex]:focus-visible {
+  outline: 2px solid rgb(from var(--color-accent) r g b / 0.5);
+  outline-offset: -2px;
+}

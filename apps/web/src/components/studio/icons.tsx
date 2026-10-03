@@ -389,3 +389,21 @@ export function CompareIcon({ size = 16 }: IconProps) {
     </svg>
   );
 }
+
+export function CartIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <path d="M3 4h2l2.4 11.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.2L21 8H6" />
+      <circle cx="9.5" cy="20" r="1" />
+      <circle cx="17.5" cy="20" r="1" />
+    </svg>
+  );
+}
+
+export function CheckIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size, s20)}>
+      <path d="M5 12.5l4.5 4.5L19 7.5" />
+    </svg>
+  );
+}

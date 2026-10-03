@@ -14,6 +14,7 @@
 export type AssetKind = "piece" | "decor" | "fixed";
 
 export type AssetCategory =
+  | "components"
   | "storage"
   | "seating"
   | "tables"
@@ -22,6 +23,7 @@ export type AssetCategory =
   | "architecture";
 
 export const CATEGORY_NAMES: Record<AssetCategory, string> = {
+  components: "Components",
   storage: "Storage",
   seating: "Seating",
   tables: "Tables",

@@ -9,8 +9,15 @@ export type Product = {
   price: number;
 };
 
-/** Placeholder catalogue until the product pages are wired. */
+/** Placeholder catalogue until the product pages are wired. The parts a
+    piece is built from come first: they are what the + in the toolbar
+    offers to click or drag into the room. */
 export const products: Product[] = [
+  { id: "c-shelf", name: "Shelf", category: "components", price: 45 },
+  { id: "c-divider", name: "Divider", category: "components", price: 38 },
+  { id: "c-back", name: "Back panel", category: "components", price: 60 },
+  { id: "c-drawer", name: "Drawer", category: "components", price: 85 },
+  { id: "c-door", name: "Door", category: "components", price: 70 },
   { id: "p-entry", name: "Entry organiser", category: "storage", price: 180 },
   {
     id: "p-desk",

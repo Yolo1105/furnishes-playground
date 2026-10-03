@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   CATEGORY_NAMES,
   sgd,
@@ -11,7 +11,7 @@ import {
 } from "./assets-data";
 import { ProductsTab } from "./ProductsTab";
 import { RoomTab } from "./RoomTab";
-import { useScene } from "./scene-store";
+import { groupOf, useScene } from "./scene-store";
 import { useDismiss } from "./useDismiss";
 import {
   ChevronRightIcon,
@@ -49,7 +49,52 @@ export function AssetsPanel() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [closed, setClosed] = useState<Record<string, boolean>>({});
   const filterWrap = useRef<HTMLDivElement>(null);
+  const tree = useRef<HTMLDivElement>(null);
+  const selectedId = useScene((s) => s.selectedId);
+  const selectedAt = useScene((s) => s.selectedAt);
+  const select = useScene((s) => s.select);
   const q = query.trim().toLowerCase();
+
+  // a pick on the shelf must be seen here: the Assets tab comes up, the
+  // row's group and parent open, a filter hiding it is let go, and the
+  // row scrolls into view. The filters are read as they are at the pick.
+  const filters = useRef({ category, kind, q });
+  useEffect(() => {
+    filters.current = { category, kind, q };
+  }, [category, kind, q]);
+  useEffect(
+    () =>
+      useScene.subscribe((s, prev) => {
+        if (s.selectedAt === prev.selectedAt || !s.selectedId) return;
+        const id = s.selectedId;
+        const g = groupOf(s.groups, id);
+        const node =
+          g?.items.find((n) => n.id === id) ??
+          g?.items.find((n) => n.children?.some((c) => c.id === id));
+        if (!g || !node) return;
+        setTab("assets");
+        setClosed((c) => ({ ...c, [g.id]: false, [node.id]: false }));
+        const f = filters.current;
+        const hidden =
+          (f.category && f.category !== g.id) ||
+          !keeps(node, f.kind) ||
+          (f.q &&
+            !matches(node, f.q) &&
+            !node.children?.some((c) => matches(c, f.q)));
+        if (hidden) {
+          setQuery("");
+          setCategory(null);
+          setKind("all");
+        }
+      }),
+    [],
+  );
+  useLayoutEffect(() => {
+    if (!selectedId || tab !== "assets") return;
+    tree.current
+      ?.querySelector<HTMLElement>(`[data-id="${CSS.escape(selectedId)}"]`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [selectedId, selectedAt, tab, closed]);
 
   useDismiss(filterWrap, filterOpen, () => setFilterOpen(false));
 
@@ -208,6 +253,7 @@ export function AssetsPanel() {
       {tab === "products" && <ProductsTab query={query} category={category} />}
       {tab === "room" && <RoomTab />}
       <div
+        ref={tree}
         className="assets-tree"
         role="tree"
         aria-label="Assets"
@@ -237,6 +283,8 @@ export function AssetsPanel() {
                   q={q}
                   closed={closed}
                   onToggle={toggle}
+                  selectedId={selectedId}
+                  onSelect={select}
                 />
               ))}
           </div>
@@ -254,6 +302,8 @@ function Node({
   q,
   closed,
   onToggle,
+  selectedId,
+  onSelect,
 }: {
   node: AssetNode;
   depth: number;
@@ -263,6 +313,8 @@ function Node({
   q: string;
   closed: Record<string, boolean>;
   onToggle: (id: string) => void;
+  selectedId: string | null;
+  onSelect: (id: string) => void;
 }) {
   const kids = n.children?.filter((c) => !q || matches(c, q)) ?? [];
   const hasKids = (n.children?.length ?? 0) > 0;
@@ -270,6 +322,7 @@ function Node({
   return (
     <>
       <Row
+        id={n.id}
         depth={depth}
         name={n.name}
         kind={n.kind}
@@ -278,6 +331,8 @@ function Node({
         trail={trail}
         last={last}
         onToggle={hasKids ? () => onToggle(n.id) : undefined}
+        selected={selectedId === n.id}
+        onSelect={() => onSelect(n.id)}
       />
       {hasKids &&
         open &&
@@ -291,6 +346,8 @@ function Node({
             q={q}
             closed={closed}
             onToggle={onToggle}
+            selectedId={selectedId}
+            onSelect={onSelect}
           />
         ))}
     </>
@@ -298,6 +355,7 @@ function Node({
 }
 
 function Row({
+  id,
   depth,
   name,
   kind,
@@ -307,7 +365,10 @@ function Row({
   trail = [],
   last = true,
   onToggle,
+  selected = false,
+  onSelect,
 }: {
+  id?: string;
   depth: number;
   name: string;
   kind: AssetKind | "group";
@@ -317,16 +378,28 @@ function Row({
   trail?: boolean[];
   last?: boolean;
   onToggle?: (() => void) | undefined;
+  selected?: boolean;
+  onSelect?: () => void;
 }) {
   return (
     <div
       className="assets-row"
       role="treeitem"
-      aria-selected={false}
+      aria-selected={selected}
+      aria-label={kind === "group" ? undefined : name}
       data-kind={kind}
       data-leaf={!onToggle}
+      data-id={id}
       aria-expanded={onToggle ? open : undefined}
       style={{ ["--depth" as string]: depth }}
+      tabIndex={onSelect ? 0 : undefined}
+      onClick={onSelect}
+      onKeyDown={(e) => {
+        if (onSelect && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
     >
       {/* the lines back to the parent: one per ancestor level, the own
           level ending in a tick, stopping halfway on the last child */}
@@ -351,7 +424,10 @@ function Row({
         aria-label={onToggle ? (open ? "Collapse" : "Expand") : undefined}
         aria-hidden={!onToggle}
         tabIndex={onToggle ? 0 : -1}
-        onClick={onToggle}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggle?.();
+        }}
         style={{ visibility: onToggle ? "visible" : "hidden" }}
       >
         <ChevronRightIcon open={open} />
@@ -374,6 +450,7 @@ function Row({
           className="assets-eye"
           aria-label={`Hide ${name}`}
           tabIndex={-1}
+          onClick={(e) => e.stopPropagation()}
         >
           <EyeIcon />
         </button>
