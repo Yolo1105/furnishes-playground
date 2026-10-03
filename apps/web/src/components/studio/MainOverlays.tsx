@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { AddStrip } from "./AddStrip";
+import { ProgressLine } from "./ProgressLine";
 import { pieceTotals, sgd, type AssetNode } from "./assets-data";
 import { useGuide } from "./guide-store";
 import {
@@ -25,7 +26,7 @@ import {
   WallIcon,
 } from "./icons";
 import { topLevelOf, useScene, useTopLevel } from "./scene-store";
-import { useStudio } from "./studio-store";
+import { useStudio, type Tool } from "./studio-store";
 import { useDismiss } from "./useDismiss";
 
 /**
@@ -43,10 +44,6 @@ import { useDismiss } from "./useDismiss";
  * restore icon docks into. Preview starts the render run and rests the
  * tools.
  */
-const TOOLS = [
-  ["select", "Select", CursorIcon],
-  ["wall", "Draw wall", WallIcon],
-] as const;
 
 export function MainTopBar({ leading }: { leading?: ReactNode }) {
   const mode = useStudio((s) => s.mode);
@@ -88,17 +85,14 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
           aria-label="Tools"
           data-resting={resting}
         >
-          <button
-            type="button"
-            className="main-icon shell-tip"
-            data-tooltip="Select"
-            aria-label="Select"
-            aria-pressed={tool === "select"}
-            disabled={resting}
-            onClick={() => setTool("select")}
-          >
-            <CursorIcon />
-          </button>
+          <ToolButton
+            id="select"
+            label="Select"
+            icon={<CursorIcon />}
+            tool={tool}
+            resting={resting}
+            onPick={setTool}
+          />
           <div className="main-add">
             <button
               type="button"
@@ -114,20 +108,14 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
               <PlusIcon />
             </button>
           </div>
-          {TOOLS.filter(([id]) => id !== "select").map(([id, label, Icon]) => (
-            <button
-              key={id}
-              type="button"
-              className="main-icon shell-tip"
-              data-tooltip={label}
-              aria-label={label}
-              aria-pressed={tool === id}
-              disabled={resting}
-              onClick={() => setTool(id)}
-            >
-              <Icon />
-            </button>
-          ))}
+          <ToolButton
+            id="wall"
+            label="Draw wall"
+            icon={<WallIcon />}
+            tool={tool}
+            resting={resting}
+            onPick={setTool}
+          />
           <span className="main-sep" aria-hidden="true" />
           <button
             type="button"
@@ -178,6 +166,7 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
             <span>Export</span>
           </button>
         </div>
+        <ProgressLine />
       </div>
       {adding && (
         <div ref={addWrap} className="main-add-strip">
@@ -188,14 +177,45 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
   );
 }
 
+function ToolButton({
+  id,
+  label,
+  icon,
+  tool,
+  resting,
+  onPick,
+}: {
+  id: Tool;
+  label: string;
+  icon: ReactNode;
+  tool: Tool;
+  resting: boolean;
+  onPick: (t: Tool) => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="main-icon shell-tip"
+      data-tooltip={label}
+      aria-label={label}
+      aria-pressed={tool === id}
+      disabled={resting}
+      onClick={() => onPick(id)}
+    >
+      {icon}
+    </button>
+  );
+}
+
 /**
- * The shelf: two tabs along its top. Saved is everything in the room as
- * cards that scroll sideways; a Furnishes piece carries the orange mark
- * and its price and, on hover, a cart button; a room item reads muted and
- * says so. Cart holds the pieces put there, each with a remove on hover.
- * Each tab counts and sums what it holds. The chevron at the right folds
- * the cards away, leaving only that row along the bottom. Picking a card
- * picks the same thing in the outliner, and the other way round.
+ * The shelf: two tabs along its top, the same tabs as the panels have.
+ * Saved is everything in the room as cards that scroll sideways; a
+ * Furnishes piece carries the orange mark and its price and, on hover, a
+ * cart button; a room item reads muted and says so. Cart holds the pieces
+ * put there, each with a remove on hover. Each tab carries its count; the
+ * sum of the open tab reads at the right, before the chevron that folds
+ * the cards away. Picking a card picks the same thing in the outliner,
+ * and the other way round.
  */
 type ShelfTab = "saved" | "cart";
 
@@ -238,38 +258,32 @@ export function MainShelf() {
       data-collapsed={collapsed}
     >
       <div className="main-shelf-head">
-        <div className="main-shelf-tabs" role="tablist" aria-label="Shelf">
-          <button
-            type="button"
-            role="tab"
-            className="main-shelf-tab"
-            aria-selected={tab === "saved"}
-            onClick={() => setTab("saved")}
-          >
-            <span className="assets-dot" aria-hidden="true" />
-            <b>Saved</b>
-            <span className="main-shelf-sum f-num">
-              {t.pieces} · {sgd(t.total)}
-            </span>
-            <span className="main-shelf-more f-num">
-              + {t.others} room items
-            </span>
-          </button>
-          <button
-            type="button"
-            role="tab"
-            className="main-shelf-tab"
-            aria-selected={tab === "cart"}
-            onClick={() => setTab("cart")}
-          >
-            <CartIcon size={14} />
-            <b>Cart</b>
-            <span className="main-shelf-sum f-num">
-              {c.pieces} · {sgd(c.total)}
-            </span>
-          </button>
+        <div className="shell-tabs-inline" role="tablist" aria-label="Shelf">
+          {(
+            [
+              ["saved", "Saved", t.pieces + t.others],
+              ["cart", "Cart", c.pieces],
+            ] as const
+          ).map(([id, label, n]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              className="shell-tabbtn main-shelf-tab"
+              aria-selected={tab === id}
+              onClick={() => setTab(id)}
+            >
+              {label}
+              <span className="main-shelf-n f-num">{n}</span>
+            </button>
+          ))}
         </div>
         <div className="main-shelf-acts">
+          <span className="main-shelf-sum f-num">
+            {tab === "saved"
+              ? `${sgd(t.total)} · ${t.pieces} pieces · ${t.others} room items`
+              : `${sgd(c.total)} · ${c.pieces} ${c.pieces === 1 ? "piece" : "pieces"}`}
+          </span>
           {tab === "cart" && inCart.length > 0 && (
             <button type="button" className="main-btn main-btn-primary">
               <CartIcon size={14} />

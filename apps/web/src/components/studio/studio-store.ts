@@ -4,10 +4,11 @@ import { create } from "zustand";
  * What the toolbar holds and the surfaces follow: the mode, the tool,
  * which view is on the main surface, whether the panels are hidden to
  * look at the room, the loading line, and the Preview run. Preview walks
- * a fixed path: generating (the line under the toolbar), revealing (the
- * divider sweeps the render in over the sketch), done (the render stands
- * alone), compare (with the panels hidden, the divider sits in the middle
- * and can be dragged).
+ * a fixed path: generating (the line on the toolbar's edge), revealing
+ * (the divider sweeps from the right edge to the left, the render filling
+ * in behind it), done (the render stands alone), compare (with the panels
+ * hidden, the divider sits in the middle and can be dragged: the sketch
+ * stays left of it, the render right).
  */
 export type Mode = "edit" | "preview";
 export type Tool = "select" | "wall";
@@ -31,7 +32,7 @@ type StudioState = {
   /** counts each start, so a repeat of the same kind restarts the line */
   loadingAt: number;
   preview: PreviewStatus;
-  /** where the divider stands, 0 (all sketch) to 100 (all render) */
+  /** where the divider stands, 0 (all render) to 100 (all sketch) */
   split: number;
   setMode: (mode: Mode) => void;
   setTool: (tool: Tool) => void;
@@ -66,7 +67,7 @@ export const useStudio = create<StudioState>((set, get) => ({
         ? {
             mode,
             preview: "generating",
-            split: 0,
+            split: 100,
             loading: "render",
             loadingAt: s.loadingAt + 1,
           }
@@ -84,7 +85,7 @@ export const useStudio = create<StudioState>((set, get) => ({
     const s = get();
     set(
       s.loading === "render" && s.preview === "generating"
-        ? { loading: null, preview: "revealing", split: 100 }
+        ? { loading: null, preview: "revealing", split: 0 }
         : { loading: null },
     );
   },

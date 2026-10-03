@@ -8,7 +8,6 @@ import { GuideCard } from "./GuideCard";
 import { MainTopBar } from "./MainOverlays";
 import { PeekBar } from "./PeekBar";
 import { PreviewStage } from "./PreviewStage";
-import { ProgressLine } from "./ProgressLine";
 import { carriesProduct, readProductDrag } from "./dnd";
 import { useScene } from "./scene-store";
 import { other, useStudio } from "./studio-store";
@@ -160,10 +159,7 @@ export function StudioShell({
       {/* ---- main ---- */}
       <main className="shell-main" aria-label="Studio">
         {topBar ? (
-          <>
-            <MainTopBar leading={restoreLeft} />
-            <ProgressLine />
-          </>
+          <MainTopBar leading={restoreLeft} />
         ) : (
           restoreLeft && (
             <div className="glass main-restore main-restore-left">

@@ -50,13 +50,6 @@
 .main-icon:hover {
   background: rgb(from var(--color-ink) r g b / 0.06);
 }
-.main-icon-glyph {
-  width: 16px;
-  height: 16px;
-  border-radius: 3px;
-  border: 1.5px solid rgb(from var(--color-line) r g b / 0.35);
-  background: rgba(255, 255, 255, 0.35);
-}
 
 /* ---- bottom shelf: same width as the main surface, its bottom edge on
    the rails' bottom edge; cards scroll sideways ---- */
@@ -67,8 +60,8 @@
   transition: padding 0.28s var(--ease);
 }
 
-/* the tab at the top-left: what is here and what it comes to; the
-   chevron at the right folds the cards away */
+/* the head: the shelf's tabs at the left, the open tab's sum and the
+   chevron that folds the cards away at the right */
 .main-shelf-head {
   display: flex;
   align-items: center;
@@ -81,22 +74,36 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-width: 0;
-  padding: 0 4px;
-  font-size: 12px;
-  color: rgb(from var(--color-ink) r g b / 0.85);
 }
-.main-shelf-tab b {
+.main-shelf-n {
+  min-width: 18px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  text-align: center;
+  font-size: 10.5px;
   font-weight: 600;
+  background: rgb(from var(--color-ink) r g b / 0.06);
+  color: rgb(from var(--color-ink) r g b / 0.55);
 }
-.main-shelf-sep {
-  color: rgb(from var(--color-ink) r g b / 0.35);
+.main-shelf-tab[aria-selected="true"] .main-shelf-n {
+  background: rgb(from var(--color-accent) r g b / 0.14);
+  color: var(--color-accent);
 }
-.main-shelf-more {
-  margin-left: 6px;
-  font-size: 11px;
-  color: rgb(from var(--color-ink) r g b / 0.45);
+.main-shelf-acts {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.main-shelf-sum {
+  font-size: 11.5px;
+  color: rgb(from var(--color-ink) r g b / 0.5);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.main-shelf-acts .main-btn {
+  height: 28px;
 }
 .main-shelf-toggle {
   width: 28px;
@@ -216,9 +223,6 @@
 }
 
 @media (max-width: 767px) {
-  .main-top-lead {
-    display: none;
-  }
   .main-top {
     height: 40px;
   }
@@ -378,7 +382,7 @@
 
 .main-progress {
   position: absolute;
-  top: 44px;
+  bottom: 0;
   left: 0;
   z-index: 4;
   height: 2px;
@@ -431,7 +435,7 @@
   position: absolute;
   left: 50%;
   top: 50%;
-  width: min(40vw, 560px);
+  width: var(--room-w);
   aspect-ratio: 10 / 7;
   transform: translate(-50%, -50%);
 }
@@ -525,11 +529,11 @@
 .preview[data-status="revealing"] .preview-handle {
   pointer-events: none;
 }
-/* the tags show while comparing, under the room, one each side of the line */
+/* the tags show while comparing, at the top, one each side of the line */
 .preview-tag {
   position: absolute;
-  bottom: 24px;
-  left: calc(50% + 10px);
+  top: 60px;
+  right: calc(50% + 10px);
   padding: 3px 8px;
   border-radius: var(--r-chip);
   background: rgb(from var(--color-glass) r g b / 0.8);
@@ -542,8 +546,8 @@
   transition: opacity 0.2s ease;
 }
 .preview-tag-after {
-  left: auto;
-  right: calc(50% + 10px);
+  right: auto;
+  left: calc(50% + 10px);
   color: var(--color-accent);
 }
 .preview[data-status="compare"] .preview-tag {
@@ -566,6 +570,14 @@
 .guide[data-guide="walls"] {
   left: auto;
   right: 12px;
+  width: min(296px, calc(100% - 24px));
+  padding: 12px 14px 10px;
+}
+.guide[data-guide="walls"] .guide-title {
+  font-size: 14px;
+}
+.guide[data-guide="walls"] .guide-body {
+  font-size: 12px;
 }
 .guide-head {
   display: flex;
@@ -812,54 +824,6 @@
   color: var(--color-accent);
 }
 
-/* ---- shelf tabs: Saved and Cart ---- */
-.main-shelf-tabs {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  min-width: 0;
-}
-.main-shelf-tab[role="tab"] {
-  appearance: none;
-  border: 0;
-  height: 30px;
-  padding: 0 10px;
-  border-radius: var(--r-control);
-  background: transparent;
-  font: inherit;
-  cursor: pointer;
-  color: rgb(from var(--color-ink) r g b / 0.6);
-  white-space: nowrap;
-}
-.main-shelf-tab[role="tab"]:hover {
-  background: rgb(from var(--color-ink) r g b / 0.04);
-}
-.main-shelf-tab[aria-selected="true"] {
-  background: rgb(from var(--color-glass) r g b / 0.95);
-  color: var(--color-ink);
-  box-shadow: 0 1px 2px rgb(from var(--color-shadow) r g b / 0.08);
-}
-.main-shelf-tab svg {
-  color: rgb(from var(--color-ink) r g b / 0.5);
-}
-.main-shelf-tab[aria-selected="true"] svg {
-  color: var(--color-accent);
-}
-.main-shelf-sum {
-  margin-left: 2px;
-  color: rgb(from var(--color-ink) r g b / 0.55);
-}
-.main-shelf-tab[aria-selected="true"] .main-shelf-sum {
-  color: rgb(from var(--color-ink) r g b / 0.75);
-}
-.main-shelf-acts {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.main-shelf-acts .main-btn {
-  height: 28px;
-}
 .main-shelf-empty {
   align-self: center;
   margin: 24px 8px;
@@ -925,7 +889,7 @@
 .shelf-card[data-in-cart="true"] .shelf-card-cart:hover {
   background: rgb(from var(--color-accent) r g b / 0.85);
 }
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .main-shelf-sum {
     display: none;
   }

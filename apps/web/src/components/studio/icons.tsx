@@ -33,16 +33,6 @@ export function PanelLeftIcon({ size = 16 }: IconProps) {
   );
 }
 
-/** a panel with its right column marked: collapse / expand the right rail */
-export function PanelRightIcon({ size = 16 }: IconProps) {
-  return (
-    <svg {...svg(size)}>
-      <rect x="3" y="4" width="18" height="16" rx="3" />
-      <path d="M15 4v16" />
-    </svg>
-  );
-}
-
 export function ChevronDownIcon({
   size = 12,
   rotated = false,
@@ -122,16 +112,6 @@ export function HelpIcon({ size = 16 }: IconProps) {
       <circle cx="12" cy="12" r="9" />
       <path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7" />
       <path d="M12 17h.01" />
-    </svg>
-  );
-}
-
-export function MoreIcon({ size = 16 }: IconProps) {
-  return (
-    <svg {...svg(size)}>
-      <circle cx="5" cy="12" r="1.2" fill="currentColor" />
-      <circle cx="12" cy="12" r="1.2" fill="currentColor" />
-      <circle cx="19" cy="12" r="1.2" fill="currentColor" />
     </svg>
   );
 }
@@ -287,43 +267,11 @@ export function CursorIcon({ size = 16 }: IconProps) {
     </svg>
   );
 }
-export function MoveIcon({ size = 16 }: IconProps) {
-  return (
-    <svg {...svg(size)}>
-      <path d="M12 2v20M2 12h20" />
-      <path d="m9 5 3-3 3 3M9 19l3 3 3-3M5 9l-3 3 3 3M19 9l3 3-3 3" />
-    </svg>
-  );
-}
-export function RotateIcon({ size = 16 }: IconProps) {
-  return (
-    <svg {...svg(size)}>
-      <path d="M20 12a8 8 0 1 1-2.5-5.8" />
-      <path d="M20 4v5h-5" />
-    </svg>
-  );
-}
-export function RulerIcon({ size = 16 }: IconProps) {
-  return (
-    <svg {...svg(size)}>
-      <rect x="2" y="8" width="20" height="8" rx="1.5" />
-      <path d="M6 8v3M10 8v4M14 8v3M18 8v4" />
-    </svg>
-  );
-}
 export function WallIcon({ size = 16 }: IconProps) {
   return (
     <svg {...svg(size)}>
       <path d="M3 5h18v14H3z" />
       <path d="M3 10h18M3 15h18M9 5v5M15 10v5M9 15v4" />
-    </svg>
-  );
-}
-export function NoteIcon({ size = 16 }: IconProps) {
-  return (
-    <svg {...svg(size)}>
-      <path d="M21 12a8 8 0 0 1-8 8H8l-5 3 1.5-4.5A8 8 0 1 1 21 12z" />
-      <path d="M8 11h8M8 14h5" />
     </svg>
   );
 }
@@ -340,16 +288,6 @@ export function RedoIcon({ size = 16 }: IconProps) {
     <svg {...svg(size)}>
       <path d="m15 14 5-5-5-5" />
       <path d="M20 9H9a5 5 0 0 0 0 10h3" />
-    </svg>
-  );
-}
-export function ShareIcon({ size = 16 }: IconProps) {
-  return (
-    <svg {...svg(size)}>
-      <circle cx="18" cy="5" r="2.5" />
-      <circle cx="6" cy="12" r="2.5" />
-      <circle cx="18" cy="19" r="2.5" />
-      <path d="m8.2 10.8 7.6-4.6M8.2 13.2l7.6 4.6" />
     </svg>
   );
 }

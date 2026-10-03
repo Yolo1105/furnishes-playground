@@ -38,7 +38,12 @@ Notes:
 ## Status
 
 UI shell only, no scene and no AI yet. `/` is the square-cornered studio
-and `/rounded` the floating one: a project rail with an outliner and a
-catalogue tab, the main surface with a toolbar and a shelf of pieces, and a
-right rail with the other view (2D or 3D) over Eva's panel. Data behind the
-panels is placeholder, held in a small Zustand store.
+and `/rounded` the floating one. The room is a full-screen stage behind
+three panels: a project rail with Assets (an outliner), Products (the
+catalogue) and Room (HDB presets, drawn walls or a template); the main
+column with a toolbar (Edit/Preview, Select, Add, Wall, an eye that hides
+every panel, undo, redo, Guide, Export) and a shelf with Saved and Cart;
+a right rail with the other view (2D or 3D) over Eva's Agent, History and
+Preference tabs. Preview runs a stand-in render with a before/after
+divider. Data behind the panels is placeholder, held in small Zustand
+stores; guide dismissals live in the browser.

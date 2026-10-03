@@ -13,14 +13,19 @@ import { useScene } from "./scene-store";
  * by name. A tile goes into the room on a click, or can be dragged onto
  * the surface and dropped where it should stand.
  */
-const CHIPS = ["all", ...(Object.keys(CATEGORY_NAMES) as AssetCategory[])]
-  .filter((c) => c !== "architecture")
-  .filter((c) => c === "all" || products.some((p) => p.category === c));
+type Chip = "all" | AssetCategory;
+/** every category with something to add, and All first */
+const CHIPS: Chip[] = [
+  "all",
+  ...(Object.keys(CATEGORY_NAMES) as AssetCategory[]).filter((c) =>
+    products.some((p) => p.category === c),
+  ),
+];
 
 export function AddStrip({ onAdded }: { onAdded: (id: string) => void }) {
   const add = useScene((s) => s.addProduct);
   const select = useScene((s) => s.select);
-  const [category, setCategory] = useState<"all" | AssetCategory>("all");
+  const [category, setCategory] = useState<Chip>("all");
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
   const shown = useMemo(
@@ -50,9 +55,9 @@ export function AddStrip({ onAdded }: { onAdded: (id: string) => void }) {
               type="button"
               className="assets-chip"
               aria-pressed={category === c}
-              onClick={() => setCategory(c as "all" | AssetCategory)}
+              onClick={() => setCategory(c)}
             >
-              {c === "all" ? "All" : CATEGORY_NAMES[c as AssetCategory]}
+              {c === "all" ? "All" : CATEGORY_NAMES[c]}
             </button>
           ))}
         </div>

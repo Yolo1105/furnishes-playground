@@ -48,12 +48,22 @@ test("background paints the playground palette", async ({ page }) => {
       .getPropertyValue("--color-accent")
       .trim(),
   );
-  expect(accent).toBe("#ff5a1f");
+  // the token is written in oklch and may be served as lab; what matters
+  // is the orange it paints, read back through a canvas as sRGB
+  expect(accent).toMatch(/^(oklch|lab)\(/);
   const painted = await page
     .locator(".assets-mark[data-kind='piece']")
     .first()
-    .evaluate((el) => getComputedStyle(el).color);
-  expect(painted).toBe("rgb(255, 90, 31)");
+    .evaluate((el) => {
+      const ctx = document.createElement("canvas").getContext("2d")!;
+      ctx.fillStyle = getComputedStyle(el).color;
+      ctx.fillRect(0, 0, 1, 1);
+      return Array.from(ctx.getImageData(0, 0, 1, 1).data.slice(0, 3));
+    });
+  const [r, g, b] = painted;
+  expect(Math.abs(r! - 237)).toBeLessThan(4);
+  expect(Math.abs(g! - 92)).toBeLessThan(4);
+  expect(b!).toBeLessThan(8);
 });
 
 for (const [path, corners] of [
@@ -261,11 +271,12 @@ test("the shelf's tab counts the pieces and folds the cards away", async ({
   await page.goto("/rounded");
   const shelf = page.locator(".main-shelf");
   const saved = shelf.getByRole("tab", { name: /Saved/ });
-  await expect(saved).toContainText(`${totals.pieces} · ${sgd(totals.total)}`);
-  await expect(saved).toContainText(`+ ${totals.others} room items`);
-  await expect(shelf.getByRole("tab", { name: /Cart/ })).toContainText(
-    `0 · ${sgd(0)}`,
+  const sum = shelf.locator(".main-shelf-sum");
+  await expect(saved).toHaveText(`Saved${totals.pieces + totals.others}`);
+  await expect(sum).toHaveText(
+    `${sgd(totals.total)} · ${totals.pieces} pieces · ${totals.others} room items`,
   );
+  await expect(shelf.getByRole("tab", { name: /Cart/ })).toHaveText("Cart0");
   const tall = (await shelf.boundingBox())!.height;
   await page.getByRole("button", { name: "Hide pieces" }).click();
   await expect(shelf).toHaveAttribute("data-collapsed", "true");
@@ -333,8 +344,11 @@ test("the outliner draws hierarchy lines and the Products tab adds to the room",
     .getByRole("button", { name: "Add Coat stand to the room" })
     .click();
   await page.getByRole("tab", { name: "Assets" }).click();
-  await expect(page.getByRole("tab", { name: /Saved/ })).toContainText(
-    `${totals.pieces + 1} · ${sgd(totals.total + coat.price)}`,
+  await expect(page.getByRole("tab", { name: /Saved/ })).toHaveText(
+    `Saved${totals.pieces + totals.others + 1}`,
+  );
+  await expect(page.locator(".main-shelf-sum")).toContainText(
+    `${sgd(totals.total + coat.price)} · ${totals.pieces + 1} pieces`,
   );
   await page.getByRole("searchbox", { name: "Search assets" }).fill("coat");
   await expect(
@@ -503,14 +517,19 @@ test("Preview runs a line along the top, sweeps the render in, then compares on 
   await page.goto("/rounded");
   // the run's lengths are tokens; the test shortens them
   await page.addStyleTag({
-    content: ":root{--preview-generate:.3s;--preview-reveal:.3s}",
+    content: ":root{--preview-generate:1.2s;--preview-reveal:.3s}",
   });
   const bar = page.getByRole("toolbar", { name: "Studio tools" });
   await bar.getByRole("button", { name: "Preview" }).click();
   const line = page.getByRole("progressbar", { name: "Rendering preview" });
-  await expect(line).toBeVisible();
+  await expect(line).toBeAttached();
+  await expect
+    .poll(async () => (await line.boundingBox())?.width ?? 0)
+    .toBeGreaterThan(0);
+  // the line is the toolbar's own bottom edge
   const [lb, bb] = await Promise.all([line.boundingBox(), bar.boundingBox()]);
-  expect(lb!.y).toBeGreaterThanOrEqual(bb!.y + bb!.height - 2);
+  expect(Math.abs(lb!.y + lb!.height - (bb!.y + bb!.height))).toBeLessThan(2);
+  expect(lb!.x).toBeGreaterThanOrEqual(bb!.x);
   await expect(bar.getByRole("button", { name: "Select" })).toBeDisabled();
   await expect(page.locator(".preview")).toHaveAttribute(
     "data-status",
@@ -525,8 +544,9 @@ test("Preview runs a line along the top, sweeps the render in, then compares on 
     "background-color",
     "rgba(0, 0, 0, 0)",
   );
+  // the sweep ends at the left edge: all render, the sketch gone
   const handle = page.getByRole("slider", { name: "Before and after" });
-  await expect(handle).toHaveAttribute("aria-valuenow", "100");
+  await expect(handle).toHaveAttribute("aria-valuenow", "0");
   // comparing is for looking: it comes with the panels hidden
   const compare = page.getByRole("button", {
     name: "Compare before and after",
@@ -540,6 +560,15 @@ test("Preview runs a line along the top, sweeps the render in, then compares on 
     "compare",
   );
   await expect(handle).toHaveAttribute("aria-valuenow", "50");
+  // Before left of the line, Rendered right of it, both at the top
+  const [before, after] = await Promise.all([
+    page.locator(".preview-tag", { hasText: "Before" }).boundingBox(),
+    page.locator(".preview-tag", { hasText: "Rendered" }).boundingBox(),
+  ]);
+  expect(before!.x + before!.width).toBeLessThan(720);
+  expect(after!.x).toBeGreaterThan(720);
+  expect(before!.y).toBeLessThan(120);
+  expect(after!.y).toBeLessThan(120);
   await handle.focus();
   await page.keyboard.press("ArrowRight");
   await expect(handle).toHaveAttribute("aria-valuenow", "52");
@@ -674,7 +703,8 @@ test("the + opens the strip of parts; a click adds, a drag places", async ({
   const shelfTile = strip.getByRole("button", { name: /^Add Shelf,/ });
   await shelfTile.click();
   await expect(strip).toHaveCount(0);
-  await expect(saved).toContainText(`${totals.pieces + 1} ·`);
+  const n = totals.pieces + totals.others;
+  await expect(saved).toHaveText(`Saved${n + 1}`);
   await expect(
     page.getByRole("treeitem", { name: "Shelf", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
@@ -685,7 +715,7 @@ test("the + opens the strip of parts; a click adds, a drag places", async ({
     .dragTo(page.locator(".shell-stage"), {
       targetPosition: { x: 420, y: 560 },
     });
-  await expect(saved).toContainText(`${totals.pieces + 2} ·`);
+  await expect(saved).toHaveText(`Saved${n + 2}`);
   await expect(
     page.getByRole("treeitem", { name: "Divider", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
@@ -697,7 +727,7 @@ test("the + opens the strip of parts; a click adds, a drag places", async ({
     .dragTo(page.locator(".shell-stage"), {
       targetPosition: { x: 420, y: 560 },
     });
-  await expect(saved).toContainText(`${totals.pieces + 3} ·`);
+  await expect(saved).toHaveText(`Saved${n + 3}`);
 });
 
 test("the shelf's Saved cards go to the Cart from a hover button", async ({
@@ -718,13 +748,16 @@ test("the shelf's Saved cards go to the Cart from a hover button", async ({
   await expect(button).toHaveCSS("opacity", "1");
   await button.click();
   await expect(card).toHaveAttribute("data-in-cart", "true");
-  await expect(cart).toContainText(`1 · ${sgd(piece.price!)}`);
+  await expect(cart).toHaveText("Cart1");
   await expect(
     shelf
       .locator(`[data-id="${room.id}"]`)
       .getByRole("button", { name: /cart/ }),
   ).toHaveCount(0);
   await cart.click();
+  await expect(shelf.locator(".main-shelf-sum")).toHaveText(
+    `${sgd(piece.price!)} · 1 piece`,
+  );
   await expect(shelf.locator(".shelf-card")).toHaveCount(1);
   await expect(shelf.getByRole("button", { name: "Checkout" })).toBeVisible();
   await shelf
@@ -732,7 +765,7 @@ test("the shelf's Saved cards go to the Cart from a hover button", async ({
     .click();
   await expect(shelf.locator(".shelf-card")).toHaveCount(0);
   await expect(shelf.locator(".main-shelf-empty")).toBeVisible();
-  await expect(cart).toContainText(`0 · ${sgd(0)}`);
+  await expect(cart).toHaveText("Cart0");
 });
 
 test("a view swap runs the quick line; the Agent tab hands prompts to the input", async ({

@@ -42,9 +42,6 @@
 .shell[data-left="collapsed"] {
   --shell-left-col: 0px;
 }
-.shell[data-right="collapsed"] {
-  --shell-right-col: 0px;
-}
 
 /* ---- panels ---- */
 .shell-panel {
@@ -83,10 +80,6 @@
 .shell[data-left="collapsed"] .shell-rail-left {
   transform: translateX(calc(-100% - var(--shell-gap)));
   margin-right: 0;
-}
-.shell[data-right="collapsed"] .shell-rail-right {
-  transform: translateX(calc(100% + var(--shell-gap)));
-  margin-left: 0;
 }
 
 /* the content keeps the rail's width while the column animates shut */
@@ -675,6 +668,8 @@
 
 /* ---- the stage: the room behind the panels, full screen ---- */
 .shell-stage {
+  /* the room's footprint on the stage, shared by the view and the render */
+  --room-w: min(40vw, 560px);
   position: absolute;
   inset: 0;
   z-index: 0;
@@ -703,7 +698,7 @@
 .shell-main-hint > span {
   position: absolute;
   left: 50%;
-  top: calc(50% + min(14vw, 196px) + 14px);
+  top: calc(50% + var(--room-w) * 0.35 + 14px);
   transform: translateX(-50%);
 }
 .shell-stage:has(.preview) .shell-main-hint {
@@ -783,10 +778,6 @@
     grid-template-columns: var(--shell-left-col) minmax(0, 1fr);
     grid-template-areas: "left main";
   }
-  .shell[data-right="collapsed"] .shell-rail-right {
-    margin-left: 0;
-  }
-  .shell-rail-right .shell-collapse,
   .shell-rail-right {
     position: fixed;
     z-index: 2;

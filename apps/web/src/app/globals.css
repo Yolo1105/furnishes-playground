@@ -11,7 +11,9 @@
 @theme static {
   --color-cream: #fff4ec;
   --color-paper: #fff4e3;
-  --color-accent: #ff5a1f;
+  /* the brand orange, as the production studio sets it: a true orange,
+     not the archive's red-leaning #ff5a1f */
+  --color-accent: oklch(0.655 0.196 43);
   --color-ink: #1a1a1a;
   /* brown hairlines and warm shadows, used through alpha */
   --color-line: #7c5032;
