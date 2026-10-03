@@ -11,6 +11,7 @@ import { AddStrip } from "./AddStrip";
 import { ProgressLine } from "./ProgressLine";
 import { ViewPicker } from "./ViewPicker";
 import { pieceTotals, sgd, type AssetNode } from "./assets-data";
+import { useEva } from "./eva-store";
 import { useGuide } from "./guide-store";
 import {
   CartIcon,
@@ -20,6 +21,7 @@ import {
   CursorIcon,
   ExportIcon,
   EyeIcon,
+  GearIcon,
   HelpIcon,
   InspectIcon,
   PlusIcon,
@@ -55,6 +57,12 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
   const [adding, setAdding] = useState(false);
   const addWrap = useRef<HTMLDivElement>(null);
   useDismiss(addWrap, adding, () => setAdding(false));
+  const exploration = useEva((s) => s.exploration);
+  const setExploration = useEva((s) => s.setExploration);
+  const [prefsOpen, setPrefsOpen] = useState(false);
+  const prefsWrap = useRef<HTMLDivElement>(null);
+  useDismiss(prefsWrap, prefsOpen, () => setPrefsOpen(false));
+  const { setEvaTab } = useStudio.getState();
   const resting = mode === "preview";
   return (
     <>
@@ -158,6 +166,48 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
             </button>
           </div>
           <span className="main-sep" aria-hidden="true" />
+          <div ref={prefsWrap} className="main-prefs">
+            <button
+              type="button"
+              className="main-icon shell-tip"
+              data-tooltip="Eva's preferences"
+              aria-label="Eva's preferences"
+              aria-haspopup="menu"
+              aria-expanded={prefsOpen}
+              onClick={() => setPrefsOpen((v) => !v)}
+            >
+              <GearIcon />
+            </button>
+            {prefsOpen && (
+              <div className="shell-menu main-prefs-menu" role="menu">
+                <button
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={exploration}
+                  className="shell-menu-row"
+                  onClick={() => setExploration(!exploration)}
+                >
+                  <span className="main-prefs-check" aria-hidden="true" />
+                  Exploration
+                  <span className="main-prefs-sub">
+                    {exploration ? "on" : "off"}
+                  </span>
+                </button>
+                <div className="shell-menu-sep" role="separator" />
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="shell-menu-row"
+                  onClick={() => {
+                    setEvaTab("preference");
+                    setPrefsOpen(false);
+                  }}
+                >
+                  Set preferences by hand
+                </button>
+              </div>
+            )}
+          </div>
           <button
             type="button"
             className="main-icon shell-tip"

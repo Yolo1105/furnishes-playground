@@ -76,9 +76,48 @@
 .shell-rail > .shell-panel {
   flex: 1 1 0;
 }
-/* the right rail: the other view takes a third, Eva the rest */
+/* the right rail: the other view takes a third, or less when dragged
+   down; Eva takes the rest */
+.shell-rail-right > .shell-panel-view {
+  flex: 0 0 var(--view-h, calc((100% - var(--shell-gap)) / 3));
+  min-height: 44px;
+  overflow: hidden;
+}
 .shell-rail-right > .shell-panel-eva {
-  flex: 2 1 0;
+  flex: 1 1 0;
+}
+/* the handle sits in the gap between the two */
+.shell-resize {
+  flex: 0 0 var(--shell-gap);
+  margin: calc(-1 * var(--shell-gap)) 0;
+  position: relative;
+  z-index: 2;
+  cursor: row-resize;
+  touch-action: none;
+}
+.shell-resize::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 36px;
+  height: 3px;
+  border-radius: 2px;
+  translate: -50% -50%;
+  background: rgb(from var(--color-line) r g b / 0.35);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.shell-resize:hover::after,
+.shell-resize:focus-visible::after {
+  opacity: 1;
+}
+.shell-resize:focus-visible {
+  outline: none;
+}
+.shell[data-corners="square"] .shell-resize {
+  flex-basis: 8px;
+  margin: -4px 0;
 }
 .shell[data-left="collapsed"] .shell-rail-left {
   transform: translateX(calc(-100% - var(--shell-gap)));

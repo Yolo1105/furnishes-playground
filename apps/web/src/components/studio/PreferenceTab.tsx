@@ -11,18 +11,22 @@ import {
   type PreferenceCategory,
 } from "./eva-data";
 import { useEva } from "./eva-store";
+import { CompassIcon } from "./icons";
 
 /**
  * The five preference blocks of the playground's design, as controls:
  * pick the room, slide the budget, choose styles, colours and what the
  * room needs. A block Eva filled from the chat says so ("Chat"); one you
- * set says "You". Eva reads these on every turn.
+ * set says "You". Eva reads these on every turn, unless Exploration is
+ * on: then she sets them aside and stays open to anything.
  */
 export function PreferenceTab() {
   const prefs = useEva((s) => s.preferences);
   const toggle = useEva((s) => s.toggleValue);
   const setBudget = useEva((s) => s.setBudget);
   const clear = useEva((s) => s.clearPreference);
+  const exploration = useEva((s) => s.exploration);
+  const setExploration = useEva((s) => s.setExploration);
 
   const chips = (
     cat: PreferenceCategory,
@@ -49,7 +53,30 @@ export function PreferenceTab() {
   };
 
   return (
-    <div className="eva-prefs">
+    <div className="eva-prefs" data-exploring={exploration}>
+      <div className="eva-explore">
+        <span className="eva-explore-icon" aria-hidden="true">
+          <CompassIcon size={16} />
+        </span>
+        <span className="eva-explore-text">
+          <b>Exploration</b>
+          <span>
+            {exploration
+              ? "On: Eva sets these aside and stays open to anything."
+              : "Off: Eva keeps to what is set here."}
+          </span>
+        </span>
+        <button
+          type="button"
+          role="switch"
+          className="eva-switch"
+          aria-checked={exploration}
+          aria-label="Exploration"
+          onClick={() => setExploration(!exploration)}
+        >
+          <span className="eva-switch-knob" aria-hidden="true" />
+        </button>
+      </div>
       {PREFERENCE_BLOCKS.map((b) => {
         const p = prefs[b.id];
         const set = p !== undefined;

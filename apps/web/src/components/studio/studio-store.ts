@@ -17,6 +17,8 @@ export type Mode = "edit" | "preview";
 export type Tool = "select" | "inspect" | "wall";
 /** the project panel's tabs */
 export type PanelTab = "assets" | "products" | "room" | "detail";
+/** Eva's tabs */
+export type EvaTab = "agent" | "history" | "preference";
 export type View = "3d" | "2d";
 export type PreviewStatus =
   | "idle"
@@ -49,6 +51,7 @@ type StudioState = {
   /** a piece shown on its own, on a blank ground */
   focusId: string | null;
   panelTab: PanelTab;
+  evaTab: EvaTab;
   loading: Loading;
   /** counts each start, so a repeat of the same kind restarts the line */
   loadingAt: number;
@@ -62,6 +65,7 @@ type StudioState = {
   setUiHidden: (hidden: boolean, at?: { top: number; left: number }) => void;
   setFocus: (id: string | null) => void;
   setPanelTab: (tab: PanelTab) => void;
+  setEvaTab: (tab: EvaTab) => void;
   /** the line reached the end */
   endLoading: () => void;
   /** the sweep reached the end */
@@ -85,6 +89,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   peekAt: null,
   focusId: null,
   panelTab: "assets",
+  evaTab: "agent",
   loading: null,
   loadingAt: 0,
   preview: "idle",
@@ -118,6 +123,7 @@ export const useStudio = create<StudioState>((set, get) => ({
     set({ uiHidden, peekAt: uiHidden ? (at ?? null) : null }),
   setFocus: (focusId) => set({ focusId }),
   setPanelTab: (panelTab) => set({ panelTab }),
+  setEvaTab: (evaTab) => set({ evaTab }),
   endLoading: () => {
     const s = get();
     set(

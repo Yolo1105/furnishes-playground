@@ -443,6 +443,64 @@ test("Eva's Preference blocks take a room, a budget, styles and colours", async 
   );
   await blocks.nth(0).getByRole("button", { name: "Remove" }).click();
   await expect(blocks.nth(0)).toHaveAttribute("data-set", "false");
+  // exploration: the preferences stand aside; Eva says so; the toolbar's
+  // gear holds the same switch and the way here
+  const explore = page.getByRole("switch", { name: "Exploration" });
+  await expect(explore).toHaveAttribute("aria-checked", "false");
+  await explore.click();
+  await expect(page.locator(".eva-prefs")).toHaveAttribute(
+    "data-exploring",
+    "true",
+  );
+  await expect(blocks.nth(0)).toHaveCSS("pointer-events", "none");
+  await page.getByRole("tab", { name: "Agent" }).click();
+  await expect(page.locator(".agent-exploring")).toBeVisible();
+  await page.getByRole("button", { name: "Eva's preferences" }).click();
+  const check = page.getByRole("menuitemcheckbox", { name: /Exploration/ });
+  await expect(check).toHaveAttribute("aria-checked", "true");
+  await check.click();
+  await expect(check).toHaveAttribute("aria-checked", "false");
+  await page.getByRole("menuitem", { name: "Set preferences by hand" }).click();
+  await expect(page.getByRole("tab", { name: "Preference" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(explore).toHaveAttribute("aria-checked", "false");
+});
+
+test("the view panel drags down to give Eva more, and no higher than its third", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  const view = page.locator(".shell-panel-view");
+  const eva = page.locator(".shell-panel-eva");
+  const handle = page.getByRole("separator", { name: "Resize the view panel" });
+  const v0 = (await view.boundingBox())!;
+  const e0 = (await eva.boundingBox())!;
+  const hb = (await handle.boundingBox())!;
+  const y = hb.y + hb.height / 2;
+  await page.mouse.move(hb.x + hb.width / 2, y);
+  await page.mouse.down();
+  await page.mouse.move(hb.x + hb.width / 2, y - 120, { steps: 6 });
+  await page.mouse.up();
+  const v1 = (await view.boundingBox())!;
+  const e1 = (await eva.boundingBox())!;
+  expect(v1.height).toBeLessThan(v0.height - 100);
+  expect(e1.height).toBeGreaterThan(e0.height + 100);
+  // dragging back down stops at the third it started with
+  const hb1 = (await handle.boundingBox())!;
+  await page.mouse.move(hb1.x + hb1.width / 2, hb1.y + hb1.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(hb1.x + hb1.width / 2, hb1.y + 400, { steps: 6 });
+  await page.mouse.up();
+  const v2 = (await view.boundingBox())!;
+  expect(Math.abs(v2.height - v0.height)).toBeLessThan(2);
+  // the keyboard does the same
+  await handle.focus();
+  await page.keyboard.press("ArrowUp");
+  const v3 = (await view.boundingBox())!;
+  expect(v3.height).toBeLessThan(v0.height - 20);
 });
 
 test("the toolbar reads mode · select, add, wall · undo, guide, export", async ({

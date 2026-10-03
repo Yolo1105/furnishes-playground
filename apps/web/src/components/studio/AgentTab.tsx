@@ -28,6 +28,7 @@ export function AgentTab() {
   const items = useTopLevel();
   const labels = useScene((s) => s.labels);
   const setDraft = useEva((s) => s.setDraft);
+  const exploration = useEva((s) => s.exploration);
   const t = pieceTotals(items);
   const labelled = labels
     .map((id) => items.find((n) => n.id === id))
@@ -44,6 +45,11 @@ export function AgentTab() {
           room is used and I&apos;ll lay it out, price it and keep to what fits.
         </p>
       </div>
+      {exploration && (
+        <p className="agent-exploring">
+          Exploration is on: your preferences are set aside for now.
+        </p>
+      )}
       <dl className="agent-context" aria-label="What Eva has read">
         <div>
           <dt>Room</dt>

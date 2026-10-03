@@ -17,6 +17,9 @@ type EvaState = {
   conversations: Conversation[];
   /** text a prompt chip hands to the input box */
   draft: string;
+  /** exploration: Eva sets the preferences aside and stays open to
+      anything, instead of narrowing to what they say */
+  exploration: boolean;
   activeId: string | null;
   preferences: Partial<Record<PreferenceCategory, PreferenceValue>>;
   selectConversation: (id: string) => void;
@@ -27,6 +30,7 @@ type EvaState = {
   setBudget: (from: number, to: number) => void;
   clearPreference: (cat: PreferenceCategory) => void;
   setDraft: (draft: string) => void;
+  setExploration: (on: boolean) => void;
 };
 
 /** Eva's own state: the conversations and the confirmed preferences. The
@@ -34,12 +38,14 @@ type EvaState = {
 export const useEva = create<EvaState>((set) => ({
   conversations: seed,
   draft: "",
+  exploration: false,
   activeId: seed[0]?.id ?? null,
   preferences: {
     room: { values: ["Living room"], origin: "chat" },
     style: { values: ["Japandi", "Minimalist"], origin: "chat" },
   },
   setDraft: (draft) => set({ draft }),
+  setExploration: (exploration) => set({ exploration }),
   selectConversation: (id) => set({ activeId: id }),
   deleteConversation: (id) =>
     set((s) => ({

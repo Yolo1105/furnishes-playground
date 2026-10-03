@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, type DragEvent, type ReactNode } from "react";
+import type React from "react";
 import { ChatInput } from "./ChatInput";
 import { HistoryTab } from "./HistoryTab";
 import { PreferenceTab } from "./PreferenceTab";
@@ -21,11 +22,12 @@ export type ShellCorners = "square" | "rounded";
 
 type Drawer = "left" | "right" | null;
 
+/** the view panel can be dragged down to this: its head alone */
+const VIEW_MIN = 44;
+
 /** Placeholder projects until the project store exists. */
 const PROJECTS = ["Project 0", "Project 1", "Project 2"] as const;
 type Project = (typeof PROJECTS)[number];
-
-export type EvaTab = "agent" | "history" | "preference";
 
 /**
  * The studio's three panes on one fixed viewport: a left rail (the project),
@@ -53,7 +55,42 @@ export function StudioShell({
   const [open, setOpen] = useState<Drawer>(null);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [project, setProject] = useState<Project>(PROJECTS[0]);
-  const [tab, setTab] = useState<EvaTab>("agent");
+  const tab = useStudio((s) => s.evaTab);
+  const setTab = useStudio((s) => s.setEvaTab);
+  // the view panel's height, dragged; null is the default third, which
+  // is also the most it can be
+  const [viewH, setViewH] = useState<number | null>(null);
+  const rail = useRef<HTMLElement>(null);
+  const viewPanel = useRef<HTMLElement>(null);
+  const resizeFrom = useRef<{ y: number; h: number; max: number } | null>(null);
+  const viewMax = () => {
+    const r = rail.current;
+    if (!r) return 0;
+    const gap = parseFloat(getComputedStyle(r).gap) || 0;
+    return (r.clientHeight - gap) / 3;
+  };
+  const clampView = (h: number, max: number) =>
+    Math.round(Math.min(max, Math.max(VIEW_MIN, h)));
+  const onResizeDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    const h = viewPanel.current?.offsetHeight ?? 0;
+    resizeFrom.current = { y: e.clientY, h, max: viewMax() };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onResizeMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const f = resizeFrom.current;
+    if (!f) return;
+    setViewH(clampView(f.h + (e.clientY - f.y), f.max));
+  };
+  const onResizeUp = () => {
+    resizeFrom.current = null;
+  };
+  const onResizeKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const step = e.key === "ArrowUp" ? -24 : e.key === "ArrowDown" ? 24 : 0;
+    if (!step) return;
+    e.preventDefault();
+    const h = viewPanel.current?.offsetHeight ?? 0;
+    setViewH(clampView(h + step, viewMax()));
+  };
   const view = useStudio((s) => s.view);
   const uiHidden = useStudio((s) => s.uiHidden);
   const focusId = useStudio((s) => s.focusId);
@@ -179,13 +216,35 @@ export function StudioShell({
       </main>
 
       {/* ---- right: Eva ---- */}
-      <aside className="shell-rail shell-rail-right" aria-label="Eva and views">
+      <aside
+        ref={rail}
+        className="shell-rail shell-rail-right"
+        aria-label="Eva and views"
+        style={
+          viewH !== null ? { ["--view-h" as string]: `${viewH}px` } : undefined
+        }
+      >
         <section
+          ref={viewPanel}
           className="glass shell-panel shell-panel-view"
           aria-label="Other view"
         >
           <ViewPanel main={view} onSwap={() => setView(other(view))} />
         </section>
+        {/* drag down to give the view less and Eva more; up to the third */}
+        <div
+          className="shell-resize"
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="Resize the view panel"
+          aria-valuenow={viewH ?? undefined}
+          tabIndex={0}
+          onPointerDown={onResizeDown}
+          onPointerMove={onResizeMove}
+          onPointerUp={onResizeUp}
+          onPointerCancel={onResizeUp}
+          onKeyDown={onResizeKey}
+        />
         <section
           className="glass shell-panel shell-panel-inner shell-panel-eva"
           aria-label="EVA Chatbot"

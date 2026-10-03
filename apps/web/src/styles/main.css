@@ -247,6 +247,32 @@
   align-items: center;
   gap: 2px;
 }
+/* Eva's preferences from the toolbar: exploration on or off, and the
+   way to set them by hand */
+.main-prefs {
+  position: relative;
+}
+.main-prefs-menu {
+  left: auto;
+  right: 0;
+  min-width: 220px;
+}
+.main-prefs-check {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  border: 1.5px solid rgb(from var(--color-line) r g b / 0.4);
+  flex: 0 0 auto;
+}
+[aria-checked="true"] > .main-prefs-check {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+.main-prefs-sub {
+  margin-left: auto;
+  font-size: 11px;
+  color: rgb(from var(--color-ink) r g b / 0.45);
+}
 /* the view angle: a chip that names it, a menu that lists the rest */
 .view-picker {
   position: relative;
