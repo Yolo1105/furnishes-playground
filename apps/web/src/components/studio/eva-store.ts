@@ -7,9 +7,9 @@ import {
 } from "./eva-data";
 
 export type PreferenceValue = {
-  /** chip ids, or the budget as one number */
+  /** chip ids, or the budget as a range: from and to, S$ */
   values: string[];
-  budget?: number;
+  budget?: [number, number];
   origin: PreferenceOrigin;
 };
 
@@ -24,7 +24,7 @@ type EvaState = {
   renameConversation: (id: string, title: string) => void;
   /** toggle one chip; single-value blocks replace instead */
   toggleValue: (cat: PreferenceCategory, value: string, multi: boolean) => void;
-  setBudget: (value: number) => void;
+  setBudget: (from: number, to: number) => void;
   clearPreference: (cat: PreferenceCategory) => void;
   setDraft: (draft: string) => void;
 };
@@ -68,11 +68,11 @@ export const useEva = create<EvaState>((set) => ({
       else next[cat] = { values, origin: "you" };
       return { preferences: next };
     }),
-  setBudget: (value) =>
+  setBudget: (from, to) =>
     set((s) => ({
       preferences: {
         ...s.preferences,
-        budget: { values: [], budget: value, origin: "you" },
+        budget: { values: [], budget: [from, to], origin: "you" },
       },
     })),
   clearPreference: (cat) =>

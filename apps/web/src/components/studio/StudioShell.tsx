@@ -284,17 +284,18 @@ function ProjectSwitcher({
   useDismiss(wrap, open, () => setOpen(false));
   return (
     <div ref={wrap} className="shell-project">
+      <span className="shell-project-brand">Furnishes</span>
+      <span className="shell-project-sep" aria-hidden="true">
+        /
+      </span>
       <button
         type="button"
         className="shell-project-btn"
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label={`Project, ${value}`}
         onClick={() => setOpen((v) => !v)}
       >
-        <span className="shell-project-brand">Furnishes</span>
-        <span className="shell-project-sep" aria-hidden="true">
-          /
-        </span>
         <span className="shell-project-name">{value}</span>
         <span className="shell-project-caret">
           <ChevronDownIcon />

@@ -90,7 +90,7 @@ export function PreferenceTab() {
             </div>
             <p className="eva-pref-hint">
               {set && b.id === "budget" && p.budget !== undefined
-                ? `Up to ${sgd(p.budget)}`
+                ? `${sgd(p.budget[0])} to ${sgd(p.budget[1])}`
                 : set && b.id !== "budget"
                   ? p.values.join(" · ")
                   : b.hint}
@@ -99,21 +99,36 @@ export function PreferenceTab() {
             {b.id === "room" && chips("room", ROOMS, false)}
             {b.id === "budget" && (
               <div className="eva-budget">
-                <input
-                  type="range"
-                  className="eva-range"
-                  min={BUDGET.min}
-                  max={BUDGET.max}
-                  step={BUDGET.step}
-                  value={p?.budget ?? BUDGET.min}
-                  aria-label="Budget, Singapore dollars"
-                  aria-valuetext={sgd(p?.budget ?? BUDGET.min)}
-                  onChange={(e) => setBudget(Number(e.target.value))}
-                />
-                <span className="eva-budget-ends f-num">
-                  <span>{sgd(BUDGET.min)}</span>
-                  <span>{sgd(BUDGET.max)}</span>
-                </span>
+                {(
+                  [
+                    ["From", 0, p?.budget?.[0] ?? BUDGET.min],
+                    ["To", 1, p?.budget?.[1] ?? BUDGET.max],
+                  ] as const
+                ).map(([label, i, value]) => (
+                  <label key={label} className="eva-budget-field">
+                    <span className="room-dim-label">{label}</span>
+                    <span className="eva-budget-input">
+                      <span className="eva-budget-unit">S$</span>
+                      <input
+                        type="number"
+                        className="room-dim-input f-num"
+                        inputMode="numeric"
+                        min={0}
+                        step={BUDGET.step}
+                        value={value}
+                        aria-label={`Budget ${label.toLowerCase()}, Singapore dollars`}
+                        onChange={(e) => {
+                          const n = Number(e.target.value);
+                          const cur: [number, number] = p?.budget ?? [
+                            BUDGET.min,
+                            BUDGET.max,
+                          ];
+                          setBudget(i === 0 ? n : cur[0], i === 1 ? n : cur[1]);
+                        }}
+                      />
+                    </span>
+                  </label>
+                ))}
               </div>
             )}
             {b.id === "style" && chips("style", STYLES, true)}

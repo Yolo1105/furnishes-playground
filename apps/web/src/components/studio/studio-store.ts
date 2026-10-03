@@ -24,6 +24,14 @@ export type PreviewStatus =
   | "revealing"
   | "done"
   | "compare";
+/** the ways to look at each view: a perspective and the straight-on
+    sides in 3D, the plan and the elevations in 2D, as a CAD drawing has */
+export const ANGLES: Record<View, readonly string[]> = {
+  "3d": ["Perspective", "Front", "Back", "Left", "Right", "Top"],
+  "2d": ["Plan", "Front", "Back", "Left", "Right"],
+};
+export type Angle = (typeof ANGLES)[View][number];
+
 /** what the line under the toolbar is waiting for: a view swap is quick,
     a render takes its time */
 export type Loading = "view" | "render" | null;
@@ -32,7 +40,12 @@ type StudioState = {
   mode: Mode;
   tool: Tool;
   view: View;
+  /** how the view is looked at, one of ANGLES[view] */
+  angle: Angle;
   uiHidden: boolean;
+  /** where the toolbar's eye was when the panels were hidden, so the peek
+      bar's eye stands in the same place */
+  peekAt: { top: number; left: number } | null;
   /** a piece shown on its own, on a blank ground */
   focusId: string | null;
   panelTab: PanelTab;
@@ -45,7 +58,8 @@ type StudioState = {
   setMode: (mode: Mode) => void;
   setTool: (tool: Tool) => void;
   setView: (view: View) => void;
-  setUiHidden: (hidden: boolean) => void;
+  setAngle: (angle: Angle) => void;
+  setUiHidden: (hidden: boolean, at?: { top: number; left: number }) => void;
   setFocus: (id: string | null) => void;
   setPanelTab: (tab: PanelTab) => void;
   /** the line reached the end */
@@ -66,7 +80,9 @@ export const useStudio = create<StudioState>((set, get) => ({
   mode: "edit",
   tool: "select",
   view: "3d",
+  angle: "Perspective",
   uiHidden: false,
+  peekAt: null,
   focusId: null,
   panelTab: "assets",
   loading: null,
@@ -90,9 +106,16 @@ export const useStudio = create<StudioState>((set, get) => ({
     set((s) =>
       s.view === view
         ? {}
-        : { view, loading: "view", loadingAt: s.loadingAt + 1 },
+        : {
+            view,
+            angle: ANGLES[view][0]!,
+            loading: "view",
+            loadingAt: s.loadingAt + 1,
+          },
     ),
-  setUiHidden: (uiHidden) => set({ uiHidden }),
+  setAngle: (angle) => set({ angle }),
+  setUiHidden: (uiHidden, at) =>
+    set({ uiHidden, peekAt: uiHidden ? (at ?? null) : null }),
   setFocus: (focusId) => set({ focusId }),
   setPanelTab: (panelTab) => set({ panelTab }),
   endLoading: () => {

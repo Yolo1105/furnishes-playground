@@ -198,20 +198,31 @@
 }
 
 /* budget: one slider in Singapore dollars */
+/* the budget: from and to, typed */
 .eva-budget {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+.eva-budget-field {
+  display: grid;
   gap: 4px;
 }
-.eva-range {
-  width: 100%;
-  accent-color: var(--color-accent);
-  cursor: pointer;
+.eva-budget-input {
+  position: relative;
+  display: block;
 }
-.eva-budget-ends {
-  display: flex;
-  justify-content: space-between;
-  font-size: 10.5px;
+.eva-budget-input .room-dim-input {
+  padding-left: 28px;
+  padding-right: 8px;
+}
+.eva-budget-unit {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  translate: 0 -50%;
+  font-size: 11px;
   color: rgb(from var(--color-ink) r g b / 0.45);
 }
 

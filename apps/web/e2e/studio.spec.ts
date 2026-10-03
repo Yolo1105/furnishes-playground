@@ -147,7 +147,9 @@ test("rails collapse into the toolbar and come back", async ({ page }) => {
   const wide = (await main.boundingBox())!.width;
 
   await expect(page.locator(".shell-project-name")).toHaveText("Project 0");
-  await page.getByRole("button", { name: /Furnishes/ }).click();
+  // only the project's name is the button; the brand is not
+  await expect(page.getByRole("button", { name: /Furnishes/ })).toHaveCount(0);
+  await page.getByRole("button", { name: /^Project, / }).click();
   await page.getByRole("menuitemradio", { name: "Project 2" }).click();
   await expect(page.locator(".shell-project-name")).toHaveText("Project 2");
 
@@ -167,13 +169,19 @@ test("rails collapse into the toolbar and come back", async ({ page }) => {
   await expect(
     page.getByRole("button", { name: "Collapse Eva panel" }),
   ).toHaveCount(0);
-  await page.getByRole("button", { name: "Hide panels" }).click();
+  const eye = page.getByRole("button", { name: "Hide panels" });
+  const eb = (await eye.boundingBox())!;
+  await eye.click();
   await expect(shell).toHaveAttribute("data-ui", "hidden");
   await expect(page.locator(".shell-rail-left")).toBeHidden();
   await expect(page.locator(".main-top")).toBeHidden();
+  // the eye stays where it stood, now the way back
   const peek = page.getByRole("toolbar", { name: "Looking" });
-  const pb = (await peek.boundingBox())!;
-  expect(Math.abs(pb.x + pb.width / 2 - 720)).toBeLessThan(40);
+  const back = (await peek
+    .getByRole("button", { name: "Show panels" })
+    .boundingBox())!;
+  expect(Math.abs(back.x - eb.x)).toBeLessThan(2);
+  expect(Math.abs(back.y - eb.y)).toBeLessThan(2);
   await page.keyboard.press("Escape");
   await expect(shell).toHaveAttribute("data-ui", "shown");
   await page.getByRole("button", { name: "Hide panels" }).click();
@@ -428,9 +436,10 @@ test("Eva's Preference blocks take a room, a budget, styles and colours", async 
   await expect(blocks.nth(3).locator(".eva-pref-hint")).toHaveText(
     "Walnut · Sage",
   );
-  await page.getByRole("slider", { name: /Budget/ }).fill("3000");
+  await page.getByRole("spinbutton", { name: /Budget from/ }).fill("1000");
+  await page.getByRole("spinbutton", { name: /Budget to/ }).fill("3000");
   await expect(blocks.nth(1).locator(".eva-pref-hint")).toHaveText(
-    "Up to S$3,000",
+    "S$1,000 to S$3,000",
   );
   await blocks.nth(0).getByRole("button", { name: "Remove" }).click();
   await expect(blocks.nth(0)).toHaveAttribute("data-set", "false");
@@ -448,7 +457,7 @@ test("the toolbar reads mode · select, add, wall · undo, guide, export", async
   );
   await expect(
     bar.getByRole("group", { name: "Tools" }).getByRole("button"),
-  ).toHaveText(["", "", "", ""]);
+  ).toHaveText(["", "", ""]);
   for (const gone of [
     "Move",
     "Rotate",
@@ -459,6 +468,23 @@ test("the toolbar reads mode · select, add, wall · undo, guide, export", async
   ])
     await expect(bar.getByRole("button", { name: gone })).toHaveCount(0);
   await expect(bar.getByText("100%")).toHaveCount(0);
+  // nothing to undo yet: both grey
+  await expect(bar.getByRole("button", { name: "Undo" })).toBeDisabled();
+  await expect(bar.getByRole("button", { name: "Redo" })).toBeDisabled();
+  // the view angle: a perspective or a side in 3D, the plan or an
+  // elevation in 2D
+  const angle = bar.getByRole("button", { name: /View angle/ });
+  await expect(angle).toHaveText("Perspective");
+  await angle.click();
+  await expect(page.getByRole("menuitemradio")).toHaveCount(6);
+  await page.getByRole("menuitemradio", { name: "Top" }).click();
+  await expect(angle).toHaveText("Top");
+  await page.getByRole("button", { name: "Show 2D plan in main" }).click();
+  await expect(angle).toHaveText("Plan");
+  await angle.click();
+  await expect(page.getByRole("menuitemradio")).toHaveCount(5);
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Show 3D view in main" }).click();
   await bar.getByRole("button", { name: "Inspect" }).click();
   await expect(bar.getByRole("button", { name: "Inspect" })).toHaveAttribute(
     "aria-pressed",
@@ -553,6 +579,8 @@ test("Preview runs a line along the top, sweeps the render in, then compares on 
   expect(Math.abs(lb!.y + lb!.height - (bb!.y + bb!.height))).toBeLessThan(2);
   expect(lb!.x).toBeGreaterThanOrEqual(bb!.x);
   await expect(bar.getByRole("button", { name: "Select" })).toBeDisabled();
+  // the eye keeps its colour while previewing: looking is what preview is for
+  await expect(bar.getByRole("button", { name: "Hide panels" })).toBeEnabled();
   await expect(page.locator(".preview")).toHaveAttribute(
     "data-status",
     "done",

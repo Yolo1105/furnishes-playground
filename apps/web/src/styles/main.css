@@ -242,6 +242,29 @@
 }
 
 /* ---- the toolbar's three regions ---- */
+.main-top-mid {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+/* the view angle: a chip that names it, a menu that lists the rest */
+.view-picker {
+  position: relative;
+  margin-left: 4px;
+}
+.view-picker-btn {
+  height: 28px;
+  padding: 0 8px 0 10px;
+  font-weight: 500;
+}
+.view-picker-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.view-picker-menu {
+  left: 0;
+  min-width: 140px;
+}
 .main-sep {
   width: 1px;
   height: 18px;
@@ -347,10 +370,10 @@
 
 /* narrower: labels go, then undo/redo and zoom, then the sides altogether */
 @media (max-width: 1535px) {
-  .main-top .main-btn span {
+  .main-top .main-btn:not(.view-picker-btn) span {
     display: none;
   }
-  .main-top .main-btn {
+  .main-top .main-btn:not(.view-picker-btn) {
     padding: 0 8px;
   }
 }
@@ -375,6 +398,7 @@
 }
 .main-icon:disabled {
   cursor: default;
+  color: rgb(from var(--color-ink) r g b / 0.3);
 }
 .main-icon:disabled:hover {
   background: transparent;

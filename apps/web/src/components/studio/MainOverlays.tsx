@@ -9,6 +9,7 @@ import {
 } from "react";
 import { AddStrip } from "./AddStrip";
 import { ProgressLine } from "./ProgressLine";
+import { ViewPicker } from "./ViewPicker";
 import { pieceTotals, sgd, type AssetNode } from "./assets-data";
 import { useGuide } from "./guide-store";
 import {
@@ -80,42 +81,44 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
           </div>
         </div>
 
-        <div
-          className="main-top-group"
-          role="group"
-          aria-label="Tools"
-          data-resting={resting}
-        >
-          <ToolButton
-            id="select"
-            label="Select"
-            icon={<CursorIcon />}
-            tool={tool}
-            resting={resting}
-            onPick={setTool}
-          />
-          <ToolButton
-            id="inspect"
-            label="Inspect"
-            icon={<InspectIcon />}
-            tool={tool}
-            resting={resting}
-            onPick={setTool}
-          />
-          <div className="main-add">
-            <button
-              type="button"
-              className="main-icon shell-tip"
-              data-tooltip="Add"
-              aria-label="Add"
-              aria-haspopup="dialog"
-              aria-expanded={adding}
-              disabled={resting}
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={() => setAdding((v) => !v)}
-            >
-              <PlusIcon />
-            </button>
+        <div className="main-top-mid">
+          <div
+            className="main-top-group"
+            role="group"
+            aria-label="Tools"
+            data-resting={resting}
+          >
+            <ToolButton
+              id="select"
+              label="Select"
+              icon={<CursorIcon />}
+              tool={tool}
+              resting={resting}
+              onPick={setTool}
+            />
+            <ToolButton
+              id="inspect"
+              label="Inspect"
+              icon={<InspectIcon />}
+              tool={tool}
+              resting={resting}
+              onPick={setTool}
+            />
+            <div className="main-add">
+              <button
+                type="button"
+                className="main-icon shell-tip"
+                data-tooltip="Add"
+                aria-label="Add"
+                aria-haspopup="dialog"
+                aria-expanded={adding}
+                disabled={resting}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => setAdding((v) => !v)}
+              >
+                <PlusIcon />
+              </button>
+            </div>
           </div>
           <span className="main-sep" aria-hidden="true" />
           <button
@@ -123,10 +126,14 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
             className="main-icon shell-tip"
             data-tooltip="Hide panels"
             aria-label="Hide panels"
-            onClick={() => setUiHidden(true)}
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              setUiHidden(true, { top: r.top, left: r.left });
+            }}
           >
-            <EyeIcon />
+            <EyeIcon size={16} />
           </button>
+          <ViewPicker />
         </div>
 
         <div className="main-top-side main-top-right">
@@ -136,6 +143,7 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
               className="main-icon shell-tip"
               data-tooltip="Undo"
               aria-label="Undo"
+              disabled
             >
               <UndoIcon />
             </button>
@@ -144,6 +152,7 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
               className="main-icon shell-tip"
               data-tooltip="Redo"
               aria-label="Redo"
+              disabled
             >
               <RedoIcon />
             </button>

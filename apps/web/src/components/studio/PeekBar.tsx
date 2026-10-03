@@ -5,12 +5,14 @@ import { CompareIcon, EyeOffIcon } from "./icons";
 import { useStudio } from "./studio-store";
 
 /**
- * What remains when the panels are hidden to look at the room: a small
- * glass bar at the top middle with the way back, and, once a render has
- * come in, the compare button. Escape also brings the panels back.
+ * What remains when the panels are hidden to look at the room: the eye,
+ * standing exactly where it stood in the toolbar, now the way back, and
+ * beside it, once a render has come in, the compare button. Escape also
+ * brings the panels back.
  */
 export function PeekBar() {
   const hidden = useStudio((s) => s.uiHidden);
+  const at = useStudio((s) => s.peekAt);
   const preview = useStudio((s) => s.preview);
   const { setUiHidden, compare } = useStudio.getState();
   useEffect(() => {
@@ -24,7 +26,12 @@ export function PeekBar() {
   if (!hidden) return null;
   const rendered = preview === "done" || preview === "compare";
   return (
-    <div className="glass shell-peek" role="toolbar" aria-label="Looking">
+    <div
+      className="glass shell-peek"
+      role="toolbar"
+      aria-label="Looking"
+      style={at ? { top: at.top - 4, left: at.left - 4 } : undefined}
+    >
       <button
         type="button"
         className="main-icon shell-tip"

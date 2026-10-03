@@ -236,23 +236,34 @@
   position: relative;
   min-width: 0;
 }
+/* "Furnishes / Project 0": only the project's name is the button, and
+   only it lights on hover; its focus shows the same way, never a ring */
+.shell-project {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--color-ink);
+}
 .shell-project-btn {
   appearance: none;
   border: 0;
   background: transparent;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  max-width: 100%;
-  padding: 6px 8px;
-  margin-left: -8px;
+  gap: 4px;
+  min-width: 0;
+  padding: 4px 6px;
+  margin: -4px 0 -4px -2px;
   border-radius: var(--r-control);
   font: inherit;
-  font-size: 13px;
-  color: var(--color-ink);
+  color: inherit;
   cursor: pointer;
 }
-.shell-project-btn:hover {
+.shell-project-btn:hover,
+.shell-project-btn:focus-visible {
+  outline: none;
   background: rgb(from var(--color-ink) r g b / 0.06);
 }
 .shell-project-brand {
@@ -742,7 +753,6 @@
   align-items: center;
   gap: 2px;
   padding: 4px;
-  transform: translateX(-50%);
   border-radius: var(--r-control);
 }
 
