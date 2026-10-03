@@ -6,8 +6,14 @@ import {
   type RoomId,
   type Wall,
 } from "./room-data";
+import { ROOM_TEMPLATES, type TemplateId } from "./room-templates";
+
+/** how the room's shape comes about: traced on the canvas, or picked */
+export type RoomStart = "draw" | "template";
 
 export type RoomConfig = {
+  start: RoomStart | null;
+  template: TemplateId;
   flat: FlatType;
   room: RoomId;
   width: number;
@@ -32,6 +38,8 @@ type RoomState = RoomConfig & {
     patch: Partial<Pick<RoomConfig, "door" | "window" | "floor" | "wallTone">>,
   ) => void;
   resetSize: () => void;
+  setStart: (start: RoomStart) => void;
+  setTemplate: (template: TemplateId) => void;
 };
 
 const sized = (flat: FlatType, room: RoomId) => {
@@ -42,6 +50,8 @@ const sized = (flat: FlatType, room: RoomId) => {
 
 /** The room being designed. One per project for now. */
 export const useRoom = create<RoomState>((set, get) => ({
+  start: null,
+  template: ROOM_TEMPLATES[0]!.id,
   flat: "4-room",
   room: "living",
   ...sized("4-room", "living"),
@@ -64,4 +74,6 @@ export const useRoom = create<RoomState>((set, get) => ({
       height: CEILING.default,
       preset: true,
     }),
+  setStart: (start) => set({ start }),
+  setTemplate: (template) => set({ template, start: "template" }),
 }));

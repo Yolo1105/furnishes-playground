@@ -5,6 +5,8 @@ import {
   sgd,
 } from "../src/components/studio/assets-data";
 import { products } from "../src/components/studio/catalogue";
+import { GUIDE_STORAGE_KEY } from "../src/components/studio/guide-store";
+import { ROOM_TEMPLATES } from "../src/components/studio/room-templates";
 
 /* expectations come from the same data the app renders */
 const top = assetGroups.flatMap((g) => g.items);
@@ -21,6 +23,14 @@ const lampRows = assetGroups
     (n, g) => n + 1 + g.items.filter((a) => /lamp/i.test(a.name)).length,
     0,
   );
+
+/* the intro guide opens itself on a first visit; most tests have seen it */
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(
+    ({ key, value }) => localStorage.setItem(key, value),
+    { key: GUIDE_STORAGE_KEY, value: JSON.stringify({ intro: true }) },
+  );
+});
 
 /** The background is the studio palette: cream→peach gradient + blobs. */
 test("background paints the playground palette", async ({ page }) => {
@@ -405,11 +415,6 @@ test("the toolbar reads mode · tools · zoom, share, export", async ({
     "aria-pressed",
     "true",
   );
-  await bar.getByRole("button", { name: "Preview" }).click();
-  await expect(bar.getByRole("button", { name: "Preview" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
   await expect(
     bar.getByRole("group", { name: "Tools" }).getByRole("button"),
   ).toHaveCount(7);
@@ -422,6 +427,12 @@ test("the toolbar reads mode · tools · zoom, share, export", async ({
     "aria-pressed",
     "false",
   );
+  await bar.getByRole("button", { name: "Preview" }).click();
+  await expect(bar.getByRole("button", { name: "Preview" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await bar.getByRole("button", { name: "Edit" }).click();
   const [edit, tools, exp] = await Promise.all([
     bar.getByRole("button", { name: "Edit" }).boundingBox(),
     bar.getByRole("group", { name: "Tools" }).boundingBox(),
@@ -477,5 +488,102 @@ test("the Room tab starts from the HDB preset and takes a size of your own", asy
     page
       .getByRole("radiogroup", { name: "Door on the" })
       .getByRole("radio", { name: "east" }),
+  ).toHaveAttribute("aria-checked", "true");
+});
+
+test("Preview runs a line along the top, sweeps the render in, then compares on demand", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  // the run's lengths are tokens; the test shortens them
+  await page.addStyleTag({
+    content: ":root{--preview-generate:.3s;--preview-reveal:.3s}",
+  });
+  const bar = page.getByRole("toolbar", { name: "Studio tools" });
+  await bar.getByRole("button", { name: "Preview" }).click();
+  await expect(
+    page.getByRole("progressbar", { name: "Rendering preview" }),
+  ).toBeVisible();
+  await expect(bar.getByRole("button", { name: "Move" })).toBeDisabled();
+  const compare = page.getByRole("button", {
+    name: "Compare before and after",
+  });
+  await expect(compare).toBeVisible({ timeout: 8000 });
+  await expect(page.locator(".preview")).toHaveAttribute("data-status", "done");
+  const handle = page.getByRole("slider", { name: "Before and after" });
+  await expect(handle).toHaveAttribute("aria-valuenow", "100");
+  await compare.click();
+  await expect(page.locator(".preview")).toHaveAttribute(
+    "data-status",
+    "compare",
+  );
+  await expect(handle).toHaveAttribute("aria-valuenow", "50");
+  await handle.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(handle).toHaveAttribute("aria-valuenow", "52");
+  const stage = (await page.locator(".preview-stage").boundingBox())!;
+  await page.mouse.move(stage.x + stage.width * 0.8, stage.y + 300);
+  await page.mouse.down();
+  await page.mouse.move(stage.x + stage.width * 0.25, stage.y + 300, {
+    steps: 4,
+  });
+  await page.mouse.up();
+  await expect(handle).toHaveAttribute("aria-valuenow", "25");
+  await bar.getByRole("button", { name: "Edit" }).click();
+  await expect(page.locator(".preview")).toHaveCount(0);
+  await expect(bar.getByRole("button", { name: "Move" })).toBeEnabled();
+});
+
+test("the intro shows once, and the Guide mark brings it back", async ({
+  page,
+  browser,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("button", { name: "Guide" }).click();
+  const dialog = page.getByRole("dialog", { name: "Welcome to the studio" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("checkbox")).toBeChecked();
+  await dialog.getByRole("button", { name: "Close guide" }).click();
+  await expect(dialog).toHaveCount(0);
+  // a first visit (a browser with nothing remembered): the intro opens by
+  // itself, and "don't show next time" keeps it away after a reload
+  const fresh = await (await browser.newContext()).newPage();
+  await fresh.setViewportSize({ width: 1440, height: 900 });
+  await fresh.goto("/rounded");
+  const intro = fresh.getByRole("dialog", { name: "Welcome to the studio" });
+  await expect(intro).toBeVisible();
+  await intro.getByRole("checkbox").check();
+  await fresh.reload();
+  await expect(fresh.getByRole("dialog")).toHaveCount(0);
+  await fresh.context().close();
+});
+
+test("the Room tab starts from drawn walls or a template", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  await page.getByRole("tab", { name: "Room" }).click();
+  const start = page.getByRole("radiogroup", { name: "Start from" });
+  await expect(start.getByRole("radio")).toHaveCount(2);
+  await start.getByRole("radio", { name: "Draw walls" }).click();
+  const howTo = page.getByRole("dialog", { name: "How to draw walls" });
+  await expect(howTo).toBeVisible();
+  await expect(howTo.getByText("Don't show next time")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Draw wall" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await howTo.getByRole("button", { name: "Close guide" }).click();
+  await expect(page.getByRole("button", { name: "Show me how" })).toBeVisible();
+  await start.getByRole("radio", { name: "Template" }).click();
+  const shapes = page.getByRole("radiogroup", { name: "Room shape" });
+  await expect(shapes.getByRole("radio")).toHaveCount(ROOM_TEMPLATES.length);
+  await expect(shapes.locator("polygon").first()).toBeVisible();
+  const l = ROOM_TEMPLATES.find((t) => t.id === "l-right")!;
+  await shapes.getByRole("radio", { name: l.name, exact: true }).click();
+  await expect(
+    shapes.getByRole("radio", { name: l.name, exact: true }),
   ).toHaveAttribute("aria-checked", "true");
 });

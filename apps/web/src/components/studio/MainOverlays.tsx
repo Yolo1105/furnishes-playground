@@ -7,6 +7,7 @@ import {
   ChevronUpDownIcon,
   CursorIcon,
   ExportIcon,
+  HelpIcon,
   MoveIcon,
   NoteIcon,
   PlusIcon,
@@ -17,7 +18,9 @@ import {
   UndoIcon,
   WallIcon,
 } from "./icons";
+import { useGuide } from "./guide-store";
 import { useTopLevel } from "./scene-store";
+import { useStudio } from "./studio-store";
 
 /**
  * What floats over the main surface: a thin toolbar across the top and a
@@ -30,7 +33,8 @@ import { useTopLevel } from "./scene-store";
  * rotate, measure, add, wall, note), then zoom and the two outward actions
  * (Share, Export) with Export as the one primary button. `leading` and
  * `trailing` are the slots the collapsed rails' restore icons dock into.
- * Nothing acts yet: the tools mark themselves pressed, the rest is inert.
+ * Preview starts the render run on the main surface and rests the tools;
+ * the Guide mark brings the intro back. Share and Export are inert yet.
  */
 const TOOLS = [
   ["select", "Select", CursorIcon],
@@ -41,7 +45,6 @@ const TOOLS = [
   ["wall", "Draw wall", WallIcon],
   ["note", "Note", NoteIcon],
 ] as const;
-type Tool = (typeof TOOLS)[number][0];
 
 export function MainTopBar({
   leading,
@@ -50,8 +53,10 @@ export function MainTopBar({
   leading?: ReactNode;
   trailing?: ReactNode;
 }) {
-  const [mode, setMode] = useState<"edit" | "preview">("edit");
-  const [tool, setTool] = useState<Tool>("select");
+  const mode = useStudio((s) => s.mode);
+  const tool = useStudio((s) => s.tool);
+  const { setMode, setTool } = useStudio.getState();
+  const showGuide = useGuide((s) => s.show);
   return (
     <div className="glass main-top" role="toolbar" aria-label="Studio tools">
       <div className="main-top-side main-top-left">
@@ -76,7 +81,12 @@ export function MainTopBar({
         </div>
       </div>
 
-      <div className="main-top-group" role="group" aria-label="Tools">
+      <div
+        className="main-top-group"
+        role="group"
+        aria-label="Tools"
+        data-resting={mode === "preview"}
+      >
         {TOOLS.map(([id, label, Icon]) => (
           <button
             key={id}
@@ -85,6 +95,7 @@ export function MainTopBar({
             data-tooltip={label}
             aria-label={label}
             aria-pressed={tool === id}
+            disabled={mode === "preview"}
             onClick={() => setTool(id)}
           >
             <Icon />
@@ -118,6 +129,15 @@ export function MainTopBar({
           aria-label="Zoom, 100%"
         >
           100% <ChevronDownIcon size={11} />
+        </button>
+        <button
+          type="button"
+          className="main-icon shell-tip"
+          data-tooltip="Guide"
+          aria-label="Guide"
+          onClick={() => showGuide("intro", true)}
+        >
+          <HelpIcon />
         </button>
         <button type="button" className="main-btn" aria-label="Share">
           <ShareIcon size={14} />

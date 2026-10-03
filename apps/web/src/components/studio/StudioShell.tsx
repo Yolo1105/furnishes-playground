@@ -4,7 +4,9 @@ import { useRef, useState, type ReactNode } from "react";
 import { ChatInput } from "./ChatInput";
 import { HistoryTab } from "./HistoryTab";
 import { PreferenceTab } from "./PreferenceTab";
+import { GuideCard } from "./GuideCard";
 import { MainTopBar } from "./MainOverlays";
+import { PreviewStage } from "./PreviewStage";
 import { RadioMenu } from "./RadioMenu";
 import { useDismiss } from "./useDismiss";
 import { UserBar } from "./UserBar";
@@ -143,7 +145,9 @@ export function StudioShell({
           </>
         )}
         <MainView view={view} />
+        <PreviewStage />
         {children}
+        <GuideCard />
       </main>
 
       {/* ---- right: Eva ---- */}

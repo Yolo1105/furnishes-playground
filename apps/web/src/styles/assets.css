@@ -542,3 +542,115 @@
 .room-field .assets-chip {
   text-transform: capitalize;
 }
+
+/* ---- how the room starts ---- */
+.room-start {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 8px;
+}
+.room-start-card {
+  appearance: none;
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+  padding: 10px 10px 9px;
+  border-radius: var(--r-card);
+  border: 1px solid rgb(from var(--color-line) r g b / 0.18);
+  background: rgba(255, 255, 255, 0.45);
+  font: inherit;
+  text-align: left;
+  color: rgb(from var(--color-ink) r g b / 0.55);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+.room-start-card:hover {
+  background: rgba(255, 255, 255, 0.7);
+}
+.room-start-card b {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+.room-start-card span {
+  font-size: 11px;
+  line-height: 1.35;
+  color: rgb(from var(--color-ink) r g b / 0.55);
+}
+.room-start-card[aria-checked="true"] {
+  color: var(--color-accent);
+  border-color: rgb(from var(--color-accent) r g b / 0.4);
+  background: rgb(from var(--color-accent) r g b / 0.07);
+}
+.room-start-hint {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: rgb(from var(--color-ink) r g b / 0.6);
+}
+
+/* templates, drawn as small isometric boxes */
+.room-templates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 8px;
+}
+.room-template {
+  appearance: none;
+  display: grid;
+  gap: 2px;
+  padding: 6px 6px 7px;
+  border-radius: var(--r-card);
+  border: 1px solid rgb(from var(--color-line) r g b / 0.14);
+  background: rgba(255, 255, 255, 0.45);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+.room-template:hover {
+  background: rgba(255, 255, 255, 0.7);
+}
+.room-template[aria-checked="true"] {
+  border-color: rgb(from var(--color-accent) r g b / 0.4);
+  background: rgb(from var(--color-accent) r g b / 0.06);
+}
+.room-template-iso {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.room-template-iso polygon {
+  stroke: rgb(from var(--color-line) r g b / 0.28);
+  stroke-width: 0.8;
+  stroke-linejoin: round;
+}
+.room-template-iso [data-face="floor"] {
+  fill: rgb(from var(--color-line) r g b / 0.22);
+}
+.room-template-iso [data-face="in"] {
+  fill: rgba(255, 255, 255, 0.95);
+}
+.room-template-iso [data-face="out"] {
+  fill: rgb(from var(--color-paper) r g b / 1);
+  filter: brightness(0.93);
+}
+.room-template[aria-checked="true"] .room-template-iso [data-face="floor"] {
+  fill: rgb(from var(--color-accent) r g b / 0.22);
+}
+.room-template-name {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgb(from var(--color-ink) r g b / 0.65);
+  text-align: center;
+}
+.room-template[aria-checked="true"] .room-template-name {
+  color: var(--color-accent);
+}

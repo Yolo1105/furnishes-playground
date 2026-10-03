@@ -12,6 +12,7 @@ import {
   type RoomId,
   type Wall,
 } from "./room-data";
+import { RoomStart } from "./RoomStart";
 import { useRoom } from "./room-store";
 
 /**
@@ -19,9 +20,11 @@ import { useRoom } from "./room-store";
  * window are, what the floor and walls are. Sizes start from the typical
  * HDB figures for that flat and room and stop following them the moment
  * the visitor types their own. Everything in millimetres, shown in metres.
+ * It opens with how the room begins: drawn, or from a template.
  */
 export function RoomTab() {
   const s = useRoom();
+  const start = s.start;
   const rooms = (Object.keys(ROOM_NAMES) as RoomId[]).filter(
     (id) => PRESETS[s.flat][id],
   );
@@ -66,9 +69,17 @@ export function RoomTab() {
 
   return (
     <div className="room">
-      <section className="eva-pref" data-set="true">
+      <section className="eva-pref" data-set={start !== null}>
         <div className="eva-pref-head">
           <span className="eva-pref-index f-num">01</span>
+          <span className="eva-pref-title">Start</span>
+        </div>
+        <RoomStart />
+      </section>
+
+      <section className="eva-pref" data-set="true">
+        <div className="eva-pref-head">
+          <span className="eva-pref-index f-num">02</span>
           <span className="eva-pref-title">Flat</span>
         </div>
         <div
@@ -94,7 +105,7 @@ export function RoomTab() {
 
       <section className="eva-pref" data-set="true">
         <div className="eva-pref-head">
-          <span className="eva-pref-index f-num">02</span>
+          <span className="eva-pref-index f-num">03</span>
           <span className="eva-pref-title">Room</span>
         </div>
         <div className="eva-chips" role="radiogroup" aria-label="Room">
@@ -115,7 +126,7 @@ export function RoomTab() {
 
       <section className="eva-pref" data-set="true">
         <div className="eva-pref-head">
-          <span className="eva-pref-index f-num">03</span>
+          <span className="eva-pref-index f-num">04</span>
           <span className="eva-pref-title">Size</span>
           {!s.preset && (
             <button
@@ -142,7 +153,7 @@ export function RoomTab() {
 
       <section className="eva-pref" data-set="true">
         <div className="eva-pref-head">
-          <span className="eva-pref-index f-num">04</span>
+          <span className="eva-pref-index f-num">05</span>
           <span className="eva-pref-title">Openings</span>
         </div>
         {wallPick("door", "Door on the")}
@@ -151,7 +162,7 @@ export function RoomTab() {
 
       <section className="eva-pref" data-set="true">
         <div className="eva-pref-head">
-          <span className="eva-pref-index f-num">05</span>
+          <span className="eva-pref-index f-num">06</span>
           <span className="eva-pref-title">Finish</span>
         </div>
         <div className="room-field">

@@ -388,3 +388,326 @@
     display: none;
   }
 }
+
+/* ---- preview: the line, the sweep, the compare ---- */
+.main-top-group[data-resting="true"] {
+  opacity: 0.45;
+}
+.main-icon:disabled {
+  cursor: default;
+}
+.main-icon:disabled:hover {
+  background: transparent;
+}
+
+.preview {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+.preview-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 4;
+  pointer-events: none;
+  height: 2px;
+  width: 0;
+  background: var(--color-accent);
+  box-shadow: 0 0 8px rgb(from var(--color-accent) r g b / 0.7);
+  animation: preview-progress var(--preview-generate, 2.2s) var(--ease) forwards;
+}
+@keyframes preview-progress {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+.preview-stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+}
+.preview[data-status="compare"] .preview-stage {
+  cursor: ew-resize;
+}
+.preview-before,
+.preview-after {
+  position: absolute;
+  inset: 0;
+}
+/* the sketch: the plan grid and the room outline, as in Edit */
+.preview-before {
+  background-image:
+    linear-gradient(
+      rgb(from var(--color-line) r g b / 0.1) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      rgb(from var(--color-line) r g b / 0.1) 1px,
+      transparent 1px
+    );
+  background-size: 24px 24px;
+  background-position: center;
+}
+.preview-before::after {
+  content: "";
+  position: absolute;
+  left: 28%;
+  top: 22%;
+  width: 44%;
+  height: 56%;
+  border: 2px solid rgb(from var(--color-line) r g b / 0.45);
+  background: rgba(255, 255, 255, 0.25);
+}
+/* the render stands in: a lit wall, a floor, a soft vignette */
+.preview-after {
+  background-color: var(--color-paper);
+  background-image:
+    radial-gradient(
+      120% 70% at 50% 100%,
+      rgb(from var(--color-shadow) r g b / 0.22),
+      transparent 60%
+    ),
+    linear-gradient(
+      180deg,
+      var(--color-paper) 0%,
+      rgb(from var(--color-line) r g b / 0.16) 58%,
+      rgb(from var(--color-line) r g b / 0.42) 58.4%,
+      rgb(from var(--color-line) r g b / 0.3) 100%
+    );
+  transition: clip-path var(--preview-reveal, 1.8s) var(--ease);
+}
+.preview-after::before {
+  content: "";
+  position: absolute;
+  left: 30%;
+  top: 30%;
+  width: 40%;
+  height: 28%;
+  border-radius: 4px;
+  background: rgb(from var(--color-glass) r g b / 0.55);
+  box-shadow: 0 24px 40px -18px rgb(from var(--color-shadow) r g b / 0.5);
+}
+.preview-divider {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--color-glass);
+  box-shadow: 0 0 0 1px rgb(from var(--color-shadow) r g b / 0.12);
+  transition: left var(--preview-reveal, 1.8s) var(--ease);
+}
+.preview[data-status="compare"] .preview-after,
+.preview[data-status="compare"] .preview-divider {
+  transition-duration: 0.5s;
+}
+.preview-stage[data-dragging="true"] .preview-after,
+.preview-stage[data-dragging="true"] .preview-divider {
+  transition: none;
+}
+.preview[data-status="generating"] .preview-divider,
+.preview[data-status="done"] .preview-divider {
+  opacity: 0;
+}
+.preview-handle {
+  appearance: none;
+  border: 0;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 34px;
+  height: 34px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--color-glass);
+  color: var(--color-accent);
+  box-shadow: 0 4px 14px -4px rgb(from var(--color-shadow) r g b / 0.4);
+  cursor: ew-resize;
+}
+.preview[data-status="revealing"] .preview-handle {
+  pointer-events: none;
+}
+.preview-compare {
+  position: absolute;
+  top: 56px;
+  right: 12px;
+  z-index: 3;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  color: rgb(from var(--color-ink) r g b / 0.7);
+}
+.preview-compare[aria-pressed="true"] {
+  color: var(--color-accent);
+}
+.preview-compare.shell-tip::after {
+  right: 0;
+  left: auto;
+  transform: none;
+}
+/* the render comes in from the left, so its tag sits left and the
+   sketch's sits right, beside the compare button */
+.preview-tag {
+  position: absolute;
+  right: 56px;
+  top: 62px;
+  padding: 3px 8px;
+  border-radius: var(--r-chip);
+  background: rgb(from var(--color-glass) r g b / 0.8);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(from var(--color-ink) r g b / 0.55);
+}
+.preview-tag-after {
+  right: auto;
+  left: 12px;
+  color: var(--color-accent);
+}
+
+/* ---- the guide card ---- */
+.guide {
+  position: absolute;
+  top: 56px;
+  left: 12px;
+  z-index: 5;
+  width: min(340px, calc(100% - 24px));
+  padding: 14px 16px 12px;
+  border-radius: var(--r-panel, 14px);
+}
+.shell[data-corners="square"] .guide {
+  border-radius: 0;
+}
+.guide-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgb(from var(--color-ink) r g b / 0.5);
+}
+.guide-title {
+  flex: 1;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--color-ink);
+}
+.guide-close {
+  margin-right: -6px;
+}
+.guide-body {
+  margin-top: 8px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: rgb(from var(--color-ink) r g b / 0.72);
+}
+.guide-body p {
+  margin: 0 0 6px;
+}
+.guide-art {
+  margin-top: 8px;
+  border-radius: var(--r-card);
+  background: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgb(from var(--color-line) r g b / 0.14);
+}
+.guide-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.guide-floor {
+  fill: rgb(from var(--color-line) r g b / 0.2);
+}
+.guide-wall-base {
+  fill: none;
+  stroke: rgb(from var(--color-line) r g b / 0.3);
+  stroke-width: 8;
+  stroke-linejoin: round;
+}
+.guide-wall-draw {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 8;
+  stroke-linejoin: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: guide-draw 3.2s linear infinite;
+}
+@keyframes guide-draw {
+  0% {
+    stroke-dashoffset: 100;
+  }
+  80%,
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+.guide-dim {
+  fill: none;
+  stroke: rgb(from var(--color-ink) r g b / 0.3);
+  stroke-dasharray: 3 3;
+}
+.guide-label {
+  font-size: 13px;
+  font-weight: 600;
+  fill: rgb(from var(--color-ink) r g b / 0.6);
+  text-anchor: middle;
+}
+.guide-pencil {
+  transform: translate(26px, 2px);
+  color: var(--color-accent);
+}
+.guide-pane {
+  fill: rgba(255, 255, 255, 0.6);
+  stroke: rgb(from var(--color-line) r g b / 0.3);
+}
+.guide-pane-bar {
+  fill: rgb(from var(--color-line) r g b / 0.12);
+}
+.guide-pane-accent {
+  fill: rgb(from var(--color-accent) r g b / 0.7);
+}
+.guide-pane-room {
+  fill: rgba(255, 255, 255, 0.5);
+  stroke: rgb(from var(--color-line) r g b / 0.5);
+  stroke-width: 2;
+}
+.guide-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 12px;
+  color: rgb(from var(--color-ink) r g b / 0.6);
+  cursor: pointer;
+}
+.guide-foot input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--color-accent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .preview-progress {
+    animation-duration: 0.4s;
+  }
+  .preview-after,
+  .preview-divider {
+    transition-duration: 0.2s;
+  }
+  .guide-wall-draw {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}
