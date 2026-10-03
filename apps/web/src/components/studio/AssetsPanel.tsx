@@ -3,7 +3,6 @@
 import { useMemo, useRef, useState } from "react";
 import {
   CATEGORY_NAMES,
-  pieceTotals,
   sgd,
   type AssetCategory,
   type AssetGroup,
@@ -50,10 +49,6 @@ export function AssetsPanel() {
   const [closed, setClosed] = useState<Record<string, boolean>>({});
   const filterWrap = useRef<HTMLDivElement>(null);
   const q = query.trim().toLowerCase();
-  const totals = useMemo(
-    () => pieceTotals(assetGroups.flatMap((g) => g.items)),
-    [assetGroups],
-  );
 
   useDismiss(filterWrap, filterOpen, () => setFilterOpen(false));
 
@@ -94,11 +89,6 @@ export function AssetsPanel() {
             </button>
           ))}
         </div>
-        {tab === "assets" && (
-          <span className="assets-count f-num">
-            {totals.pieces} pieces · {sgd(totals.total)}
-          </span>
-        )}
       </div>
 
       <div className="assets-search">

@@ -251,3 +251,30 @@ export function PlanIcon({ size = 16 }: IconProps) {
     </svg>
   );
 }
+
+export function MessageIcon({ size = 14 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <path d="M21 12a8 8 0 0 1-8 8H8l-5 3 1.5-4.5A8 8 0 1 1 21 12z" />
+    </svg>
+  );
+}
+
+export function PencilIcon({ size = 14 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3z" />
+      <path d="m13.5 6.5 3 3" />
+    </svg>
+  );
+}
+
+export function TrashIcon({ size = 14 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <path d="M4 7h16M10 11v6M14 11v6" />
+      <path d="M6 7l1 13h10l1-13" />
+      <path d="M9 7V4h6v3" />
+    </svg>
+  );
+}

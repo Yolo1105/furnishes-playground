@@ -1,0 +1,259 @@
+/* ─── Eva's History and Preference tabs ────────────────────────────────── */
+.eva-empty {
+  margin: 24px 12px;
+  text-align: center;
+  font-size: 12px;
+  color: rgb(from var(--color-ink) r g b / 0.5);
+}
+
+/* ---- history: conversations under the day they were touched ---- */
+.eva-history {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.eva-day-label {
+  margin: 0 0 4px 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgb(from var(--color-ink) r g b / 0.45);
+}
+.eva-conv {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  border-radius: var(--r-card);
+  border: 1px solid transparent;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+.eva-conv:hover {
+  background: rgb(from var(--color-ink) r g b / 0.04);
+}
+.eva-conv[data-active="true"] {
+  background: rgb(from var(--color-accent) r g b / 0.1);
+  border-color: rgb(from var(--color-accent) r g b / 0.2);
+}
+.eva-conv-open {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 10px 12px;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.eva-conv-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.eva-conv-title svg {
+  flex: 0 0 auto;
+  color: rgb(from var(--color-ink) r g b / 0.45);
+}
+.eva-conv[data-active="true"] .eva-conv-title {
+  color: var(--color-accent);
+}
+.eva-conv[data-active="true"] .eva-conv-title svg {
+  color: var(--color-accent);
+}
+.eva-conv-snippet {
+  font-size: 12px;
+  line-height: 1.35;
+  color: rgb(from var(--color-ink) r g b / 0.6);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.eva-conv-meta {
+  font-size: 10.5px;
+  color: rgb(from var(--color-ink) r g b / 0.45);
+}
+.eva-conv-acts {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: inline-flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.eva-conv:hover .eva-conv-acts,
+.eva-conv:focus-within .eva-conv-acts {
+  opacity: 1;
+}
+.eva-conv-acts .shell-iconbtn {
+  width: 26px;
+  height: 26px;
+  background: rgb(from var(--color-glass) r g b / 0.9);
+}
+.eva-conv-rename {
+  flex: 1;
+  min-width: 0;
+  margin: 8px 10px;
+  padding: 6px 8px;
+  border-radius: var(--r-control);
+  border: 1px solid rgb(from var(--color-accent) r g b / 0.4);
+  background: rgba(255, 255, 255, 0.95);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-ink);
+  outline: none;
+}
+
+/* ---- preferences: the five blocks ---- */
+.eva-prefs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.eva-pref {
+  padding: 10px 11px 11px;
+  border-radius: var(--r-card);
+  border: 1px solid rgb(from var(--color-line) r g b / 0.14);
+  background: rgba(255, 255, 255, 0.4);
+}
+.eva-pref[data-set="true"] {
+  border-color: rgb(from var(--color-accent) r g b / 0.28);
+}
+.eva-pref-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.eva-pref-index {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgb(from var(--color-ink) r g b / 0.35);
+}
+.eva-pref-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgb(from var(--color-ink) r g b / 0.85);
+}
+/* who set it: "You", or Eva from the "Chat" */
+.eva-pref-origin {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: var(--r-control);
+  border: 1px solid rgb(from var(--color-line) r g b / 0.2);
+  color: rgb(from var(--color-ink) r g b / 0.55);
+}
+.eva-pref-origin[data-origin="chat"] {
+  color: var(--color-accent);
+  border-color: rgb(from var(--color-accent) r g b / 0.35);
+  background: rgb(from var(--color-accent) r g b / 0.08);
+}
+.eva-pref-clear {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-size: 11px;
+  color: rgb(from var(--color-ink) r g b / 0.5);
+  cursor: pointer;
+}
+.eva-pref-clear:hover {
+  color: var(--color-accent);
+}
+.eva-pref-hint {
+  margin: 4px 0 8px;
+  font-size: 11.5px;
+  color: rgb(from var(--color-ink) r g b / 0.45);
+}
+.eva-pref[data-set="true"] .eva-pref-hint {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+.eva-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* budget: one slider in Singapore dollars */
+.eva-budget {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.eva-range {
+  width: 100%;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+.eva-budget-ends {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10.5px;
+  color: rgb(from var(--color-ink) r g b / 0.45);
+}
+
+/* colours: a dot and a name, outlined when chosen */
+.eva-swatches {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+}
+.eva-swatch {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: var(--r-chip);
+  border: 1px solid rgb(from var(--color-line) r g b / 0.18);
+  background: rgba(255, 255, 255, 0.45);
+  font: inherit;
+  font-size: 11.5px;
+  color: rgb(from var(--color-ink) r g b / 0.75);
+  cursor: pointer;
+  min-width: 0;
+}
+.eva-swatch:hover {
+  background: rgba(255, 255, 255, 0.7);
+}
+.eva-swatch[aria-checked="true"] {
+  border-color: rgb(from var(--color-accent) r g b / 0.5);
+  background: rgb(from var(--color-accent) r g b / 0.06);
+  color: var(--color-ink);
+}
+.eva-swatch-dot {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid rgb(from var(--color-ink) r g b / 0.12);
+}
+.eva-swatch-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

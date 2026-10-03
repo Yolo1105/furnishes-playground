@@ -18,11 +18,6 @@
   display: flex;
   flex-direction: column;
 }
-.assets-count {
-  font-size: 11.5px;
-  color: rgb(from var(--color-ink) r g b / 0.55);
-  white-space: nowrap;
-}
 
 /* ---- search + filter row ---- */
 .assets-search {

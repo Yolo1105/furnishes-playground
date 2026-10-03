@@ -2,6 +2,8 @@
 
 import { useRef, useState, type ReactNode } from "react";
 import { ChatInput } from "./ChatInput";
+import { HistoryTab } from "./HistoryTab";
+import { PreferenceTab } from "./PreferenceTab";
 import { MainTopBar } from "./MainOverlays";
 import { RadioMenu } from "./RadioMenu";
 import { useDismiss } from "./useDismiss";
@@ -209,11 +211,16 @@ export function StudioShell({
             </button>
           </div>
           <div className="shell-panel-body" data-tab={tab}>
-            {right}
+            {tab === "agent" && right}
+            {tab === "history" && <HistoryTab onOpen={() => setTab("agent")} />}
+            {tab === "preference" && <PreferenceTab />}
           </div>
-          <div className="shell-panel-foot shell-panel-foot-chat">
-            <ChatInput />
-          </div>
+          {/* only the conversation takes input; History and Preference do not */}
+          {tab === "agent" && (
+            <div className="shell-panel-foot shell-panel-foot-chat">
+              <ChatInput />
+            </div>
+          )}
         </section>
       </aside>
 

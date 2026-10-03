@@ -78,6 +78,9 @@ export function MainShelf() {
           data-tooltip={collapsed ? "Show pieces" : "Hide pieces"}
           aria-label={collapsed ? "Show pieces" : "Hide pieces"}
           aria-expanded={!collapsed}
+          // a mouse press must not leave the button focused (and ringed);
+          // keyboard users still reach it with Tab
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => setCollapsed((v) => !v)}
         >
           <ChevronUpDownIcon up={collapsed} />

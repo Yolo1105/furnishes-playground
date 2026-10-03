@@ -233,9 +233,7 @@ test("the outliner searches, filters and marks the pieces", async ({
   await expect(
     tree.locator(".assets-row[data-kind='piece']").first(),
   ).toBeVisible();
-  await expect(page.locator(".assets-count")).toHaveText(
-    `${totals.pieces} pieces · ${sgd(totals.total)}`,
-  );
+  await expect(page.locator(".assets-count")).toHaveCount(0);
 });
 
 test("the shelf's tab counts the pieces and folds the cards away", async ({
@@ -313,7 +311,6 @@ test("the outliner draws hierarchy lines and the Products tab adds to the room",
   expect(Math.abs(sub.width - head.width)).toBeLessThanOrEqual(1);
 
   await page.getByRole("tab", { name: "Products" }).click();
-  await expect(page.locator(".assets-count")).toBeHidden();
   await expect(page.locator(".product")).toHaveCount(products.length);
   await page.getByRole("searchbox", { name: "Search products" }).fill("coat");
   await expect(page.locator(".product")).toHaveCount(1);
@@ -321,8 +318,8 @@ test("the outliner draws hierarchy lines and the Products tab adds to the room",
     .getByRole("button", { name: "Add Coat stand to the room" })
     .click();
   await page.getByRole("tab", { name: "Assets" }).click();
-  await expect(page.locator(".assets-count")).toHaveText(
-    `${totals.pieces + 1} pieces · ${sgd(totals.total + coat.price)}`,
+  await expect(page.locator(".main-shelf-tab")).toContainText(
+    sgd(totals.total + coat.price),
   );
   await expect(page.locator(".main-shelf-tab")).toContainText(
     `${totals.pieces + 1} pieces`,
@@ -331,4 +328,69 @@ test("the outliner draws hierarchy lines and the Products tab adds to the room",
   await expect(
     tree.locator(".assets-row", { hasText: "Coat stand" }),
   ).toBeVisible();
+});
+
+test("Eva's History lists conversations without an input box", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  await expect(
+    page.getByRole("textbox", { name: "Message Eva" }),
+  ).toBeVisible();
+  await page.getByRole("tab", { name: "History" }).click();
+  await expect(page.getByRole("textbox", { name: "Message Eva" })).toHaveCount(
+    0,
+  );
+  const rows = page.locator(".eva-conv");
+  await expect(rows).toHaveCount(5);
+  await expect(page.locator(".eva-day-label").first()).toHaveText("Today");
+  await expect(rows.first()).toHaveAttribute("data-active", "true");
+  await rows
+    .nth(2)
+    .getByRole("button", { name: /Delete/ })
+    .click();
+  await expect(rows).toHaveCount(4);
+  // opening one goes back to the conversation
+  await rows.nth(1).locator(".eva-conv-open").click();
+  await expect(page.getByRole("tab", { name: "Agent" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(
+    page.getByRole("textbox", { name: "Message Eva" }),
+  ).toBeVisible();
+});
+
+test("Eva's Preference blocks take a room, a budget, styles and colours", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  await page.getByRole("tab", { name: "Preference" }).click();
+  await expect(page.getByRole("textbox", { name: "Message Eva" })).toHaveCount(
+    0,
+  );
+  const blocks = page.locator(".eva-pref");
+  await expect(blocks).toHaveCount(5);
+  // two came from the chat, say so, and read as set
+  await expect(
+    page.locator(".eva-pref-origin[data-origin='chat']"),
+  ).toHaveCount(2);
+  await expect(blocks.nth(0)).toHaveAttribute("data-set", "true");
+  // pick a room (single), a colour (multi), slide the budget
+  await page.getByRole("radio", { name: "Bedroom" }).click();
+  await expect(blocks.nth(0).locator(".eva-pref-hint")).toHaveText("Bedroom");
+  await expect(blocks.nth(0).locator(".eva-pref-origin")).toHaveText("You");
+  await page.getByRole("checkbox", { name: "Walnut" }).click();
+  await page.getByRole("checkbox", { name: "Sage" }).click();
+  await expect(blocks.nth(3).locator(".eva-pref-hint")).toHaveText(
+    "Walnut · Sage",
+  );
+  await page.getByRole("slider", { name: /Budget/ }).fill("3000");
+  await expect(blocks.nth(1).locator(".eva-pref-hint")).toHaveText(
+    "Up to S$3,000",
+  );
+  await blocks.nth(0).getByRole("button", { name: "Remove" }).click();
+  await expect(blocks.nth(0)).toHaveAttribute("data-set", "false");
 });

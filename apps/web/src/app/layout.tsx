@@ -4,6 +4,7 @@ import "./globals.css";
 import "@/styles/shell.css";
 import "@/styles/main.css";
 import "@/styles/assets.css";
+import "@/styles/eva.css";
 
 /**
  * Syne is the studio's typeface, exposed as --font-syne and aliased to
