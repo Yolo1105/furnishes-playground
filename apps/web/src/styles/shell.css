@@ -35,7 +35,7 @@
 
 .shell[data-corners="rounded"] {
   --shell-gap: 20px;
-  --shell-radius: 18px;
+  --shell-radius: var(--r-panel);
 }
 
 /* a collapsed rail: its column closes and the panel slides out behind the edge */
@@ -208,7 +208,7 @@
   background: transparent;
   width: 30px;
   height: 30px;
-  border-radius: 8px;
+  border-radius: var(--r-control);
   display: inline-grid;
   place-items: center;
   color: rgb(from var(--color-ink) r g b / 0.55);
@@ -253,7 +253,7 @@
   max-width: 100%;
   padding: 6px 8px;
   margin-left: -8px;
-  border-radius: 8px;
+  border-radius: var(--r-control);
   font: inherit;
   font-size: 13px;
   color: var(--color-ink);
@@ -289,7 +289,7 @@
   z-index: 5;
   min-width: 180px;
   padding: 6px;
-  border-radius: 12px;
+  border-radius: var(--r-menu);
 }
 /* menus and tooltips: denser glass so rows stay readable over the scene */
 .shell-menu,
@@ -315,7 +315,7 @@
   width: 100%;
   text-align: left;
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: var(--r-control);
   font: inherit;
   font-size: 13px;
   color: rgb(from var(--color-ink) r g b / 0.85);
@@ -357,7 +357,7 @@
   border: 0;
   background: transparent;
   padding: 6px 10px;
-  border-radius: 8px;
+  border-radius: var(--r-control);
   font: inherit;
   font-size: 12.5px;
   font-weight: 500;
@@ -385,7 +385,7 @@
   right: 0;
   padding: 5px 9px;
   color: rgb(from var(--color-ink) r g b / 0.85);
-  border-radius: 6px;
+  border-radius: var(--r-control);
   font-size: 10.5px;
   font-weight: 500;
   white-space: nowrap;
@@ -493,7 +493,7 @@
 
 /* ---- Eva's input box: the playground's chat input ---- */
 .chat-input {
-  border-radius: 18px;
+  border-radius: var(--r-panel);
   padding: 12px 14px 10px;
   transition:
     border-color 0.2s ease,
@@ -527,6 +527,10 @@
   scrollbar-color: rgb(from var(--color-ink) r g b / 0.2) transparent;
   transition: opacity 0.2s ease;
 }
+/* the box shows focus through its orange border; no ring on the field */
+.chat-textarea:focus-visible {
+  outline: none;
+}
 .chat-textarea::placeholder {
   color: rgb(from var(--color-ink) r g b / 0.35);
 }
@@ -558,7 +562,7 @@
   align-items: center;
   gap: 6px;
   padding: 6px 8px;
-  border-radius: 8px;
+  border-radius: var(--r-control);
   font: inherit;
   font-size: 12px;
   font-weight: 600;
@@ -591,7 +595,7 @@
   align-items: center;
   gap: 6px;
   padding: 4px 9px 4px 6px;
-  border-radius: 999px;
+  border-radius: var(--r-chip);
   border: 1px solid rgb(from var(--color-line) r g b / 0.2);
   background: rgba(255, 255, 255, 0.55);
   font: inherit;
@@ -647,7 +651,7 @@
 .shell-row {
   height: 36px;
   margin-bottom: 8px;
-  border-radius: 8px;
+  border-radius: var(--r-control);
   background: rgba(255, 255, 255, 0.45);
   border: 1px solid rgb(from var(--color-line) r g b / 0.12);
 }
@@ -670,7 +674,7 @@
   top: 0;
   z-index: 2;
   padding: 4px;
-  border-radius: 10px;
+  border-radius: var(--r-menu);
 }
 .shell[data-corners="square"] .main-restore {
   border-radius: 0;
@@ -711,7 +715,7 @@
   z-index: 3;
   gap: 6px;
   padding: 6px;
-  border-radius: 999px;
+  border-radius: var(--r-menu);
   background: rgb(from var(--color-glass) r g b / 0.85);
   box-shadow: 0 10px 28px -14px rgb(from var(--color-shadow) r g b / 0.32);
 }
@@ -724,7 +728,7 @@
   border: 0;
   background: transparent;
   padding: 8px 14px;
-  border-radius: 999px;
+  border-radius: var(--r-control);
   font: inherit;
   font-size: 13px;
   font-weight: 500;

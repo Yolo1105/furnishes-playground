@@ -54,7 +54,7 @@
   background: transparent;
   width: 32px;
   height: 32px;
-  border-radius: 8px;
+  border-radius: var(--r-control);
   display: grid;
   place-items: center;
   cursor: pointer;
@@ -66,7 +66,7 @@
 .main-icon-glyph {
   width: 16px;
   height: 16px;
-  border-radius: 4px;
+  border-radius: 3px;
   border: 1.5px solid rgb(from var(--color-line) r g b / 0.35);
   background: rgba(255, 255, 255, 0.35);
 }
@@ -171,7 +171,7 @@
 
 .shelf-card-pic {
   height: 108px;
-  border-radius: 12px;
+  border-radius: var(--r-card);
   background: rgba(255, 255, 255, 0.55);
   border: 1px solid rgb(from var(--color-line) r g b / 0.14);
   box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.6) inset;

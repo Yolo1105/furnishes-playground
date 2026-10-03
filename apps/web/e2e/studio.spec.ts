@@ -70,7 +70,12 @@ for (const [path, corners] of [
     const radius = await page
       .locator(".shell-rail-left > .shell-panel")
       .evaluate((el) => getComputedStyle(el).borderTopLeftRadius);
-    expect(radius).toBe(corners === "rounded" ? "18px" : "0px");
+    const panelRadius = await page.evaluate(() =>
+      getComputedStyle(document.documentElement)
+        .getPropertyValue("--r-panel")
+        .trim(),
+    );
+    expect(radius).toBe(corners === "rounded" ? panelRadius : "0px");
   });
 
   test(`${path} turns the panels into drawers on a phone`, async ({ page }) => {
