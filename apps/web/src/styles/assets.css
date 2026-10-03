@@ -477,6 +477,16 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
+  container-type: inline-size;
+}
+/* narrow rail: four digits need the whole field, the unit is in the summary line */
+@container (max-width: 230px) {
+  .room-dim-unit {
+    display: none;
+  }
+  .room-dims .room-dim-input {
+    padding-right: 7px;
+  }
 }
 .room-dim {
   display: flex;
