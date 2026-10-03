@@ -10,6 +10,7 @@ import {
   type AssetNode,
 } from "./assets-data";
 import { ProductsTab } from "./ProductsTab";
+import { RoomTab } from "./RoomTab";
 import { useScene } from "./scene-store";
 import { useDismiss } from "./useDismiss";
 import {
@@ -22,7 +23,7 @@ import {
 } from "./icons";
 
 type KindFilter = "all" | "piece" | "room";
-type Tab = "assets" | "products";
+type Tab = "assets" | "products" | "room";
 
 const matches = (n: AssetNode, q: string): boolean =>
   n.name.toLowerCase().includes(q) ||
@@ -75,6 +76,7 @@ export function AssetsPanel() {
             [
               ["assets", "Assets"],
               ["products", "Products"],
+              ["room", "Room"],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -91,92 +93,96 @@ export function AssetsPanel() {
         </div>
       </div>
 
-      <div className="assets-search">
-        <label className="assets-field">
-          <SearchIcon />
-          <input
-            type="search"
-            className="assets-input"
-            placeholder={tab === "assets" ? "Search" : "Search the catalogue"}
-            aria-label={tab === "assets" ? "Search assets" : "Search products"}
-            autoComplete="off"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </label>
-        <div ref={filterWrap} className="assets-filter">
-          <button
-            type="button"
-            className="shell-iconbtn shell-tip"
-            data-tooltip="Filter"
-            aria-label="Filter assets"
-            aria-haspopup="dialog"
-            aria-expanded={filterOpen}
-            aria-pressed={active > 0}
-            onClick={() => setFilterOpen((v) => !v)}
-          >
-            <FilterIcon />
-            {active > 0 && <span className="assets-filter-n">{active}</span>}
-          </button>
-          {filterOpen && (
-            <div className="shell-menu assets-filter-menu" role="dialog">
-              {tab === "assets" && (
-                <>
-                  <p className="assets-filter-label">Show</p>
-                  <div className="assets-kinds">
-                    {(
-                      [
-                        ["all", "Everything"],
-                        ["piece", "Furnishes pieces"],
-                        ["room", "Room items"],
-                      ] as const
-                    ).map(([id, label]) => (
-                      <button
-                        key={id}
-                        type="button"
-                        className="assets-chip"
-                        aria-pressed={kind === id}
-                        onClick={() => setKind(id)}
-                      >
-                        {id === "piece" && <span className="assets-dot" />}
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="assets-filter-hint">
-                    Furnishes pieces are the ones you can edit and buy. Room
-                    items only set the scene.
-                  </p>
-                </>
-              )}
-              <p className="assets-filter-label">Category</p>
-              <div className="assets-kinds">
-                <button
-                  type="button"
-                  className="assets-chip"
-                  aria-pressed={category === null}
-                  onClick={() => setCategory(null)}
-                >
-                  All
-                </button>
-                {(Object.keys(CATEGORY_NAMES) as AssetCategory[]).map((c) => (
+      {tab !== "room" && (
+        <div className="assets-search">
+          <label className="assets-field">
+            <SearchIcon />
+            <input
+              type="search"
+              className="assets-input"
+              placeholder={tab === "assets" ? "Search" : "Search the catalogue"}
+              aria-label={
+                tab === "assets" ? "Search assets" : "Search products"
+              }
+              autoComplete="off"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </label>
+          <div ref={filterWrap} className="assets-filter">
+            <button
+              type="button"
+              className="shell-iconbtn shell-tip"
+              data-tooltip="Filter"
+              aria-label="Filter assets"
+              aria-haspopup="dialog"
+              aria-expanded={filterOpen}
+              aria-pressed={active > 0}
+              onClick={() => setFilterOpen((v) => !v)}
+            >
+              <FilterIcon />
+              {active > 0 && <span className="assets-filter-n">{active}</span>}
+            </button>
+            {filterOpen && (
+              <div className="shell-menu assets-filter-menu" role="dialog">
+                {tab === "assets" && (
+                  <>
+                    <p className="assets-filter-label">Show</p>
+                    <div className="assets-kinds">
+                      {(
+                        [
+                          ["all", "Everything"],
+                          ["piece", "Furnishes pieces"],
+                          ["room", "Room items"],
+                        ] as const
+                      ).map(([id, label]) => (
+                        <button
+                          key={id}
+                          type="button"
+                          className="assets-chip"
+                          aria-pressed={kind === id}
+                          onClick={() => setKind(id)}
+                        >
+                          {id === "piece" && <span className="assets-dot" />}
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="assets-filter-hint">
+                      Furnishes pieces are the ones you can edit and buy. Room
+                      items only set the scene.
+                    </p>
+                  </>
+                )}
+                <p className="assets-filter-label">Category</p>
+                <div className="assets-kinds">
                   <button
-                    key={c}
                     type="button"
                     className="assets-chip"
-                    aria-pressed={category === c}
-                    onClick={() => setCategory(category === c ? null : c)}
+                    aria-pressed={category === null}
+                    onClick={() => setCategory(null)}
                   >
-                    {CATEGORY_NAMES[c]}
+                    All
                   </button>
-                ))}
+                  {(Object.keys(CATEGORY_NAMES) as AssetCategory[]).map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      className="assets-chip"
+                      aria-pressed={category === c}
+                      onClick={() => setCategory(category === c ? null : c)}
+                    >
+                      {CATEGORY_NAMES[c]}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
-      {active > 0 && (
+      {active > 0 && tab !== "room" && (
         <div className="assets-active">
           {tab === "assets" && kind !== "all" && (
             <button
@@ -200,6 +206,7 @@ export function AssetsPanel() {
       )}
 
       {tab === "products" && <ProductsTab query={query} category={category} />}
+      {tab === "room" && <RoomTab />}
       <div
         className="assets-tree"
         role="tree"

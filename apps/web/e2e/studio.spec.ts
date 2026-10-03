@@ -194,7 +194,7 @@ test("Eva's input box and the user bar", async ({ page }) => {
   ).toBeVisible();
 
   await expect(page.locator(".user-name")).toHaveText("Studio User");
-  await page.getByRole("button", { name: "More" }).click();
+  await page.getByRole("button", { name: "Settings" }).click();
   await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
 });
 
@@ -393,4 +393,89 @@ test("Eva's Preference blocks take a room, a budget, styles and colours", async 
   );
   await blocks.nth(0).getByRole("button", { name: "Remove" }).click();
   await expect(blocks.nth(0)).toHaveAttribute("data-set", "false");
+});
+
+test("the toolbar reads mode · tools · zoom, share, export", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  const bar = page.getByRole("toolbar", { name: "Studio tools" });
+  await expect(bar.getByRole("button", { name: "Edit" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await bar.getByRole("button", { name: "Preview" }).click();
+  await expect(bar.getByRole("button", { name: "Preview" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(
+    bar.getByRole("group", { name: "Tools" }).getByRole("button"),
+  ).toHaveCount(7);
+  await bar.getByRole("button", { name: "Move" }).click();
+  await expect(bar.getByRole("button", { name: "Move" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(bar.getByRole("button", { name: "Select" })).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
+  const [edit, tools, exp] = await Promise.all([
+    bar.getByRole("button", { name: "Edit" }).boundingBox(),
+    bar.getByRole("group", { name: "Tools" }).boundingBox(),
+    bar.getByRole("button", { name: "Export" }).boundingBox(),
+  ]);
+  expect(edit!.x).toBeLessThan(tools!.x);
+  expect(tools!.x + tools!.width).toBeLessThan(exp!.x);
+});
+
+test("the catalogue is grouped under titled categories", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  await page.getByRole("tab", { name: "Products" }).click();
+  const titles = page.locator(".products-title");
+  await expect(titles.first()).toContainText("Storage");
+  const n = new Set(products.map((p) => p.category)).size;
+  await expect(titles).toHaveCount(n);
+});
+
+test("the Room tab starts from the HDB preset and takes a size of your own", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  await page.getByRole("tab", { name: "Room" }).click();
+  await expect(page.getByRole("searchbox")).toHaveCount(0);
+  await expect(page.getByRole("radio", { name: "4-room" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
+  await expect(page.locator(".room-size")).toContainText(
+    "6.5 m × 4.0 m · 2.6 m high",
+  );
+  await expect(page.locator(".room-size")).toContainText(
+    "typical for a 4-room",
+  );
+  await page.getByRole("radio", { name: "Master bedroom" }).click();
+  await expect(page.locator(".room-size")).toContainText("3.5 m × 3.0 m");
+  await page.getByRole("radio", { name: "3-room" }).click();
+  await expect(page.locator(".room-size")).toContainText("3.0 m × 3.0 m");
+  await expect(page.getByRole("radio", { name: "Study" })).toHaveCount(0);
+  await page
+    .getByRole("spinbutton", { name: "width in millimetres" })
+    .fill("3400");
+  await expect(page.locator(".room-size")).toContainText("3.4 m × 3.0 m");
+  await expect(page.locator(".room-size")).toContainText("yours");
+  await page.getByRole("button", { name: "Typical" }).click();
+  await expect(page.locator(".room-size")).toContainText(
+    "typical for a 3-room",
+  );
+  await page.getByRole("radio", { name: "east" }).first().click();
+  await expect(
+    page
+      .getByRole("radiogroup", { name: "Door on the" })
+      .getByRole("radio", { name: "east" }),
+  ).toHaveAttribute("aria-checked", "true");
 });

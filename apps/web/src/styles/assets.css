@@ -145,6 +145,7 @@
   background: rgba(255, 255, 255, 0.7);
 }
 .assets-chip[aria-pressed="true"],
+.assets-chip[aria-checked="true"],
 .assets-chip-x {
   color: var(--color-accent);
   background: rgb(from var(--color-accent) r g b / 0.08);
@@ -338,16 +339,9 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
   padding: 4px 12px 12px;
-  align-content: start;
   scrollbar-width: thin;
   scrollbar-color: rgb(from var(--color-ink) r g b / 0.2) transparent;
-}
-.products .assets-empty {
-  grid-column: 1 / -1;
 }
 .product {
   position: relative;
@@ -362,18 +356,9 @@
   background: rgba(255, 255, 255, 0.55);
   border: 1px solid rgb(from var(--color-line) r g b / 0.14);
   box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.6) inset;
-  display: grid;
-  place-items: end start;
-  padding: 8px;
 }
 .shell[data-corners="square"] .product-pic {
   border-radius: 0;
-}
-.product-cat {
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: rgb(from var(--color-ink) r g b / 0.4);
 }
 .product-row {
   display: flex;
@@ -431,4 +416,119 @@
 .product[data-added="true"] .product-add {
   background: var(--color-accent);
   color: var(--color-cream);
+}
+
+/* catalogue groups, each under its title */
+.products {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.products-title {
+  margin: 0 0 6px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgb(from var(--color-ink) r g b / 0.6);
+}
+.products-title .assets-n {
+  min-width: 0;
+}
+.products-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+/* ---- the Room tab ---- */
+.room {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(from var(--color-ink) r g b / 0.2) transparent;
+}
+.room-seg {
+  margin-top: 8px;
+  display: flex;
+  width: 100%;
+}
+.room-seg .main-seg-btn {
+  flex: 1;
+  padding: 5px 4px;
+  font-size: 12px;
+}
+.room-size {
+  margin-bottom: 10px;
+}
+.room-size-note {
+  font-weight: 500;
+  color: rgb(from var(--color-ink) r g b / 0.45);
+}
+.room-dims {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.room-dim {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  position: relative;
+}
+.room-dim-label,
+.room-field-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(from var(--color-ink) r g b / 0.45);
+}
+.room-dim-input {
+  width: 100%;
+  height: 32px;
+  min-width: 0;
+  padding: 0 26px 0 7px;
+  border-radius: var(--r-control);
+  border: 1px solid rgb(from var(--color-line) r g b / 0.18);
+  background: rgba(255, 255, 255, 0.55);
+  font: inherit;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink);
+  -moz-appearance: textfield;
+}
+.room-dim-input::-webkit-outer-spin-button,
+.room-dim-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+}
+.room-dim-input:focus-visible {
+  outline: none;
+  border-color: rgb(from var(--color-accent) r g b / 0.55);
+}
+.room-dim-unit {
+  position: absolute;
+  right: 8px;
+  bottom: 9px;
+  font-size: 10.5px;
+  color: rgb(from var(--color-ink) r g b / 0.4);
+}
+.room-field {
+  margin-top: 8px;
+}
+.room-field .eva-chips,
+.room-field .eva-swatches {
+  margin-top: 4px;
+}
+.room-field .assets-chip {
+  text-transform: capitalize;
 }

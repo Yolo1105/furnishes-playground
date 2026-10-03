@@ -1,19 +1,13 @@
 "use client";
 
 import { useRef, useState } from "react";
-import {
-  GearIcon,
-  HelpIcon,
-  KeyboardIcon,
-  MoreIcon,
-  SignOutIcon,
-} from "./icons";
+import { GearIcon, HelpIcon, KeyboardIcon, SignOutIcon } from "./icons";
 import { useDismiss } from "./useDismiss";
 
 /**
- * The foot of the project rail: who is signed in, and the handful of
- * things every studio keeps there — settings, shortcuts, help, sign out.
- * The name is a placeholder until auth lands.
+ * The foot of the project rail: who is signed in, and one gear that opens
+ * settings, shortcuts, help and sign out. The name is a placeholder until
+ * auth lands.
  */
 export function UserBar({
   name = "Studio User",
@@ -44,24 +38,19 @@ export function UserBar({
       </span>
       <button
         type="button"
-        className="shell-iconbtn shell-tip"
-        data-tooltip="Settings"
-        aria-label="Settings"
-      >
-        <GearIcon />
-      </button>
-      <button
-        type="button"
         className="shell-iconbtn"
-        aria-label="More"
+        aria-label="Settings"
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
-        <MoreIcon />
+        <GearIcon />
       </button>
       {open && (
         <div className="shell-menu user-menu" role="menu">
+          <button type="button" role="menuitem" className="shell-menu-row">
+            <GearIcon /> Settings
+          </button>
           <button type="button" role="menuitem" className="shell-menu-row">
             <KeyboardIcon /> Keyboard shortcuts
           </button>

@@ -566,6 +566,7 @@
   font: inherit;
   font-size: 12px;
   font-weight: 600;
+  white-space: nowrap;
   letter-spacing: -0.005em;
   color: rgb(from var(--color-ink) r g b / 0.85);
   cursor: pointer;

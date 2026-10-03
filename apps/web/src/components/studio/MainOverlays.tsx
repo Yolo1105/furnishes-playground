@@ -2,7 +2,21 @@
 
 import { useState, type ReactNode } from "react";
 import { pieceTotals, sgd } from "./assets-data";
-import { ChevronUpDownIcon } from "./icons";
+import {
+  ChevronDownIcon,
+  ChevronUpDownIcon,
+  CursorIcon,
+  ExportIcon,
+  MoveIcon,
+  NoteIcon,
+  PlusIcon,
+  RedoIcon,
+  RotateIcon,
+  RulerIcon,
+  ShareIcon,
+  UndoIcon,
+  WallIcon,
+} from "./icons";
 import { useTopLevel } from "./scene-store";
 
 /**
@@ -10,37 +24,115 @@ import { useTopLevel } from "./scene-store";
  * shelf of cards along the bottom. Both are glass.
  */
 
-/** Ghost icon buttons in groups, the way a toolbar reads. `leading` and
-    `trailing` are the slots the collapsed rails' restore icons dock into. */
+/**
+ * The toolbar over the main surface, read left to right the way a studio's
+ * is: the mode (Edit or Preview), the tools in the middle (select, move,
+ * rotate, measure, add, wall, note), then zoom and the two outward actions
+ * (Share, Export) with Export as the one primary button. `leading` and
+ * `trailing` are the slots the collapsed rails' restore icons dock into.
+ * Nothing acts yet: the tools mark themselves pressed, the rest is inert.
+ */
+const TOOLS = [
+  ["select", "Select", CursorIcon],
+  ["move", "Move", MoveIcon],
+  ["rotate", "Rotate", RotateIcon],
+  ["measure", "Measure", RulerIcon],
+  ["add", "Add piece", PlusIcon],
+  ["wall", "Draw wall", WallIcon],
+  ["note", "Note", NoteIcon],
+] as const;
+type Tool = (typeof TOOLS)[number][0];
+
 export function MainTopBar({
-  groups = [4, 3, 2],
   leading,
   trailing,
 }: {
-  groups?: number[];
   leading?: ReactNode;
   trailing?: ReactNode;
 }) {
+  const [mode, setMode] = useState<"edit" | "preview">("edit");
+  const [tool, setTool] = useState<Tool>("select");
   return (
-    <div className="glass main-top" role="toolbar" aria-label="Tools">
-      {leading && <div className="main-top-slot main-top-lead">{leading}</div>}
-      {groups.map((n, g) => (
-        <div key={g} className="main-top-group">
-          {Array.from({ length: n }, (_, i) => (
+    <div className="glass main-top" role="toolbar" aria-label="Studio tools">
+      <div className="main-top-side main-top-left">
+        {leading}
+        <div className="main-seg" role="group" aria-label="Mode">
+          {(
+            [
+              ["edit", "Edit"],
+              ["preview", "Preview"],
+            ] as const
+          ).map(([id, label]) => (
             <button
-              key={i}
+              key={id}
               type="button"
-              className="main-icon"
-              aria-label={`Tool ${g + 1}.${i + 1}`}
+              className="main-seg-btn"
+              aria-pressed={mode === id}
+              onClick={() => setMode(id)}
             >
-              <span className="main-icon-glyph" aria-hidden="true" />
+              {label}
             </button>
           ))}
         </div>
-      ))}
-      {trailing && (
-        <div className="main-top-slot main-top-trail">{trailing}</div>
-      )}
+      </div>
+
+      <div className="main-top-group" role="group" aria-label="Tools">
+        {TOOLS.map(([id, label, Icon]) => (
+          <button
+            key={id}
+            type="button"
+            className="main-icon shell-tip"
+            data-tooltip={label}
+            aria-label={label}
+            aria-pressed={tool === id}
+            onClick={() => setTool(id)}
+          >
+            <Icon />
+          </button>
+        ))}
+      </div>
+
+      <div className="main-top-side main-top-right">
+        <div className="main-top-group" role="group" aria-label="History">
+          <button
+            type="button"
+            className="main-icon shell-tip"
+            data-tooltip="Undo"
+            aria-label="Undo"
+          >
+            <UndoIcon />
+          </button>
+          <button
+            type="button"
+            className="main-icon shell-tip"
+            data-tooltip="Redo"
+            aria-label="Redo"
+          >
+            <RedoIcon />
+          </button>
+        </div>
+        <button
+          type="button"
+          className="main-zoom f-num"
+          aria-haspopup="menu"
+          aria-label="Zoom, 100%"
+        >
+          100% <ChevronDownIcon size={11} />
+        </button>
+        <button type="button" className="main-btn" aria-label="Share">
+          <ShareIcon size={14} />
+          <span>Share</span>
+        </button>
+        <button
+          type="button"
+          className="main-btn main-btn-primary"
+          aria-label="Export"
+        >
+          <ExportIcon size={14} />
+          <span>Export</span>
+        </button>
+        {trailing}
+      </div>
     </div>
   );
 }

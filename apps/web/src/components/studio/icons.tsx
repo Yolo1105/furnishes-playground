@@ -278,3 +278,86 @@ export function TrashIcon({ size = 14 }: IconProps) {
     </svg>
   );
 }
+
+/* ---- the toolbar's tools ---- */
+export function CursorIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <path d="M5 3l14 8-6.5 1.5L10 19 5 3z" />
+    </svg>
+  );
+}
+export function MoveIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <path d="M12 2v20M2 12h20" />
+      <path d="m9 5 3-3 3 3M9 19l3 3 3-3M5 9l-3 3 3 3M19 9l3 3-3 3" />
+    </svg>
+  );
+}
+export function RotateIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <path d="M20 12a8 8 0 1 1-2.5-5.8" />
+      <path d="M20 4v5h-5" />
+    </svg>
+  );
+}
+export function RulerIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <rect x="2" y="8" width="20" height="8" rx="1.5" />
+      <path d="M6 8v3M10 8v4M14 8v3M18 8v4" />
+    </svg>
+  );
+}
+export function WallIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <path d="M3 5h18v14H3z" />
+      <path d="M3 10h18M3 15h18M9 5v5M15 10v5M9 15v4" />
+    </svg>
+  );
+}
+export function NoteIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <path d="M21 12a8 8 0 0 1-8 8H8l-5 3 1.5-4.5A8 8 0 1 1 21 12z" />
+      <path d="M8 11h8M8 14h5" />
+    </svg>
+  );
+}
+export function UndoIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <path d="M9 14 4 9l5-5" />
+      <path d="M4 9h11a5 5 0 0 1 0 10h-3" />
+    </svg>
+  );
+}
+export function RedoIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <path d="m15 14 5-5-5-5" />
+      <path d="M20 9H9a5 5 0 0 0 0 10h3" />
+    </svg>
+  );
+}
+export function ShareIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <circle cx="18" cy="5" r="2.5" />
+      <circle cx="6" cy="12" r="2.5" />
+      <circle cx="18" cy="19" r="2.5" />
+      <path d="m8.2 10.8 7.6-4.6M8.2 13.2l7.6 4.6" />
+    </svg>
+  );
+}
+export function ExportIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <path d="M12 3v12M7 8l5-5 5 5" />
+      <path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" />
+    </svg>
+  );
+}

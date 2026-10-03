@@ -39,7 +39,6 @@ export function PreferenceTab() {
             role={multi ? "checkbox" : "radio"}
             aria-checked={on.includes(o)}
             className="assets-chip"
-            aria-pressed={on.includes(o)}
             onClick={() => toggle(cat, o, multi)}
           >
             {o}

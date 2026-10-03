@@ -36,30 +36,53 @@ export function ProductsTab({
     window.clearTimeout(flash.current);
     flash.current = window.setTimeout(() => setJustAdded(null), 1200);
   };
+  const groups = (Object.keys(CATEGORY_NAMES) as AssetCategory[])
+    .map((c) => ({
+      id: c,
+      name: CATEGORY_NAMES[c],
+      items: shown.filter((p) => p.category === c),
+    }))
+    .filter((g) => g.items.length > 0);
   return (
     <div className="products" aria-label="Products">
-      {shown.length === 0 && (
+      {groups.length === 0 && (
         <p className="assets-empty">Nothing here matches.</p>
       )}
-      {shown.map((p) => (
-        <article key={p.id} className="product" data-added={justAdded === p.id}>
-          <div className="product-pic" aria-hidden="true">
-            <span className="product-cat">{CATEGORY_NAMES[p.category]}</span>
+      {groups.map((g) => (
+        <section
+          key={g.id}
+          className="products-group"
+          aria-labelledby={`cat-${g.id}`}
+        >
+          <p id={`cat-${g.id}`} className="products-title">
+            {g.name}
+            <span className="assets-n f-num">{g.items.length}</span>
+          </p>
+          <div className="products-grid">
+            {g.items.map((p) => (
+              <article
+                key={p.id}
+                className="product"
+                data-added={justAdded === p.id}
+              >
+                <div className="product-pic" aria-hidden="true" />
+                <div className="product-row">
+                  <span className="product-name">{p.name}</span>
+                  <span className="product-price f-num">{sgd(p.price)}</span>
+                </div>
+                <button
+                  type="button"
+                  className="product-add"
+                  aria-label={`Add ${p.name} to the room`}
+                  onClick={() => onAdd(p.id)}
+                >
+                  <PlusIcon size={14} />
+                  {justAdded === p.id ? "Added" : "Add"}
+                </button>
+              </article>
+            ))}
           </div>
-          <div className="product-row">
-            <span className="product-name">{p.name}</span>
-            <span className="product-price f-num">{sgd(p.price)}</span>
-          </div>
-          <button
-            type="button"
-            className="product-add"
-            aria-label={`Add ${p.name} to the room`}
-            onClick={() => onAdd(p.id)}
-          >
-            <PlusIcon size={14} />
-            {justAdded === p.id ? "Added" : "Add"}
-          </button>
-        </article>
+        </section>
       ))}
     </div>
   );
