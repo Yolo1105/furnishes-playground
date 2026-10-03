@@ -358,6 +358,11 @@
   white-space: nowrap;
   cursor: pointer;
 }
+/* the project panel's four tabs fit its narrowest width */
+.shell-rail-left .shell-tabbtn {
+  padding: 6px 7px;
+  font-size: 12px;
+}
 .shell-tabbtn:hover {
   background: rgb(from var(--color-ink) r g b / 0.05);
   color: rgb(from var(--color-ink) r g b / 0.85);

@@ -6,6 +6,7 @@ import {
   type AssetNode,
 } from "./assets-data";
 import type { Product } from "./catalogue";
+import { defaultProps, LABEL_MAX, type PieceProps } from "./piece-detail";
 
 type SceneState = {
   groups: AssetGroup[];
@@ -18,10 +19,17 @@ type SceneState = {
   revealAt: number;
   /** ids of the pieces put in the cart */
   cart: string[];
+  /** ids of the pieces labelled for Eva, in order, up to LABEL_MAX */
+  labels: string[];
+  /** the Detail tab's changes, over each piece's defaults */
+  overrides: Record<string, Partial<PieceProps>>;
   /** put a catalogue product into the room; returns the new node's id */
   addProduct: (p: Product) => string;
   select: (id: string | null, reveal?: boolean) => void;
   toggleCart: (id: string) => void;
+  /** label a piece for Eva, or take the label off; a sixth is refused */
+  toggleLabel: (id: string) => void;
+  setProps: (id: string, patch: Partial<PieceProps>) => void;
 };
 
 /** What stands in the room right now: the outliner, the shelf and the
@@ -32,6 +40,8 @@ export const useScene = create<SceneState>((set, get) => ({
   selectedAt: 0,
   revealAt: 0,
   cart: [],
+  labels: [],
+  overrides: {},
   addProduct: (p) => {
     const n = get()
       .groups.flatMap((g) => g.items)
@@ -69,7 +79,39 @@ export const useScene = create<SceneState>((set, get) => ({
         ? s.cart.filter((x) => x !== id)
         : [...s.cart, id],
     })),
+  toggleLabel: (id) =>
+    set((s) => {
+      if (s.labels.includes(id))
+        return { labels: s.labels.filter((x) => x !== id) };
+      if (s.labels.length >= LABEL_MAX) return {};
+      return { labels: [...s.labels, id] };
+    }),
+  setProps: (id, patch) =>
+    set((s) => ({
+      overrides: { ...s.overrides, [id]: { ...s.overrides[id], ...patch } },
+    })),
 }));
+
+/** a node's properties: its defaults with the Detail tab's changes over them */
+export const propsOf = (
+  n: AssetNode,
+  overrides: Record<string, Partial<PieceProps>>,
+): PieceProps => ({ ...defaultProps(n), ...overrides[n.id] });
+
+/** the node with `id`, at any depth, and its parent if it has one */
+export const findNode = (
+  groups: AssetGroup[],
+  id: string | null,
+): { node: AssetNode; parent: AssetNode | null } | null => {
+  if (!id) return null;
+  for (const g of groups)
+    for (const n of g.items) {
+      if (n.id === id) return { node: n, parent: null };
+      const c = n.children?.find((x) => x.id === id);
+      if (c) return { node: c, parent: n };
+    }
+  return null;
+};
 
 /** top-level things only: what the shelf shows and the tab counts */
 export const useTopLevel = () =>

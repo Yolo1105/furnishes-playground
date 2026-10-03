@@ -1,4 +1,5 @@
 import { CubeIcon, PlanIcon, SwapIcon } from "./icons";
+import { StagePieces } from "./StagePieces";
 import { other, viewName, type View } from "./studio-store";
 
 /**
@@ -55,6 +56,9 @@ export function MainView({ view }: { view: View }) {
       )}
       <div className="stage-room">
         <div className="preview-room preview-room-sketch" aria-hidden="true" />
+        <div className="preview-room stage-room-pieces">
+          <StagePieces />
+        </div>
         <span>{viewName(view)}</span>
       </div>
     </div>

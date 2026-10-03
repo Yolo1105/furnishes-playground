@@ -356,3 +356,38 @@ export function EyeOffIcon({ size = 16 }: IconProps) {
     </svg>
   );
 }
+
+/** a pointer with a ring: inspect what it lands on */
+export function InspectIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <path d="M4 4l7 17 2.5-7.5L21 11z" />
+      <circle cx="18" cy="18" r="3.5" />
+    </svg>
+  );
+}
+
+export function TagIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <path d="M20.6 13.4L12.6 21.4a1.4 1.4 0 0 1-2 0L3 13.8V3h10.8l6.8 6.8a2.5 2.5 0 0 1 0 3.6z" />
+      <path d="M7.5 7.5h.01" />
+    </svg>
+  );
+}
+
+export function ExpandIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+    </svg>
+  );
+}
+
+export function ArrowLeftIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <path d="M19 12H5M11 18l-6-6 6-6" />
+    </svg>
+  );
+}

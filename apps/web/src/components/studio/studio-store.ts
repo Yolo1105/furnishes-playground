@@ -1,9 +1,12 @@
 import { create } from "zustand";
 
 /**
- * What the toolbar holds and the surfaces follow: the mode, the tool,
- * which view is on the main surface, whether the panels are hidden to
- * look at the room, the loading line, and the Preview run. Preview walks
+ * What the toolbar holds and the surfaces follow: the mode, the tool
+ * (Select picks and moves; Inspect picks and offers a piece's details or
+ * a label for Eva; Wall draws, from the Room tab), which view is on the
+ * main surface, whether the panels are hidden to look at the room, a
+ * piece in focus on its own, the project panel's tab, the loading line,
+ * and the Preview run. Preview walks
  * a fixed path: generating (the line on the toolbar's edge), revealing
  * (the divider sweeps left to right between the rails, the render filling
  * in behind it), done (the render stands alone), compare (with the panels
@@ -11,7 +14,9 @@ import { create } from "zustand";
  * dragged: the sketch is left of it, the render right).
  */
 export type Mode = "edit" | "preview";
-export type Tool = "select" | "wall";
+export type Tool = "select" | "inspect" | "wall";
+/** the project panel's tabs */
+export type PanelTab = "assets" | "products" | "room" | "detail";
 export type View = "3d" | "2d";
 export type PreviewStatus =
   | "idle"
@@ -28,6 +33,9 @@ type StudioState = {
   tool: Tool;
   view: View;
   uiHidden: boolean;
+  /** a piece shown on its own, on a blank ground */
+  focusId: string | null;
+  panelTab: PanelTab;
   loading: Loading;
   /** counts each start, so a repeat of the same kind restarts the line */
   loadingAt: number;
@@ -38,6 +46,8 @@ type StudioState = {
   setTool: (tool: Tool) => void;
   setView: (view: View) => void;
   setUiHidden: (hidden: boolean) => void;
+  setFocus: (id: string | null) => void;
+  setPanelTab: (tab: PanelTab) => void;
   /** the line reached the end */
   endLoading: () => void;
   /** the sweep reached the end */
@@ -57,6 +67,8 @@ export const useStudio = create<StudioState>((set, get) => ({
   tool: "select",
   view: "3d",
   uiHidden: false,
+  focusId: null,
+  panelTab: "assets",
   loading: null,
   loadingAt: 0,
   preview: "idle",
@@ -81,6 +93,8 @@ export const useStudio = create<StudioState>((set, get) => ({
         : { view, loading: "view", loadingAt: s.loadingAt + 1 },
     ),
   setUiHidden: (uiHidden) => set({ uiHidden }),
+  setFocus: (focusId) => set({ focusId }),
+  setPanelTab: (panelTab) => set({ panelTab }),
   endLoading: () => {
     const s = get();
     set(

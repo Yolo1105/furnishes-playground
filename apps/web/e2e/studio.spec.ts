@@ -449,11 +449,18 @@ test("the toolbar reads mode · select, add, wall · undo, guide, export", async
   await expect(
     bar.getByRole("group", { name: "Tools" }).getByRole("button"),
   ).toHaveText(["", "", "", ""]);
-  for (const gone of ["Move", "Rotate", "Measure", "Note", "Share"])
+  for (const gone of [
+    "Move",
+    "Rotate",
+    "Measure",
+    "Note",
+    "Share",
+    "Draw wall",
+  ])
     await expect(bar.getByRole("button", { name: gone })).toHaveCount(0);
   await expect(bar.getByText("100%")).toHaveCount(0);
-  await bar.getByRole("button", { name: "Draw wall" }).click();
-  await expect(bar.getByRole("button", { name: "Draw wall" })).toHaveAttribute(
+  await bar.getByRole("button", { name: "Inspect" }).click();
+  await expect(bar.getByRole("button", { name: "Inspect" })).toHaveAttribute(
     "aria-pressed",
     "true",
   );
@@ -651,10 +658,6 @@ test("the Room tab starts from drawn walls or a template", async ({ page }) => {
   ]);
   expect(hb!.x).toBeGreaterThan(mb!.x + mb!.width / 2);
   await expect(howTo.getByText("Don't show next time")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Draw wall" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
   await howTo.getByRole("button", { name: "Close guide" }).click();
   await expect(page.getByRole("button", { name: "Show me how" })).toBeVisible();
   await start.getByRole("radio", { name: "Template" }).click();
@@ -840,4 +843,122 @@ test("a view swap runs the quick line; the Agent tab hands prompts to the input"
   const box = page.getByRole("textbox", { name: "Message Eva" });
   await expect(box).toHaveValue(prompt);
   await expect(box).toBeFocused();
+});
+
+test("Inspect raises Details and Label over a piece; labels reach Eva, five at most", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  const stage = page.locator(".stage-pieces");
+  const pieces = top.filter((a) => a.kind === "piece");
+  await expect(stage.locator(".stage-piece")).toHaveCount(pieces.length);
+  // with Select, a click on a piece picks it everywhere
+  const first = pieces[0]!;
+  await stage.getByRole("button", { name: first.name, exact: true }).click();
+  await expect(
+    page.getByRole("treeitem", { name: first.name, exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(stage.locator(".stage-actions")).toHaveCount(0);
+  // with Inspect, the two actions rise over it
+  await page.getByRole("button", { name: "Inspect" }).click();
+  await stage.getByRole("button", { name: first.name, exact: true }).click();
+  const actions = stage.getByRole("group", { name: `${first.name} actions` });
+  await expect(actions).toBeVisible();
+  await actions.getByRole("button", { name: "Label" }).click();
+  await expect(stage.locator('.stage-piece[data-labelled="true"]')).toHaveCount(
+    1,
+  );
+  await expect(page.getByLabel("Label 1")).toBeVisible();
+  const agent = page.locator(".agent");
+  const chip = agent.getByRole("button", {
+    name: new RegExp(`^1\\s*${first.name}$`),
+  });
+  await expect(chip).toBeVisible();
+  await chip.click();
+  await expect(page.getByRole("textbox", { name: "Message Eva" })).toHaveValue(
+    `About 1 (${first.name}): `,
+  );
+  // five at a time: the sixth piece cannot be labelled
+  for (const p of pieces.slice(1)) {
+    await stage.getByRole("button", { name: p.name, exact: true }).click();
+    await stage
+      .getByRole("group", { name: `${p.name} actions` })
+      .getByRole("button", { name: "Label" })
+      .click();
+  }
+  await expect(agent.locator(".agent-label")).toHaveCount(5);
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await page.getByRole("button", { name: /^Add Shelf,/ }).click();
+  await page.getByRole("button", { name: "Inspect" }).click();
+  await stage.getByRole("button", { name: "Shelf", exact: true }).click();
+  await expect(
+    stage
+      .getByRole("group", { name: "Shelf actions" })
+      .getByRole("button", { name: "Label" }),
+  ).toBeDisabled();
+  // Details shows the piece alone on a blank ground and opens the Detail tab
+  await stage.getByRole("button", { name: first.name, exact: true }).click();
+  await stage
+    .getByRole("group", { name: `${first.name} actions` })
+    .getByRole("button", { name: "Details" })
+    .click();
+  await expect(page.locator(".shell-stage")).toHaveAttribute(
+    "data-focus",
+    "true",
+  );
+  await expect(stage.locator(".stage-piece")).toHaveCount(1);
+  await expect(page.getByRole("tab", { name: "Detail" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await page.getByRole("button", { name: "Back to the room" }).click();
+  await expect(page.locator(".shell-stage")).toHaveAttribute(
+    "data-focus",
+    "false",
+  );
+});
+
+test("the Detail tab lists a piece's components and changes one", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  await page.getByRole("tab", { name: "Detail" }).click();
+  await expect(page.locator(".detail")).toHaveCount(0);
+  await expect(page.locator(".assets-empty")).toBeVisible();
+  const bookwall = top.find((a) => a.children?.length)!;
+  await page
+    .locator(".main-shelf")
+    .getByRole("button", { name: bookwall.name, exact: true })
+    .click();
+  await page.getByRole("tab", { name: "Detail" }).click();
+  await expect(page.locator(".detail-name")).toHaveText(bookwall.name);
+  const parts = page.getByRole("radiogroup", { name: "Components" });
+  await expect(parts.getByRole("radio")).toHaveCount(bookwall.children!.length);
+  await expect(page.getByRole("radiogroup", { name: "Colour" })).toHaveCount(0);
+  const segment = bookwall.children![0]!;
+  await parts.getByRole("radio", { name: new RegExp(segment.name) }).click();
+  await expect(page.getByRole("radiogroup", { name: "Colour" })).toBeVisible();
+  await page.getByRole("radio", { name: "Walnut" }).click();
+  await expect(page.getByRole("radio", { name: "Walnut" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
+  await page.getByRole("radio", { name: "Linen" }).click();
+  const width = page.getByRole("spinbutton", {
+    name: `${segment.name} width in millimetres`,
+  });
+  await width.fill("900");
+  await expect(width).toHaveValue("900");
+  // the change holds when the component is left and picked again
+  await parts
+    .getByRole("radio", { name: new RegExp(bookwall.children![1]!.name) })
+    .click();
+  await parts.getByRole("radio", { name: new RegExp(segment.name) }).click();
+  await expect(width).toHaveValue("900");
+  await expect(page.getByRole("radio", { name: "Linen" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
 });

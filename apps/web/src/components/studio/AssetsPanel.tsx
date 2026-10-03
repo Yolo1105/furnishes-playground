@@ -10,7 +10,9 @@ import {
   type AssetNode,
 } from "./assets-data";
 import { ProductsTab } from "./ProductsTab";
+import { DetailTab } from "./DetailTab";
 import { RoomTab } from "./RoomTab";
+import { useStudio } from "./studio-store";
 import { groupOf, useScene } from "./scene-store";
 import { useDismiss } from "./useDismiss";
 import {
@@ -23,7 +25,6 @@ import {
 } from "./icons";
 
 type KindFilter = "all" | "piece" | "room";
-type Tab = "assets" | "products" | "room";
 
 const matches = (n: AssetNode, q: string): boolean =>
   n.name.toLowerCase().includes(q) ||
@@ -41,7 +42,8 @@ const keeps = (n: AssetNode, kind: KindFilter) =>
  * a category and/or one of the two kinds.
  */
 export function AssetsPanel() {
-  const [tab, setTab] = useState<Tab>("assets");
+  const tab = useStudio((s) => s.panelTab);
+  const setTab = useStudio((s) => s.setPanelTab);
   const assetGroups = useScene((s) => s.groups);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<AssetCategory | null>(null);
@@ -82,7 +84,7 @@ export function AssetsPanel() {
           g?.items.find((n) => n.id === id) ??
           g?.items.find((n) => n.children?.some((c) => c.id === id));
         if (!g || !node) return;
-        setTab("assets");
+        useStudio.getState().setPanelTab("assets");
         setClosed((c) => ({ ...c, [g.id]: false, [node.id]: false }));
         const f = filters.current;
         const hidden =
@@ -133,6 +135,7 @@ export function AssetsPanel() {
               ["assets", "Assets"],
               ["products", "Products"],
               ["room", "Room"],
+              ["detail", "Detail"],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -149,7 +152,7 @@ export function AssetsPanel() {
         </div>
       </div>
 
-      {tab !== "room" && (
+      {(tab === "assets" || tab === "products") && (
         <div className="assets-search">
           <label className="assets-field">
             <SearchIcon />
@@ -244,7 +247,7 @@ export function AssetsPanel() {
         </div>
       )}
 
-      {active > 0 && tab !== "room" && (
+      {active > 0 && (tab === "assets" || tab === "products") && (
         <div className="assets-active">
           {tab === "assets" && kind !== "all" && (
             <button
@@ -269,6 +272,7 @@ export function AssetsPanel() {
 
       {tab === "products" && <ProductsTab query={query} category={category} />}
       {tab === "room" && <RoomTab />}
+      {tab === "detail" && <DetailTab />}
       <div
         ref={tree}
         className="assets-tree"

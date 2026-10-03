@@ -882,3 +882,171 @@
     display: none;
   }
 }
+
+/* ---- the pieces on the stage ---- */
+.stage-room-pieces {
+  pointer-events: auto;
+}
+.stage-pieces {
+  position: absolute;
+  inset: 0;
+}
+.stage-piece {
+  position: absolute;
+  min-width: 36px;
+  min-height: 24px;
+}
+.stage-piece-body {
+  appearance: none;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 1.5px solid rgb(from var(--color-line) r g b / 0.45);
+  border-radius: 3px;
+  background: rgb(from var(--color-glass) r g b / 0.85);
+  box-shadow: 0 6px 14px -8px rgb(from var(--color-shadow) r g b / 0.45);
+  font: inherit;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.stage-piece-body[data-colour="walnut"] {
+  background: #c9a98a;
+}
+.stage-piece-body[data-colour="ash"] {
+  background: #f4efe7;
+}
+.stage-piece-body[data-colour="charcoal"] {
+  background: #8d8782;
+}
+.stage-piece-body[data-colour="sage"] {
+  background: #d4d8c6;
+}
+.stage-piece-body:hover {
+  border-color: rgb(from var(--color-accent) r g b / 0.5);
+}
+.stage-piece[data-selected="true"] .stage-piece-body {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px rgb(from var(--color-accent) r g b / 0.25);
+}
+.stage-piece-name {
+  padding: 0 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgb(from var(--color-ink) r g b / 0.6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+/* the label for Eva: a numbered tag on the piece's corner */
+.stage-piece-tag {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--color-accent);
+  color: var(--color-cream);
+  font-size: 10.5px;
+  font-weight: 700;
+  box-shadow: 0 2px 6px -2px rgb(from var(--color-shadow) r g b / 0.5);
+}
+/* Inspect's two actions, over the piece */
+.stage-actions {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  z-index: 2;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  transform: translateX(-50%);
+  border-radius: var(--r-control);
+  white-space: nowrap;
+}
+.stage-action {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 9px;
+  border-radius: var(--r-control);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: rgb(from var(--color-ink) r g b / 0.75);
+  cursor: pointer;
+}
+.stage-action:hover {
+  background: rgb(from var(--color-ink) r g b / 0.06);
+}
+.stage-action[aria-pressed="true"] {
+  color: var(--color-accent);
+  background: rgb(from var(--color-accent) r g b / 0.1);
+}
+.stage-action:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+/* a piece in focus: alone, large, on a blank ground */
+.shell-stage[data-focus="true"] {
+  background: var(--color-paper);
+}
+.shell-stage[data-focus="true"] .preview-room-sketch,
+.shell-stage[data-focus="true"] .stage-room > span,
+.shell-stage[data-focus="true"] .view-plan-main {
+  display: none;
+}
+.stage-pieces[data-focus="true"] .stage-piece {
+  left: 25%;
+  top: 25%;
+  width: 50%;
+  height: 50%;
+}
+.stage-pieces[data-focus="true"] .stage-piece-name {
+  font-size: 13px;
+}
+.stage-back {
+  position: absolute;
+  left: 50%;
+  top: -56px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px 0 9px;
+  transform: translateX(-50%);
+  border-radius: var(--r-control);
+  border: 0;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgb(from var(--color-ink) r g b / 0.75);
+  cursor: pointer;
+}
+.stage-focus-caption {
+  position: absolute;
+  left: 50%;
+  bottom: -36px;
+  margin: 0;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: rgb(from var(--color-ink) r g b / 0.55);
+  white-space: nowrap;
+}
+.shell-stage:has(.preview) .stage-room-pieces {
+  display: none;
+}

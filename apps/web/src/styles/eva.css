@@ -350,3 +350,22 @@
   border-color: rgb(from var(--color-accent) r g b / 0.35);
   color: var(--color-accent);
 }
+
+/* the pieces labelled for Eva, by number */
+.agent-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.agent-label-n {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--color-accent);
+  color: var(--color-cream);
+  font-size: 10px;
+  font-weight: 700;
+}

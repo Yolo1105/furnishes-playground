@@ -56,6 +56,7 @@ export function StudioShell({
   const [tab, setTab] = useState<EvaTab>("agent");
   const view = useStudio((s) => s.view);
   const uiHidden = useStudio((s) => s.uiHidden);
+  const focusId = useStudio((s) => s.focusId);
   const setView = useStudio((s) => s.setView);
   const [dropping, setDropping] = useState(false);
   const dragDepth = useRef(0);
@@ -113,6 +114,7 @@ export function StudioShell({
       <div
         className="shell-stage"
         aria-label="Room"
+        data-focus={focusId !== null}
         data-dropping={dropping}
         onDragEnter={onDragEnter}
         onDragLeave={onDragLeave}

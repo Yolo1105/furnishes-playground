@@ -20,10 +20,10 @@ import {
   ExportIcon,
   EyeIcon,
   HelpIcon,
+  InspectIcon,
   PlusIcon,
   RedoIcon,
   UndoIcon,
-  WallIcon,
 } from "./icons";
 import { topLevelOf, useScene, useTopLevel } from "./scene-store";
 import { useStudio, type Tool } from "./studio-store";
@@ -35,9 +35,10 @@ import { useDismiss } from "./useDismiss";
  */
 
 /**
- * The toolbar, read left to right: the mode (Edit or Preview), the three
- * tools (Select, which also moves and turns a piece by its handles; Add,
- * which opens the strip of parts and pieces; Wall), the eye that hides
+ * The toolbar, read left to right: the mode (Edit or Preview), the tools
+ * (Select, which also moves and turns a piece by its handles; Inspect,
+ * which offers a clicked piece's details or a label for Eva; Add, which
+ * opens the strip of parts and pieces), the eye that hides
  * every panel to look at the room, undo and redo, the Guide mark, and
  * Export as the one primary button. Every icon is the same quiet button;
  * only Export is filled. `leading` is the slot the collapsed left rail's
@@ -93,6 +94,14 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
             resting={resting}
             onPick={setTool}
           />
+          <ToolButton
+            id="inspect"
+            label="Inspect"
+            icon={<InspectIcon />}
+            tool={tool}
+            resting={resting}
+            onPick={setTool}
+          />
           <div className="main-add">
             <button
               type="button"
@@ -108,14 +117,6 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
               <PlusIcon />
             </button>
           </div>
-          <ToolButton
-            id="wall"
-            label="Draw wall"
-            icon={<WallIcon />}
-            tool={tool}
-            resting={resting}
-            onPick={setTool}
-          />
           <span className="main-sep" aria-hidden="true" />
           <button
             type="button"
