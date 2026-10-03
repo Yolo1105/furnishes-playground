@@ -6,24 +6,21 @@ import { HistoryTab } from "./HistoryTab";
 import { PreferenceTab } from "./PreferenceTab";
 import { GuideCard } from "./GuideCard";
 import { MainTopBar } from "./MainOverlays";
+import { PeekBar } from "./PeekBar";
 import { PreviewStage } from "./PreviewStage";
+import { ProgressLine } from "./ProgressLine";
 import { carriesProduct, readProductDrag } from "./dnd";
 import { useScene } from "./scene-store";
+import { other, useStudio } from "./studio-store";
 import { RadioMenu } from "./RadioMenu";
 import { useDismiss } from "./useDismiss";
 import { UserBar } from "./UserBar";
-import { MainView, other, ViewPanel, type View } from "./ViewPanel";
-import {
-  ChevronDownIcon,
-  PanelLeftIcon,
-  PanelRightIcon,
-  PlusIcon,
-} from "./icons";
+import { MainView, ViewPanel } from "./ViewPanel";
+import { ChevronDownIcon, PanelLeftIcon, PlusIcon } from "./icons";
 
 export type ShellCorners = "square" | "rounded";
 
 type Drawer = "left" | "right" | null;
-type Side = "left" | "right";
 
 /** Placeholder projects until the project store exists. */
 const PROJECTS = ["Project 0", "Project 1", "Project 2"] as const;
@@ -33,10 +30,12 @@ export type EvaTab = "agent" | "history" | "preference";
 
 /**
  * The studio's three panes on one fixed viewport: a left rail (the project),
- * the main surface, a right rail (Eva). Layout and breakpoints live in
- * styles/shell.css; this component owns which rail is collapsed on wide
- * screens, which drawer is open on narrow ones, the project switcher and
- * Eva's tabs.
+ * the main surface, a right rail (Eva). The room itself is the stage
+ * behind all three, full screen, so a view or a render is seen as it is;
+ * the eye in the toolbar hides every panel to look at it. Layout and
+ * breakpoints live in styles/shell.css; this component owns whether the
+ * left rail is collapsed on wide screens, which drawer is open on narrow
+ * ones, the project switcher and Eva's tabs.
  */
 export function StudioShell({
   corners,
@@ -53,13 +52,12 @@ export function StudioShell({
   topBar?: boolean;
 }) {
   const [open, setOpen] = useState<Drawer>(null);
-  const [collapsed, setCollapsed] = useState<Record<Side, boolean>>({
-    left: false,
-    right: false,
-  });
+  const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [project, setProject] = useState<Project>(PROJECTS[0]);
   const [tab, setTab] = useState<EvaTab>("agent");
-  const [view, setView] = useState<View>("3d");
+  const view = useStudio((s) => s.view);
+  const uiHidden = useStudio((s) => s.uiHidden);
+  const setView = useStudio((s) => s.setView);
   const [dropping, setDropping] = useState(false);
   const dragDepth = useRef(0);
 
@@ -89,30 +87,18 @@ export function StudioShell({
     select(addProduct(p));
   };
 
-  const toggleDrawer = (d: Side) => setOpen((cur) => (cur === d ? null : d));
-  const collapse = (s: Side, v: boolean) =>
-    setCollapsed((c) => ({ ...c, [s]: v }));
+  const toggleDrawer = (d: Exclude<Drawer, null>) =>
+    setOpen((cur) => (cur === d ? null : d));
 
-  const restoreLeft = collapsed.left ? (
+  const restoreLeft = leftCollapsed ? (
     <button
       type="button"
-      className="main-icon"
+      className="main-icon shell-tip"
+      data-tooltip="Show project panel"
       aria-label="Show project panel"
-      title="Show project panel"
-      onClick={() => collapse("left", false)}
+      onClick={() => setLeftCollapsed(false)}
     >
       <PanelLeftIcon />
-    </button>
-  ) : null;
-  const restoreRight = collapsed.right ? (
-    <button
-      type="button"
-      className="main-icon"
-      aria-label="Show Eva panel"
-      title="Show Eva panel"
-      onClick={() => collapse("right", false)}
-    >
-      <PanelRightIcon />
     </button>
   ) : null;
 
@@ -120,10 +106,25 @@ export function StudioShell({
     <div
       className="shell"
       data-corners={corners}
-      data-left={collapsed.left ? "collapsed" : "open"}
-      data-right={collapsed.right ? "collapsed" : "open"}
+      data-left={leftCollapsed ? "collapsed" : "open"}
+      data-ui={uiHidden ? "hidden" : "shown"}
       {...(open ? { "data-open": open } : {})}
     >
+      {/* ---- the stage: the room, behind everything ---- */}
+      <div
+        className="shell-stage"
+        aria-label="Room"
+        data-dropping={dropping}
+        onDragEnter={onDragEnter}
+        onDragLeave={onDragLeave}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
+      >
+        <MainView view={view} />
+        <PreviewStage />
+      </div>
+      <PeekBar />
+
       {/* ---- left: the project ---- */}
       <aside className="shell-rail shell-rail-left" aria-label="Project">
         <div className="glass shell-panel shell-panel-inner">
@@ -135,7 +136,7 @@ export function StudioShell({
                 className="shell-iconbtn shell-collapse"
                 aria-label="Collapse project panel"
                 title="Collapse"
-                onClick={() => collapse("left", true)}
+                onClick={() => setLeftCollapsed(true)}
               >
                 <PanelLeftIcon />
               </button>
@@ -157,38 +158,24 @@ export function StudioShell({
       </aside>
 
       {/* ---- main ---- */}
-      <main
-        className="shell-main"
-        aria-label="Studio"
-        data-dropping={dropping}
-        onDragEnter={onDragEnter}
-        onDragLeave={onDragLeave}
-        onDragOver={onDragOver}
-        onDrop={onDrop}
-      >
+      <main className="shell-main" aria-label="Studio">
         {topBar ? (
-          <MainTopBar leading={restoreLeft} trailing={restoreRight} />
-        ) : (
           <>
-            {restoreLeft && (
-              <div className="glass main-restore main-restore-left">
-                {restoreLeft}
-              </div>
-            )}
-            {restoreRight && (
-              <div className="glass main-restore main-restore-right">
-                {restoreRight}
-              </div>
-            )}
+            <MainTopBar leading={restoreLeft} />
+            <ProgressLine />
           </>
+        ) : (
+          restoreLeft && (
+            <div className="glass main-restore main-restore-left">
+              {restoreLeft}
+            </div>
+          )
         )}
-        <MainView view={view} />
         {dropping && (
           <div className="shell-drop" aria-hidden="true">
             <span>Drop to place</span>
           </div>
         )}
-        <PreviewStage />
         {children}
         <GuideCard />
       </main>
@@ -208,15 +195,6 @@ export function StudioShell({
           <div className="shell-panel-head">
             <span className="shell-panel-title">EVA Chatbot</span>
             <div className="shell-head-acts">
-              <button
-                type="button"
-                className="shell-iconbtn shell-collapse"
-                aria-label="Collapse Eva panel"
-                title="Collapse"
-                onClick={() => collapse("right", true)}
-              >
-                <PanelRightIcon />
-              </button>
               <button
                 type="button"
                 className="shell-iconbtn shell-close"
@@ -335,16 +313,5 @@ function ProjectSwitcher({
         />
       )}
     </div>
-  );
-}
-
-/** Ghost rows standing in for the controls each panel will hold. */
-export function GhostRows({ count = 6 }: { count?: number }) {
-  return (
-    <>
-      {Array.from({ length: count }, (_, i) => (
-        <div key={i} className="shell-row" aria-hidden="true" />
-      ))}
-    </>
   );
 }

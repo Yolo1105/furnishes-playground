@@ -39,8 +39,8 @@
   appearance: none;
   border: 0;
   background: transparent;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: var(--r-control);
   display: grid;
   place-items: center;
@@ -215,11 +215,6 @@
   color: rgb(from var(--color-ink) r g b / 0.6);
 }
 
-@media (max-width: 1023px) {
-  .main-top-trail {
-    display: none;
-  }
-}
 @media (max-width: 767px) {
   .main-top-lead {
     display: none;
@@ -243,6 +238,12 @@
 }
 
 /* ---- the toolbar's three regions ---- */
+.main-sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: rgb(from var(--color-line) r g b / 0.22);
+}
 .main-top-side {
   display: flex;
   align-items: center;
@@ -364,7 +365,7 @@
   }
 }
 
-/* ---- preview: the line, the sweep, the compare ---- */
+/* ---- the line under the toolbar: quick for a view swap, slow for a render ---- */
 .main-top-group[data-resting="true"] {
   opacity: 0.45;
 }
@@ -375,24 +376,25 @@
   background: transparent;
 }
 
-.preview {
+.main-progress {
   position: absolute;
-  inset: 0;
-  z-index: 1;
-}
-.preview-progress {
-  position: absolute;
-  top: 0;
+  top: 44px;
   left: 0;
   z-index: 4;
-  pointer-events: none;
   height: 2px;
   width: 0;
+  pointer-events: none;
   background: var(--color-accent);
   box-shadow: 0 0 8px rgb(from var(--color-accent) r g b / 0.7);
-  animation: preview-progress var(--preview-generate, 2.2s) var(--ease) forwards;
+  animation: main-progress var(--load) var(--ease) forwards;
 }
-@keyframes preview-progress {
+.main-progress[data-kind="view"] {
+  --load: var(--load-view, 0.5s);
+}
+.main-progress[data-kind="render"] {
+  --load: var(--preview-generate, 2.2s);
+}
+@keyframes main-progress {
   from {
     width: 0;
   }
@@ -401,6 +403,11 @@
   }
 }
 
+/* ---- preview on the stage: the sweep, then the compare ---- */
+.preview {
+  position: absolute;
+  inset: 0;
+}
 .preview-stage {
   position: absolute;
   inset: 0;
@@ -416,59 +423,65 @@
   position: absolute;
   inset: 0;
 }
-/* the sketch: the plan grid and the room outline, as in Edit */
-.preview-before {
+.preview-after {
+  transition: clip-path var(--preview-reveal, 1.8s) var(--ease);
+}
+/* the room, drawn on the gradient and nothing else: a sketch, a render */
+.preview-room {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(40vw, 560px);
+  aspect-ratio: 10 / 7;
+  transform: translate(-50%, -50%);
+}
+.preview-room-sketch {
+  border: 2px solid rgb(from var(--color-line) r g b / 0.45);
+  background: rgba(255, 255, 255, 0.22);
   background-image:
     linear-gradient(
-      rgb(from var(--color-line) r g b / 0.1) 1px,
+      rgb(from var(--color-line) r g b / 0.12) 1px,
       transparent 1px
     ),
     linear-gradient(
       90deg,
-      rgb(from var(--color-line) r g b / 0.1) 1px,
+      rgb(from var(--color-line) r g b / 0.12) 1px,
       transparent 1px
     );
   background-size: 24px 24px;
-  background-position: center;
 }
-.preview-before::after {
+.preview-room-sketch::after {
   content: "";
   position: absolute;
-  left: 28%;
-  top: 22%;
-  width: 44%;
-  height: 56%;
-  border: 2px solid rgb(from var(--color-line) r g b / 0.45);
-  background: rgba(255, 255, 255, 0.25);
+  left: 14%;
+  top: 18%;
+  width: 36%;
+  height: 40%;
+  border: 1.5px dashed rgb(from var(--color-line) r g b / 0.5);
 }
-/* the render stands in: a lit wall, a floor, a soft vignette */
-.preview-after {
+.preview-room-render {
   background-color: var(--color-paper);
-  background-image:
-    radial-gradient(
-      120% 70% at 50% 100%,
-      rgb(from var(--color-shadow) r g b / 0.22),
-      transparent 60%
-    ),
-    linear-gradient(
-      180deg,
-      var(--color-paper) 0%,
-      rgb(from var(--color-line) r g b / 0.16) 58%,
-      rgb(from var(--color-line) r g b / 0.42) 58.4%,
-      rgb(from var(--color-line) r g b / 0.3) 100%
-    );
-  transition: clip-path var(--preview-reveal, 1.8s) var(--ease);
+  background-image: linear-gradient(
+    180deg,
+    var(--color-paper) 0%,
+    rgb(from var(--color-line) r g b / 0.16) 60%,
+    rgb(from var(--color-line) r g b / 0.42) 60.4%,
+    rgb(from var(--color-line) r g b / 0.3) 100%
+  );
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.7) inset,
+    0 50px 90px -40px rgb(from var(--color-shadow) r g b / 0.5);
 }
-.preview-after::before {
+.preview-room-render::after {
   content: "";
   position: absolute;
-  left: 30%;
-  top: 30%;
-  width: 40%;
-  height: 28%;
-  border-radius: 4px;
-  background: rgb(from var(--color-glass) r g b / 0.55);
-  box-shadow: 0 24px 40px -18px rgb(from var(--color-shadow) r g b / 0.5);
+  left: 14%;
+  top: 18%;
+  width: 36%;
+  height: 40%;
+  border-radius: 3px;
+  background: rgb(from var(--color-glass) r g b / 0.9);
+  box-shadow: 0 22px 30px -16px rgb(from var(--color-shadow) r g b / 0.55);
 }
 .preview-divider {
   position: absolute;
@@ -512,30 +525,11 @@
 .preview[data-status="revealing"] .preview-handle {
   pointer-events: none;
 }
-.preview-compare {
-  position: absolute;
-  top: 56px;
-  right: 12px;
-  z-index: 3;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  color: rgb(from var(--color-ink) r g b / 0.7);
-}
-.preview-compare[aria-pressed="true"] {
-  color: var(--color-accent);
-}
-.preview-compare.shell-tip::after {
-  right: 0;
-  left: auto;
-  transform: none;
-}
-/* the render comes in from the left, so its tag sits left and the
-   sketch's sits right, beside the compare button */
+/* the tags show while comparing, under the room, one each side of the line */
 .preview-tag {
   position: absolute;
-  right: 56px;
-  top: 62px;
+  bottom: 24px;
+  left: calc(50% + 10px);
   padding: 3px 8px;
   border-radius: var(--r-chip);
   background: rgb(from var(--color-glass) r g b / 0.8);
@@ -544,11 +538,16 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: rgb(from var(--color-ink) r g b / 0.55);
+  opacity: 0;
+  transition: opacity 0.2s ease;
 }
 .preview-tag-after {
-  right: auto;
-  left: 12px;
+  left: auto;
+  right: calc(50% + 10px);
   color: var(--color-accent);
+}
+.preview[data-status="compare"] .preview-tag {
+  opacity: 1;
 }
 
 /* ---- the guide card ---- */
@@ -563,6 +562,10 @@
 }
 .shell[data-corners="square"] .guide {
   border-radius: 0;
+}
+.guide[data-guide="walls"] {
+  left: auto;
+  right: 12px;
 }
 .guide-head {
   display: flex;
@@ -674,8 +677,8 @@
   accent-color: var(--color-accent);
 }
 @media (prefers-reduced-motion: reduce) {
-  .preview-progress {
-    animation-duration: 0.4s;
+  .main-progress {
+    animation-duration: 0.3s;
   }
   .preview-after,
   .preview-divider {

@@ -407,3 +407,14 @@ export function CheckIcon({ size = 16 }: IconProps) {
     </svg>
   );
 }
+
+export function EyeOffIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <path d="M3 3l18 18" />
+      <path d="M10.6 10.6a2 2 0 0 0 2.8 2.8" />
+      <path d="M9.9 5.2A10.4 10.4 0 0 1 12 5c5 0 8.6 3.6 10 7-.5 1.2-1.3 2.5-2.4 3.6" />
+      <path d="M6.6 6.6C4.4 8 2.8 10 2 12c1.4 3.4 5 7 10 7 1.6 0 3-.3 4.3-.9" />
+    </svg>
+  );
+}

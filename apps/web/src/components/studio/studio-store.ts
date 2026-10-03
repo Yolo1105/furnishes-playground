@@ -1,38 +1,46 @@
 import { create } from "zustand";
 
 /**
- * What the toolbar holds and the main surface follows: the mode, the
- * tool, and the Preview run. Preview walks a fixed path: generating
- * (the line along the top), revealing (the divider sweeps the render in
- * over the sketch), done (the render stands alone, the compare button
- * shows), compare (the divider sits in the middle and can be dragged).
+ * What the toolbar holds and the surfaces follow: the mode, the tool,
+ * which view is on the main surface, whether the panels are hidden to
+ * look at the room, the loading line, and the Preview run. Preview walks
+ * a fixed path: generating (the line under the toolbar), revealing (the
+ * divider sweeps the render in over the sketch), done (the render stands
+ * alone), compare (with the panels hidden, the divider sits in the middle
+ * and can be dragged).
  */
 export type Mode = "edit" | "preview";
-export type Tool =
-  | "select"
-  | "move"
-  | "rotate"
-  | "measure"
-  | "add"
-  | "wall"
-  | "note";
+export type Tool = "select" | "wall";
+export type View = "3d" | "2d";
 export type PreviewStatus =
   | "idle"
   | "generating"
   | "revealing"
   | "done"
   | "compare";
+/** what the line under the toolbar is waiting for: a view swap is quick,
+    a render takes its time */
+export type Loading = "view" | "render" | null;
 
 type StudioState = {
   mode: Mode;
   tool: Tool;
+  view: View;
+  uiHidden: boolean;
+  loading: Loading;
+  /** counts each start, so a repeat of the same kind restarts the line */
+  loadingAt: number;
   preview: PreviewStatus;
   /** where the divider stands, 0 (all sketch) to 100 (all render) */
   split: number;
   setMode: (mode: Mode) => void;
   setTool: (tool: Tool) => void;
-  /** the next step of the Preview run */
-  advance: () => void;
+  setView: (view: View) => void;
+  setUiHidden: (hidden: boolean) => void;
+  /** the line reached the end */
+  endLoading: () => void;
+  /** the sweep reached the end */
+  revealed: () => void;
   /** bring the divider to the middle and let it be dragged */
   compare: () => void;
   setSplit: (split: number) => void;
@@ -40,22 +48,48 @@ type StudioState = {
 
 const clamp = (n: number) => Math.min(100, Math.max(0, n));
 
+export const other = (v: View): View => (v === "3d" ? "2d" : "3d");
+export const viewName = (v: View) => (v === "3d" ? "3D view" : "2D plan");
+
 export const useStudio = create<StudioState>((set, get) => ({
   mode: "edit",
   tool: "select",
+  view: "3d",
+  uiHidden: false,
+  loading: null,
+  loadingAt: 0,
   preview: "idle",
   split: 0,
   setMode: (mode) =>
-    set(
+    set((s) =>
       mode === "preview"
-        ? { mode, preview: "generating", split: 0 }
-        : { mode, preview: "idle", split: 0 },
+        ? {
+            mode,
+            preview: "generating",
+            split: 0,
+            loading: "render",
+            loadingAt: s.loadingAt + 1,
+          }
+        : { mode, preview: "idle", split: 0, loading: null },
     ),
   setTool: (tool) => set({ tool }),
-  advance: () => {
-    const p = get().preview;
-    if (p === "generating") set({ preview: "revealing", split: 100 });
-    else if (p === "revealing") set({ preview: "done" });
+  setView: (view) =>
+    set((s) =>
+      s.view === view
+        ? {}
+        : { view, loading: "view", loadingAt: s.loadingAt + 1 },
+    ),
+  setUiHidden: (uiHidden) => set({ uiHidden }),
+  endLoading: () => {
+    const s = get();
+    set(
+      s.loading === "render" && s.preview === "generating"
+        ? { loading: null, preview: "revealing", split: 100 }
+        : { loading: null },
+    );
+  },
+  revealed: () => {
+    if (get().preview === "revealing") set({ preview: "done" });
   },
   compare: () => set({ preview: "compare", split: 50 }),
   setSplit: (split) => set({ split: clamp(split) }),

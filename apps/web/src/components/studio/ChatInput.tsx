@@ -8,6 +8,7 @@ import {
   MicIcon,
   SendArrowIcon,
 } from "./icons";
+import { useEva } from "./eva-store";
 import { RadioMenu } from "./RadioMenu";
 import { useDismiss } from "./useDismiss";
 
@@ -42,6 +43,19 @@ export function ChatInput() {
   const area = useRef<HTMLTextAreaElement>(null);
   const wrap = useRef<HTMLDivElement>(null);
   const canSend = message.trim().length > 0;
+
+  // a prompt picked in the Agent tab lands here, ready to send or edit
+  useEffect(
+    () =>
+      useEva.subscribe((s, prev) => {
+        if (s.draft && s.draft !== prev.draft) {
+          setMessage(s.draft);
+          area.current?.focus();
+          useEva.getState().setDraft("");
+        }
+      }),
+    [],
+  );
 
   // grow with the text, up to a cap
   useEffect(() => {

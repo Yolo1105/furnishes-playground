@@ -649,17 +649,6 @@
 }
 
 /* ghost rows: where real controls go */
-.shell-row {
-  height: 36px;
-  margin-bottom: 8px;
-  border-radius: var(--r-control);
-  background: rgba(255, 255, 255, 0.45);
-  border: 1px solid rgb(from var(--color-line) r g b / 0.12);
-}
-.shell-row:nth-child(3n) {
-  width: 72%;
-}
-
 /* ---- main surface ---- */
 .shell-main {
   grid-area: main;
@@ -683,15 +672,28 @@
 .main-restore-left {
   left: 0;
 }
-.main-restore-right {
-  right: 0;
-}
 
+/* ---- the stage: the room behind the panels, full screen ---- */
+.shell-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+.shell-rail,
+.shell-main {
+  position: relative;
+  z-index: 1;
+}
+/* the main column is overlays only: the stage beneath takes the pointer */
+.shell-main {
+  pointer-events: none;
+}
+.shell-main > * {
+  pointer-events: auto;
+}
 .shell-main-hint {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
   pointer-events: none;
   color: rgb(from var(--color-ink) r g b / 0.35);
   font-size: 13px;
@@ -699,7 +701,31 @@
   text-transform: uppercase;
 }
 .shell-main-hint > span {
-  position: relative;
+  position: absolute;
+  left: 50%;
+  top: calc(50% + min(14vw, 196px) + 14px);
+  transform: translateX(-50%);
+}
+.shell-stage:has(.preview) .shell-main-hint {
+  display: none;
+}
+
+/* the panels hidden to look at the room: only the peek bar remains */
+.shell[data-ui="hidden"]
+  :is(.shell-rail, .shell-main, .shell-tabs, .shell-scrim) {
+  display: none;
+}
+.shell-peek {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  transform: translateX(-50%);
+  border-radius: var(--r-control);
 }
 
 /* ---- drawers and tab bar (narrow screens) ---- */
@@ -761,9 +787,6 @@
     margin-left: 0;
   }
   .shell-rail-right .shell-collapse,
-  .main-restore-right {
-    display: none;
-  }
   .shell-rail-right {
     position: fixed;
     z-index: 2;

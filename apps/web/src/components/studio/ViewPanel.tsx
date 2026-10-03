@@ -1,9 +1,5 @@
 import { CubeIcon, PlanIcon, SwapIcon } from "./icons";
-
-export type View = "3d" | "2d";
-
-export const other = (v: View): View => (v === "3d" ? "2d" : "3d");
-export const viewName = (v: View) => (v === "3d" ? "3D view" : "2D plan");
+import { other, viewName, type View } from "./studio-store";
 
 /**
  * The small view in the right rail: whichever of 3D and 2D the main
@@ -48,12 +44,15 @@ export function ViewPanel({
   );
 }
 
-/** The main surface's own placeholder for whichever view it holds. */
+/** The stage's placeholder for whichever view it holds: the room's
+    outline on the plan grid, or the room as a box, on the gradient. */
 export function MainView({ view }: { view: View }) {
   return (
     <div className="shell-main-hint" data-view={view}>
-      {view === "2d" && (
+      {view === "2d" ? (
         <div className="view-plan view-plan-main" aria-hidden="true" />
+      ) : (
+        <div className="preview-room preview-room-sketch" aria-hidden="true" />
       )}
       <span>{viewName(view)}</span>
     </div>

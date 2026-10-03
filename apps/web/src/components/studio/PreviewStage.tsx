@@ -1,35 +1,26 @@
 "use client";
 
-import {
-  useEffect,
-  useRef,
-  type PointerEvent,
-  type KeyboardEvent,
-} from "react";
+import { useRef, type KeyboardEvent, type PointerEvent } from "react";
 import { CompareIcon } from "./icons";
 import { useStudio } from "./studio-store";
 
 /**
- * Preview over the main surface. A line runs along the top while the
- * render is being made; then a divider sweeps left to right, trading the
- * sketch for the render; then a button at the top-right brings the
- * divider back to the middle so the two can be dragged against each
- * other. Nothing renders yet, so the line's run is a fixed length.
+ * Preview on the full stage, behind the panels. Once the line under the
+ * toolbar has run, a divider sweeps left to right and trades the sketch
+ * for the render; both draw only the room, so the studio's gradient stays
+ * behind them. With the panels hidden, the compare button in the peek
+ * bar brings the divider back to the middle to be dragged. Nothing
+ * renders yet, so the sketch and the render stand in.
  */
 export function PreviewStage() {
   const status = useStudio((s) => s.preview);
   const split = useStudio((s) => s.split);
-  const { advance, compare, setSplit } = useStudio.getState();
+  const { revealed, setSplit } = useStudio.getState();
   const stage = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
 
-  // the sweep starts from 0 one frame after "revealing" sets it to 100,
-  // so the clip-path has a start to transition from
-  const from = useRef(0);
-  useEffect(() => {
-    if (status === "revealing") from.current = 0;
-  }, [status]);
-
+  // mounted while generating too, with the divider at 0, so the sweep
+  // has a start to transition from
   if (status === "idle") return null;
 
   const at = (e: PointerEvent<HTMLDivElement>) => {
@@ -61,67 +52,46 @@ export function PreviewStage() {
   };
 
   return (
-    <>
-      {status === "generating" && (
+    <div className="preview" data-status={status}>
+      <div
+        ref={stage}
+        className="preview-stage"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+      >
+        <div className="preview-before" aria-label="Before">
+          <div className="preview-room preview-room-sketch" />
+          <span className="preview-tag">Before</span>
+        </div>
         <div
-          className="preview-progress"
-          role="progressbar"
-          aria-label="Rendering preview"
-          onAnimationEnd={advance}
-        />
-      )}
-      <div className="preview" data-status={status}>
-        <div
-          ref={stage}
-          className="preview-stage"
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
+          className="preview-after"
+          aria-label="Rendered"
+          style={{ clipPath: `inset(0 ${100 - split}% 0 0)` }}
+          onTransitionEnd={(e) => {
+            if (e.propertyName === "clip-path") revealed();
+          }}
         >
-          <div className="preview-before" aria-label="Before">
-            <span className="preview-tag">Before</span>
-          </div>
-          <div
-            className="preview-after"
-            aria-label="Rendered"
-            style={{ clipPath: `inset(0 ${100 - split}% 0 0)` }}
-            onTransitionEnd={(e) => {
-              if (status === "revealing" && e.propertyName === "clip-path")
-                advance();
-            }}
+          <div className="preview-room preview-room-render" />
+          <span className="preview-tag preview-tag-after">Rendered</span>
+        </div>
+        <div className="preview-divider" style={{ left: `${split}%` }}>
+          <button
+            type="button"
+            className="preview-handle"
+            role="slider"
+            aria-label="Before and after"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(split)}
+            tabIndex={status === "compare" ? 0 : -1}
+            onKeyDown={onKey}
           >
-            <span className="preview-tag preview-tag-after">Rendered</span>
-          </div>
-          <div className="preview-divider" style={{ left: `${split}%` }}>
-            <button
-              type="button"
-              className="preview-handle"
-              role="slider"
-              aria-label="Before and after"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={Math.round(split)}
-              tabIndex={status === "compare" ? 0 : -1}
-              onKeyDown={onKey}
-            >
-              <CompareIcon size={16} />
-            </button>
-          </div>
-          {(status === "done" || status === "compare") && (
-            <button
-              type="button"
-              className="glass shell-iconbtn shell-tip preview-compare"
-              data-tooltip="Compare before and after"
-              aria-label="Compare before and after"
-              aria-pressed={status === "compare"}
-              onClick={compare}
-            >
-              <CompareIcon />
-            </button>
-          )}
+            <CompareIcon size={16} />
+          </button>
         </div>
       </div>
-    </>
+    </div>
   );
 }

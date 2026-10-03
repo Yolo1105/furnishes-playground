@@ -1,5 +1,6 @@
 import { AssetsPanel } from "@/components/studio/AssetsPanel";
-import { GhostRows, StudioShell } from "@/components/studio/StudioShell";
+import { AgentTab } from "@/components/studio/AgentTab";
+import { StudioShell } from "@/components/studio/StudioShell";
 
 /** The studio: square, edge-to-edge glass panels either side of the main surface. */
 export default function Page() {
@@ -7,7 +8,7 @@ export default function Page() {
     <StudioShell
       corners="square"
       left={<AssetsPanel />}
-      right={<GhostRows />}
+      right={<AgentTab />}
     ></StudioShell>
   );
 }

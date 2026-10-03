@@ -15,6 +15,8 @@ export type PreferenceValue = {
 
 type EvaState = {
   conversations: Conversation[];
+  /** text a prompt chip hands to the input box */
+  draft: string;
   activeId: string | null;
   preferences: Partial<Record<PreferenceCategory, PreferenceValue>>;
   selectConversation: (id: string) => void;
@@ -24,17 +26,20 @@ type EvaState = {
   toggleValue: (cat: PreferenceCategory, value: string, multi: boolean) => void;
   setBudget: (value: number) => void;
   clearPreference: (cat: PreferenceCategory) => void;
+  setDraft: (draft: string) => void;
 };
 
 /** Eva's own state: the conversations and the confirmed preferences. The
     seed is placeholder; two preferences arrive as if Eva heard them. */
 export const useEva = create<EvaState>((set) => ({
   conversations: seed,
+  draft: "",
   activeId: seed[0]?.id ?? null,
   preferences: {
     room: { values: ["Living room"], origin: "chat" },
     style: { values: ["Japandi", "Minimalist"], origin: "chat" },
   },
+  setDraft: (draft) => set({ draft }),
   selectConversation: (id) => set({ activeId: id }),
   deleteConversation: (id) =>
     set((s) => ({

@@ -17,6 +17,7 @@ import {
   CloseIcon,
   CursorIcon,
   ExportIcon,
+  EyeIcon,
   HelpIcon,
   PlusIcon,
   RedoIcon,
@@ -35,26 +36,22 @@ import { useDismiss } from "./useDismiss";
 /**
  * The toolbar, read left to right: the mode (Edit or Preview), the three
  * tools (Select, which also moves and turns a piece by its handles; Add,
- * which opens the strip of parts and pieces; Wall), undo and redo, the
- * Guide mark, and Export as the one primary button. `leading` and
- * `trailing` are the slots the collapsed rails' restore icons dock into.
- * Preview starts the render run and rests the tools.
+ * which opens the strip of parts and pieces; Wall), the eye that hides
+ * every panel to look at the room, undo and redo, the Guide mark, and
+ * Export as the one primary button. Every icon is the same quiet button;
+ * only Export is filled. `leading` is the slot the collapsed left rail's
+ * restore icon docks into. Preview starts the render run and rests the
+ * tools.
  */
 const TOOLS = [
   ["select", "Select", CursorIcon],
   ["wall", "Draw wall", WallIcon],
 ] as const;
 
-export function MainTopBar({
-  leading,
-  trailing,
-}: {
-  leading?: ReactNode;
-  trailing?: ReactNode;
-}) {
+export function MainTopBar({ leading }: { leading?: ReactNode }) {
   const mode = useStudio((s) => s.mode);
   const tool = useStudio((s) => s.tool);
-  const { setMode, setTool } = useStudio.getState();
+  const { setMode, setTool, setUiHidden } = useStudio.getState();
   const showGuide = useGuide((s) => s.show);
   const [adding, setAdding] = useState(false);
   const addWrap = useRef<HTMLDivElement>(null);
@@ -131,6 +128,16 @@ export function MainTopBar({
               <Icon />
             </button>
           ))}
+          <span className="main-sep" aria-hidden="true" />
+          <button
+            type="button"
+            className="main-icon shell-tip"
+            data-tooltip="Hide panels"
+            aria-label="Hide panels"
+            onClick={() => setUiHidden(true)}
+          >
+            <EyeIcon />
+          </button>
         </div>
 
         <div className="main-top-side main-top-right">
@@ -152,6 +159,7 @@ export function MainTopBar({
               <RedoIcon />
             </button>
           </div>
+          <span className="main-sep" aria-hidden="true" />
           <button
             type="button"
             className="main-icon shell-tip"
@@ -169,7 +177,6 @@ export function MainTopBar({
             <ExportIcon size={14} />
             <span>Export</span>
           </button>
-          {trailing}
         </div>
       </div>
       {adding && (

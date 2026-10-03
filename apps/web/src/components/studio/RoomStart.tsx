@@ -16,12 +16,15 @@ export function RoomStart() {
   const start = useRoom((s) => s.start);
   const template = useRoom((s) => s.template);
   const { setStart, setTemplate } = useRoom.getState();
-  const setTool = useStudio((s) => s.setTool);
+  const { setTool, setView } = useStudio.getState();
   const show = useGuide((s) => s.show);
 
+  // walls are drawn on the plan: the Wall tool comes on, the main surface
+  // turns to 2D, the how-to opens
   const draw = () => {
     setStart("draw");
     setTool("wall");
+    setView("2d");
     show("walls");
   };
 

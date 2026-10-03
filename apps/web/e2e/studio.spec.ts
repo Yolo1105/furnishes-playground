@@ -152,14 +152,22 @@ test("rails collapse into the toolbar and come back", async ({ page }) => {
   expect(rb.x).toBeLessThan(bar.x + bar.width / 2);
   await restore.click();
   await expect(shell).toHaveAttribute("data-left", "open");
-
-  await page.getByRole("button", { name: "Collapse Eva panel" }).click();
-  await expect(shell).toHaveAttribute("data-right", "collapsed");
-  const back = page.getByRole("button", { name: "Show Eva panel" });
-  const bb = (await back.boundingBox())!;
-  expect(bb.x).toBeGreaterThan(bar.x + bar.width / 2);
-  await back.click();
-  await expect(shell).toHaveAttribute("data-right", "open");
+  // Eva's panel has no collapse of its own: the eye hides everything
+  await expect(
+    page.getByRole("button", { name: "Collapse Eva panel" }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Hide panels" }).click();
+  await expect(shell).toHaveAttribute("data-ui", "hidden");
+  await expect(page.locator(".shell-rail-left")).toBeHidden();
+  await expect(page.locator(".main-top")).toBeHidden();
+  const peek = page.getByRole("toolbar", { name: "Looking" });
+  const pb = (await peek.boundingBox())!;
+  expect(Math.abs(pb.x + pb.width / 2 - 720)).toBeLessThan(40);
+  await page.keyboard.press("Escape");
+  await expect(shell).toHaveAttribute("data-ui", "shown");
+  await page.getByRole("button", { name: "Hide panels" }).click();
+  await peek.getByRole("button", { name: "Show panels" }).click();
+  await expect(shell).toHaveAttribute("data-ui", "shown");
 
   await expect(page.getByRole("tab", { name: "Agent" })).toHaveAttribute(
     "aria-selected",
@@ -411,7 +419,7 @@ test("the toolbar reads mode · select, add, wall · undo, guide, export", async
   );
   await expect(
     bar.getByRole("group", { name: "Tools" }).getByRole("button"),
-  ).toHaveText(["", "", ""]);
+  ).toHaveText(["", "", "", ""]);
   for (const gone of ["Move", "Rotate", "Measure", "Note", "Share"])
     await expect(bar.getByRole("button", { name: gone })).toHaveCount(0);
   await expect(bar.getByText("100%")).toHaveCount(0);
@@ -499,17 +507,33 @@ test("Preview runs a line along the top, sweeps the render in, then compares on 
   });
   const bar = page.getByRole("toolbar", { name: "Studio tools" });
   await bar.getByRole("button", { name: "Preview" }).click();
-  await expect(
-    page.getByRole("progressbar", { name: "Rendering preview" }),
-  ).toBeVisible();
+  const line = page.getByRole("progressbar", { name: "Rendering preview" });
+  await expect(line).toBeVisible();
+  const [lb, bb] = await Promise.all([line.boundingBox(), bar.boundingBox()]);
+  expect(lb!.y).toBeGreaterThanOrEqual(bb!.y + bb!.height - 2);
   await expect(bar.getByRole("button", { name: "Select" })).toBeDisabled();
+  await expect(page.locator(".preview")).toHaveAttribute(
+    "data-status",
+    "done",
+    { timeout: 8000 },
+  );
+  // the stage is full screen, behind the panels, and shows the gradient
+  const stageBox = (await page.locator(".shell-stage").boundingBox())!;
+  expect(stageBox.width).toBe(1440);
+  expect(stageBox.x).toBe(0);
+  await expect(page.locator(".preview-after")).toHaveCSS(
+    "background-color",
+    "rgba(0, 0, 0, 0)",
+  );
+  const handle = page.getByRole("slider", { name: "Before and after" });
+  await expect(handle).toHaveAttribute("aria-valuenow", "100");
+  // comparing is for looking: it comes with the panels hidden
   const compare = page.getByRole("button", {
     name: "Compare before and after",
   });
-  await expect(compare).toBeVisible({ timeout: 8000 });
-  await expect(page.locator(".preview")).toHaveAttribute("data-status", "done");
-  const handle = page.getByRole("slider", { name: "Before and after" });
-  await expect(handle).toHaveAttribute("aria-valuenow", "100");
+  await expect(compare).toHaveCount(0);
+  await bar.getByRole("button", { name: "Hide panels" }).click();
+  await expect(compare).toBeVisible();
   await compare.click();
   await expect(page.locator(".preview")).toHaveAttribute(
     "data-status",
@@ -519,14 +543,12 @@ test("Preview runs a line along the top, sweeps the render in, then compares on 
   await handle.focus();
   await page.keyboard.press("ArrowRight");
   await expect(handle).toHaveAttribute("aria-valuenow", "52");
-  const stage = (await page.locator(".preview-stage").boundingBox())!;
-  await page.mouse.move(stage.x + stage.width * 0.8, stage.y + 300);
+  await page.mouse.move(stageBox.width * 0.8, 300);
   await page.mouse.down();
-  await page.mouse.move(stage.x + stage.width * 0.25, stage.y + 300, {
-    steps: 4,
-  });
+  await page.mouse.move(stageBox.width * 0.25, 300, { steps: 4 });
   await page.mouse.up();
   await expect(handle).toHaveAttribute("aria-valuenow", "25");
+  await page.getByRole("button", { name: "Show panels" }).click();
   await bar.getByRole("button", { name: "Edit" }).click();
   await expect(page.locator(".preview")).toHaveCount(0);
   await expect(bar.getByRole("button", { name: "Select" })).toBeEnabled();
@@ -567,6 +589,15 @@ test("the Room tab starts from drawn walls or a template", async ({ page }) => {
   await start.getByRole("radio", { name: "Draw walls" }).click();
   const howTo = page.getByRole("dialog", { name: "How to draw walls" });
   await expect(howTo).toBeVisible();
+  await expect(page.locator(".shell-main-hint")).toHaveAttribute(
+    "data-view",
+    "2d",
+  );
+  const [hb, mb] = await Promise.all([
+    howTo.boundingBox(),
+    page.locator(".shell-main").boundingBox(),
+  ]);
+  expect(hb!.x).toBeGreaterThan(mb!.x + mb!.width / 2);
   await expect(howTo.getByText("Don't show next time")).toBeVisible();
   await expect(page.getByRole("button", { name: "Draw wall" })).toHaveAttribute(
     "aria-pressed",
@@ -651,8 +682,8 @@ test("the + opens the strip of parts; a click adds, a drag places", async ({
   await page.getByRole("button", { name: "Add", exact: true }).click();
   await strip
     .getByRole("button", { name: /^Add Divider,/ })
-    .dragTo(page.locator(".shell-main"), {
-      targetPosition: { x: 400, y: 300 },
+    .dragTo(page.locator(".shell-stage"), {
+      targetPosition: { x: 420, y: 560 },
     });
   await expect(saved).toContainText(`${totals.pieces + 2} ·`);
   await expect(
@@ -663,8 +694,8 @@ test("the + opens the strip of parts; a click adds, a drag places", async ({
   await page.getByRole("tab", { name: "Products" }).click();
   await page
     .locator(".product", { hasText: coat.name })
-    .dragTo(page.locator(".shell-main"), {
-      targetPosition: { x: 400, y: 300 },
+    .dragTo(page.locator(".shell-stage"), {
+      targetPosition: { x: 420, y: 560 },
     });
   await expect(saved).toContainText(`${totals.pieces + 3} ·`);
 });
@@ -702,4 +733,26 @@ test("the shelf's Saved cards go to the Cart from a hover button", async ({
   await expect(shelf.locator(".shelf-card")).toHaveCount(0);
   await expect(shelf.locator(".main-shelf-empty")).toBeVisible();
   await expect(cart).toContainText(`0 · ${sgd(0)}`);
+});
+
+test("a view swap runs the quick line; the Agent tab hands prompts to the input", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  await page.addStyleTag({ content: ":root{--load-view:1.5s}" });
+  await page.getByRole("button", { name: "Show 2D plan in main" }).click();
+  const line = page.getByRole("progressbar", { name: "Switching view" });
+  await expect(line).toBeVisible();
+  await expect(line).toHaveAttribute("data-kind", "view");
+  await expect(line).toHaveCount(0, { timeout: 4000 });
+  // Eva opens with what she has read and places to start
+  const agent = page.locator(".agent");
+  await expect(agent.getByText("Living & dining · 4-room HDB")).toBeVisible();
+  await expect(agent.locator(".agent-prompt")).toHaveCount(4);
+  const prompt = (await agent.locator(".agent-prompt").first().textContent())!;
+  await agent.locator(".agent-prompt").first().click();
+  const box = page.getByRole("textbox", { name: "Message Eva" });
+  await expect(box).toHaveValue(prompt);
+  await expect(box).toBeFocused();
 });
