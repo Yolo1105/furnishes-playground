@@ -224,3 +224,85 @@ select:focus-visible,
   outline-offset: 2px;
   border-radius: var(--r-control);
 }
+/* a tab or chip inside a clipped row keeps its ring inside its own box */
+[role="tab"]:focus-visible,
+[role="radio"]:focus-visible,
+[role="checkbox"]:focus-visible,
+[role="menuitem"]:focus-visible,
+[role="menuitemradio"]:focus-visible,
+[role="menuitemcheckbox"]:focus-visible {
+  outline-offset: -2px;
+}
+
+/* ---- everything interactive says so: the pointer, a quick settle on
+   hover and a press that gives a little ---- */
+button:not(:disabled),
+[role="button"],
+[role="tab"],
+[role="radio"],
+[role="checkbox"],
+[role="switch"],
+[role="slider"],
+[role="menuitem"],
+[role="menuitemradio"],
+[role="menuitemcheckbox"],
+[role="treeitem"][tabindex],
+label:has(> input[type="checkbox"]),
+summary {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: default;
+}
+input[type="number"],
+input[type="search"],
+input[type="text"],
+textarea {
+  cursor: text;
+}
+button,
+[role="button"],
+[role="tab"],
+[role="radio"],
+[role="checkbox"],
+[role="switch"],
+[role="menuitem"],
+[role="menuitemradio"],
+[role="menuitemcheckbox"],
+[role="treeitem"] > .assets-row-main,
+.shelf-card-pic,
+.stage-piece-body,
+.product,
+.add-tile,
+input,
+textarea {
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    opacity 0.15s ease,
+    scale 0.12s ease;
+}
+button:not(:disabled):active,
+[role="button"]:active,
+[role="tab"]:active,
+[role="radio"]:active,
+[role="checkbox"]:active,
+[role="menuitem"]:active,
+[role="menuitemradio"]:active,
+[role="menuitemcheckbox"]:active {
+  scale: 0.96;
+}
+@media (prefers-reduced-motion: reduce) {
+  button:not(:disabled):active,
+  [role="button"]:active,
+  [role="tab"]:active,
+  [role="radio"]:active,
+  [role="checkbox"]:active,
+  [role="menuitem"]:active,
+  [role="menuitemradio"]:active,
+  [role="menuitemcheckbox"]:active {
+    scale: none;
+  }
+}

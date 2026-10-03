@@ -389,11 +389,22 @@
   padding: 8px 10px 8px 12px;
   border-bottom: 1px solid var(--line);
 }
+/* the tabs scroll sideways when the panel is too narrow for them, never
+   clip mid-word */
 .shell-tabs-inline {
   display: flex;
   gap: 2px;
   min-width: 0;
-  overflow: hidden;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 2px;
+  margin: -2px;
+}
+.shell-tabs-inline::-webkit-scrollbar {
+  display: none;
+}
+.shell-tabs-inline > .shell-tabbtn {
+  flex: 0 0 auto;
 }
 .shell-tabbtn {
   appearance: none;
@@ -410,8 +421,8 @@
 }
 /* the project panel's four tabs fit its narrowest width */
 .shell-rail-left .shell-tabbtn {
-  padding: 6px 7px;
-  font-size: 12px;
+  padding: 6px 6px;
+  font-size: 11.5px;
 }
 .shell-tabbtn:hover {
   background: rgb(from var(--color-ink) r g b / 0.05);
