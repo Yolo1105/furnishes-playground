@@ -4,9 +4,9 @@
  * them as small isometric boxes and the real plan scales the chosen one
  * to the room's size.
  */
-export type Point = readonly [number, number];
+type Point = readonly [number, number];
 
-export type RoomTemplate = {
+type RoomTemplate = {
   id: string;
   name: string;
   footprint: readonly Point[];
@@ -84,7 +84,7 @@ export const ROOM_TEMPLATES: readonly RoomTemplate[] = [
 export type TemplateId = (typeof ROOM_TEMPLATES)[number]["id"];
 
 /** one face of the little box, ready for an SVG polygon */
-export type IsoFace = {
+type IsoFace = {
   points: string;
   /** "floor", "in" (a wall seen from inside) or "out" (seen from outside) */
   kind: "floor" | "in" | "out";

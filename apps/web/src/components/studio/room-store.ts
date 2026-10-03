@@ -11,7 +11,7 @@ import { ROOM_TEMPLATES, type TemplateId } from "./room-templates";
 /** how the room's shape comes about: traced on the canvas, or picked */
 export type RoomStart = "draw" | "template";
 
-export type RoomConfig = {
+type RoomConfig = {
   start: RoomStart | null;
   template: TemplateId;
   flat: FlatType;

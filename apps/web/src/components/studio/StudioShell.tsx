@@ -9,6 +9,7 @@ import { GuideCard } from "./GuideCard";
 import { MainTopBar } from "./MainOverlays";
 import { PeekBar } from "./PeekBar";
 import { PreviewStage } from "./PreviewStage";
+import { Tour } from "./Tour";
 import { carriesProduct, readProductDrag } from "./dnd";
 import { useScene } from "./scene-store";
 import { other, useStudio } from "./studio-store";
@@ -18,7 +19,7 @@ import { UserBar } from "./UserBar";
 import { MainView, ViewPanel } from "./ViewPanel";
 import { ChevronDownIcon, PanelLeftIcon, PlusIcon } from "./icons";
 
-export type ShellCorners = "square" | "rounded";
+type ShellCorners = "square" | "rounded";
 
 type Drawer = "left" | "right" | null;
 
@@ -162,6 +163,7 @@ export function StudioShell({
         <PreviewStage />
       </div>
       <PeekBar />
+      <Tour />
 
       {/* ---- left: the project ---- */}
       <aside className="shell-rail shell-rail-left" aria-label="Project">

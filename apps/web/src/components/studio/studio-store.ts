@@ -16,27 +16,22 @@ import { create } from "zustand";
 export type Mode = "edit" | "preview";
 export type Tool = "select" | "inspect" | "wall";
 /** the project panel's tabs */
-export type PanelTab = "assets" | "products" | "room" | "detail";
+type PanelTab = "assets" | "products" | "room" | "detail";
 /** Eva's tabs */
-export type EvaTab = "agent" | "history" | "preference";
+type EvaTab = "agent" | "history" | "preference";
 export type View = "3d" | "2d";
-export type PreviewStatus =
-  | "idle"
-  | "generating"
-  | "revealing"
-  | "done"
-  | "compare";
+type PreviewStatus = "idle" | "generating" | "revealing" | "done" | "compare";
 /** the ways to look at each view: a perspective and the straight-on
     sides in 3D, the plan and the elevations in 2D, as a CAD drawing has */
 export const ANGLES: Record<View, readonly string[]> = {
   "3d": ["Perspective", "Front", "Back", "Left", "Right", "Top"],
   "2d": ["Plan", "Front", "Back", "Left", "Right"],
 };
-export type Angle = (typeof ANGLES)[View][number];
+type Angle = (typeof ANGLES)[View][number];
 
 /** what the line under the toolbar is waiting for: a view swap is quick,
     a render takes its time */
-export type Loading = "view" | "render" | null;
+type Loading = "view" | "render" | null;
 
 type StudioState = {
   mode: Mode;

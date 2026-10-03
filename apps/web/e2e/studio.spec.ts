@@ -699,27 +699,48 @@ test("Preview runs a line along the top, sweeps the render in, then compares on 
   await expect(bar.getByRole("button", { name: "Select" })).toBeEnabled();
 });
 
-test("the intro shows once, and the Guide mark brings it back", async ({
+test("a first visit opens the welcome and the tour; the Guide mark runs it again", async ({
   page,
   browser,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await expect(page.getByRole("dialog")).toHaveCount(0);
+  // from the toolbar: the same welcome, large and in the middle
   await page.getByRole("button", { name: "Guide" }).click();
-  const dialog = page.getByRole("dialog", { name: "Welcome to the studio" });
-  await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole("checkbox")).toBeChecked();
-  await dialog.getByRole("button", { name: "Close guide" }).click();
-  await expect(dialog).toHaveCount(0);
-  // a first visit (a browser with nothing remembered): the intro opens by
-  // itself, and "don't show next time" keeps it away after a reload
+  const welcome = page.getByRole("dialog", { name: "Welcome to the studio" });
+  await expect(welcome).toBeVisible();
+  const wb = (await welcome.boundingBox())!;
+  expect(wb.width).toBeGreaterThan(500);
+  expect(Math.abs(wb.x + wb.width / 2 - 720)).toBeLessThan(4);
+  expect(Math.abs(wb.y + wb.height / 2 - 450)).toBeLessThan(4);
+  // each step puts the focus border on a panel and says what it does
+  await welcome.getByRole("button", { name: "Start the tour" }).click();
+  const spot = page.locator(".tour-spot");
+  const rail = (await page.locator(".shell-rail-left").boundingBox())!;
+  await expect
+    .poll(async () => (await spot.boundingBox())!.x)
+    .toBeLessThan(rail.x + 1);
+  const sb = (await spot.boundingBox())!;
+  expect(Math.abs(sb.width - rail.width - 8)).toBeLessThan(2);
+  const card = page.getByRole("dialog", { name: "The project panel" });
+  await expect(card).toBeVisible();
+  expect((await card.boundingBox())!.x).toBeGreaterThan(rail.x + rail.width);
+  await card.getByRole("button", { name: "Next" }).click();
+  await expect(page.getByRole("dialog", { name: "The toolbar" })).toBeVisible();
+  await page.getByRole("button", { name: "Back" }).click();
+  await expect(card).toBeVisible();
+  // skip ends it from any step
+  await card.getByRole("button", { name: "Skip" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  // a first visit (a browser with nothing remembered): the welcome opens
+  // by itself; once skipped it stays away after a reload
   const fresh = await (await browser.newContext()).newPage();
   await fresh.setViewportSize({ width: 1440, height: 900 });
   await fresh.goto("/rounded");
   const intro = fresh.getByRole("dialog", { name: "Welcome to the studio" });
   await expect(intro).toBeVisible();
-  await intro.getByRole("checkbox").check();
+  await intro.getByRole("button", { name: "Skip" }).click();
   await fresh.reload();
   await expect(fresh.getByRole("dialog")).toHaveCount(0);
   await fresh.context().close();

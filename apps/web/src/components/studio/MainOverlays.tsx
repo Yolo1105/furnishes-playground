@@ -53,7 +53,7 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
   const mode = useStudio((s) => s.mode);
   const tool = useStudio((s) => s.tool);
   const { setMode, setTool, setUiHidden } = useStudio.getState();
-  const showGuide = useGuide((s) => s.show);
+  const startTour = useGuide((s) => s.startTour);
   const [adding, setAdding] = useState(false);
   const addWrap = useRef<HTMLDivElement>(null);
   useDismiss(addWrap, adding, () => setAdding(false));
@@ -213,7 +213,7 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
             className="main-icon shell-tip"
             data-tooltip="Guide"
             aria-label="Guide"
-            onClick={() => showGuide("intro", true)}
+            onClick={startTour}
           >
             <HelpIcon />
           </button>

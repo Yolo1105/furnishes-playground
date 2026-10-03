@@ -230,9 +230,6 @@
     bottom: calc(68px + env(safe-area-inset-bottom));
     padding: 0 10px 10px;
   }
-  .main-shelf-more {
-    display: none;
-  }
   .shelf-card {
     width: 112px;
   }
@@ -477,7 +474,7 @@
   inset: 0;
 }
 .preview-after {
-  transition: clip-path var(--preview-reveal, 1.8s) var(--ease);
+  transition: clip-path var(--preview-reveal, 2.8s) var(--ease);
 }
 /* the room, drawn on the gradient and nothing else: a sketch, a render */
 .preview-room {
@@ -544,7 +541,7 @@
   margin-left: -1px;
   background: var(--color-glass);
   box-shadow: 0 0 0 1px rgb(from var(--color-shadow) r g b / 0.12);
-  transition: left var(--preview-reveal, 1.8s) var(--ease);
+  transition: left var(--preview-reveal, 2.8s) var(--ease);
 }
 .preview[data-status="compare"] .preview-after,
 .preview[data-status="compare"] .preview-divider {
@@ -706,21 +703,6 @@
 .guide-pencil {
   transform: translate(26px, 2px);
   color: var(--color-accent);
-}
-.guide-pane {
-  fill: rgba(255, 255, 255, 0.6);
-  stroke: rgb(from var(--color-line) r g b / 0.3);
-}
-.guide-pane-bar {
-  fill: rgb(from var(--color-line) r g b / 0.12);
-}
-.guide-pane-accent {
-  fill: rgb(from var(--color-accent) r g b / 0.7);
-}
-.guide-pane-room {
-  fill: rgba(255, 255, 255, 0.5);
-  stroke: rgb(from var(--color-line) r g b / 0.5);
-  stroke-width: 2;
 }
 .guide-foot {
   display: flex;
@@ -1099,4 +1081,109 @@
 }
 .shell-stage:has(.preview) .stage-room-pieces {
   display: none;
+}
+
+/* ---- the tour ---- */
+.tour {
+  position: fixed;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+}
+.tour > * {
+  pointer-events: auto;
+}
+.tour-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgb(from var(--color-shadow) r g b / 0.18);
+  backdrop-filter: blur(2px);
+}
+/* the focus border on the step's panel */
+.tour-spot {
+  position: absolute;
+  border: 2px solid var(--color-accent);
+  border-radius: calc(var(--r-panel) + 4px);
+  box-shadow:
+    0 0 0 4px rgb(from var(--color-accent) r g b / 0.18),
+    0 0 0 9999px rgb(from var(--color-shadow) r g b / 0.12);
+  pointer-events: none;
+  transition:
+    top 0.3s var(--ease),
+    left 0.3s var(--ease),
+    width 0.3s var(--ease),
+    height 0.3s var(--ease);
+}
+.tour-card {
+  position: absolute;
+  padding: 16px 18px 14px;
+  border-radius: var(--r-panel);
+}
+.tour-card[data-welcome="true"] {
+  left: 50%;
+  top: 50%;
+  width: min(560px, calc(100% - 32px));
+  padding: 28px 30px 24px;
+  transform: translate(-50%, -50%);
+}
+.tour-step {
+  display: inline-block;
+  margin-bottom: 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+.tour-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--color-ink);
+}
+.tour-card[data-welcome="true"] .tour-title {
+  font-size: 24px;
+  letter-spacing: -0.02em;
+}
+.tour-body {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: rgb(from var(--color-ink) r g b / 0.72);
+}
+.tour-card[data-welcome="true"] .tour-body {
+  font-size: 14px;
+  line-height: 1.6;
+}
+.tour-acts {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 14px;
+}
+.tour-card[data-welcome="true"] .tour-acts {
+  margin-top: 22px;
+}
+.tour-acts-main {
+  display: inline-flex;
+  gap: 6px;
+}
+.tour-skip {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 6px 8px;
+  margin-left: -8px;
+  border-radius: var(--r-control);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: rgb(from var(--color-ink) r g b / 0.55);
+  cursor: pointer;
+}
+.tour-skip:hover {
+  background: rgb(from var(--color-ink) r g b / 0.05);
+  color: rgb(from var(--color-ink) r g b / 0.85);
 }

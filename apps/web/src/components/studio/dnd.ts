@@ -5,7 +5,7 @@ import { products, type Product } from "./catalogue";
  * Dragging a product onto the main surface. The tiles in the + strip
  * and the cards in the Products tab start it; the surface takes it.
  */
-export const PRODUCT_MIME = "application/x-furnishes-product";
+const PRODUCT_MIME = "application/x-furnishes-product";
 
 export function startProductDrag(e: DragEvent, p: Product) {
   e.dataTransfer.setData(PRODUCT_MIME, p.id);

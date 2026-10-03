@@ -4,7 +4,7 @@
  * Drawn in currentColor, which is never black: ink at 55% for rest,
  * 85% on hover, orange for the one primary action.
  */
-export type IconProps = { size?: number };
+type IconProps = { size?: number };
 
 const s18 = {
   fill: "none",

@@ -6,7 +6,7 @@ import {
   type PreferenceOrigin,
 } from "./eva-data";
 
-export type PreferenceValue = {
+type PreferenceValue = {
   /** chip ids, or the budget as a range: from and to, S$ */
   values: string[];
   budget?: [number, number];
