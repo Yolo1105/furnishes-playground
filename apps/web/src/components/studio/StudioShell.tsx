@@ -83,7 +83,7 @@ export function StudioShell({
     if (!p) return;
     e.preventDefault();
     const { addProduct, select } = useScene.getState();
-    select(addProduct(p));
+    select(addProduct(p), false);
   };
 
   const toggleDrawer = (d: Exclude<Drawer, null>) =>

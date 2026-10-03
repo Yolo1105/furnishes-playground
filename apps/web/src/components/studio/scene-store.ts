@@ -11,13 +11,16 @@ type SceneState = {
   groups: AssetGroup[];
   /** the one thing picked, in the outliner and on the shelf alike */
   selectedId: string | null;
-  /** counts every pick, so a repeat pick of the same thing still reveals it */
+  /** counts every pick, so a repeat pick of the same thing still shows it */
   selectedAt: number;
+  /** counts the picks that should bring the outliner to the thing: a card
+      or a row, not an add from Products or a drop on the room */
+  revealAt: number;
   /** ids of the pieces put in the cart */
   cart: string[];
   /** put a catalogue product into the room; returns the new node's id */
   addProduct: (p: Product) => string;
-  select: (id: string | null) => void;
+  select: (id: string | null, reveal?: boolean) => void;
   toggleCart: (id: string) => void;
 };
 
@@ -27,6 +30,7 @@ export const useScene = create<SceneState>((set, get) => ({
   groups: seed,
   selectedId: null,
   selectedAt: 0,
+  revealAt: 0,
   cart: [],
   addProduct: (p) => {
     const n = get()
@@ -53,8 +57,12 @@ export const useScene = create<SceneState>((set, get) => ({
     });
     return node.id;
   },
-  select: (id) =>
-    set((s) => ({ selectedId: id, selectedAt: s.selectedAt + 1 })),
+  select: (id, reveal = true) =>
+    set((s) => ({
+      selectedId: id,
+      selectedAt: s.selectedAt + 1,
+      revealAt: reveal ? s.revealAt + 1 : s.revealAt,
+    })),
   toggleCart: (id) =>
     set((s) => ({
       cart: s.cart.includes(id)

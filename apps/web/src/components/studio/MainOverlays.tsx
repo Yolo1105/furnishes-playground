@@ -209,10 +209,9 @@ function ToolButton({
 
 /**
  * The shelf: two tabs along its top, the same tabs as the panels have.
- * Saved is everything in the room as cards that scroll sideways; a
- * Furnishes piece carries the orange mark and its price and, on hover, a
- * cart button; a room item reads muted and says so. Cart holds the pieces
- * put there, each with a remove on hover. Each tab carries its count; the
+ * Saved is the Furnishes pieces in the room, what can be bought, as cards
+ * that scroll sideways, each with its price and, on hover, a cart button.
+ * Cart holds the pieces put there, each with a remove on hover. Each tab carries its count; the
  * sum of the open tab reads at the right, before the chevron that folds
  * the cards away. Picking a card picks the same thing in the outliner,
  * and the other way round.
@@ -230,8 +229,9 @@ export function MainShelf() {
   const [collapsed, setCollapsed] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
   const selected = topLevelOf(groups, selectedId);
-  const t = pieceTotals(items);
-  const inCart = items.filter((n) => cart.includes(n.id));
+  const pieces = items.filter((n) => n.kind === "piece");
+  const t = pieceTotals(pieces);
+  const inCart = pieces.filter((n) => cart.includes(n.id));
   const c = pieceTotals(inCart);
 
   // a pick anywhere brings its card into view, unfolding the shelf first
@@ -257,7 +257,7 @@ export function MainShelf() {
     return () => cancelAnimationFrame(id);
   }, [selected, selectedAt, tab, collapsed]);
 
-  const shown = tab === "saved" ? items : inCart;
+  const shown = tab === "saved" ? pieces : inCart;
   return (
     <div
       className="glass main-shelf"
@@ -268,7 +268,7 @@ export function MainShelf() {
         <div className="shell-tabs-inline" role="tablist" aria-label="Shelf">
           {(
             [
-              ["saved", "Saved", t.pieces + t.others],
+              ["saved", "Saved", t.pieces],
               ["cart", "Cart", c.pieces],
             ] as const
           ).map(([id, label, n]) => (
@@ -288,7 +288,7 @@ export function MainShelf() {
         <div className="main-shelf-acts">
           <span className="main-shelf-sum f-num">
             {tab === "saved"
-              ? `${sgd(t.total)} · ${t.pieces} pieces · ${t.others} room items`
+              ? `${sgd(t.total)} · ${t.pieces} pieces`
               : `${sgd(c.total)} · ${c.pieces} ${c.pieces === 1 ? "piece" : "pieces"}`}
           </span>
           {tab === "cart" && inCart.length > 0 && (
@@ -363,6 +363,7 @@ function ShelfCard({
       className="shelf-card"
       data-kind={n.kind}
       data-id={n.id}
+      data-tab={tab}
       data-selected={selected}
       data-in-cart={inCart}
     >

@@ -34,7 +34,7 @@ export function ProductsTab({
   const onAdd = (id: string) => {
     const p = products.find((x) => x.id === id);
     if (!p) return;
-    select(add(p));
+    select(add(p), false);
     setJustAdded(id);
     window.clearTimeout(flash.current);
     flash.current = window.setTimeout(() => setJustAdded(null), 1200);

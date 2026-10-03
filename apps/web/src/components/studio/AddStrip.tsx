@@ -61,7 +61,7 @@ export function AddStrip({ onAdded }: { onAdded: (id: string) => void }) {
             onDragStart={(e) => startProductDrag(e, p)}
             onClick={() => {
               const id = add(p);
-              select(id);
+              select(id, false);
               onAdded(id);
             }}
             aria-label={`Add ${p.name}, ${sgd(p.price)}`}

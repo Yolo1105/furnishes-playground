@@ -86,10 +86,9 @@
   line-height: 14px;
   text-align: center;
 }
+/* flies out to the right of the panel, placed from the button on screen */
 .assets-filter-menu {
-  top: calc(100% + 6px);
-  left: auto;
-  right: 0;
+  position: fixed;
   width: 248px;
   padding: 10px;
 }
@@ -214,8 +213,7 @@
   gap: var(--row-gap);
   height: 28px;
   padding-left: calc(var(--inset) + var(--depth) * var(--indent));
-  padding-right: 6px;
-  border-radius: var(--r-control);
+  padding-right: 2px;
   font-size: 12.5px;
   color: rgb(from var(--color-ink) r g b / 0.85);
   cursor: default;
@@ -223,7 +221,21 @@
 .shell[data-corners="square"] .assets-row {
   border-radius: 0;
 }
-.assets-row:hover {
+.assets-row-main {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--row-gap);
+  height: 100%;
+  padding: 0 4px;
+  border-radius: var(--r-control);
+}
+.shell[data-corners="square"] .assets-row-main {
+  border-radius: 0;
+}
+.assets-row:hover .assets-row-main {
   background: rgb(from var(--color-ink) r g b / 0.04);
 }
 .assets-row[data-kind="group"] {
@@ -655,8 +667,9 @@
   color: var(--color-accent);
 }
 
-/* the picked row, the same orange as its card on the shelf */
-.assets-row[aria-selected="true"] {
+/* the picked row, the same orange as its card on the shelf: the tint
+   runs from the mark to the right edge, never over the guide lines */
+.assets-row[aria-selected="true"] .assets-row-main {
   background: rgb(from var(--color-accent) r g b / 0.08);
 }
 .assets-row[aria-selected="true"] .assets-name {

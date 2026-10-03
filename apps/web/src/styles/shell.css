@@ -34,10 +34,10 @@
   overflow: hidden;
 }
 
-/* rounded: the panels float, close to the screen's edge, a gap apart */
+/* rounded: the panels float, the same gap between them and to the screen */
 .shell[data-corners="rounded"] {
-  --shell-edge: 10px;
-  --shell-gap: 16px;
+  --shell-gap: 12px;
+  --shell-edge: var(--shell-gap);
   --shell-radius: var(--r-panel);
 }
 

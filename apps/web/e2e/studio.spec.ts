@@ -123,11 +123,12 @@ test("/rounded has a toolbar on top and a sideways-scrolling shelf below", async
   expect(top.y).toBeGreaterThanOrEqual(main.y);
   expect(top.height).toBeLessThan(shelf.height);
   expect(shelf.y + shelf.height).toBeLessThanOrEqual(main.y + main.height + 1);
+  // the cards scroll sideways once the main column is narrower than them
+  await page.setViewportSize({ width: 1100, height: 900 });
   const scroll = page.locator(".main-shelf-scroll");
-  const overflow = await scroll.evaluate(
-    (el) => el.scrollWidth > el.clientWidth,
-  );
-  expect(overflow).toBe(true);
+  await expect
+    .poll(() => scroll.evaluate((el) => el.scrollWidth > el.clientWidth))
+    .toBe(true);
   await scroll.evaluate((el) => el.scrollBy({ left: 300 }));
   expect(await scroll.evaluate((el) => el.scrollLeft)).toBeGreaterThan(0);
   await expect(
@@ -255,6 +256,12 @@ test("the outliner searches, filters and marks the pieces", async ({
   await page.getByRole("searchbox", { name: "Search assets" }).fill("");
   // filter: only the pieces
   await page.getByRole("button", { name: "Filter assets" }).click();
+  // the filter flies out to the right of the panel
+  const [menu, rail] = await Promise.all([
+    page.getByRole("dialog", { name: "Filter" }).boundingBox(),
+    page.locator(".shell-rail-left").boundingBox(),
+  ]);
+  expect(menu!.x).toBeGreaterThan(rail!.x + rail!.width);
   await page.getByRole("button", { name: "Furnishes pieces" }).click();
   await page.keyboard.press("Escape");
   await expect(tree.locator(".assets-row[data-kind='decor']")).toHaveCount(0);
@@ -272,10 +279,13 @@ test("the shelf's tab counts the pieces and folds the cards away", async ({
   const shelf = page.locator(".main-shelf");
   const saved = shelf.getByRole("tab", { name: /Saved/ });
   const sum = shelf.locator(".main-shelf-sum");
-  await expect(saved).toHaveText(`Saved${totals.pieces + totals.others}`);
+  // Saved holds what can be bought: the pieces, never the room items
+  await expect(saved).toHaveText(`Saved${totals.pieces}`);
   await expect(sum).toHaveText(
-    `${sgd(totals.total)} · ${totals.pieces} pieces · ${totals.others} room items`,
+    `${sgd(totals.total)} · ${totals.pieces} pieces`,
   );
+  await expect(shelf.locator(".shelf-card")).toHaveCount(totals.pieces);
+  await expect(shelf.locator(".shelf-card[data-kind='decor']")).toHaveCount(0);
   await expect(shelf.getByRole("tab", { name: /Cart/ })).toHaveText("Cart0");
   const tall = (await shelf.boundingBox())!.height;
   await page.getByRole("button", { name: "Hide pieces" }).click();
@@ -343,10 +353,15 @@ test("the outliner draws hierarchy lines and the Products tab adds to the room",
   await page
     .getByRole("button", { name: "Add Coat stand to the room" })
     .click();
-  await page.getByRole("tab", { name: "Assets" }).click();
-  await expect(page.getByRole("tab", { name: /Saved/ })).toHaveText(
-    `Saved${totals.pieces + totals.others + 1}`,
+  // adding from Products keeps you in Products
+  await expect(page.getByRole("tab", { name: "Products" })).toHaveAttribute(
+    "aria-selected",
+    "true",
   );
+  await expect(page.getByRole("tab", { name: /Saved/ })).toHaveText(
+    `Saved${totals.pieces + 1}`,
+  );
+  await page.getByRole("tab", { name: "Assets" }).click();
   await expect(page.locator(".main-shelf-sum")).toContainText(
     `${sgd(totals.total + coat.price)} · ${totals.pieces + 1} pieces`,
   );
@@ -664,9 +679,16 @@ test("a pick on the shelf and in the outliner is the same pick", async ({
   await shelf
     .getByRole("button", { name: sideboard.name, exact: true })
     .click();
-  await expect(
-    tree.getByRole("treeitem", { name: sideboard.name }),
-  ).toHaveAttribute("aria-selected", "true");
+  const row = tree.getByRole("treeitem", { name: sideboard.name });
+  await expect(row).toHaveAttribute("aria-selected", "true");
+  // the tint runs from the mark to the right edge, not over the guides
+  await expect(row).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  const [rb, mb] = await Promise.all([
+    row.boundingBox(),
+    row.locator(".assets-row-main").boundingBox(),
+  ]);
+  expect(mb!.x).toBeGreaterThan(rb!.x + 20);
+  expect(mb!.x + mb!.width).toBeGreaterThan(rb!.x + rb!.width - 4);
   await expect(shelf.locator(`[data-id="${sideboard.id}"]`)).toHaveAttribute(
     "data-selected",
     "true",
@@ -720,7 +742,7 @@ test("the + opens the strip of parts; a click adds, a drag places", async ({
   const shelfTile = strip.getByRole("button", { name: /^Add Shelf,/ });
   await shelfTile.click();
   await expect(strip).toHaveCount(0);
-  const n = totals.pieces + totals.others;
+  const n = totals.pieces;
   await expect(saved).toHaveText(`Saved${n + 1}`);
   await expect(
     page.getByRole("treeitem", { name: "Shelf", exact: true }),
@@ -745,6 +767,11 @@ test("the + opens the strip of parts; a click adds, a drag places", async ({
       targetPosition: { x: 420, y: 560 },
     });
   await expect(saved).toHaveText(`Saved${n + 3}`);
+  // a drop from Products keeps you in Products
+  await expect(page.getByRole("tab", { name: "Products" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
 });
 
 test("the shelf's Saved cards go to the Cart from a hover button", async ({
@@ -777,6 +804,14 @@ test("the shelf's Saved cards go to the Cart from a hover button", async ({
   );
   await expect(shelf.locator(".shelf-card")).toHaveCount(1);
   await expect(shelf.getByRole("button", { name: "Checkout" })).toBeVisible();
+  // the remove shows on hover only
+  const remove = shelf.getByRole("button", {
+    name: `Remove ${piece.name} from the cart`,
+  });
+  await page.mouse.move(10, 10);
+  await expect(remove).toHaveCSS("opacity", "0");
+  await shelf.locator(".shelf-card").first().hover();
+  await expect(remove).toHaveCSS("opacity", "1");
   await shelf
     .getByRole("button", { name: `Remove ${piece.name} from the cart` })
     .click();

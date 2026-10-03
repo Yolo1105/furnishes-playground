@@ -865,6 +865,10 @@
 .shelf-card[data-in-cart="true"] .shelf-card-cart {
   opacity: 1;
 }
+/* in the cart tab the remove shows only on hover */
+.shelf-card[data-tab="cart"]:not(:hover) .shelf-card-cart:not(:focus-visible) {
+  opacity: 0;
+}
 .shelf-card-cart:hover,
 .shelf-card[data-in-cart="true"] .shelf-card-cart {
   background: var(--color-accent);

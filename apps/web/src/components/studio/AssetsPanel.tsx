@@ -46,12 +46,22 @@ export function AssetsPanel() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<AssetCategory | null>(null);
   const [kind, setKind] = useState<KindFilter>("all");
-  const [filterOpen, setFilterOpen] = useState(false);
+  // the filter flies out to the right of the panel, past its clipped edge,
+  // so it is placed from the button's spot on screen when opened
+  const [filterAt, setFilterAt] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
+  const filterOpen = filterAt !== null;
+  const setFilterOpen = (open: boolean) => {
+    const r = filterWrap.current?.getBoundingClientRect();
+    setFilterAt(open && r ? { top: r.top - 8, left: r.right + 14 } : null);
+  };
   const [closed, setClosed] = useState<Record<string, boolean>>({});
   const filterWrap = useRef<HTMLDivElement>(null);
   const tree = useRef<HTMLDivElement>(null);
   const selectedId = useScene((s) => s.selectedId);
-  const selectedAt = useScene((s) => s.selectedAt);
+  const revealAt = useScene((s) => s.revealAt);
   const select = useScene((s) => s.select);
   const q = query.trim().toLowerCase();
 
@@ -65,7 +75,7 @@ export function AssetsPanel() {
   useEffect(
     () =>
       useScene.subscribe((s, prev) => {
-        if (s.selectedAt === prev.selectedAt || !s.selectedId) return;
+        if (s.revealAt === prev.revealAt || !s.selectedId) return;
         const id = s.selectedId;
         const g = groupOf(s.groups, id);
         const node =
@@ -94,9 +104,10 @@ export function AssetsPanel() {
     tree.current
       ?.querySelector<HTMLElement>(`[data-id="${CSS.escape(selectedId)}"]`)
       ?.scrollIntoView({ block: "nearest" });
-  }, [selectedId, selectedAt, tab, closed]);
+  }, [selectedId, revealAt, tab, closed]);
 
-  useDismiss(filterWrap, filterOpen, () => setFilterOpen(false));
+  const filterMenu = useRef<HTMLDivElement>(null);
+  useDismiss(filterWrap, filterOpen, () => setFilterOpen(false), filterMenu);
 
   const shown: AssetGroup[] = useMemo(
     () =>
@@ -163,13 +174,19 @@ export function AssetsPanel() {
               aria-haspopup="dialog"
               aria-expanded={filterOpen}
               aria-pressed={active > 0}
-              onClick={() => setFilterOpen((v) => !v)}
+              onClick={() => setFilterOpen(!filterOpen)}
             >
               <FilterIcon />
               {active > 0 && <span className="assets-filter-n">{active}</span>}
             </button>
             {filterOpen && (
-              <div className="shell-menu assets-filter-menu" role="dialog">
+              <div
+                className="shell-menu assets-filter-menu"
+                role="dialog"
+                aria-label="Filter"
+                ref={filterMenu}
+                style={filterAt}
+              >
                 {tab === "assets" && (
                   <>
                     <p className="assets-filter-label">Show</p>
@@ -432,29 +449,33 @@ function Row({
       >
         <ChevronRightIcon open={open} />
       </button>
-      {kind !== "group" && (
-        <span className="assets-mark" data-kind={kind} aria-hidden="true">
-          {kind === "fixed" ? <LockIcon /> : <CubeIcon />}
-        </span>
-      )}
-      <span className="assets-name">{name}</span>
-      {kind === "group" && count !== undefined && (
-        <span className="assets-n f-num">{count}</span>
-      )}
-      {price !== undefined && (
-        <span className="assets-price f-num">{sgd(price)}</span>
-      )}
-      {kind !== "group" && (
-        <button
-          type="button"
-          className="assets-eye"
-          aria-label={`Hide ${name}`}
-          tabIndex={-1}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <EyeIcon />
-        </button>
-      )}
+      {/* the part that reads as the thing: from the mark to the right
+          edge; the pick and the hover tint this, not the guide lines */}
+      <span className="assets-row-main">
+        {kind !== "group" && (
+          <span className="assets-mark" data-kind={kind} aria-hidden="true">
+            {kind === "fixed" ? <LockIcon /> : <CubeIcon />}
+          </span>
+        )}
+        <span className="assets-name">{name}</span>
+        {kind === "group" && count !== undefined && (
+          <span className="assets-n f-num">{count}</span>
+        )}
+        {price !== undefined && (
+          <span className="assets-price f-num">{sgd(price)}</span>
+        )}
+        {kind !== "group" && (
+          <button
+            type="button"
+            className="assets-eye"
+            aria-label={`Hide ${name}`}
+            tabIndex={-1}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <EyeIcon />
+          </button>
+        )}
+      </span>
     </div>
   );
 }
