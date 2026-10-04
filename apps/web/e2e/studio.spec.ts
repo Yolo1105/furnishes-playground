@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import {
   assetGroups,
   pieceTotals,
@@ -2773,8 +2773,9 @@ test("the tour: stops on the plan, Play walks the camera through them, Stop and 
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
+  // the keys listen once the studio has arrived on the client
+  await expect(page.locator("html")).toHaveAttribute("data-arrived", "true");
   const tourTool = page.getByRole("button", { name: "Tour" });
-  await expect(tourTool).toBeVisible();
   await page.keyboard.press("t");
   const svg = page.locator(".shell-stage .plan-svg");
   await expect(svg).toBeVisible();
@@ -2828,6 +2829,34 @@ test("the tour: stops on the plan, Play walks the camera through them, Stop and 
   await expect(run).toHaveCount(0);
 });
 
+/** the Account dialog from the gear: an account made, or signed into */
+const PASSWORD = "a-long-enough-one";
+const account = async (
+  page: Page,
+  email: string,
+  mode: "create" | "in",
+  password = PASSWORD,
+) => {
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page
+    .getByRole("menu")
+    .getByRole("menuitem", { name: "Sign in" })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "Account" });
+  if (mode === "create") {
+    await dialog.getByRole("tab", { name: "Create account" }).click();
+    await dialog.getByLabel("Name").fill("Mei Tan");
+  }
+  await dialog.getByLabel("Email").fill(email);
+  await dialog.getByLabel("Password").fill(password);
+  await dialog
+    .getByRole("button", {
+      name: mode === "create" ? "Create account" : "Sign in",
+    })
+    .click();
+  return dialog;
+};
+
 test("an account: created with an email and a password, signed out, signed in again; a wrong password is said", async ({
   page,
 }) => {
@@ -2837,15 +2866,8 @@ test("an account: created with an email and a password, signed out, signed in ag
   await expect(bar).toContainText("Guest");
   const gear = page.getByRole("button", { name: "Settings", exact: true });
   const menu = page.getByRole("menu");
-  await gear.click();
-  await menu.getByRole("menuitem", { name: "Sign in" }).click();
-  const dialog = page.getByRole("dialog", { name: "Account" });
-  await dialog.getByRole("tab", { name: "Create account" }).click();
   const email = `studio-${Date.now()}@example.com`;
-  await dialog.getByLabel("Name").fill("Mei Tan");
-  await dialog.getByLabel("Email").fill(email);
-  await dialog.getByLabel("Password").fill("a-long-enough-one");
-  await dialog.getByRole("button", { name: "Create account" }).click();
+  const dialog = await account(page, email, "create");
   // the first call compiles the route and migrates the database
   await expect(dialog).toHaveCount(0, { timeout: 20_000 });
   await expect(bar).toContainText("Mei Tan");
@@ -2855,14 +2877,89 @@ test("an account: created with an email and a password, signed out, signed in ag
   await menu.getByRole("menuitem", { name: "Sign out" }).click();
   await expect(bar).toContainText("Guest");
   // back in: a wrong password is said, the right one lets in
-  await gear.click();
-  await menu.getByRole("menuitem", { name: "Sign in" }).click();
-  await dialog.getByLabel("Email").fill(email);
-  await dialog.getByLabel("Password").fill("not-the-right-one");
-  await dialog.getByRole("button", { name: "Sign in" }).click();
+  await account(page, email, "in", "not-the-right-one");
   await expect(dialog.getByRole("alert")).toContainText(/password|invalid/i);
-  await dialog.getByLabel("Password").fill("a-long-enough-one");
+  await dialog.getByLabel("Password").fill(PASSWORD);
   await dialog.getByRole("button", { name: "Sign in" }).click();
   await expect(dialog).toHaveCount(0);
   await expect(bar).toContainText("Mei Tan");
+});
+
+test("signed in, the projects follow the account to another browser; the account page lists them and opens one; deleting the account takes the mirror", async ({
+  browser,
+}) => {
+  const seed = (ctx: BrowserContext) =>
+    ctx.addInitScript(({ key, value }) => localStorage.setItem(key, value), {
+      key: GUIDE_STORAGE_KEY,
+      value: JSON.stringify({ intro: true }),
+    });
+  const email = `two-${Date.now()}@example.com`;
+  // the first browser: an account, a second project with a name
+  const ctxA = await browser.newContext({
+    viewport: { width: 1440, height: 900 },
+  });
+  await seed(ctxA);
+  const a = await ctxA.newPage();
+  await a.goto("/rounded");
+  const dialogA = await account(a, email, "create");
+  await expect(dialogA).toHaveCount(0, { timeout: 20_000 });
+  await a.getByRole("button", { name: /^Project, / }).click();
+  await a.getByRole("menuitem", { name: "New project" }).click();
+  await a.getByRole("button", { name: /^Project, / }).click();
+  await a.getByRole("menuitem", { name: "Rename" }).click();
+  const input = a.getByRole("textbox", { name: "Project name" });
+  await input.fill("Study corner");
+  await input.press("Enter");
+  // the account takes it a moment later
+  await expect
+    .poll(
+      async () => {
+        const r = await a.request.get("/api/sync");
+        const j = (await r.json()) as {
+          data: { projects?: { projects: { name: string }[] } };
+        };
+        return j.data.projects?.projects.map((p) => p.name) ?? [];
+      },
+      { timeout: 15_000 },
+    )
+    .toContain("Study corner");
+  // the second browser, signed into the same account: the project is there
+  const ctxB = await browser.newContext({
+    viewport: { width: 1440, height: 900 },
+  });
+  await seed(ctxB);
+  const b = await ctxB.newPage();
+  await b.goto("/rounded");
+  const dialogB = await account(b, email, "in");
+  await expect(dialogB).toHaveCount(0);
+  await b.getByRole("button", { name: /^Project, / }).click();
+  await expect(
+    b.getByRole("menuitemradio", { name: "Study corner" }),
+  ).toBeVisible({ timeout: 15_000 });
+  await b.keyboard.press("Escape");
+  // the account page: the mirror, the projects, a way into one
+  await b.getByRole("button", { name: "Settings", exact: true }).click();
+  await b.getByRole("menu").getByRole("menuitem", { name: "Account" }).click();
+  await expect(
+    b.getByRole("heading", { name: "Account", exact: true }),
+  ).toBeVisible();
+  await expect(b.getByText(email)).toBeVisible();
+  await expect(b.getByText(/Last mirrored/)).toBeVisible({ timeout: 15_000 });
+  await expect(
+    b.getByRole("link", { name: "Back to the studio" }),
+  ).toHaveAttribute("href", "/rounded");
+  await b.getByRole("link", { name: "Open Study corner" }).click();
+  await expect(b.locator(".shell-project-name")).toHaveText("Study corner");
+  // the name is kept; the account can end, and its mirror with it
+  await b.goto("/account?from=rounded");
+  const name = b.getByRole("textbox", { name: "Name" });
+  await name.fill("Mei Tan Lim");
+  await b.getByRole("button", { name: "Save name" }).click();
+  await expect(b.getByRole("status")).toContainText("Saved");
+  await b.getByRole("button", { name: "Delete account" }).click();
+  await b.getByRole("button", { name: "Delete for good" }).click();
+  await expect(b.getByText("Sign in to keep your projects")).toBeVisible();
+  expect((await a.request.get("/api/sync")).status()).toBe(401);
+  await ctxA.close();
+  await ctxB.close();
 });

@@ -80,8 +80,18 @@ and `/rounded` the floating one; Settings switches between them. Projects
 side, autosaved in the browser.
 
 Accounts are Better Auth over Drizzle: an email and a password from the
-gear's Sign in, the name and email in the user bar, Sign out beside
-them. The database is Neon Postgres when `DATABASE_URL` is set and
+gear's Sign in, the name and email in the user bar, Account and Sign
+out beside them. The browser stays the truth and the account mirrors
+it: signed in, the projects (and which were deleted), the orders, the
+room items made and the guide's record are pulled once, merged with
+what is here (a project goes to the newer copy and stays gone where
+either side deleted it later; an order keeps the state that moved on
+from awaiting payment) and pushed back, then every change is pushed a
+moment later; the view and the wheel stay the device's own. The
+account page (`/account`) shows who is signed in with the name
+editable, when the mirror was last taken, the projects with a way into
+each, the orders, and the end of the account, which takes the mirror
+with it and leaves the browser's copy. The database is Neon Postgres when `DATABASE_URL` is set and
 PGlite otherwise, a Postgres inside the server process that keeps its
 files under `apps/web/.data/pglite`, so a checkout runs and tests with
 no account anywhere; the migrations under `apps/web/drizzle` run when

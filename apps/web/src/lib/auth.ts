@@ -6,9 +6,9 @@ import * as schema from "./db/schema";
 
 /**
  * Who is in the studio: Better Auth over the Drizzle tables, with an
- * email and a password. A session lives in a cookie; its user is cached
- * in the cookie for a few minutes so a page does not hit the database
- * on every read. An account can be deleted by its owner. The secret
+ * email and a password. A session lives in a cookie and is read from
+ * the database on every request, so an account that ended is gone at
+ * once on every device. An account can be deleted by its owner. The secret
  * comes from BETTER_AUTH_SECRET (a development run falls back to the
  * library's own and says so); BETTER_AUTH_URL names the site in
  * production. Built on first use, as the database is.
@@ -18,7 +18,6 @@ const make = () =>
     database: drizzleAdapter(getDb().db, { provider: "pg", schema }),
     emailAndPassword: { enabled: true, minPasswordLength: 8 },
     user: { deleteUser: { enabled: true } },
-    session: { cookieCache: { enabled: true, maxAge: 5 * 60 } },
     plugins: [nextCookies()],
   });
 

@@ -8,7 +8,7 @@ import type { AssetCategory } from "./assets-data";
  * the shop's own ledger has them). Placing an order takes the cart's
  * pieces; paying is not connected in this build, so an order waits at
  * "awaiting payment" and can be cancelled meanwhile. Kept in the browser
- * until accounts land.
+ * and mirrored to the account when signed in.
  */
 const KEY = "furnishes.orders";
 

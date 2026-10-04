@@ -9,7 +9,8 @@ import type { AssetCategory } from "./assets-data";
  * provider connected, each gets a picture and a model; without one it
  * stands as a shape. Every generation is kept here, starred or not, so
  * it can go into any project again; the starred ones are the shortlist.
- * Kept in the browser until accounts land.
+ * Kept in the browser and mirrored to the account when signed in, so
+ * a removed one is remembered as gone with the time.
  */
 const KEY = "furnishes.generations";
 
@@ -29,6 +30,8 @@ export type Generation = {
 
 type GenerationState = {
   generations: Generation[];
+  /** the ids removed here, with when: a mirror does not bring them back */
+  gone: Record<string, number>;
   add: (g: Omit<Generation, "id" | "at" | "starred">) => Generation;
   star: (id: string) => void;
   remove: (id: string) => void;
@@ -36,6 +39,7 @@ type GenerationState = {
 
 export const useGenerations = create<GenerationState>((set) => ({
   generations: [],
+  gone: {},
   add: (g) => {
     const gen: Generation = {
       ...g,
@@ -53,7 +57,10 @@ export const useGenerations = create<GenerationState>((set) => ({
       ),
     })),
   remove: (id) =>
-    set((s) => ({ generations: s.generations.filter((g) => g.id !== id) })),
+    set((s) => ({
+      generations: s.generations.filter((g) => g.id !== id),
+      gone: { ...s.gone, [id]: Date.now() },
+    })),
 }));
 
 /** the item's name and category read from the words */
@@ -82,9 +89,14 @@ export function useGenerationsSync() {
     try {
       const raw = localStorage.getItem(KEY);
       if (raw) {
-        const kept = JSON.parse(raw) as { generations?: Generation[] };
+        const kept = JSON.parse(raw) as Partial<
+          Pick<GenerationState, "generations" | "gone">
+        >;
         if (Array.isArray(kept.generations))
-          useGenerations.setState({ generations: kept.generations });
+          useGenerations.setState({
+            generations: kept.generations,
+            gone: kept.gone ?? {},
+          });
       }
     } catch {
       /* nothing kept, or storage blocked */
@@ -93,7 +105,7 @@ export function useGenerationsSync() {
       try {
         localStorage.setItem(
           KEY,
-          JSON.stringify({ generations: s.generations }),
+          JSON.stringify({ generations: s.generations, gone: s.gone }),
         );
       } catch {
         /* the generations last the session */

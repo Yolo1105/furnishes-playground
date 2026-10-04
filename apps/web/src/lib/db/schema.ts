@@ -1,12 +1,23 @@
-import { boolean, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import {
+  bigint,
+  boolean,
+  index,
+  jsonb,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+} from "drizzle-orm/pg-core";
 
 /**
  * The tables, in Drizzle. Columns are written in camelCase here and
  * stored in snake_case (the client and drizzle-kit both run with
  * `casing: "snake_case"`), so the auth library's field names match the
  * keys below while the database reads as Postgres usually does. The
- * first four tables are the shape Better Auth asks for; `drizzle-kit
- * generate` turns a change here into a migration under drizzle/.
+ * first four tables are the shape Better Auth asks for; `sync` is the
+ * account's mirror of the browser, one JSON document per kind (see
+ * api/sync). `drizzle-kit generate` turns a change here into a
+ * migration under drizzle/.
  */
 export const user = pgTable("user", {
   id: text().primaryKey(),
@@ -80,4 +91,19 @@ export const verification = pgTable(
       .$onUpdate(() => new Date()),
   },
   (t) => [index("verification_identifier_idx").on(t.identifier)],
+);
+
+export const sync = pgTable(
+  "sync",
+  {
+    userId: text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    /** projects, orders, generations or guides */
+    kind: text().notNull(),
+    data: jsonb().notNull(),
+    /** when the browser pushed it, epoch ms */
+    at: bigint({ mode: "number" }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.kind] })],
 );

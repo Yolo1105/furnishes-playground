@@ -24,6 +24,7 @@ type Sheet = "settings" | "help" | "orders" | "account" | null;
 
 export function UserBar() {
   const { data: session } = useSession();
+  const path = usePathname();
   const name = session?.user.name ?? "Guest";
   const line = session?.user.email ?? "Not signed in";
   const [open, setOpen] = useState(false);
@@ -98,14 +99,26 @@ export function UserBar() {
           </button>
           <span className="shell-menu-sep" aria-hidden="true" />
           {session ? (
-            <button
-              type="button"
-              role="menuitem"
-              className="shell-menu-row"
-              onClick={() => pick(() => void authClient.signOut())}
-            >
-              <UserIcon /> Sign out
-            </button>
+            <>
+              <Link
+                role="menuitem"
+                className="shell-menu-row"
+                href={
+                  path === "/rounded" ? "/account?from=rounded" : "/account"
+                }
+                onClick={() => setOpen(false)}
+              >
+                <UserIcon /> Account
+              </Link>
+              <button
+                type="button"
+                role="menuitem"
+                className="shell-menu-row"
+                onClick={() => pick(() => void authClient.signOut())}
+              >
+                <UserIcon /> Sign out
+              </button>
+            </>
           ) : (
             <button
               type="button"

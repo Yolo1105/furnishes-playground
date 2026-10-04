@@ -1,6 +1,13 @@
+import { Suspense } from "react";
 import { Studio } from "@/components/studio/Studio";
 
 /** The same studio with floating, rounded glass panels. */
 export default function Page() {
-  return <Studio corners="rounded" />;
+  // the shell reads the address (a link into a project), so it renders
+  // inside a boundary while the page itself stays static
+  return (
+    <Suspense>
+      <Studio corners="rounded" />
+    </Suspense>
+  );
 }

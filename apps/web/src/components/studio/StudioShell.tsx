@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type React from "react";
 import { ChatInput } from "./ChatInput";
 import { useEva } from "./eva-store";
@@ -13,6 +14,7 @@ import { PreviewStage } from "./PreviewStage";
 import { Tour } from "./Tour";
 import { ViewCube } from "./ViewCube";
 import { other, useStudio } from "./studio-store";
+import { useAccountSync } from "./account-sync";
 import { useGenerationsSync } from "./generation-store";
 import { useOrdersSync } from "./order-store";
 import { useProjectSync } from "./project-store";
@@ -22,6 +24,7 @@ import { useArrival } from "./useArrival";
 import { useInputMode } from "./useInputMode";
 import { HelpDialog } from "./HelpDialog";
 import { UserBar } from "./UserBar";
+import { useSession } from "@/lib/auth-client";
 import { MainView, ViewPanel } from "./ViewPanel";
 import { PanelLeftIcon, PlusIcon } from "./icons";
 
@@ -54,9 +57,19 @@ export function StudioShell({
 }) {
   useInputMode();
   useArrival();
-  useProjectSync();
+  // a link into one project (?project=id, from the account page) opens
+  // it, and the address is then plain again
+  const wanted = useSearchParams().get("project");
+  const router = useRouter();
+  const pathname = usePathname();
+  useProjectSync(wanted);
+  useEffect(() => {
+    if (wanted) router.replace(pathname);
+  }, [wanted, router, pathname]);
   useOrdersSync();
   useGenerationsSync();
+  const { data: session } = useSession();
+  useAccountSync(session?.user.id ?? null);
   const [keys, setKeys] = useState(false);
   useShortcuts(() => setKeys(true));
   const [open, setOpen] = useState<Drawer>(null);

@@ -10,7 +10,11 @@ import { useScene } from "./scene-store";
  * stands in it (the pieces, the cart, the labels, every edit) and Eva's
  * side of it (the conversations and the preferences). One is open; the
  * stores hold its contents, and every change is kept into it a moment
- * later. The projects live in the browser until accounts land.
+ * later. The projects live in the browser; signed in, the account
+ * mirrors them (account-sync), so a deleted one is remembered as gone
+ * with the time, and a merged list can be adopted whole. The studio
+ * opens the project a link names (?project=id, from the account page)
+ * once what was kept is back.
  */
 const KEY = "furnishes.projects";
 const SAVE_AFTER = 600; // ms after the last change
@@ -50,6 +54,8 @@ export type Project = {
 type ProjectState = {
   projects: Project[];
   activeId: string;
+  /** the ids deleted here, with when: a mirror does not bring them back */
+  gone: Record<string, number>;
   /** read the stores into the open project */
   save: () => void;
   create: () => void;
@@ -57,6 +63,12 @@ type ProjectState = {
   /** the last project cannot go */
   remove: (id: string) => void;
   open: (id: string) => void;
+  /** take a merged list as the projects; the open one reloads if the
+      list's copy is newer */
+  adopt: (merged: {
+    projects: Project[];
+    gone: Record<string, number>;
+  }) => void;
 };
 
 const dataOnly = <T extends object>(s: T) =>
@@ -135,12 +147,21 @@ const FIRST: Project = {
 export const useProjects = create<ProjectState>((set, get) => ({
   projects: [FIRST],
   activeId: FIRST.id,
-  save: () =>
-    set((s) => ({
-      projects: s.projects.map((p) =>
-        p.id === s.activeId ? { ...p, at: Date.now(), data: snapshot() } : p,
+  gone: {},
+  save: () => {
+    const { projects, activeId } = get();
+    const data = snapshot();
+    const open = projects.find((p) => p.id === activeId);
+    // nothing changed: no new copy, no new time (a save is itself a
+    // change to the list, and would otherwise call the next save)
+    if (open?.data && JSON.stringify(open.data) === JSON.stringify(data))
+      return;
+    set({
+      projects: projects.map((p) =>
+        p.id === activeId ? { ...p, at: Date.now(), data } : p,
       ),
-    })),
+    });
+  },
   create: () => {
     get().save();
     const n = get().projects.length + 1;
@@ -164,11 +185,12 @@ export const useProjects = create<ProjectState>((set, get) => ({
     const { projects, activeId } = get();
     if (projects.length <= 1) return;
     const rest = projects.filter((p) => p.id !== id);
+    const gone = { ...get().gone, [id]: Date.now() };
     if (id === activeId) {
       const next = rest[0]!;
       load(next.data ?? fresh());
-      set({ projects: rest, activeId: next.id });
-    } else set({ projects: rest });
+      set({ projects: rest, activeId: next.id, gone });
+    } else set({ projects: rest, gone });
   },
   open: (id) => {
     const { projects, activeId } = get();
@@ -179,6 +201,14 @@ export const useProjects = create<ProjectState>((set, get) => ({
     load(target.data ?? fresh());
     set({ activeId: id });
   },
+  adopt: ({ projects, gone }) => {
+    const { activeId } = get();
+    const before = get().projects.find((p) => p.id === activeId);
+    const active = projects.find((p) => p.id === activeId) ?? projects[0]!;
+    set({ projects, gone, activeId: active.id });
+    if (!before || active.id !== activeId || active.at > before.at)
+      load(active.data ?? fresh());
+  },
 }));
 
 /**
@@ -186,20 +216,20 @@ export const useProjects = create<ProjectState>((set, get) => ({
  * and the open project fills the stores; then every change in the room,
  * the scene or Eva is saved into the open project a moment later.
  */
-export function useProjectSync() {
+export function useProjectSync(wanted: string | null = null) {
   useEffect(() => {
     try {
       const raw = localStorage.getItem(KEY);
       if (raw) {
-        const kept = JSON.parse(raw) as Pick<
-          ProjectState,
-          "projects" | "activeId"
+        const kept = JSON.parse(raw) as Partial<
+          Pick<ProjectState, "projects" | "activeId" | "gone">
         >;
         if (kept.projects?.length) {
           useProjects.setState({
             projects: kept.projects,
+            gone: kept.gone ?? {},
             activeId: kept.projects.some((p) => p.id === kept.activeId)
-              ? kept.activeId
+              ? kept.activeId!
               : kept.projects[0]!.id,
           });
           const open = useProjects
@@ -208,6 +238,7 @@ export function useProjectSync() {
           if (open?.data) load(open.data);
         }
       }
+      if (wanted) useProjects.getState().open(wanted);
     } catch {
       /* nothing kept, or storage blocked: the first project stands */
     }
@@ -217,8 +248,11 @@ export function useProjectSync() {
       timer = setTimeout(() => {
         useProjects.getState().save();
         try {
-          const { projects, activeId } = useProjects.getState();
-          localStorage.setItem(KEY, JSON.stringify({ projects, activeId }));
+          const { projects, activeId, gone } = useProjects.getState();
+          localStorage.setItem(
+            KEY,
+            JSON.stringify({ projects, activeId, gone }),
+          );
         } catch {
           /* the project lasts the session */
         }
@@ -239,7 +273,11 @@ export function useProjectSync() {
         if (s.draft === prev.draft) soon();
       }),
       useProjects.subscribe((s, prev) => {
-        if (s.projects !== prev.projects || s.activeId !== prev.activeId)
+        if (
+          s.projects !== prev.projects ||
+          s.activeId !== prev.activeId ||
+          s.gone !== prev.gone
+        )
           soon();
       }),
     ];
@@ -247,5 +285,6 @@ export function useProjectSync() {
       clearTimeout(timer);
       unsubs.forEach((u) => u());
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the link is read with what was kept, once
   }, []);
 }

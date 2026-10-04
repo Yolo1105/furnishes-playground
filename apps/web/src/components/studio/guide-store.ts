@@ -102,7 +102,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
 
 export const GUIDE_STORAGE_KEY = "furnishes.guides";
 
-type Dismissed = Partial<Record<GuideId, boolean>>;
+export type Dismissed = Partial<Record<GuideId, boolean>>;
 
 const read = (): Dismissed => {
   try {
@@ -133,6 +133,8 @@ type GuideState = {
   show: (id: GuideId, force?: boolean) => void;
   close: () => void;
   setDismissed: (id: GuideId, value: boolean) => void;
+  /** take the record as merged with the account's */
+  adoptDismissed: (dismissed: Dismissed) => void;
   startTour: () => void;
   tourTo: (step: number) => void;
   /** finish or skip: the tour is then seen, and not shown on its own again */
@@ -160,6 +162,10 @@ export const useGuide = create<GuideState>((set, get) => ({
   close: () => set({ open: null }),
   setDismissed: (id, value) => {
     const dismissed = { ...get().dismissed, [id]: value };
+    write(dismissed);
+    set({ dismissed });
+  },
+  adoptDismissed: (dismissed) => {
     write(dismissed);
     set({ dismissed });
   },
