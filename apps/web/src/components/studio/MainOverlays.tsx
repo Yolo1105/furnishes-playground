@@ -99,11 +99,22 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
     const { id } = (await r.json()) as { id: string };
     setSharing(`${location.origin}/s/${id}`);
   };
+  // one thing under the toolbar at a time: the strip of parts and the
+  // tour's bar take each other's place
   const addWrap = useRef<HTMLDivElement>(null);
-  useDismiss(addWrap, adding, () => setAdding(false));
+  const addBtn = useRef<HTMLDivElement>(null);
+  useDismiss(addWrap, adding, () => setAdding(false), addBtn);
+  const toggleAdding = () => {
+    if (!adding && tool === "tour") setTool("select");
+    setAdding((v) => !v);
+  };
+  const pickTool = (t: Tool) => {
+    if (t === "tour") setAdding(false);
+    setTool(t);
+  };
   const exploration = useEva((s) => s.exploration);
   const setExploration = useEva((s) => s.setExploration);
-  // the toolbar clips what overflows it, so its menus are placed on screen
+  // the toolbar's menus are placed on screen, clear of the bar's box
   // from their buttons, like the project panel's filter
   const prefs = useFixedMenu();
   const exporting = useFixedMenu();
@@ -172,7 +183,7 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
               icon={<CursorIcon />}
               tool={tool}
               resting={resting}
-              onPick={setTool}
+              onPick={pickTool}
             />
             <ToolButton
               id="inspect"
@@ -180,7 +191,7 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
               icon={<InspectIcon />}
               tool={tool}
               resting={resting}
-              onPick={setTool}
+              onPick={pickTool}
             />
             <ToolButton
               id="measure"
@@ -188,7 +199,7 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
               icon={<RulerIcon />}
               tool={tool}
               resting={resting}
-              onPick={setTool}
+              onPick={pickTool}
             />
             <ToolButton
               id="tour"
@@ -196,9 +207,9 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
               icon={<RouteIcon />}
               tool={tool}
               resting={resting}
-              onPick={setTool}
+              onPick={pickTool}
             />
-            <div className="main-add">
+            <div ref={addBtn} className="main-add">
               <button
                 type="button"
                 className="main-icon shell-tip"
@@ -207,8 +218,7 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
                 aria-haspopup="dialog"
                 aria-expanded={adding}
                 disabled={resting}
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={() => setAdding((v) => !v)}
+                onClick={toggleAdding}
               >
                 <PlusIcon />
               </button>
@@ -542,7 +552,9 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
             )}
           </div>
         </div>
-        <ProgressLine />
+        <div className="main-top-clip">
+          <ProgressLine />
+        </div>
       </div>
       {adding && (
         <div ref={addWrap} className="main-add-strip">

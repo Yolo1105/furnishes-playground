@@ -36,7 +36,7 @@
 
 /* rounded: the panels float, the same gap between them and to the screen */
 .shell[data-corners="rounded"] {
-  --shell-gap: 12px;
+  --shell-gap: 8px;
   --shell-edge: var(--shell-gap);
   --shell-radius: var(--r-panel);
 }
@@ -382,6 +382,9 @@
   top: calc(100% + 6px);
   left: -8px;
   z-index: 5;
+}
+.shell-menu {
+  background: var(--glass-float);
 }
 /* a menu floated to the body stands over every panel */
 body > .shell-menu {
@@ -1100,10 +1103,11 @@ body > .shell-menu {
   position: absolute;
   inset: 0;
   background: rgb(from var(--color-shadow) r g b / 0.18);
-  backdrop-filter: blur(2px);
+  backdrop-filter: blur(6px);
 }
 .shell-dialog-card {
   position: relative;
+  background: var(--glass-float);
   width: min(420px, calc(100% - 32px));
   max-height: calc(100% - 32px);
   display: grid;

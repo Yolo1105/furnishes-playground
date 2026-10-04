@@ -2,8 +2,8 @@ import { useRef, useState, type CSSProperties } from "react";
 import { useDismiss } from "./useDismiss";
 
 /**
- * A menu for a button inside a clipped bar (the toolbar hides what
- * overflows it): the menu is placed on screen from the button's box,
+ * A menu for a button in the toolbar: the menu is placed on screen from
+ * the button's box, clear of the bar's own stacking,
  * hanging from its bottom edge and ending at its right. `toggle` opens
  * it from the button, `style` places it; it closes on Escape or a press
  * outside the button and the menu.

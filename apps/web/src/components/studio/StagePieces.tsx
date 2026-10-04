@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, type PointerEvent } from "react";
+import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { CATEGORY_NAMES, type AssetNode } from "./assets-data";
 import { ArrowLeftIcon, LockIcon, RotateIcon } from "./icons";
 import { usePieceActions } from "./piece-actions";
@@ -28,9 +28,29 @@ import { useScene } from "./scene-store";
  * a blank ground with a way back. Under a finger, a long press raises
  * the actions, as Inspect's click does.
  */
+/** a plan name's letters, about, in CSS pixels at the plan's own scale */
+const NAME_CHAR_PX = 6.4;
+
 export function StagePieces() {
   const a = usePieceActions();
   const { W, D } = a.room;
+  // the layer's width in pixels, so a name is written only where its
+  // whole word fits the footprint; the plan's zoom scales both alike
+  const layer = useRef<HTMLDivElement>(null);
+  const [layerPx, setLayerPx] = useState(0);
+  useEffect(() => {
+    const el = layer.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      if (entry) setLayerPx(entry.contentRect.width);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const pxPerMm = layerPx / W;
+  const nameFits = (name: string, w: number, d: number) =>
+    layerPx === 0 ||
+    (w * pxPerMm >= name.length * NAME_CHAR_PX + 12 && d * pxPerMm >= 16);
   const drag = useRef<{
     id: string;
     x0: number;
@@ -165,7 +185,7 @@ export function StagePieces() {
   };
 
   return (
-    <div className="stage-pieces" data-focus={a.focus !== null}>
+    <div ref={layer} className="stage-pieces" data-focus={a.focus !== null}>
       {a.focus && (
         <button
           type="button"
@@ -225,14 +245,18 @@ export function StagePieces() {
               onPointerCancel={() => onUp(n)}
               onClick={() => onClick(n)}
             >
-              <span
-                className="stage-piece-name"
-                style={
-                  slant ? { transform: `rotate(${-p.rotation}deg)` } : undefined
-                }
-              >
-                {n.name}
-              </span>
+              {(a.focus || nameFits(n.name, f.w, f.d)) && (
+                <span
+                  className="stage-piece-name"
+                  style={
+                    slant
+                      ? { transform: `rotate(${-p.rotation}deg)` }
+                      : undefined
+                  }
+                >
+                  {n.name}
+                </span>
+              )}
               {p.locked && (
                 <span className="stage-piece-lock" aria-hidden="true">
                   <LockIcon size={11} />

@@ -25,7 +25,14 @@
   height: 44px;
   padding: 0 8px;
   border-radius: var(--shell-radius, 0px);
+}
+/* the progress line runs inside the bar's own rounded box */
+.main-top-clip {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
   overflow: hidden;
+  pointer-events: none;
 }
 
 .main-top-group {
@@ -450,7 +457,8 @@
   padding: 0;
   border-left: 0;
 }
-.main-icon[aria-pressed="true"] {
+.main-icon[aria-pressed="true"],
+.main-icon[aria-expanded="true"] {
   color: var(--color-accent);
   background: rgb(from var(--color-accent) r g b / 0.12);
 }
@@ -1351,6 +1359,7 @@
   position: absolute;
   padding: 16px 18px 14px;
   border-radius: var(--r-panel);
+  background: var(--glass-float);
 }
 .tour-card[data-welcome="true"] {
   left: 50%;
@@ -1479,11 +1488,14 @@
   aspect-ratio: auto;
   height: auto;
 }
+/* the sheet and the pieces over it draw in the same ink */
 .plan {
   position: relative;
   width: 100%;
   transform-origin: 50% 50%;
   touch-action: none;
+  --plan-ink: rgb(from var(--color-ink) r g b / 0.78);
+  --plan-fine: rgb(from var(--color-ink) r g b / 0.55);
 }
 .plan-svg {
   display: block;
@@ -1491,8 +1503,6 @@
   height: auto;
   overflow: visible;
   font-family: inherit;
-  --plan-ink: rgb(from var(--color-ink) r g b / 0.78);
-  --plan-fine: rgb(from var(--color-ink) r g b / 0.55);
 }
 .plan-svg[data-drawing="true"] {
   cursor: crosshair;
