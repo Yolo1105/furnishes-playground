@@ -1,14 +1,19 @@
 import { create } from "zustand";
 import {
+  BRAINSTORM,
   conversations as seed,
+  followupsFor,
+  REFINES,
   type Conversation,
   type Message,
+  type PersonaId,
   type PreferenceCategory,
 } from "./eva-data";
 import { sgd } from "./assets-data";
 import {
   recommend,
   reply,
+  shorter,
   type ChatMode,
   type Chip,
   type Context,
@@ -45,6 +50,10 @@ type EvaState = {
   /** no model is connected on this server: the rules answer, and the
       Agent tab says so once */
   offline: boolean;
+  /** which Eva answers: the same assistant leaning one way */
+  persona: PersonaId;
+  /** the turn under way, to stop it */
+  turn: AbortController | null;
   preferences: Partial<Record<PreferenceCategory, PreferenceValue>>;
   /** options typed in by hand, per block, up to CUSTOM_MAX */
   custom: Partial<Record<PreferenceCategory, string[]>>;
@@ -67,6 +76,13 @@ type EvaState = {
   send: (text: string, image?: string, mode?: ChatMode) => Promise<void>;
   /** a thumb on one of Eva's answers; the same thumb again takes it off */
   rate: (msgId: string, rating: "up" | "down") => void;
+  setPersona: (persona: PersonaId) => void;
+  /** keep one of Eva's answers with the project, or let it go */
+  pin: (msgId: string) => void;
+  /** stop the answer under way: nothing arrives */
+  stop: () => void;
+  /** Brainstorm for me: three directions for the room */
+  brainstorm: () => Promise<void>;
   /** a finished quiz: Eva says what it found and proposes its preferences */
   fromQuiz: (flow: Flow, result: QuizResult) => void;
   /** take up, or set aside, a preference Eva heard */
@@ -83,7 +99,7 @@ const nextId = (prefix: string) =>
 
 /** what Eva knows at this moment, from the room and the scene */
 const contextOf = (
-  s: Pick<EvaState, "preferences" | "exploration">,
+  s: Pick<EvaState, "preferences" | "exploration" | "persona">,
 ): Context => {
   const r = useRoom.getState();
   const sc = useScene.getState();
@@ -101,6 +117,46 @@ const contextOf = (
     prefs: s.preferences,
     exploration: s.exploration,
     rules: r.rules,
+    persona: s.persona,
+  };
+};
+
+/** the three ways to refine the latest answer, answered by the rules
+    from the thread when no model is connected */
+const refined = (
+  text: string,
+  thread: Message[],
+  ctx: Context,
+): Reply | null => {
+  const which = REFINES.find((r) => r.send === text)?.label;
+  if (!which) return null;
+  const last = [...thread].reverse().find((m) => m.who === "eva");
+  if (which === "Shorter")
+    return {
+      text: last ? shorter(last.text) : "There is nothing to shorten yet.",
+      proposals: [],
+      cards: [],
+      chips: [],
+    };
+  const shown = thread.flatMap((m) => m.cards?.map((c) => c.product.id) ?? []);
+  const asked =
+    [...thread]
+      .reverse()
+      .find((m) => m.who === "you" && !REFINES.some((r) => r.send === m.text))
+      ?.text ?? "";
+  const cards = recommend(ctx, asked, {
+    skip: which === "More options" ? shown : [],
+    cheaper: which === "Cheaper",
+  });
+  return {
+    text: cards.length
+      ? which === "Cheaper"
+        ? "The same, from the least dear up."
+        : "Two more that would fit."
+      : "That is everything in the catalogue that fits for now.",
+    proposals: [],
+    cards: which === "More options" ? cards.slice(0, 2) : cards,
+    chips: [],
   };
 };
 
@@ -112,6 +168,8 @@ export const useEva = create<EvaState>((set, get) => ({
   draft: "",
   thinking: false,
   offline: false,
+  persona: "eva",
+  turn: null,
   exploration: false,
   activeId: seed[0]?.id ?? null,
   preferences: {
@@ -158,27 +216,40 @@ export const useEva = create<EvaState>((set, get) => ({
       ),
     }));
     const ctx = contextOf(get());
-    const thread = (get().messages[id] ?? [])
+    const whole = get().messages[id] ?? [];
+    const thread = whole
       .slice(-9, -1)
       .map((m) => ({ who: m.who, text: m.text }));
+    const turn = new AbortController();
+    set({ turn });
     let r: Reply;
     let source: Message["source"] = "rules";
+    const own = () =>
+      refined(asked, whole.slice(0, -1), ctx) ?? reply(asked, ctx, mode);
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ message: asked, thread, context: ctx, mode }),
+        signal: turn.signal,
       });
       if (res.ok) {
         r = ((await res.json()) as { reply: Reply }).reply;
         source = "model";
       } else {
         if (res.status === 503) set({ offline: true });
-        r = reply(asked, ctx, mode);
+        r = own();
       }
     } catch {
-      r = reply(asked, ctx, mode);
+      // stopped: nothing arrives
+      if (turn.signal.aborted) return;
+      r = own();
     }
+    if (turn.signal.aborted) return;
+    // what might be said next, when the answer offers nothing itself
+    const chips = r.chips.length
+      ? r.chips
+      : followupsFor(r.text).map((label) => ({ label, send: label }));
     const eva: Message = {
       id: nextId("m"),
       who: "eva",
@@ -187,11 +258,30 @@ export const useEva = create<EvaState>((set, get) => ({
       source,
       ...(r.proposals.length ? { proposals: r.proposals } : {}),
       ...(r.cards.length ? { cards: r.cards } : {}),
-      ...(r.chips.length ? { chips: r.chips } : {}),
+      chips,
     };
     set((s) => ({
       thinking: false,
+      turn: s.turn === turn ? null : s.turn,
       messages: { ...s.messages, [id]: [...(s.messages[id] ?? []), eva] },
+    }));
+  },
+  stop: () => {
+    get().turn?.abort();
+    set({ turn: null, thinking: false });
+  },
+  brainstorm: () => get().send(BRAINSTORM),
+  setPersona: (persona) => set({ persona }),
+  pin: (msgId) => {
+    const { activeId } = get();
+    if (!activeId) return;
+    set((s) => ({
+      messages: {
+        ...s.messages,
+        [activeId]: (s.messages[activeId] ?? []).map((m) =>
+          m.id === msgId ? { ...m, pinned: !m.pinned } : m,
+        ),
+      },
     }));
   },
   fromQuiz: (flow, result) => {

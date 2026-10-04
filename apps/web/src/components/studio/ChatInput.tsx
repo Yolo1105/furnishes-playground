@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { PROMPTS } from "./eva-data";
+import { PERSONAS, personaOf, PROMPTS } from "./eva-data";
 import {
   ChevronDownIcon,
   ImageIcon,
   LightbulbIcon,
   MicIcon,
   SendArrowIcon,
+  StopIcon,
 } from "./icons";
 import type { ChatMode } from "./eva-brain";
 import { useEva } from "./eva-store";
@@ -45,6 +46,8 @@ const PLACEHOLDERS = [
  * the right. The border lights orange while anything inside has focus.
  * Enter or the arrow sends; the bulb shows prompts to pick from; the
  * picture button attaches one; the mic dictates where the browser can.
+ * The Eva chip names which Eva is answering and opens the choice of the
+ * four; while she is answering the send button is Stop.
  */
 type Recognizer = {
   lang: string;
@@ -74,6 +77,7 @@ export function ChatInput() {
   const [focused, setFocused] = useState(false);
   const [mode, setMode] = useState<Mode>("Ask");
   const [menu, setMenu] = useState(false);
+  const [who, setWho] = useState(false);
   const [suggestions, setSuggestions] = useState(false);
   const [placeholder, setPlaceholder] = useState(0);
   const [dim, setDim] = useState(false);
@@ -81,10 +85,14 @@ export function ChatInput() {
   const [listening, setListening] = useState(false);
   const area = useRef<HTMLTextAreaElement>(null);
   const wrap = useRef<HTMLDivElement>(null);
+  const whoWrap = useRef<HTMLDivElement>(null);
   const file = useRef<HTMLInputElement>(null);
   const recognizer = useRef<Recognizer | null>(null);
   const Speech = useRecognizer();
   const send = useEva((s) => s.send);
+  const thinking = useEva((s) => s.thinking);
+  const persona = useEva((s) => s.persona);
+  const { stop, setPersona } = useEva.getState();
   const canSend = message.trim().length > 0 || image !== null;
   const submit = () => {
     if (!canSend) return;
@@ -156,6 +164,7 @@ export function ChatInput() {
   }, [focused, message.length]);
 
   useDismiss(wrap, menu, () => setMenu(false));
+  useDismiss(whoWrap, who, () => setWho(false));
 
   return (
     <div className="glass chat-input" data-focused={focused}>
@@ -270,34 +279,74 @@ export function ChatInput() {
               />
             )}
           </div>
-          <button
-            type="button"
-            className="chat-eva"
-            aria-label="Write to Eva"
-            onClick={() => area.current?.focus()}
-          >
-            <span className="chat-eva-dot" aria-hidden="true" />
-            Eva
-          </button>
-          <button
-            type="button"
-            className="chat-send"
-            data-ready={canSend}
-            data-listening={listening}
-            aria-label={
-              canSend ? "Send" : listening ? "Stop listening" : "Voice input"
-            }
-            aria-pressed={canSend ? undefined : listening}
-            disabled={!canSend && !Speech}
-            title={
-              !canSend && !Speech
-                ? "Voice input is not available in this browser"
-                : undefined
-            }
-            onClick={() => (canSend ? submit() : dictate())}
-          >
-            {canSend ? <SendArrowIcon /> : <MicIcon />}
-          </button>
+          <div ref={whoWrap} className="chat-mode">
+            <button
+              type="button"
+              className="chat-eva"
+              aria-label={`${personaOf(persona).name}; choose Eva`}
+              aria-haspopup="menu"
+              aria-expanded={who}
+              onClick={() => setWho((v) => !v)}
+            >
+              <span className="chat-eva-dot" aria-hidden="true" />
+              {personaOf(persona).name}
+            </button>
+            {who && (
+              <div
+                className="glass shell-menu chat-mode-menu chat-who"
+                role="radiogroup"
+                aria-label="Choose Eva"
+              >
+                {PERSONAS.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    role="radio"
+                    className="chat-who-option"
+                    aria-checked={p.id === persona}
+                    onClick={() => {
+                      setPersona(p.id);
+                      setWho(false);
+                    }}
+                  >
+                    <span className="chat-who-name">{p.name}</span>
+                    <span className="chat-who-tag">{p.tagline}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {thinking ? (
+            <button
+              type="button"
+              className="chat-send chat-stop"
+              data-ready="true"
+              aria-label="Stop generating"
+              onClick={stop}
+            >
+              <StopIcon />
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="chat-send"
+              data-ready={canSend}
+              data-listening={listening}
+              aria-label={
+                canSend ? "Send" : listening ? "Stop listening" : "Voice input"
+              }
+              aria-pressed={canSend ? undefined : listening}
+              disabled={!canSend && !Speech}
+              title={
+                !canSend && !Speech
+                  ? "Voice input is not available in this browser"
+                  : undefined
+              }
+              onClick={() => (canSend ? submit() : dictate())}
+            >
+              {canSend ? <SendArrowIcon /> : <MicIcon />}
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -84,7 +84,14 @@ list, proposes the preferences she hears or that a quiz works out (style,
 budget, room) for you to keep or set aside, picks catalogue pieces with
 why each fits, and reads the room plan's readiness, budget and health
 (walkways, the door's swing, the window, clashes), each finding with a
-Fix. The Room tab's Rules set what the planner holds to: the walkway's
+Fix. Eva comes four ways, as the chatbot had her (balanced, Style, Plan,
+Budget), chosen from the chip in the box and kept with the project; the
+model gets her lean, the rules end a plain answer in it. Her latest
+answer can be refined (shorter, more options, cheaper), any answer
+pinned to the project, Brainstorm for me brings three directions to go
+with, follow-up chips are read from what she said, a kept preference
+can be sent back for review and an open one asked about, and Stop cuts
+an answer off. The Room tab's Rules set what the planner holds to: the walkway's
 width, whether the door's swing and the window are kept clear, a bed
 against a wall (preferred, required or off), what the room must have
 (a missing thing gets an Add), and how far apart a layout spreads the

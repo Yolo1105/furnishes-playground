@@ -2,7 +2,13 @@
 
 import { CATEGORY_NAMES, pieceTotals, sgd } from "./assets-data";
 import { planOf, stageOf, STAGES, STARTERS, type Chip } from "./eva-brain";
-import { PREFERENCE_BLOCKS, PROMPTS } from "./eva-data";
+import {
+  INSIGHTS,
+  personaOf,
+  PREFERENCE_BLOCKS,
+  PROMPTS,
+  REFINES,
+} from "./eva-data";
 import { useEva } from "./eva-store";
 import {
   CartIcon,
@@ -10,10 +16,13 @@ import {
   CopyIcon,
   LightbulbIcon,
   PencilIcon,
+  PinIcon,
   PlusIcon,
+  RefineIcon,
   TagIcon,
   ThumbIcon,
 } from "./icons";
+import { useState } from "react";
 import { usePieceActions } from "./piece-actions";
 import { LABEL_MAX } from "./piece-detail";
 import { metres, ROOM_NAMES } from "./room-data";
@@ -28,7 +37,11 @@ import { useStudio } from "./studio-store";
  * of the open conversation follows, you on the right and Eva on the
  * left: her messages carry the preferences she heard (to take up or set
  * aside), the pieces she picked with why each fits (and a way to add
- * them), and what to say or do next.
+ * them), and what to say or do next. Her latest answer can be refined
+ * (shorter, more options, cheaper), any answer pinned to the project
+ * (the pinned stand above the thread), and Brainstorm for me asks her
+ * for three directions. A kept preference can be sent back to her for
+ * review, an open one asked about.
  */
 export function AgentTab() {
   const room = useRoom();
@@ -45,7 +58,10 @@ export function AgentTab() {
   );
   const thinking = useEva((s) => s.thinking);
   const offline = useEva((s) => s.offline);
-  const { send, settleProposal, pickChip, rate } = useEva.getState();
+  const persona = personaOf(useEva((s) => s.persona));
+  const { send, settleProposal, pickChip, rate, pin, brainstorm } =
+    useEva.getState();
+  const [refining, setRefining] = useState<string | null>(null);
   const { addProduct, select } = useScene.getState();
   const { setShelfTab, setPanelTab } = useStudio.getState();
   const stage = usePieceActions();
@@ -67,6 +83,7 @@ export function AgentTab() {
     prefs,
     exploration,
     rules: room.rules,
+    persona: persona.id,
   };
   const plan = planOf(ctx);
   const at = stageOf(ctx);
@@ -76,17 +93,29 @@ export function AgentTab() {
   const issues = stage.issues;
 
   const started = thread !== undefined && thread.length > 0;
+  const latestEva = [...(thread ?? [])].reverse().find((m) => m.who === "eva");
+  const pinned = (thread ?? []).filter((m) => m.pinned);
   return (
     <div className="agent">
       <div className="agent-msg">
         <span className="agent-who">
           <span className="chat-eva-dot" aria-hidden="true" />
-          Eva
+          {persona.name}
+          <span className="agent-who-tag">{persona.tagline}</span>
         </span>
         <p>
           Hi, I&apos;m Eva. I plan rooms with Furnishes pieces: tell me how the
           room is used and I&apos;ll lay it out, price it and keep to what fits.
         </p>
+        <button
+          type="button"
+          className="main-btn agent-brainstorm"
+          disabled={thinking}
+          onClick={() => void brainstorm()}
+        >
+          <LightbulbIcon size={14} />
+          <span>{thinking ? "Thinking…" : "Brainstorm for me"}</span>
+        </button>
       </div>
       {exploration && (
         <p className="agent-exploring">
@@ -139,13 +168,22 @@ export function AgentTab() {
         </div>
         {PREFERENCE_BLOCKS.filter((b) => prefs[b.id]).map((b) => {
           const p = prefs[b.id]!;
+          const value = p.budget
+            ? `${sgd(p.budget[0])} – ${sgd(p.budget[1])}`
+            : p.values.join(", ");
           return (
             <div key={b.id}>
               <dt>{b.label}</dt>
               <dd className={p.budget ? "f-num" : undefined}>
-                {p.budget
-                  ? `${sgd(p.budget[0])} – ${sgd(p.budget[1])}`
-                  : p.values.join(", ")}
+                {value}
+                <button
+                  type="button"
+                  className="agent-ask"
+                  aria-label={`Refine ${b.label.toLowerCase()} with Eva`}
+                  onClick={() => setDraft(INSIGHTS[b.id].review(value))}
+                >
+                  Refine
+                </button>
               </dd>
             </div>
           );
@@ -211,6 +249,22 @@ export function AgentTab() {
                 .join(", ")}
             </span>
           </p>
+        )}
+        {PREFERENCE_BLOCKS.some((b) => !prefs[b.id]) && (
+          <div className="agent-open" role="group" aria-label="Still open">
+            {PREFERENCE_BLOCKS.filter((b) => !prefs[b.id]).map((b) => (
+              <button
+                key={b.id}
+                type="button"
+                className="assets-chip"
+                title={INSIGHTS[b.id].openHint}
+                aria-label={`Ask Eva about ${b.label.toLowerCase()}`}
+                onClick={() => setDraft(INSIGHTS[b.id].ask)}
+              >
+                {b.label}: ask Eva
+              </button>
+            ))}
+          </div>
         )}
         {issues.length > 0 && (
           <ul className="agent-issues" aria-label="Room health">
@@ -311,6 +365,24 @@ export function AgentTab() {
         </>
       )}
 
+      {pinned.length > 0 && (
+        <ul className="agent-pinned" aria-label="Pinned">
+          {pinned.map((m) => (
+            <li key={m.id}>
+              <PinIcon size={12} />
+              <span className="agent-pinned-text">{m.text}</span>
+              <button
+                type="button"
+                className="eva-pref-clear"
+                aria-label="Unpin"
+                onClick={() => pin(m.id)}
+              >
+                Unpin
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       {started && (
         <div className="agent-thread" aria-label={title ?? "Conversation"}>
           {thread.map((m) => (
@@ -367,9 +439,50 @@ export function AgentTab() {
                     >
                       <ThumbIcon size={12} down />
                     </button>
+                    <button
+                      type="button"
+                      className="agent-act shell-tip"
+                      data-tooltip={m.pinned ? "Unpin" : "Pin to project"}
+                      aria-label={m.pinned ? "Unpin" : "Pin to project"}
+                      aria-pressed={m.pinned === true}
+                      onClick={() => pin(m.id)}
+                    >
+                      <PinIcon size={12} />
+                    </button>
+                    {m.id === latestEva?.id && (
+                      <button
+                        type="button"
+                        className="agent-act shell-tip"
+                        data-tooltip="Refine reply"
+                        aria-label="Refine reply"
+                        aria-pressed={refining === m.id}
+                        onClick={() =>
+                          setRefining((cur) => (cur === m.id ? null : m.id))
+                        }
+                      >
+                        <RefineIcon size={12} />
+                      </button>
+                    )}
                   </>
                 )}
               </div>
+              {refining === m.id && m.id === latestEva?.id && (
+                <div className="agent-chips" role="group" aria-label="Refine">
+                  {REFINES.map((r) => (
+                    <button
+                      key={r.label}
+                      type="button"
+                      className="assets-chip"
+                      onClick={() => {
+                        setRefining(null);
+                        void send(r.send);
+                      }}
+                    >
+                      {r.label}
+                    </button>
+                  ))}
+                </div>
+              )}
               {m.proposals?.map((p, i) => {
                 const block = PREFERENCE_BLOCKS.find((b) => b.id === p.cat)!;
                 return (

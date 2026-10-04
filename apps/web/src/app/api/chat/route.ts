@@ -6,6 +6,7 @@ import type { Context } from "@/components/studio/eva-brain";
 import { pickDocs } from "@/components/studio/design-docs";
 import {
   contextText,
+  personaText,
   EVA_RULES,
   ReplySchema,
   toReply,
@@ -85,6 +86,7 @@ const Body = z.object({
       mustHave: z.array(z.string().max(40)).max(20),
       spacing: z.number(),
     }),
+    persona: z.enum(["eva", "style", "plan", "budget"]).default("eva"),
   }),
 });
 
@@ -120,6 +122,9 @@ export async function POST(req: Request) {
       system: [
         { type: "text", text: EVA_RULES, cache_control: { type: "ephemeral" } },
         { type: "text", text: contextText(ctx) },
+        ...(ctx.persona === "eva"
+          ? []
+          : [{ type: "text" as const, text: personaText(ctx.persona) }]),
         ...(docs.length
           ? [
               {

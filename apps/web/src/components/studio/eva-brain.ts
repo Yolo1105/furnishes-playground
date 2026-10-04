@@ -13,6 +13,9 @@ import {
   STYLES,
   SWATCHES,
   type PreferenceCategory,
+  personaOf,
+  type PersonaId,
+  BRAINSTORM,
 } from "./eva-data";
 import { DESIGN_TIPS } from "./design-tips";
 import {
@@ -58,6 +61,8 @@ export type Context = {
   exploration: boolean;
   /** the planner's rules for the room */
   rules: Rules;
+  /** which Eva is answering */
+  persona: PersonaId;
 };
 
 /* ---------- the stages of the work ---------- */
@@ -415,11 +420,34 @@ const roomLine = (c: Context) =>
 /** the box's mode: Ask lets the words decide; the others say what is wanted */
 export type ChatMode = "ask" | "furniture" | "layout";
 
+/** the first sentence or two of what was said, for "Make that shorter" */
+export const shorter = (text: string) => {
+  const parts = text.split(/(?<=[.!?])\s+/).filter(Boolean);
+  return parts.slice(0, parts.length > 3 ? 2 : 1).join(" ");
+};
+
+/** three directions for the room: the kept styles first, then others,
+    each with what it asks for */
+export const brainstorm = (c: Context): Reply => {
+  const kept = c.prefs.style?.values ?? [];
+  const picks = [...kept, ...STYLES.filter((s) => !kept.includes(s))]
+    .filter((s) => DESIGN_TIPS[s])
+    .slice(0, 3);
+  const lines = picks.map((s) => `${s}: ${DESIGN_TIPS[s]!.do}`);
+  return {
+    text: `Three directions for the ${ROOM_NAMES[c.room.id]}. ${lines.join(" ")} Pick one and I'll keep to it.`,
+    proposals: [],
+    cards: [],
+    chips: picks.map((s) => ({ label: `Go with ${s}`, send: `I like ${s}` })),
+  };
+};
+
 export const reply = (
   text: string,
   c: Context,
   mode: ChatMode = "ask",
 ): Reply => {
+  if (text.trim() === BRAINSTORM) return brainstorm(c);
   const proposals = hear(text, c.prefs);
   const intent: Intent =
     mode === "furniture"
@@ -533,7 +561,8 @@ export const reply = (
     chips:
       stage === "preferences" && !c.prefs.style?.values.length
         ? STYLES.slice(0, 4).map((s) => ({ label: s, send: `I like ${s}` }))
-        : [],
+        : // in her lean: the one thing this Eva would do next
+          [personaOf(c.persona).chip],
   };
 };
 

@@ -1062,3 +1062,115 @@
   cursor: default;
   opacity: 0.7;
 }
+
+/* ---- the chat's extras: who Eva is, pins, refining, brainstorming ---- */
+.agent-who-tag {
+  margin-left: 6px;
+  font-weight: 500;
+  color: rgb(from var(--color-ink) r g b / 0.5);
+}
+.agent-brainstorm {
+  margin-top: 8px;
+}
+.agent-context dd .agent-ask {
+  appearance: none;
+  margin-left: 8px;
+  padding: 1px 7px;
+  border: 0;
+  border-radius: var(--r-chip);
+  background: rgb(from var(--color-accent) r g b / 0.12);
+  font: inherit;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--color-accent);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.agent-context dd .agent-ask:hover {
+  background: rgb(from var(--color-accent) r g b / 0.2);
+}
+.agent-open {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+/* a pinned line is clipped, never widening the column */
+.agent-pinned {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.agent-pinned li {
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: var(--r-card);
+  background: rgb(from var(--color-accent) r g b / 0.08);
+  font-size: 11.5px;
+  color: var(--color-ink);
+}
+.agent-pinned svg {
+  flex: 0 0 auto;
+  color: var(--color-accent);
+}
+.agent-pinned .eva-pref-clear {
+  flex: 0 0 auto;
+}
+.agent-pinned-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-who {
+  display: grid;
+  gap: 2px;
+  min-width: 200px;
+}
+.chat-who-option {
+  appearance: none;
+  display: grid;
+  gap: 1px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--r-control);
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  color: var(--color-ink);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.chat-who-option:hover {
+  background: rgb(from var(--color-ink) r g b / 0.06);
+}
+.chat-who-option[aria-checked="true"] {
+  background: rgb(from var(--color-accent) r g b / 0.1);
+  color: var(--color-accent);
+}
+.chat-who-name {
+  font-size: 12px;
+  font-weight: 600;
+}
+.chat-who-tag {
+  font-size: 10.5px;
+  color: rgb(from var(--color-ink) r g b / 0.55);
+}
+.chat-who-option[aria-checked="true"] .chat-who-tag {
+  color: inherit;
+}
+.chat-stop {
+  background: var(--color-accent);
+  color: #fff;
+}
+.chat-eva {
+  white-space: nowrap;
+}

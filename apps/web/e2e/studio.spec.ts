@@ -237,7 +237,7 @@ test("Eva's input box and the user bar", async ({ page }) => {
     .getByRole("textbox", { name: "Message Eva" })
     .fill("a calm bedroom");
   await expect(page.getByRole("button", { name: "Send" })).toBeVisible();
-  await page.getByRole("button", { name: /^Ask/ }).click();
+  await page.getByRole("button", { name: "Ask · Chat" }).click();
   await page.getByRole("menuitemradio", { name: "Room layout" }).click();
   await expect(
     page.getByRole("button", { name: /^Room layout/ }),
@@ -1983,7 +1983,7 @@ test("the box's mode steers Eva: Furniture asks for pieces, Room layout for a la
   const box = page.getByRole("textbox", { name: "Message Eva" });
   const agent = page.locator(".agent");
   // Furniture: words that name nothing still bring pieces
-  await page.getByRole("button", { name: /^Ask/ }).click();
+  await page.getByRole("button", { name: "Ask · Chat" }).click();
   await page.getByRole("menuitemradio", { name: "Furniture" }).click();
   await expect(box).toHaveAttribute("placeholder", /Which piece/);
   await box.fill("something for the corner by the window");
@@ -2403,4 +2403,124 @@ test("the plan's tools: the wheel and the keys zoom it, a drag pans it, Fit brin
   // and from 3D, Measure brings the plan up
   await page.getByRole("button", { name: "Measure" }).click();
   await expect(zoom).toBeVisible();
+});
+
+test("Eva's extras: who answers, Brainstorm, a pinned answer, Refine, follow-ups, Insights, Stop", async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  const agent = page.locator(".agent");
+  const box = page.getByRole("textbox", { name: "Message Eva" });
+  const evaSaid = agent.locator(
+    ".agent-bubble[data-who='eva']:not(.agent-thinking)",
+  );
+  // which Eva: the chip names her and offers the four
+  const who = page.getByRole("button", { name: /^Eva; choose Eva/ });
+  await who.click();
+  const choice = page.getByRole("radiogroup", { name: "Choose Eva" });
+  await expect(choice.getByRole("radio")).toHaveCount(4);
+  await choice.getByRole("radio", { name: /Eva · Plan/ }).click();
+  await expect(
+    page.getByRole("button", { name: /^Eva · Plan; choose Eva/ }),
+  ).toBeVisible();
+  await expect(agent.locator(".agent-who")).toContainText("Layout, flow & fit");
+  // a plain answer ends in her lean
+  await box.fill("hello");
+  await box.press("Enter");
+  await expect(evaSaid).toHaveCount(1);
+  await expect(
+    agent.getByRole("group", { name: "Next" }).getByRole("button", {
+      name: "Lay the room out",
+    }),
+  ).toBeVisible();
+  // Brainstorm for me: three directions, each a chip to go with
+  await agent.getByRole("button", { name: "Brainstorm for me" }).click();
+  await expect(evaSaid).toHaveCount(2);
+  await expect(evaSaid.last()).toContainText("Three directions");
+  await expect(
+    agent
+      .getByRole("group", { name: "Next" })
+      .last()
+      .getByRole("button", {
+        name: /^Go with /,
+      }),
+  ).toHaveCount(3);
+  // pinned: above the thread, and back out
+  await agent.getByRole("button", { name: "Pin to project" }).last().click();
+  const pinned = agent.getByRole("list", { name: "Pinned" });
+  await expect(pinned.locator("li")).toHaveCount(1);
+  await expect(pinned).toContainText("Three directions");
+  await pinned.getByRole("button", { name: "Unpin" }).click();
+  await expect(pinned).toHaveCount(0);
+  // Refine, only on the latest answer: Shorter makes it so
+  await expect(agent.getByRole("button", { name: "Refine reply" })).toHaveCount(
+    1,
+  );
+  const long = (await evaSaid.last().textContent())!;
+  await agent.getByRole("button", { name: "Refine reply" }).click();
+  await agent
+    .getByRole("group", { name: "Refine" })
+    .getByRole("button", { name: "Shorter" })
+    .click();
+  await expect(evaSaid).toHaveCount(3);
+  const short = (await evaSaid.last().textContent())!;
+  expect(short.length).toBeLessThan(long.length);
+  expect(long.startsWith(short)).toBe(true);
+  // follow-ups read from the answer: a sofa brings sofa chips
+  await box.fill("Tell me about the sofa");
+  await box.press("Enter");
+  await expect(evaSaid).toHaveCount(4);
+  await expect(agent.getByRole("group", { name: "Next" }).last()).toContainText(
+    /Compare two sofas|More options/,
+  );
+  // Insights: a kept preference goes back to Eva for review; an open one
+  // is asked about
+  await agent
+    .getByRole("button", { name: "Refine design style with Eva" })
+    .click();
+  await expect(box).toHaveValue(
+    /^Review my style direction \(Japandi, Minimalist\)/,
+  );
+  await agent
+    .getByRole("button", { name: "Ask Eva about budget range" })
+    .click();
+  await expect(box).toHaveValue(/^Help me set a realistic budget/);
+  await box.fill("");
+  // Stop: a slow model is cut off and nothing arrives
+  await page.route("**/api/chat", async (route) => {
+    await new Promise((r) => setTimeout(r, 4000));
+    await route.fulfill({
+      json: {
+        reply: {
+          text: "Late.",
+          ask: "none",
+          proposals: [],
+          picks: [],
+          chips: [],
+        },
+        model: "x",
+      },
+    });
+  });
+  await box.fill("one more thing");
+  await box.press("Enter");
+  const stop = page.getByRole("button", { name: "Stop generating" });
+  await expect(stop).toBeVisible();
+  await stop.click();
+  await expect(stop).toHaveCount(0);
+  await expect(agent.locator(".agent-thinking")).toHaveCount(0);
+  await page.waitForTimeout(4500);
+  await expect(evaSaid).toHaveCount(4);
+  // the persona travels with the project and reaches the route
+  await page.unroute("**/api/chat");
+  const res = await page.request.post("/api/chat", {
+    data: { message: "hi", thread: [], context: { nope: true } },
+  });
+  expect(res.status()).toBe(400);
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: /^Eva · Plan; choose Eva/ }),
+  ).toBeVisible();
 });

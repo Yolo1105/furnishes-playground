@@ -29,6 +29,7 @@ type Snapshot = {
     | "preferences"
     | "custom"
     | "exploration"
+    | "persona"
   >;
 };
 type FunctionsOf<T> = {
@@ -81,6 +82,7 @@ const snapshot = (): Snapshot => {
       preferences: ev.preferences,
       custom: ev.custom,
       exploration: ev.exploration,
+      persona: ev.persona,
     },
   };
 };
@@ -104,6 +106,7 @@ const fresh = (): Snapshot => {
       preferences: {},
       custom: {},
       exploration: ev.exploration,
+      persona: ev.persona,
     },
   };
 };

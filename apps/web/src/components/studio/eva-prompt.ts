@@ -1,7 +1,15 @@
 import { z } from "zod";
 import { CATEGORY_NAMES, sgd } from "./assets-data";
 import { products } from "./catalogue";
-import { BUDGET, FURNITURE, ROOMS, STYLES, SWATCHES } from "./eva-data";
+import {
+  BUDGET,
+  FURNITURE,
+  ROOMS,
+  STYLES,
+  SWATCHES,
+  personaOf,
+  type PersonaId,
+} from "./eva-data";
 import {
   fitLines,
   planOf,
@@ -74,6 +82,17 @@ The room's rules: walkways ${c.rules.walkway} mm; the door's swing ${c.rules.doo
 What fits this room of a ${c.room.flat} HDB flat: ${fitLines(c).join(" ") || "no guidance for this room"}
 ${plan.bands.length ? `Where the budget should go: ${plan.bands.map((b) => `${b.label} ${sgd(b.from)} to ${sgd(b.upTo)} (${sgd(b.spent)} so far)`).join("; ")}.` : ""}
 New HDB flats in general: ${HDB_CONVENTIONS.join("; ")}.`;
+};
+
+/** which Eva is answering, when not the balanced one: the chatbot's
+    own words for her lean */
+export const personaText = (id: PersonaId) => {
+  const p = personaOf(id);
+  return `This turn you are ${p.name} (${p.tagline}): ${p.description}
+Reply style: ${p.replyStyle}
+Priorities: ${p.rules.join(" ")}
+Follow-ups: ${p.suggestionStyle}
+Keep the studio's rules above: the order of the work, the catalogue by id, under 90 words, no lists in the text.`;
 };
 
 /** what the model answers with */
