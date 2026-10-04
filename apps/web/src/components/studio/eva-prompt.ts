@@ -86,7 +86,7 @@ export const ReplySchema = z.object({
   picks: z.array(z.object({ id: z.string(), why: z.string() })),
   chips: z.array(z.object({ label: z.string(), send: z.string() })),
 });
-export type ModelReply = z.infer<typeof ReplySchema>;
+type ModelReply = z.infer<typeof ReplySchema>;
 
 const snap = (n: number) =>
   Math.min(

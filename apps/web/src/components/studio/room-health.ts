@@ -25,11 +25,13 @@ export type Box = {
   d: number;
   h: number;
 };
-export type Zone = { x: number; y: number; w: number; d: number };
+type Zone = { x: number; y: number; w: number; d: number };
 export type Issue = {
   kind: "outside" | "overlap" | "door" | "window" | "walkway";
   text: string;
   pieceId: string;
+  /** the other piece of an overlap or a narrow walkway */
+  otherId?: string | undefined;
   /** where the piece could stand instead, if a spot was found */
   fix?: { x: number; y: number } | undefined;
 };
@@ -161,6 +163,7 @@ export const healthOf = (boxes: Box[], r: Room): Issue[] => {
           kind: "overlap",
           text: `${b.name} overlaps ${o.name}`,
           pieceId: o.id,
+          otherId: b.id,
           fix: fixFor(o),
         });
         continue;
@@ -172,6 +175,7 @@ export const healthOf = (boxes: Box[], r: Room): Issue[] => {
           kind: "walkway",
           text: `Only ${g} mm between ${b.name} and ${o.name}; ${WALKWAY} mm walks`,
           pieceId: o.id,
+          otherId: b.id,
           fix: fixFor(o),
         });
       }

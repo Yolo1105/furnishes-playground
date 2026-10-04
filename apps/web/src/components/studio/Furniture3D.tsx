@@ -3,7 +3,7 @@
 import { Edges } from "@react-three/drei";
 import type { Vector3Tuple } from "three";
 import type { AssetNode } from "./assets-data";
-import { ACCENT_HEX } from "./piece-detail";
+import { ACCENT_HEX, FOLIAGE_HEX } from "./piece-detail";
 
 /**
  * A piece's shape in 3D, built from what it is. Furnishes pieces are
@@ -310,7 +310,7 @@ export function Furniture3D(p: Props) {
             }}
           >
             <sphereGeometry args={[r, 16, 12]} />
-            <meshStandardMaterial color="#8fa37c" roughness={1} />
+            <meshStandardMaterial color={FOLIAGE_HEX} roughness={1} />
             {look.outline && <Edges color={ACCENT_HEX} lineWidth={1.5} />}
           </mesh>
         </group>

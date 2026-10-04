@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { AssetNode } from "./assets-data";
 import { footprint, LABEL_MAX, turned } from "./piece-detail";
 import { healthOf, type Issue } from "./room-health";
-import { clashesOf, layoutRoom } from "./room-layout";
+import { layoutRoom } from "./room-layout";
 import { useRoom } from "./room-store";
 import { propsOf, useScene, useTopLevel } from "./scene-store";
 import { useStudio } from "./studio-store";
@@ -66,14 +66,10 @@ export function usePieceActions() {
       }),
     { W, D, door, window: window_ },
   );
-  const clashes = clashesOf(
-    pieces
-      .filter((n) => !props.get(n.id)!.hidden)
-      .map((n) => {
-        const f = footprint(props.get(n.id)!);
-        const s = spots.get(n.id)!;
-        return { id: n.id, x: s.x, y: s.y, w: f.w, d: f.d };
-      }),
+  const clashes = new Set(
+    issues
+      .filter((i) => i.kind === "overlap")
+      .flatMap((i) => [i.pieceId, i.otherId!]),
   );
 
   const onPick = (n: AssetNode) => {

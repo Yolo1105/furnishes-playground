@@ -13,7 +13,7 @@ import { WALKWAY } from "./room-health";
 const MARGIN = 250;
 const GRID = 100;
 
-export type Spot = { x: number; y: number };
+type Spot = { x: number; y: number };
 
 type Rect = { x: number; y: number; w: number; d: number };
 const meets = (a: Rect, b: Rect) =>
@@ -91,26 +91,4 @@ export const settle = (v: number, size: number, side: number, snap: number) => {
   if (inside < MAGNET) return 0;
   if (max - inside < MAGNET) return max;
   return Math.round(inside / snap) * snap;
-};
-
-/** the pieces that stand over another: both of each pair, by id */
-export const clashesOf = (
-  boxes: readonly { id: string; x: number; y: number; w: number; d: number }[],
-) => {
-  const out = new Set<string>();
-  for (let i = 0; i < boxes.length; i++)
-    for (let j = i + 1; j < boxes.length; j++) {
-      const a = boxes[i]!;
-      const b = boxes[j]!;
-      if (
-        a.x < b.x + b.w &&
-        b.x < a.x + a.w &&
-        a.y < b.y + b.d &&
-        b.y < a.y + a.d
-      ) {
-        out.add(a.id);
-        out.add(b.id);
-      }
-    }
-  return out;
 };

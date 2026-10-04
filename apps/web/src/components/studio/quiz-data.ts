@@ -15,13 +15,13 @@ export type StyleKey =
   | "industrial"
   | "artisan";
 
-export type Option = {
+type Option = {
   id: string;
   label: string;
   sublabel?: string;
   style?: StyleKey;
 };
-export type Question = {
+type Question = {
   id: string;
   question: string;
   subtext?: string;
@@ -222,7 +222,7 @@ export const STYLE_PROFILES: Record<
   },
 };
 
-export const BUDGET_QUIZ: Question[] = [
+const BUDGET_QUIZ: Question[] = [
   {
     id: "b1",
     question: "Your budget",

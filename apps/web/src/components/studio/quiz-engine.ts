@@ -14,7 +14,7 @@ import {
  * preferences it proposes, which go to Eva as proposals to keep or set
  * aside, never kept on their own.
  */
-export type QuizProposal = {
+type QuizProposal = {
   cat: PreferenceCategory;
   values: string[];
   budget?: [number, number];
@@ -30,7 +30,7 @@ export type QuizResult = {
 type Answers = Record<string, string[]>;
 
 /** the five-way tally of a style quiz, highest first */
-export const tallyOf = (answers: Answers) => {
+const tallyOf = (answers: Answers) => {
   const t: Record<StyleKey, number> = {
     minimal: 0,
     maximalist: 0,

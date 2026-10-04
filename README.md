@@ -37,27 +37,37 @@ Notes:
 
 ## Status
 
-UI shell with placeholder data and a rule-based Eva, no model yet. `/` is
-the square-cornered studio and `/rounded` the floating one; Settings
-switches between them. Projects (new, rename, delete, switch) each hold
-a room, its pieces and Eva's side, autosaved in the browser.
+A working studio on placeholder data. `/` is the square-cornered studio
+and `/rounded` the floating one; Settings switches between them. Projects
+(new, rename, delete, switch) each hold a room, its pieces and Eva's
+side, autosaved in the browser.
 
 The room is a full-screen stage behind three panels. The project rail
 has Assets (an outliner with hide and remove), Products (the catalogue),
 Room (HDB presets, walls drawn on the plan or a template) and Detail (a
 piece's parts, place and turn, lock, hide, remove, colour, texture and
-size). The main column has a toolbar (Edit/Preview, Select, which also
-drags and turns pieces, Inspect, Add, an eye that hides every panel,
-Undo/Redo, Eva's preferences, Guide, Export as SVG/PNG/JSON) and a shelf
-with Saved and Cart (Checkout reads the order back and downloads it as
-CSV). The right rail shows the other view small, the plan or an isometric
-room, over Eva's Agent, History and Preference tabs.
+size). The main column has a toolbar (Edit/Preview, Select, which drags
+and turns pieces on the plan and in 3D, Inspect, Add, an eye that hides
+every panel, Undo/Redo, Eva's preferences, Guide, Export as SVG/PNG/JSON)
+and a shelf with Saved and Cart. Checkout takes a delivery address and
+places an order in a ledger (awaiting payment, paid, delivered,
+cancelled, refunded) listed under the gear; no payment provider is wired,
+and `/api/checkout` says so rather than pretend. The right rail shows the
+other view small over Eva's Agent, History and Preference tabs.
 
-The 2D plan is drawn as a CAD sheet with four interior elevations; the 3D
-view is a three.js stand-in with a view cube; Preview runs a stand-in
-render with a before/after divider. Eva follows the chatbot's order of
-work (room, preferences, pieces, refine, order), asks for the room's size
-before a layout and a budget before a list, proposes the preferences she
-hears for you to keep or set aside, picks catalogue pieces with why each
-fits, and reads the room plan's readiness, budget and clashes. Keyboard
-shortcuts are listed under the gear.
+The 2D plan is a CAD sheet with four interior elevations and the
+planner's zones; the 3D room is three.js with furniture built from what
+each piece is (18 mm panel carcasses for Furnishes pieces), dragging with
+wall snap and clash outlines, a view cube that glides the camera, and a
+walk mode. Preview runs a stand-in render with a before/after divider.
+
+Eva speaks through Claude when `ANTHROPIC_API_KEY` is set (`/api/chat`,
+with the chatbot's rules and a fixed answer shape); without a key her rule
+brain answers from the room's facts and the catalogue. Either way she
+keeps to the order of the work (room, preferences, pieces, refine,
+order), asks for the room's size before a layout and a budget before a
+list, proposes the preferences she hears or that a quiz works out (style,
+budget, room) for you to keep or set aside, picks catalogue pieces with
+why each fits, and reads the room plan's readiness, budget and health
+(walkways, the door's swing, the window, clashes), each finding with a
+Fix. Keyboard shortcuts are listed under the gear.

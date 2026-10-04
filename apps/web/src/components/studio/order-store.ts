@@ -12,7 +12,7 @@ import type { AssetCategory } from "./assets-data";
  */
 const KEY = "furnishes.orders";
 
-export type OrderStatus =
+type OrderStatus =
   | "pending_payment"
   | "paid"
   | "fulfilled"
@@ -34,7 +34,7 @@ export type Address = {
   phone: string;
 };
 
-export type OrderLine = {
+type OrderLine = {
   /** the piece's id in the room it was ordered from */
   pieceId: string;
   name: string;
