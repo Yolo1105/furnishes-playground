@@ -1,6 +1,7 @@
 import { footprint, isRug, isSmall, type PieceProps } from "./piece-detail";
+import { edgesOf, rectInside } from "./room-geometry";
 import { keepOff, meets, zonesOf, type Room, type Zone } from "./room-health";
-import type { Rules, Wall } from "./room-data";
+import type { Rules } from "./room-data";
 
 /**
  * Where the pieces stand. A piece placed by hand stands where it was
@@ -45,12 +46,15 @@ const rows = (
   L: number,
   gap: number,
   taken: Rect[],
+  /** the room's outline in this frame; nothing is laid outside it */
+  within: (r: Rect) => boolean,
 ): (Spot | null)[] => {
   const out: (Spot | null)[] = sizes.map(() => null);
   let x = MARGIN;
   let y = MARGIN;
   let rowDepth = 0;
-  const blocked = (r: Rect) => taken.some((t) => meets(grown(r, gap), t));
+  const blocked = (r: Rect) =>
+    !within(r) || taken.some((t) => meets(grown(r, gap), t));
   sizes.forEach((f, i) => {
     if (!f) return;
     // along the row until the piece is clear of what already stands;
@@ -77,21 +81,24 @@ const rows = (
 const loose = (
   f: Size,
   rug: boolean,
-  W: number,
-  D: number,
+  room: Pick<Room, "W" | "D" | "outline">,
   taken: Rect[],
   avoid: Zone[],
 ): Spot => {
   const gap = rug ? 0 : GRID;
-  for (let gy = MARGIN; gy + f.d <= D - MARGIN; gy += GRID)
-    for (let gx = MARGIN; gx + f.w <= W - MARGIN; gx += GRID) {
+  for (let gy = MARGIN; gy + f.d <= room.D - MARGIN; gy += GRID)
+    for (let gx = MARGIN; gx + f.w <= room.W - MARGIN; gx += GRID) {
       const r = {
         x: gx - gap,
         y: gy - gap,
         w: f.w + 2 * gap,
         d: f.d + 2 * gap,
       };
-      if (!taken.some((t) => meets(r, t)) && !avoid.some((z) => meets(r, z)))
+      if (
+        rectInside({ x: gx, y: gy, ...f }, room.outline) &&
+        !taken.some((t) => meets(r, t)) &&
+        !avoid.some((z) => meets(r, z))
+      )
         return { x: gx, y: gy };
     }
   return { x: MARGIN, y: MARGIN };
@@ -101,10 +108,10 @@ const big = (p: Item) => !isSmall(p) && !isRug(p);
 
 export const layoutRoom = (
   items: readonly Item[],
-  W: number,
-  D: number,
+  room: Pick<Room, "W" | "D" | "outline">,
   gap: number,
 ): Spot[] => {
+  const { W, outline } = room;
   const spots: (Spot | null)[] = items.map((p) =>
     p.x !== undefined && p.y !== undefined ? { x: p.x, y: p.y } : null,
   );
@@ -116,6 +123,7 @@ export const layoutRoom = (
     W,
     gap,
     taken,
+    (r) => rectInside(r, outline),
   );
   items.forEach((p, i) => {
     if (placed[i]) spots[i] = placed[i];
@@ -123,7 +131,7 @@ export const layoutRoom = (
   items.forEach((p, i) => {
     if (spots[i]) return;
     const f = footprint(p);
-    spots[i] = loose(f, isRug(p), W, D, taken, []);
+    spots[i] = loose(f, isRug(p), room, taken, []);
     taken.push({ ...spots[i]!, ...f });
   });
   return spots as Spot[];
@@ -172,35 +180,21 @@ const rowsPlan = (
     across ? r.D : r.W,
     gap,
     frame,
+    (rect) => rectInside(across ? swapRect(rect) : rect, r.outline),
   ).map((s) => (s && across ? swap(s) : s));
   placed.forEach((s, i) => s && taken.push({ ...s, ...size[i]! }));
   return items.map((p, i) => {
     if (kept[i]) return kept[i]!;
     const s =
       placed[i] ??
-      loose(
-        size[i]!,
-        isRug(p),
-        r.W,
-        r.D,
-        taken,
-        keepOff({ h: p.height }, r, zones),
-      );
+      loose(size[i]!, isRug(p), r, taken, keepOff({ h: p.height }, r, zones));
     if (!placed[i]) taken.push({ ...s, ...size[i]! });
     return { ...s, rotation: turn[i]! };
   });
 };
 
-const CLOCKWISE: Wall[] = ["north", "east", "south", "west"];
-const OPPOSITE: Record<Wall, Wall> = {
-  north: "south",
-  south: "north",
-  east: "west",
-  west: "east",
-};
-
-/** along the walls: the big pieces flush to the walls, starting on the
-    wall facing the door and going round clockwise, each turned to run
+/** along the walls: the big pieces flush to the room's own walls, from
+    the wall facing the door and on round the outline, each turned to run
     along its wall; the rug in the middle, small things where clear */
 const wallsPlan = (
   items: readonly Item[],
@@ -209,19 +203,28 @@ const wallsPlan = (
 ): Placed[] => {
   const gap = gapOf(r.rules);
   const zones = zonesOf(r);
-  const first = CLOCKWISE.indexOf(OPPOSITE[r.door]);
-  const walls = CLOCKWISE.map((_, k) => CLOCKWISE[(first + k) % 4]!);
+  const door = zones.door;
+  const dc = { x: door.x + door.w / 2, y: door.y + door.d / 2 };
+  // the edges, starting from the one farthest from the door, then on
+  // round the outline
+  const all = edgesOf(r.outline);
+  const far = all.reduce(
+    (best, e, k) => {
+      const mx = (e.a[0] + e.b[0]) / 2;
+      const my = (e.a[1] + e.b[1]) / 2;
+      const dist = Math.hypot(mx - dc.x, my - dc.y);
+      return dist > best.dist ? { k, dist } : best;
+    },
+    { k: 0, dist: -1 },
+  ).k;
+  const walls = all.map((_, k) => all[(far + k) % all.length]!);
   const out: (Placed | null)[] = [...kept];
   const taken: Rect[] = items.flatMap((p, i) =>
     kept[i] ? [{ ...kept[i]!, ...footprint({ ...p, ...kept[i]! }) }] : [],
   );
-  // the cursor along each wall, from its near end
-  const along: Record<Wall, number> = { north: 0, east: 0, south: 0, west: 0 };
+  const along = new Map<number, number>();
   const clear = (rect: Rect, avoid: Zone[]) =>
-    rect.x >= 0 &&
-    rect.y >= 0 &&
-    rect.x + rect.w <= r.W &&
-    rect.y + rect.d <= r.D &&
+    rectInside(rect, r.outline) &&
     !taken.some((t) => meets(grown(rect, gap), t)) &&
     !avoid.some((z) => meets(rect, z));
   const order = items
@@ -236,25 +239,30 @@ const wallsPlan = (
     const p = items[i]!;
     const avoid = keepOff({ h: p.height }, r, zones);
     let found: Placed | null = null;
-    for (const wall of walls) {
-      const horizontal = wall === "north" || wall === "south";
+    for (const [k, e] of walls.entries()) {
+      const horizontal = e.wall === "north" || e.wall === "south";
       const rotation = facing(p, horizontal);
       const f = footprint({ ...p, rotation });
-      const len = horizontal ? r.W : r.D;
+      const from = horizontal
+        ? Math.min(e.a[0], e.b[0])
+        : Math.min(e.a[1], e.b[1]);
+      const to = horizontal
+        ? Math.max(e.a[0], e.b[0])
+        : Math.max(e.a[1], e.b[1]);
       const span = horizontal ? f.w : f.d;
-      for (let c = along[wall]; c + span <= len; c += GRID) {
+      for (let c = from + (along.get(k) ?? 0); c + span <= to; c += GRID) {
         const rect: Rect =
-          wall === "north"
-            ? { x: c, y: 0, ...f }
-            : wall === "south"
-              ? { x: c, y: r.D - f.d, ...f }
-              : wall === "west"
-                ? { x: 0, y: c, ...f }
-                : { x: r.W - f.w, y: c, ...f };
+          e.wall === "north"
+            ? { x: c, y: e.a[1], ...f }
+            : e.wall === "south"
+              ? { x: c, y: e.a[1] - f.d, ...f }
+              : e.wall === "west"
+                ? { x: e.a[0], y: c, ...f }
+                : { x: e.a[0] - f.w, y: c, ...f };
         if (clear(rect, avoid)) {
           found = { x: rect.x, y: rect.y, rotation };
           taken.push(rect);
-          along[wall] = c + span + gap;
+          along.set(k, c - from + span + gap);
           break;
         }
       }
@@ -266,12 +274,14 @@ const wallsPlan = (
     if (out[i]) return out[i]!;
     const rotation = kept[i]?.rotation ?? p.rotation;
     const f = footprint({ ...p, rotation });
-    const s = isRug(p)
-      ? {
-          x: Math.round((r.W - f.w) / 2 / 50) * 50,
-          y: Math.round((r.D - f.d) / 2 / 50) * 50,
-        }
-      : loose(f, false, r.W, r.D, taken, keepOff({ h: p.height }, r, zones));
+    const middle = {
+      x: Math.round((r.W - f.w) / 2 / 50) * 50,
+      y: Math.round((r.D - f.d) / 2 / 50) * 50,
+    };
+    const s =
+      isRug(p) && rectInside({ ...middle, ...f }, r.outline)
+        ? middle
+        : loose(f, isRug(p), r, taken, keepOff({ h: p.height }, r, zones));
     taken.push({ ...s, ...f });
     return { ...s, rotation };
   });

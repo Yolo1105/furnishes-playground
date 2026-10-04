@@ -8,9 +8,9 @@ import {
   type PointerEvent,
   type ReactNode,
 } from "react";
-import { doorCentreAlong, OPENINGS, ROOM_NAMES, type Wall } from "./room-data";
+import { OPENINGS, ROOM_NAMES, type Wall } from "./room-data";
 import { usePieceActions } from "./piece-actions";
-import { zonesOf } from "./room-health";
+import { openingAt, zonesOf } from "./room-health";
 import { CLOSE_WITHIN, footprintOf, useRoom } from "./room-store";
 import { useStudio } from "./studio-store";
 import { PLACE_SNAP } from "./piece-detail";
@@ -124,14 +124,16 @@ export function Plan2D({
   const measuring = interactive && tool === "measure";
   // the planner's zones show on the sheet while something stands in them
   const { issues } = usePieceActions();
-  const zones = zonesOf({
+  const opening = {
     W,
     D,
+    outline,
     door: r.door,
     doorOffset: r.doorOffset,
     window: r.window,
     windowWidth: r.windowWidth,
-  });
+  };
+  const zones = zonesOf(opening);
   const doorBlocked = issues.some((i) => i.kind === "door");
   const windowBlocked = issues.some((i) => i.kind === "window");
 
@@ -286,15 +288,18 @@ export function Plan2D({
   const WINDOW = r.windowWidth;
   // the door sits along its wall by the HDB convention, the window in
   // the middle of its own
-  const mid = edgeOf(r.door, W, D);
-  const wallLen = r.door === "north" || r.door === "south" ? W : D;
-  const shift = doorCentreAlong(wallLen, r.doorOffset) - wallLen / 2;
-  const door: Edge = {
-    ...mid,
-    x: mid.x + mid.dx * shift,
-    y: mid.y + mid.dy * shift,
+  const onEdge = (wall: Wall, width: number, offset: number | null): Edge => {
+    const e = edgeOf(wall, W, D);
+    const { centre, at } = openingAt(opening, wall, width, offset);
+    const horizontal = wall === "north" || wall === "south";
+    return {
+      ...e,
+      x: horizontal ? centre : at,
+      y: horizontal ? at : centre,
+    };
   };
-  const win = r.window ? edgeOf(r.window, W, D) : null;
+  const door = onEdge(r.door, DOOR, r.doorOffset);
+  const win = r.window ? onEdge(r.window, WINDOW, null) : null;
   // the door: the hinge at one jamb, the leaf standing into the room, the
   // swing from the leaf's tip to the other jamb
   const hinge = {

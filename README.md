@@ -91,8 +91,12 @@ cancelled, refunded) listed under the gear; no payment provider is wired,
 and `/api/checkout` says so rather than pretend. The right rail shows the
 other view small over Eva's Agent, History and Preference tabs.
 
-The 2D plan is a CAD sheet with four interior elevations and the
-planner's zones, zoomed with the wheel or the keys about the pointer,
+The room is its outline, not the box round it: a template (square,
+rectangle, long, L, mirrored L, alcove, T, U, or a shape tapped out of
+squares) or drawn walls; the health rules, the three layouts, the 3D
+floor and walls and the walk all keep to it, and a door or window sits
+on the longest real edge of its side. The 2D plan is a CAD sheet with
+four interior elevations and the planner's zones, zoomed with the wheel or the keys about the pointer,
 panned by dragging the sheet, fitted again in one click, and measured
 with the Measure tool (two clicks, the distance in millimetres, the run
 and rise on a slant); the 3D room is three.js with furniture built from what

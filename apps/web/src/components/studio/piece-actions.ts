@@ -8,7 +8,7 @@ import { footprint, LABEL_MAX, turned, type PieceProps } from "./piece-detail";
 import { healthOf, type Issue, type Room } from "./room-health";
 import { gapOf, layoutPlans, layoutRoom, type Placed } from "./room-layout";
 import { MUST_HAVE_CHOICES } from "./room-data";
-import { useRoom } from "./room-store";
+import { footprintOf, useRoom } from "./room-store";
 import { propsOf, useScene, useTopLevel } from "./scene-store";
 import { useStudio } from "./studio-store";
 
@@ -38,9 +38,13 @@ export function usePieceActions() {
   const window_ = useRoom((s) => s.window);
   const windowWidth = useRoom((s) => s.windowWidth);
   const rules = useRoom((s) => s.rules);
+  const drawn = useRoom((s) => s.drawn);
+  const template = useRoom((s) => s.template);
+  const cells = useRoom((s) => s.cells);
   const room: Room = {
     W,
     D,
+    outline: footprintOf({ drawn, template, cells, width: W, depth: D }),
     door,
     doorOffset,
     window: window_,
@@ -54,7 +58,7 @@ export function usePieceActions() {
   const pieces = items.filter((n) => n.kind !== "fixed");
   const props = new Map(pieces.map((n) => [n.id, propsOf(n, overrides)]));
   const named = pieces.map((n) => ({ ...props.get(n.id)!, name: n.name }));
-  const laid = layoutRoom(named, W, D, gapOf(rules));
+  const laid = layoutRoom(named, room, gapOf(rules));
   const spots = new Map(laid.map((s, i) => [pieces[i]!.id, s]));
   const focus = pieces.find((n) => n.id === focusId) ?? null;
   const shown = focus

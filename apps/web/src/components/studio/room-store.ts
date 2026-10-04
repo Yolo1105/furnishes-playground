@@ -9,6 +9,7 @@ import {
   type Rules,
   type Wall,
 } from "./room-data";
+import { outlineFromCells } from "./room-geometry";
 import { ROOM_TEMPLATES, type Point, type TemplateId } from "./room-templates";
 
 /** how the room's shape comes about: traced on the canvas, or picked */
@@ -17,6 +18,8 @@ export type RoomStart = "draw" | "template";
 type RoomConfig = {
   start: RoomStart | null;
   template: TemplateId;
+  /** the squares tapped for a "Your shape" room, "x,y" each */
+  cells: string[];
   /** the corners traced so far on the plan, mm, until the room closes */
   drawing: Point[];
   /** the room's own outline once drawn and closed, mm */
@@ -57,6 +60,8 @@ type RoomState = RoomConfig & {
   resetRules: () => void;
   setStart: (start: RoomStart) => void;
   setTemplate: (template: TemplateId) => void;
+  /** tap a square into, or out of, a "Your shape" room */
+  toggleCell: (x: number, y: number) => void;
   /** a corner on the plan; near the first one, with three or more, it closes */
   addCorner: (p: Point) => void;
   /** forget the drawing and the drawn room */
@@ -84,6 +89,7 @@ const bbox = (pts: readonly Point[]) => {
 export const footprintOf = (s: {
   drawn: Point[] | null;
   template: TemplateId;
+  cells: string[];
   width: number;
   depth: number;
 }): Point[] => {
@@ -91,10 +97,14 @@ export const footprintOf = (s: {
     const b = bbox(s.drawn);
     return s.drawn.map(([x, y]) => [x - b.x, y - b.y]);
   }
-  const t =
-    ROOM_TEMPLATES.find((x) => x.id === s.template) ?? ROOM_TEMPLATES[0]!;
-  const b = bbox(t.footprint);
-  return t.footprint.map(([x, y]) => [
+  const tapped =
+    s.template === "grid" ? outlineFromCells(new Set(s.cells)) : [];
+  const shape = tapped.length
+    ? tapped
+    : (ROOM_TEMPLATES.find((x) => x.id === s.template) ?? ROOM_TEMPLATES[0]!)
+        .footprint;
+  const b = bbox(shape);
+  return shape.map(([x, y]) => [
     ((x - b.x) / b.w) * s.width,
     ((y - b.y) / b.h) * s.depth,
   ]);
@@ -114,6 +124,7 @@ const sized = (flat: FlatType, room: RoomId) => {
 export const useRoom = create<RoomState>((set, get) => ({
   start: null,
   template: ROOM_TEMPLATES[0]!.id,
+  cells: ["0,0", "1,0", "2,0", "0,1", "1,1", "2,1", "3,1", "4,1"],
   drawing: [],
   drawn: null,
   flat: "4-room",
@@ -156,6 +167,15 @@ export const useRoom = create<RoomState>((set, get) => ({
   resetRules: () => set({ rules: rulesFor(get().room) }),
   setStart: (start) => set({ start }),
   setTemplate: (template) => set({ template, start: "template", drawn: null }),
+  toggleCell: (x, y) =>
+    set((s) => {
+      const key = `${x},${y}`;
+      const cells = s.cells.includes(key)
+        ? s.cells.filter((c) => c !== key)
+        : [...s.cells, key];
+      // the squares must hold together to be a room
+      return outlineFromCells(new Set(cells)).length ? { cells } : {};
+    }),
   addCorner: ([x, y]) => {
     const p: Point = [Math.round(x / SNAP) * SNAP, Math.round(y / SNAP) * SNAP];
     const { drawing } = get();

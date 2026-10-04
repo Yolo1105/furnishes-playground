@@ -8,7 +8,7 @@ import {
   type ThreeEvent,
 } from "@react-three/fiber";
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { Plane, Vector3, type Vector3Tuple } from "three";
+import { Plane, Shape, Vector3, type Vector3Tuple } from "three";
 import { CATEGORY_NAMES, type AssetNode } from "./assets-data";
 import { Furniture3D } from "./Furniture3D";
 import { ArrowLeftIcon, LockIcon, RotateIcon } from "./icons";
@@ -25,13 +25,14 @@ import {
 } from "./piece-detail";
 import { FLOOR_TONES, WALL_TONES, type Floor } from "./room-data";
 import { settle } from "./room-layout";
-import { useRoom } from "./room-store";
+import { edgesOf, insideOutline } from "./room-geometry";
+import { footprintOf, useRoom } from "./room-store";
 import { propsOf, useScene } from "./scene-store";
 import { useCoarse } from "./input";
 import { useStudio, type Angle } from "./studio-store";
 
 /**
- * The room in 3D: the floor and two walls from the Room tab's size and
+ * The room in 3D: the floor and the walls from the Room tab's outline and
  * finish, and each piece built from what it is (panel carcasses for the
  * Furnishes pieces, simple forms for the room items), at its place and
  * turn from the shared layout. Select picks a piece and drags it over
@@ -43,6 +44,24 @@ import { useStudio, type Angle } from "./studio-store";
  * A piece in focus stands alone on a blank ground.
  */
 const m = (mm: number) => mm / 1000;
+
+/** the floor as a shape in metres about the room's middle; the plane is
+    laid flat by a quarter turn, so the shape's y runs the other way */
+const floorShape = (
+  outline: readonly (readonly [number, number])[],
+  w: number,
+  d: number,
+) => {
+  const shape = new Shape();
+  outline.forEach(([x, y], i) => {
+    const px = m(x) - w / 2;
+    const py = -(m(y) - d / 2);
+    if (i === 0) shape.moveTo(px, py);
+    else shape.lineTo(px, py);
+  });
+  shape.closePath();
+  return shape;
+};
 const FLOOR = new Plane(new Vector3(0, 1, 0), 0);
 const EYE = 1.6;
 const GLIDE = 0.6; // s, the camera's move between angles
@@ -165,10 +184,13 @@ function Rig({
 function Walker({
   w,
   d,
+  outline,
   stage,
 }: {
   w: number;
   d: number;
+  /** the room's outline, mm; the walk keeps inside it */
+  outline: readonly (readonly [number, number])[];
   stage: RefObject<HTMLDivElement | null>;
 }) {
   const camera = useThree((s) => s.camera);
@@ -261,6 +283,17 @@ function Walker({
     }
     s.x = Math.max(-w / 2 + 0.3, Math.min(w / 2 - 0.3, s.x));
     s.z = Math.max(-d / 2 + 0.3, Math.min(d / 2 - 0.3, s.z));
+    // not through a wall of a room that is not a box: stay where it was
+    const inside = insideOutline(
+      (s.x + w / 2) * 1000,
+      (s.z + d / 2) * 1000,
+      outline,
+    );
+    if (!inside) {
+      s.x = camera.position.x;
+      s.z = camera.position.z;
+      s.goto = null;
+    }
     camera.position.set(s.x, EYE, s.z);
     camera.rotation.set(s.pitch, s.yaw, 0, "YXZ");
     report(stage, camera.position);
@@ -519,6 +552,7 @@ export default function Scene3D() {
   const angle = useStudio((s) => s.angle);
   const walk = useStudio((s) => s.walk);
   const room = useRoom();
+  const outline = footprintOf(room);
   const [dragging, setDragging] = useState(false);
   const w = m(room.width);
   const d = m(room.depth);
@@ -556,7 +590,7 @@ export default function Scene3D() {
         onPointerMissed={() => undefined}
       >
         {walk ? (
-          <Walker w={w} d={d} stage={stage} />
+          <Walker w={w} d={d} outline={outline} stage={stage} />
         ) : (
           <Rig angle={angle} w={w} d={d} h={h} stage={stage} />
         )}
@@ -569,8 +603,9 @@ export default function Scene3D() {
         />
         {!a.focus && (
           <group>
-            {/* the floor (a click on it, walking, goes there), the back
-                wall and the left wall */}
+            {/* the floor, the room's own outline (a click on it, walking,
+                goes there); then a wall along every edge, facing in, so
+                the near walls are seen through and the far ones stand */}
             <mesh
               rotation={[-Math.PI / 2, 0, 0]}
               receiveShadow
@@ -581,21 +616,36 @@ export default function Scene3D() {
                 WALK.wake();
               }}
             >
-              <planeGeometry args={[w, d]} />
+              <shapeGeometry args={[floorShape(outline, w, d)]} />
               <meshStandardMaterial color={floor} roughness={0.95} />
             </mesh>
-            <mesh position={[0, h / 2, -d / 2]} receiveShadow>
-              <planeGeometry args={[w, h]} />
-              <meshStandardMaterial color={wall} roughness={1} />
-            </mesh>
-            <mesh
-              position={[-w / 2, h / 2, 0]}
-              rotation={[0, Math.PI / 2, 0]}
-              receiveShadow
-            >
-              <planeGeometry args={[d, h]} />
-              <meshStandardMaterial color={wall} roughness={1} />
-            </mesh>
+            {edgesOf(outline).map((e, i) => {
+              const ax = m(e.a[0]) - w / 2;
+              const az = m(e.a[1]) - d / 2;
+              const bx = m(e.b[0]) - w / 2;
+              const bz = m(e.b[1]) - d / 2;
+              const len = Math.hypot(bx - ax, bz - az);
+              // the plane's face points +z; turn it to face into the room
+              const yaw =
+                e.wall === "north"
+                  ? 0
+                  : e.wall === "south"
+                    ? Math.PI
+                    : e.wall === "west"
+                      ? Math.PI / 2
+                      : -Math.PI / 2;
+              return (
+                <mesh
+                  key={i}
+                  position={[(ax + bx) / 2, h / 2, (az + bz) / 2]}
+                  rotation={[0, yaw, 0]}
+                  receiveShadow
+                >
+                  <planeGeometry args={[len, h]} />
+                  <meshStandardMaterial color={wall} roughness={1} />
+                </mesh>
+              );
+            })}
           </group>
         )}
         {a.shown.map((n) => {

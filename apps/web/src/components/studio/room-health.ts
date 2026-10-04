@@ -1,4 +1,6 @@
 import { isRug, isSmall } from "./piece-detail";
+import { gapToWalls, rectInside, sideSpan } from "./room-geometry";
+import type { Point } from "./room-templates";
 import {
   doorCentreAlong,
   MUST_HAVE_CHOICES,
@@ -54,6 +56,8 @@ export type Issue = {
 type Opening = {
   W: number;
   D: number;
+  /** the room's outline, mm from its top-left corner */
+  outline: readonly Point[];
   door: Wall;
   doorOffset: number | null;
   window: Wall | null;
@@ -63,35 +67,54 @@ export type Room = Opening & { rules: Rules };
 
 /** the floor the door needs to swing, and the window's span by the wall
     (none when the room has no window of its own) */
+/** where an opening's centre sits along its wall, and where that wall
+    stands across: on the longest edge of that side, so a door never
+    opens onto a notch; the HDB offset is kept where the edge allows */
+export const openingAt = (
+  r: Opening,
+  wall: Wall,
+  width: number,
+  offset: number | null,
+) => {
+  const horizontal = wall === "north" || wall === "south";
+  const L = horizontal ? r.W : r.D;
+  const span = sideSpan(r.outline, wall) ?? {
+    from: 0,
+    to: L,
+    at: wall === "north" || wall === "west" ? 0 : horizontal ? r.D : r.W,
+  };
+  const want =
+    offset === null ? (span.from + span.to) / 2 : doorCentreAlong(L, offset);
+  const centre = Math.min(
+    span.to - width / 2,
+    Math.max(span.from + width / 2, want),
+  );
+  return { centre, at: span.at };
+};
+
 export const zonesOf = (r: Opening): { door: Zone; window: Zone | null } => {
   const along = (
     wall: Wall,
-    centre: number,
-    len: number,
+    width: number,
+    offset: number | null,
     depth: number,
   ): Zone => {
-    const start = centre - len / 2;
+    const { centre, at } = openingAt(r, wall, width, offset);
+    const start = centre - width / 2;
     switch (wall) {
       case "north":
-        return { x: start, y: 0, w: len, d: depth };
+        return { x: start, y: at, w: width, d: depth };
       case "south":
-        return { x: start, y: r.D - depth, w: len, d: depth };
+        return { x: start, y: at - depth, w: width, d: depth };
       case "west":
-        return { x: 0, y: start, w: depth, d: len };
+        return { x: at, y: start, w: depth, d: width };
       default:
-        return { x: r.W - depth, y: start, w: depth, d: len };
+        return { x: at - depth, y: start, w: depth, d: width };
     }
   };
-  const doorLen = r.door === "north" || r.door === "south" ? r.W : r.D;
-  const winLen = r.window === "north" || r.window === "south" ? r.W : r.D;
   return {
-    door: along(
-      r.door,
-      doorCentreAlong(doorLen, r.doorOffset),
-      OPENINGS.door.width,
-      OPENINGS.door.width,
-    ),
-    window: r.window ? along(r.window, winLen / 2, r.windowWidth, 150) : null,
+    door: along(r.door, OPENINGS.door.width, r.doorOffset, OPENINGS.door.width),
+    window: r.window ? along(r.window, r.windowWidth, null, 150) : null,
   };
 };
 type Zones = ReturnType<typeof zonesOf>;
@@ -147,8 +170,7 @@ const minor = (b: Box) => flat(b) || isSmall({ width: b.w, depth: b.d });
 const BED = MUST_HAVE_CHOICES.find((c) => c.key === "bed")!.match;
 const isBed = (b: Pick<Box, "name">) => BED.test(b.name);
 /** how far a box stands from the nearest wall */
-const wallGap = (b: Box, r: Opening) =>
-  Math.min(b.x, b.y, r.W - (b.x + b.w), r.D - (b.y + b.d));
+const wallGap = (b: Box, r: Opening) => gapToWalls(b, r.outline);
 
 /** the gap between two boxes along the axis they do not share, or null
     when they do not face each other */
@@ -172,8 +194,7 @@ export const keepOff = (b: Pick<Box, "h">, r: Room, zones: Zones): Zone[] => [
 /** the troubles one box has where it stands, against the others */
 const troubles = (b: Box, others: Box[], r: Room, zones: Zones) => {
   const out: Issue["kind"][] = [];
-  if (b.x < 0 || b.y < 0 || b.x + b.w > r.W + 1 || b.y + b.d > r.D + 1)
-    out.push("outside");
+  if (!rectInside(b, r.outline)) out.push("outside");
   if (!flat(b) && others.some((o) => !flat(o) && overlaps(b, o)))
     out.push("overlap");
   if (r.rules.doorClear && !flat(b) && meets(b, zones.door)) out.push("door");
@@ -212,7 +233,7 @@ const clearSpot = (b: Box, others: Box[], r: Room, zones: Zones) => {
         Math.hypot(p[0] - b.x, p[1] - b.y) - Math.hypot(q[0] - b.x, q[1] - b.y),
     );
     for (const [x, y] of tries) {
-      if (x < 0 || y < 0 || x + b.w > r.W || y + b.d > r.D) continue;
+      if (!rectInside({ ...b, x, y }, r.outline)) continue;
       if (troubles({ ...b, x, y }, others, r, zones).length === 0)
         return { x, y };
     }

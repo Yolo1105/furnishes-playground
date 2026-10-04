@@ -2634,3 +2634,79 @@ test("a piece turns freely: the handle drags round it in steps of 15, Shift free
   await page.getByRole("button", { name: "Square to the walls" }).click();
   await expect(health).toContainText(/overlaps/);
 });
+
+test("the room is its outline: a notch is a wall, the layouts keep out of it, the door sits on a real edge; T, U and a tapped shape", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  await page.getByRole("button", { name: "Show 2D plan in main" }).click();
+  await page.getByRole("tab", { name: "Room", exact: true }).click();
+  await page
+    .getByRole("radiogroup", { name: "Start from" })
+    .getByRole("radio", { name: "Template" })
+    .click();
+  const shapes = page.getByRole("radiogroup", { name: "Room shape" });
+  await expect(shapes.getByRole("radio", { name: "T-shape" })).toBeVisible();
+  await expect(shapes.getByRole("radio", { name: "U-shape" })).toBeVisible();
+  // an L: the notch (the top right of this one) is not floor
+  await shapes.getByRole("radio", { name: "L-shape", exact: true }).click();
+  const outline = page.locator(".shell-stage .plan-floor");
+  const corners = ((await outline.getAttribute("points")) ?? "")
+    .trim()
+    .split(" ");
+  expect(corners).toHaveLength(6);
+  const health = page
+    .locator(".agent")
+    .getByRole("list", { name: "Room health" });
+  const place = async (name: string, x: string, y: string) => {
+    await page.getByRole("tab", { name: "Assets", exact: true }).click();
+    await page.getByRole("treeitem", { name, exact: true }).click();
+    await page.getByRole("tab", { name: "Detail", exact: true }).click();
+    const sx = page.getByRole("spinbutton", {
+      name: `${name} from the west wall in millimetres`,
+    });
+    const sy = page.getByRole("spinbutton", {
+      name: `${name} from the north wall in millimetres`,
+    });
+    await sx.fill(x);
+    await sx.press("Tab");
+    await sy.fill(y);
+    await sy.press("Tab");
+  };
+  // the L's notch: x past 0.6 of the width, y under 0.45 of the depth
+  await place("Work cart", "5000", "500");
+  await expect(health).toContainText("Work cart stands past the wall");
+  await health.getByRole("button", { name: /^Fix: Work cart/ }).click();
+  await expect(health.getByText(/Work cart stands past/)).toHaveCount(0);
+  // the layouts keep out of the notch too
+  const layouts = page
+    .locator(".agent")
+    .getByRole("group", { name: "Layouts" });
+  await layouts
+    .locator(".agent-layout", {
+      has: page.locator(".agent-layout-name", { hasText: /^Along the walls/ }),
+    })
+    .getByRole("button", { name: "Apply" })
+    .click();
+  await expect(health.getByText(/stands past the wall/)).toHaveCount(0);
+  // the door on the south wall sits on the real south edge, 800 from its end
+  const leaf = page.locator(".shell-stage .plan-leaf");
+  const x1 = Number(await leaf.getAttribute("x1"));
+  expect(x1).toBeGreaterThan(0);
+  expect(x1).toBeLessThan(6500);
+  // a shape tapped out of squares: the plan follows it
+  await page.getByRole("tab", { name: "Room", exact: true }).click();
+  await shapes.getByRole("radio", { name: "Your shape" }).click();
+  const grid = page.getByRole("group", { name: "Your shape, in squares" });
+  await expect(grid.getByRole("button", { pressed: true })).toHaveCount(8);
+  await grid.getByRole("button", { name: "Square 4, 1" }).click();
+  await expect(grid.getByRole("button", { pressed: true })).toHaveCount(9);
+  // a square that would not touch the rest is refused
+  await grid.getByRole("button", { name: "Square 8, 6" }).click();
+  await expect(grid.getByRole("button", { pressed: true })).toHaveCount(9);
+  const tapped = ((await outline.getAttribute("points")) ?? "")
+    .trim()
+    .split(" ");
+  expect(tapped.length).toBeGreaterThanOrEqual(6);
+});

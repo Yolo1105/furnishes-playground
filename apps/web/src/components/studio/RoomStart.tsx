@@ -3,7 +3,7 @@
 import { CubeIcon, WallIcon } from "./icons";
 import { useGuide } from "./guide-store";
 import { useRoom } from "./room-store";
-import { ROOM_TEMPLATES, isoFaces } from "./room-templates";
+import { ROOM_TEMPLATES, isoFaces, GRID } from "./room-templates";
 import { useStudio } from "./studio-store";
 
 /**
@@ -15,6 +15,8 @@ import { useStudio } from "./studio-store";
 export function RoomStart() {
   const start = useRoom((s) => s.start);
   const template = useRoom((s) => s.template);
+  const cells = useRoom((s) => s.cells);
+  const { toggleCell } = useRoom.getState();
   const { setStart, setTemplate } = useRoom.getState();
   const { setTool, setView } = useStudio.getState();
   const show = useGuide((s) => s.show);
@@ -93,6 +95,36 @@ export function RoomStart() {
               <span className="room-template-name">{t.name}</span>
             </button>
           ))}
+        </div>
+      )}
+      {start === "template" && template === "grid" && (
+        <div className="room-grid-wrap">
+          <div
+            className="room-grid"
+            role="group"
+            aria-label="Your shape, in squares"
+            style={{ ["--cols" as string]: GRID.cols }}
+          >
+            {Array.from({ length: GRID.rows }, (_, y) =>
+              Array.from({ length: GRID.cols }, (_, x) => {
+                const on = cells.includes(`${x},${y}`);
+                return (
+                  <button
+                    key={`${x},${y}`}
+                    type="button"
+                    className="room-grid-cell"
+                    aria-pressed={on}
+                    aria-label={`Square ${x + 1}, ${y + 1}`}
+                    onClick={() => toggleCell(x, y)}
+                  />
+                );
+              }),
+            )}
+          </div>
+          <p className="eva-pref-hint">
+            Tap squares into the room; they must hold together. The size below
+            stretches the shape.
+          </p>
         </div>
       )}
     </>

@@ -865,3 +865,29 @@
   font-size: 11px;
   color: rgb(from var(--color-ink) r g b / 0.6);
 }
+
+/* a room tapped out of squares */
+.room-grid-wrap {
+  margin-top: 8px;
+}
+.room-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), 1fr);
+  gap: 3px;
+}
+.room-grid-cell {
+  appearance: none;
+  aspect-ratio: 1;
+  border: 1px solid rgb(from var(--color-line) r g b / 0.16);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.room-grid-cell:hover {
+  background: rgba(255, 255, 255, 0.8);
+}
+.room-grid-cell[aria-pressed="true"] {
+  background: rgb(from var(--color-accent) r g b / 0.22);
+  border-color: rgb(from var(--color-accent) r g b / 0.14);
+}

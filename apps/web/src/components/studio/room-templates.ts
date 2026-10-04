@@ -79,7 +79,49 @@ export const ROOM_TEMPLATES: readonly RoomTemplate[] = [
       [0.45, 0.5],
     ],
   },
+  {
+    id: "t-shape",
+    name: "T-shape",
+    footprint: [
+      [0, 0],
+      [1.4, 0],
+      [1.4, 0.5],
+      [0.95, 0.5],
+      [0.95, 1.1],
+      [0.45, 1.1],
+      [0.45, 0.5],
+      [0, 0.5],
+    ],
+  },
+  {
+    id: "u-shape",
+    name: "U-shape",
+    footprint: [
+      [0, 0],
+      [0.45, 0],
+      [0.45, 0.55],
+      [0.95, 0.55],
+      [0.95, 0],
+      [1.4, 0],
+      [1.4, 1],
+      [0, 1],
+    ],
+  },
+  {
+    id: "grid",
+    name: "Your shape",
+    footprint: [
+      [0, 0],
+      [1, 0],
+      [1, 0.5],
+      [1.5, 0.5],
+      [1.5, 1],
+      [0, 1],
+    ],
+  },
 ];
+/** the tapped squares a "Your shape" room is made of: columns and rows */
+export const GRID = { cols: 8, rows: 6 } as const;
 
 export type TemplateId = (typeof ROOM_TEMPLATES)[number]["id"];
 
