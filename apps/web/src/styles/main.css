@@ -1743,3 +1743,12 @@
   user-select: none;
   -webkit-user-select: none;
 }
+
+/* a piece on the slant: turned about its middle, its name kept level */
+.stage-piece {
+  transform-origin: 50% 50%;
+}
+.stage-piece-name {
+  display: inline-block;
+  transform-origin: 50% 50%;
+}

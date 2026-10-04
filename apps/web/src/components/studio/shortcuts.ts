@@ -22,7 +22,10 @@ export const SHORTCUTS = [
   { keys: ["+"], does: "Zoom the plan in" },
   { keys: ["-"], does: "Zoom the plan out" },
   { keys: ["0"], does: "Fit the plan" },
-  { keys: ["R"], does: "Turn the picked piece a quarter" },
+  {
+    keys: ["R"],
+    does: "Turn the picked piece a quarter (drag its handle to turn freely)",
+  },
   { keys: ["⌫"], does: "Remove the picked piece from the room" },
   { keys: ["⌘", "Z"], does: "Undo" },
   { keys: ["⌘", "⇧", "Z"], does: "Redo" },

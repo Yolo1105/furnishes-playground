@@ -20,6 +20,8 @@ import {
   PLACE_SNAP,
   ROOM_ITEM_HEX,
   type PieceProps,
+  normTurn,
+  ROTATE_SNAP,
 } from "./piece-detail";
 import { FLOOR_TONES, WALL_TONES, type Floor } from "./room-data";
 import { settle } from "./room-layout";
@@ -308,6 +310,47 @@ function Piece({
   onTurn: () => void;
   onDragging: (on: boolean) => void;
 }) {
+  // the handle: a click turns a quarter; a sideways drag turns freely,
+  // a degree a pixel, snapped unless Shift is held
+  const spin = useRef<{ x0: number; r0: number; moved: boolean } | null>(null);
+  const spinSkip = useRef(false);
+  const onSpinDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (e.button !== 0) return;
+    spin.current = { x0: e.clientX, r0: props.rotation, moved: false };
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* a pointer the browser no longer knows */
+    }
+  };
+  const onSpinMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const s = spin.current;
+    if (!s) return;
+    const dx = e.clientX - s.x0;
+    if (!s.moved) {
+      if (Math.abs(dx) < 4) return;
+      s.moved = true;
+      useScene.getState().dragStart();
+    }
+    const raw = s.r0 + dx;
+    useScene
+      .getState()
+      .turnMove(
+        node.id,
+        normTurn(
+          e.shiftKey ? raw : Math.round(raw / ROTATE_SNAP) * ROTATE_SNAP,
+        ),
+      );
+  };
+  const onSpinUp = () => {
+    const s = spin.current;
+    if (!s) return;
+    spin.current = null;
+    if (s.moved) {
+      useScene.getState().dragEnd();
+      spinSkip.current = true;
+    }
+  };
   const drag = useRef<{
     hit: Vector3;
     x0: number;
@@ -413,9 +456,19 @@ function Piece({
           <button
             type="button"
             className="stage-piece-turn stage-turn-3d shell-tip"
-            data-tooltip="Turn"
+            data-tooltip="Turn: click a quarter, drag freely"
             aria-label={`Turn ${node.name}`}
-            onClick={onTurn}
+            onPointerDown={onSpinDown}
+            onPointerMove={onSpinMove}
+            onPointerUp={onSpinUp}
+            onPointerCancel={onSpinUp}
+            onClick={() => {
+              if (spinSkip.current) {
+                spinSkip.current = false;
+                return;
+              }
+              onTurn();
+            }}
           >
             <RotateIcon size={12} />
           </button>

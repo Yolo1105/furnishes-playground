@@ -67,7 +67,17 @@ export function usePieceActions() {
       const at = where(i);
       if (p.hidden || !at) return [];
       const f = footprint({ ...p, rotation: at.rotation });
-      return [{ id: n.id, name: n.name, x: at.x, y: at.y, ...f, h: p.height }];
+      return [
+        {
+          id: n.id,
+          name: n.name,
+          x: at.x,
+          y: at.y,
+          ...f,
+          h: p.height,
+          own: { w: p.width, d: p.depth, rotation: at.rotation },
+        },
+      ];
     });
   const now = (i: number): Placed => ({
     ...laid[i]!,

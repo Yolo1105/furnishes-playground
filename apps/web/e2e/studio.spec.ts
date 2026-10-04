@@ -2556,3 +2556,81 @@ test("Eva's extras: who answers, Brainstorm, a pinned answer, Refine, follow-ups
     page.getByRole("button", { name: /^Eva · Plan; choose Eva/ }),
   ).toBeVisible();
 });
+
+test("a piece turns freely: the handle drags round it in steps of 15, Shift frees it, Square brings it back; turned outlines decide a clash", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  await page.getByRole("button", { name: "Show 2D plan in main" }).click();
+  const stage = page.locator(".stage-pieces");
+  const sofa = stage.locator(".stage-piece", {
+    has: page.getByRole("button", { name: "Sofa", exact: true }),
+  });
+  await sofa.getByRole("button", { name: "Sofa", exact: true }).click();
+  const handle = page.getByRole("button", { name: "Turn Sofa" });
+  // a drag round the piece: from the handle's angle, 50 degrees on, read as 45
+  const box = (await sofa.boundingBox())!;
+  const c = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  const h = (await handle.boundingBox())!;
+  const hc = { x: h.x + h.width / 2, y: h.y + h.height / 2 };
+  const r = Math.hypot(hc.x - c.x, hc.y - c.y);
+  const a0 = Math.atan2(hc.y - c.y, hc.x - c.x);
+  const at = (deg: number) => ({
+    x: c.x + r * Math.cos(a0 + (deg * Math.PI) / 180),
+    y: c.y + r * Math.sin(a0 + (deg * Math.PI) / 180),
+  });
+  await page.mouse.move(hc.x, hc.y);
+  await page.mouse.down();
+  for (let k = 1; k <= 10; k++) {
+    const p = at(5 * k);
+    await page.mouse.move(p.x, p.y);
+  }
+  await page.mouse.up();
+  await expect(sofa).toHaveAttribute("data-turn", "45");
+  await expect(sofa).toHaveCSS("transform", /matrix\(0\.70/);
+  // the Detail tab reads it, Square brings it to the nearest quarter
+  await page.getByRole("tab", { name: "Detail", exact: true }).click();
+  const deg = page.getByRole("spinbutton", { name: "Sofa turn in degrees" });
+  await expect(deg).toHaveValue("45");
+  await deg.fill("52");
+  await deg.press("Tab");
+  await expect(sofa).toHaveAttribute("data-turn", "52");
+  await page.getByRole("button", { name: "Square to the walls" }).click();
+  await expect(sofa).toHaveAttribute("data-turn", "90");
+  await expect(
+    page.getByRole("button", { name: "Square to the walls" }),
+  ).toHaveCount(0);
+  // R turns a quarter from there
+  await page.keyboard.press("r");
+  await expect(sofa).toHaveAttribute("data-turn", "180");
+  // a clash is read from the turned outline, not the box round it: a vase
+  // in the empty corner of a sofa on the slant does not clash
+  const placeAt = async (name: string, x: string, y: string) => {
+    await page.getByRole("tab", { name: "Assets", exact: true }).click();
+    await page.getByRole("treeitem", { name, exact: true }).click();
+    await page.getByRole("tab", { name: "Detail", exact: true }).click();
+    const sx = page.getByRole("spinbutton", {
+      name: `${name} from the west wall in millimetres`,
+    });
+    const sy = page.getByRole("spinbutton", {
+      name: `${name} from the north wall in millimetres`,
+    });
+    await sx.fill(x);
+    await sx.press("Tab");
+    await sy.fill(y);
+    await sy.press("Tab");
+  };
+  await placeAt("Sofa", "1000", "1000");
+  await deg.fill("45");
+  await deg.press("Tab");
+  await placeAt("Ceramic vase", "1050", "1050");
+  const health = page
+    .locator(".agent")
+    .getByRole("list", { name: "Room health" });
+  await expect(health.getByText(/overlaps/)).toHaveCount(0);
+  // squared, the sofa's box reaches the vase: a clash
+  await placeAt("Sofa", "1000", "1000");
+  await page.getByRole("button", { name: "Square to the walls" }).click();
+  await expect(health).toContainText(/overlaps/);
+});

@@ -61,6 +61,8 @@ type SceneState = {
   /** a drag writes many positions; only the whole of it is one undo step */
   dragStart: () => void;
   dragMove: (id: string, x: number, y: number) => void;
+  /** the turn handle's drag, between dragStart and dragEnd */
+  turnMove: (id: string, rotation: number) => void;
   dragEnd: () => void;
 };
 
@@ -221,6 +223,10 @@ export const useScene = create<SceneState>((set, get) => {
     dragMove: (id, x, y) =>
       set((s) => ({
         overrides: { ...s.overrides, [id]: { ...s.overrides[id], x, y } },
+      })),
+    turnMove: (id, rotation) =>
+      set((s) => ({
+        overrides: { ...s.overrides, [id]: { ...s.overrides[id], rotation } },
       })),
     dragEnd: () =>
       set((s) => {

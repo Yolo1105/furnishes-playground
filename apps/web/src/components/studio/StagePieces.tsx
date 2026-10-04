@@ -6,7 +6,13 @@ import { ArrowLeftIcon, LockIcon, RotateIcon } from "./icons";
 import { usePieceActions } from "./piece-actions";
 import { PieceActions } from "./PieceActions";
 import { DRAG_FROM, LONG_PRESS } from "./input";
-import { footprint, PLACE_SNAP } from "./piece-detail";
+import {
+  footprint,
+  isSquare,
+  normTurn,
+  PLACE_SNAP,
+  ROTATE_SNAP,
+} from "./piece-detail";
 import { settle } from "./room-layout";
 import { useScene } from "./scene-store";
 
@@ -15,7 +21,9 @@ import { useScene } from "./scene-store";
  * view), each at its place and size in the room's millimetres. Each is a
  * button: Select picks it, and drags it about the room (snapped, kept
  * inside the walls; one undo step for the whole drag); the handle on a
- * picked piece turns it a quarter; Inspect raises its actions. A locked
+ * picked piece turns it a quarter with a click, or freely with a drag
+ * round the piece, snapped to 15 degrees unless Shift is held; Inspect
+ * raises its actions. A locked
  * piece shows its lock and stays put. A piece in focus stands alone on
  * a blank ground with a way back. Under a finger, a long press raises
  * the actions, as Inspect's click does.
@@ -33,6 +41,62 @@ export function StagePieces() {
     moved: boolean;
   } | null>(null);
   const press = useRef<number | null>(null);
+  /** the turn handle's drag: the angle at the press and the piece's turn */
+  const turning = useRef<{
+    id: string;
+    cx: number;
+    cy: number;
+    a0: number;
+    r0: number;
+    moved: boolean;
+  } | null>(null);
+  const angleTo = (cx: number, cy: number, x: number, y: number) =>
+    (Math.atan2(y - cy, x - cx) * 180) / Math.PI;
+  const onTurnDown = (e: PointerEvent<HTMLButtonElement>, n: AssetNode) => {
+    if (e.button !== 0) return;
+    const box = e.currentTarget.parentElement!.getBoundingClientRect();
+    const cx = box.left + box.width / 2;
+    const cy = box.top + box.height / 2;
+    turning.current = {
+      id: n.id,
+      cx,
+      cy,
+      a0: angleTo(cx, cy, e.clientX, e.clientY),
+      r0: a.props.get(n.id)!.rotation,
+      moved: false,
+    };
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* a pointer the browser no longer knows */
+    }
+  };
+  const onTurnMove = (e: PointerEvent<HTMLButtonElement>, n: AssetNode) => {
+    const t = turning.current;
+    if (!t || t.id !== n.id) return;
+    const delta = angleTo(t.cx, t.cy, e.clientX, e.clientY) - t.a0;
+    if (!t.moved) {
+      if (Math.abs(delta) < 4) return;
+      t.moved = true;
+      useScene.getState().dragStart();
+    }
+    const raw = t.r0 + delta;
+    const snapped = e.shiftKey
+      ? raw
+      : Math.round(raw / ROTATE_SNAP) * ROTATE_SNAP;
+    useScene.getState().turnMove(n.id, normTurn(snapped));
+  };
+  const onTurnUp = (n: AssetNode) => {
+    const t = turning.current;
+    if (!t || t.id !== n.id) return;
+    turning.current = null;
+    if (t.moved) {
+      useScene.getState().dragEnd();
+      // the click that follows is the drag's end, not a quarter turn
+      skipTurnClick.current = true;
+    }
+  };
+  const skipTurnClick = useRef(false);
   const endPress = () => {
     if (press.current !== null) window.clearTimeout(press.current);
     press.current = null;
@@ -118,14 +182,25 @@ export function StagePieces() {
         const label = a.labelOf(n);
         const at = a.spots.get(n.id)!;
         const selected = a.selectedId === n.id;
+        // square to the walls, the piece is its box; on the slant it is
+        // its own size, turned about the box's middle
+        const slant = !isSquare(p.rotation);
         const style = a.focus
           ? undefined
-          : {
-              left: `${(at.x / W) * 100}%`,
-              top: `${(at.y / D) * 100}%`,
-              width: `${(f.w / W) * 100}%`,
-              height: `${(f.d / D) * 100}%`,
-            };
+          : slant
+            ? {
+                left: `${((at.x + f.w / 2 - p.width / 2) / W) * 100}%`,
+                top: `${((at.y + f.d / 2 - p.depth / 2) / D) * 100}%`,
+                width: `${(p.width / W) * 100}%`,
+                height: `${(p.depth / D) * 100}%`,
+                transform: `rotate(${p.rotation}deg)`,
+              }
+            : {
+                left: `${(at.x / W) * 100}%`,
+                top: `${(at.y / D) * 100}%`,
+                width: `${(f.w / W) * 100}%`,
+                height: `${(f.d / D) * 100}%`,
+              };
         return (
           <div
             key={n.id}
@@ -150,7 +225,14 @@ export function StagePieces() {
               onPointerCancel={() => onUp(n)}
               onClick={() => onClick(n)}
             >
-              <span className="stage-piece-name">{n.name}</span>
+              <span
+                className="stage-piece-name"
+                style={
+                  slant ? { transform: `rotate(${-p.rotation}deg)` } : undefined
+                }
+              >
+                {n.name}
+              </span>
               {p.locked && (
                 <span className="stage-piece-lock" aria-hidden="true">
                   <LockIcon size={11} />
@@ -169,9 +251,19 @@ export function StagePieces() {
               <button
                 type="button"
                 className="stage-piece-turn shell-tip"
-                data-tooltip="Turn"
+                data-tooltip="Turn: click a quarter, drag freely"
                 aria-label={`Turn ${n.name}`}
-                onClick={() => a.turn(n)}
+                onPointerDown={(e) => onTurnDown(e, n)}
+                onPointerMove={(e) => onTurnMove(e, n)}
+                onPointerUp={() => onTurnUp(n)}
+                onPointerCancel={() => onTurnUp(n)}
+                onClick={() => {
+                  if (skipTurnClick.current) {
+                    skipTurnClick.current = false;
+                    return;
+                  }
+                  a.turn(n);
+                }}
               >
                 <RotateIcon size={12} />
               </button>

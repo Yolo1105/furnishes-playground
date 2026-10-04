@@ -28,11 +28,14 @@ const AGAINST = 250;
 export type Box = {
   id: string;
   name: string;
+  /** the box round the piece on the plan */
   x: number;
   y: number;
   w: number;
   d: number;
   h: number;
+  /** the piece's own size and turn, for one standing on the slant */
+  own?: { w: number; d: number; rotation: number } | undefined;
 };
 export type Zone = { x: number; y: number; w: number; d: number };
 export type Issue = {
@@ -96,6 +99,48 @@ type Zones = ReturnType<typeof zonesOf>;
 export const meets = (a: Zone, b: Zone) =>
   a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.d && b.y < a.y + a.d;
 
+/** the four corners of a box, turned about its middle when it stands on
+    the slant */
+const corners = (b: Box): [number, number][] => {
+  const cx = b.x + b.w / 2;
+  const cy = b.y + b.d / 2;
+  const own = b.own ?? { w: b.w, d: b.d, rotation: 0 };
+  const a = (own.rotation * Math.PI) / 180;
+  const c = Math.cos(a);
+  const s = Math.sin(a);
+  const half: [number, number][] = [
+    [-own.w / 2, -own.d / 2],
+    [own.w / 2, -own.d / 2],
+    [own.w / 2, own.d / 2],
+    [-own.w / 2, own.d / 2],
+  ];
+  return half.map(([x, y]) => [cx + x * c - y * s, cy + x * s + y * c]);
+};
+/** whether two pieces stand over each other: the boxes when both are
+    square, the turned outlines (separating axes) when either is not */
+export const overlaps = (a: Box, b: Box) => {
+  if (!meets(a, b)) return false;
+  const slant = (x: Box) => x.own && x.own.rotation % 90 !== 0;
+  if (!slant(a) && !slant(b)) return true;
+  const A = corners(a);
+  const B = corners(b);
+  for (const poly of [A, B])
+    for (let i = 0; i < 4; i++) {
+      const [x1, y1] = poly[i]!;
+      const [x2, y2] = poly[(i + 1) % 4]!;
+      const nx = y2 - y1;
+      const ny = x1 - x2;
+      const span = (pts: [number, number][]) => {
+        const ps = pts.map(([x, y]) => x * nx + y * ny);
+        return [Math.min(...ps), Math.max(...ps)] as const;
+      };
+      const [a0, a1] = span(A);
+      const [b0, b1] = span(B);
+      if (a1 <= b0 || b1 <= a0) return false;
+    }
+  return true;
+};
+
 /** a rug lies under things; a small thing is walked round */
 const flat = (b: Box) => isRug(b);
 const minor = (b: Box) => flat(b) || isSmall({ width: b.w, depth: b.d });
@@ -129,7 +174,7 @@ const troubles = (b: Box, others: Box[], r: Room, zones: Zones) => {
   const out: Issue["kind"][] = [];
   if (b.x < 0 || b.y < 0 || b.x + b.w > r.W + 1 || b.y + b.d > r.D + 1)
     out.push("outside");
-  if (!flat(b) && others.some((o) => !flat(o) && meets(b, o)))
+  if (!flat(b) && others.some((o) => !flat(o) && overlaps(b, o)))
     out.push("overlap");
   if (r.rules.doorClear && !flat(b) && meets(b, zones.door)) out.push("door");
   if (
@@ -223,7 +268,7 @@ export const healthOf = (boxes: Box[], r: Room): Issue[] => {
     for (const o of others) {
       const key = [b.id, o.id].sort().join("|");
       if (seenPair.has(key) || flat(b) || flat(o)) continue;
-      if (meets(b, o)) {
+      if (overlaps(b, o)) {
         seenPair.add(key);
         issues.push({
           kind: "overlap",

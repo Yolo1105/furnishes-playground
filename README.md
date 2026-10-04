@@ -78,8 +78,11 @@ side, autosaved in the browser.
 The room is a full-screen stage behind three panels. The project rail
 has Assets (an outliner with hide and remove), Products (the catalogue),
 Room (HDB presets, walls drawn on the plan or a template) and Detail (a
-piece's parts, place and turn, lock, hide, remove, colour, texture and
-size). The main column has a toolbar (Edit/Preview, Select, which drags
+piece's parts, place and turn in degrees, lock, hide, remove, colour,
+texture and size). A piece turns a quarter with a click on its handle or
+the R key, and freely with a drag round it, in steps of 15 degrees
+unless Shift is held; Square brings it back to the walls. On the slant
+a clash is read from the turned outline, not the box round it. The main column has a toolbar (Edit/Preview, Select, which drags
 and turns pieces on the plan and in 3D, Inspect, Add, an eye that hides
 every panel, Undo/Redo, Eva's preferences, Guide, Export as SVG/PNG/JSON)
 and a shelf with Saved and Cart. Checkout takes a delivery address and

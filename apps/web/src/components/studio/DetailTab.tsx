@@ -20,6 +20,10 @@ import {
   PLACE_SNAP,
   TEXTURES,
   turned,
+  isSquare,
+  normTurn,
+  ROTATE_SNAP,
+  squared,
 } from "./piece-detail";
 import { settle } from "./room-layout";
 import { findNode, propsOf, useScene } from "./scene-store";
@@ -243,6 +247,26 @@ export function DetailTab() {
             />
             <span className="room-dim-unit">mm</span>
           </label>
+          <label className="room-dim">
+            <span className="room-dim-label">Turn</span>
+            <input
+              type="number"
+              className="room-dim-input f-num"
+              inputMode="numeric"
+              min={0}
+              max={359}
+              step={ROTATE_SNAP}
+              value={whole_.rotation}
+              disabled={whole_.locked}
+              aria-label={`${piece.name} turn in degrees`}
+              onChange={(e) =>
+                setProps(piece.id, {
+                  rotation: normTurn(Number(e.target.value)),
+                })
+              }
+            />
+            <span className="room-dim-unit">°</span>
+          </label>
           <button
             type="button"
             className="main-btn detail-turn"
@@ -254,6 +278,19 @@ export function DetailTab() {
             <RotateIcon size={14} />
             <span>Turn</span>
           </button>
+          {!isSquare(whole_.rotation) && (
+            <button
+              type="button"
+              className="main-btn detail-turn"
+              disabled={whole_.locked}
+              aria-label="Square to the walls"
+              onClick={() =>
+                setProps(piece.id, { rotation: squared(whole_.rotation) })
+              }
+            >
+              <span>Square</span>
+            </button>
+          )}
         </div>
         <div className="detail-acts detail-place-acts">
           <button

@@ -1,10 +1,4 @@
-import {
-  footprint,
-  isRug,
-  isSmall,
-  type PieceProps,
-  type Turn,
-} from "./piece-detail";
+import { footprint, isRug, isSmall, type PieceProps } from "./piece-detail";
 import { keepOff, meets, zonesOf, type Room, type Zone } from "./room-health";
 import type { Rules, Wall } from "./room-data";
 
@@ -27,7 +21,7 @@ const MARGIN = 250;
 const GRID = 100;
 
 type Spot = { x: number; y: number };
-export type Placed = Spot & { rotation: Turn };
+export type Placed = Spot & { rotation: number };
 type Item = PieceProps & { name: string };
 type Size = { w: number; d: number };
 type Rect = Spot & Size;
@@ -146,7 +140,7 @@ type LayoutPlan = {
 };
 
 /** the turn that runs a piece's long side along x (or along y) */
-const facing = (p: PieceProps, alongX: boolean): Turn =>
+const facing = (p: PieceProps, alongX: boolean): number =>
   p.width >= p.depth === alongX ? 0 : 90;
 
 const swap = (s: Spot): Spot => ({ x: s.y, y: s.x });

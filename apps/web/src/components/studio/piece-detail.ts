@@ -8,7 +8,6 @@ import type { AssetCategory, AssetNode } from "./assets-data";
  * edits sit over them in the scene store. A piece with no `x`/`y` yet
  * stands where the room's layout puts it.
  */
-export type Turn = 0 | 90 | 180 | 270;
 export type PieceProps = {
   colour: string;
   texture: string;
@@ -18,19 +17,41 @@ export type PieceProps = {
   /** mm from the room's north-west corner, once placed by hand */
   x?: number;
   y?: number;
-  rotation: Turn;
+  /** degrees clockwise on the plan, 0 to 359; a handle drag snaps to
+      ROTATE_SNAP, the R key and Turn go a quarter at a time */
+  rotation: number;
   hidden: boolean;
   locked: boolean;
 };
 
-/** the piece's footprint on the plan, width along x, with its turn */
-export const footprint = (p: PieceProps) =>
-  p.rotation % 180 === 0
-    ? { w: p.width, d: p.depth }
-    : { w: p.depth, d: p.width };
+/** a turn kept to 0 to 359 whole degrees */
+export const normTurn = (t: number) => ((Math.round(t) % 360) + 360) % 360;
+/** a handle drag snaps to this, degrees (Shift lets it go free) */
+export const ROTATE_SNAP = 15;
+/** true when the piece runs square to the walls */
+export const isSquare = (t: number) => normTurn(t) % 90 === 0;
 
-/** the next quarter turn */
-export const turned = (t: Turn): Turn => ((t + 90) % 360) as Turn;
+/** the piece's footprint on the plan, width along x, with its turn: the
+    box round it when it stands on the slant */
+export const footprint = (p: PieceProps) => {
+  const r = normTurn(p.rotation);
+  if (r % 90 === 0)
+    return r % 180 === 0
+      ? { w: p.width, d: p.depth }
+      : { w: p.depth, d: p.width };
+  const a = (r * Math.PI) / 180;
+  const c = Math.abs(Math.cos(a));
+  const s = Math.abs(Math.sin(a));
+  return {
+    w: Math.round(p.width * c + p.depth * s),
+    d: Math.round(p.width * s + p.depth * c),
+  };
+};
+
+/** the next quarter turn, from the nearest square one */
+export const turned = (t: number) => normTurn(Math.round(t / 90) * 90 + 90);
+/** the nearest square turn */
+export const squared = (t: number) => normTurn(Math.round(t / 90) * 90);
 /** a drag snaps to this, mm */
 export const PLACE_SNAP = 50;
 
