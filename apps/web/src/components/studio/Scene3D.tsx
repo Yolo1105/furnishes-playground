@@ -8,7 +8,7 @@ import {
   type ThreeEvent,
 } from "@react-three/fiber";
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { Plane, Shape, Vector3, type Vector3Tuple } from "three";
+import { Plane, Vector3, type Vector3Tuple } from "three";
 import { CATEGORY_NAMES, type AssetNode } from "./assets-data";
 import { Furniture3D } from "./Furniture3D";
 import { ArrowLeftIcon, LockIcon, RotateIcon } from "./icons";
@@ -25,9 +25,10 @@ import {
 } from "./piece-detail";
 import { FLOOR_TONES, WALL_TONES, type Floor } from "./room-data";
 import { settle, type Rect } from "./room-layout";
-import { edgesOf, insideOutline } from "./room-geometry";
+import { insideOutline } from "./room-geometry";
 import type { Point } from "./room-templates";
 import { footprintOf, useRoom } from "./room-store";
+import { RoomLight, RoomShell } from "./Room3D";
 import { propsOf, useScene } from "./scene-store";
 import { useCoarse } from "./input";
 import { useStudio, type Angle } from "./studio-store";
@@ -49,14 +50,14 @@ const m = (mm: number) => mm / 1000;
 /** the light in the room: the day's, or an evening's, warmer and lower */
 const LIGHTS = {
   day: {
-    ambient: 0.9,
-    sun: 1.4,
+    ambient: 0.75,
+    sun: 1.6,
     colour: "#ffffff",
     from: [3, 6, 4] as Vector3Tuple,
   },
   evening: {
-    ambient: 0.7,
-    sun: 1,
+    ambient: 0.6,
+    sun: 1.1,
     colour: "#ffe3c8",
     from: [-4, 2.5, 3] as Vector3Tuple,
   },
@@ -64,23 +65,6 @@ const LIGHTS = {
 /** the floor grid's lines */
 const GRID_HEX = "#b9a797";
 
-/** the floor as a shape in metres about the room's middle; the plane is
-    laid flat by a quarter turn, so the shape's y runs the other way */
-const floorShape = (
-  outline: readonly (readonly [number, number])[],
-  w: number,
-  d: number,
-) => {
-  const shape = new Shape();
-  outline.forEach(([x, y], i) => {
-    const px = m(x) - w / 2;
-    const py = -(m(y) - d / 2);
-    if (i === 0) shape.moveTo(px, py);
-    else shape.lineTo(px, py);
-  });
-  shape.closePath();
-  return shape;
-};
 const FLOOR = new Plane(new Vector3(0, 1, 0), 0);
 const EYE = 1.6;
 const GLIDE = 0.6; // s, the camera's move between angles
@@ -91,6 +75,9 @@ const TOUR_CLEAR = 0.4; // m, the round keeps this off the pieces
 const TOUR_NEAR = 0.8; // m, this close to what it looks at, it looks ahead
 const TOUR_LOOK_AT = 0.9; // m, the height the tour's eye settles on
 const DRAG_FROM_M = 0.03; // m, a press that travels less is a click
+/** the longest step a frame may take, s: a slow frame (or the first after
+    a pause) moves the camera this far at most, never a leap */
+const FRAME_MAX = 0.25;
 
 type WalkState = {
   x: number;
@@ -212,7 +199,7 @@ function Rig({
   useFrame((_, raw) => {
     // the clock runs while the scene rests: a frame after a pause steps
     // no further than a tenth of a second
-    const dt = Math.min(raw, 0.1);
+    const dt = Math.min(raw, FRAME_MAX);
     const g = glide.current;
     if (g) {
       g.t = Math.min(1, g.t + dt / GLIDE);
@@ -378,7 +365,7 @@ function Walker({
     invalidate();
   }, [touring, w, d, outline, invalidate]);
   useFrame((_, raw) => {
-    const dt = Math.min(raw, 0.1);
+    const dt = Math.min(raw, FRAME_MAX);
     const s = WALK;
     if (s.keys.size || s.goto || s.tour) invalidate();
     const t = s.tour;
@@ -812,6 +799,7 @@ export default function Scene3D() {
           antialias: !coarse,
           preserveDrawingBuffer: true,
           powerPreference: "high-performance",
+          toneMappingExposure: 1.15,
         }}
         camera={{ fov: 42, near: 0.05, far: 100 }}
         onPointerMissed={() => undefined}
@@ -828,7 +816,10 @@ export default function Scene3D() {
           color={light.colour}
           castShadow
           shadow-mapSize={[1024, 1024]}
+          shadow-radius={4}
+          shadow-bias={-0.0004}
         />
+        <RoomLight evening={scene.light === "evening"} />
         {scene.grid && !a.focus && (
           <gridHelper
             args={[
@@ -841,51 +832,26 @@ export default function Scene3D() {
           />
         )}
         {!a.focus && (
-          <group>
-            {/* the floor, the room's own outline (a click on it, walking,
-                goes there); then a wall along every edge, facing in, so
-                the near walls are seen through and the far ones stand */}
-            <mesh
-              rotation={[-Math.PI / 2, 0, 0]}
-              receiveShadow
-              onClick={(e) => {
-                if (!walk) return;
-                e.stopPropagation();
-                WALK.goto = { x: e.point.x, z: e.point.z };
-                WALK.wake();
-              }}
-            >
-              <shapeGeometry args={[floorShape(outline, w, d)]} />
-              <meshStandardMaterial color={floor} roughness={0.95} />
-            </mesh>
-            {edgesOf(outline).map((e, i) => {
-              const ax = m(e.a[0]) - w / 2;
-              const az = m(e.a[1]) - d / 2;
-              const bx = m(e.b[0]) - w / 2;
-              const bz = m(e.b[1]) - d / 2;
-              const len = Math.hypot(bx - ax, bz - az);
-              // the plane's face points +z; turn it to face into the room
-              const yaw =
-                e.wall === "north"
-                  ? 0
-                  : e.wall === "south"
-                    ? Math.PI
-                    : e.wall === "west"
-                      ? Math.PI / 2
-                      : -Math.PI / 2;
-              return (
-                <mesh
-                  key={i}
-                  position={[(ax + bx) / 2, h / 2, (az + bz) / 2]}
-                  rotation={[0, yaw, 0]}
-                  receiveShadow
-                >
-                  <planeGeometry args={[len, h]} />
-                  <meshStandardMaterial color={wall} roughness={1} />
-                </mesh>
-              );
-            })}
-          </group>
+          <RoomShell
+            r={{
+              W: room.width,
+              D: room.depth,
+              outline,
+              door: room.door,
+              doorOffset: room.doorOffset,
+              window: room.window,
+              windowWidth: room.windowWidth,
+              height: room.height,
+              floor: room.floor as Floor,
+              floorHex: floor,
+              wallHex: wall,
+            }}
+            walk={walk}
+            onWalkTo={(x, z) => {
+              WALK.goto = { x, z };
+              WALK.wake();
+            }}
+          />
         )}
         {a.shown.map((n) => {
           const p = a.props.get(n.id)!;

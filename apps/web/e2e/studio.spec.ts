@@ -1809,9 +1809,12 @@ test("in 3D a piece is dragged over the floor, the camera glides between angles,
     ).filter((o) => o.x !== undefined);
   });
   expect(placed).toHaveLength(1);
-  expect(placed[0]!.x! % 50).toBe(0);
-  expect(placed[0]!.y! % 50).toBe(0);
-  expect(placed[0]!.x!).toBeGreaterThanOrEqual(0);
+  // on the grid (a piece may stand past a wall, so a side can be negative)
+  expect(Math.abs(placed[0]!.x! % 50)).toBe(0);
+  expect(Math.abs(placed[0]!.y! % 50)).toBe(0);
+  // the piece goes back (the walk below starts where it now stands)
+  await page.keyboard.press("Control+z");
+  await expect(page.getByRole("button", { name: "Undo" })).toBeDisabled();
   // Walk: the camera drops to eye height; W moves it north; Esc leaves
   await page.getByRole("button", { name: "Walk the room" }).click();
   await expect(stage).toHaveAttribute("data-walk", "true");
@@ -1821,11 +1824,16 @@ test("in 3D a piece is dragged over the floor, the camera glides between angles,
     )
     .toBeCloseTo(1.6, 1);
   const z0 = Number((await stage.getAttribute("data-cam"))!.split(",")[2]);
+  // W held until the camera has gone north (a software renderer gives
+  // few frames a second, so this is read, not timed)
   await page.keyboard.down("w");
-  await page.waitForTimeout(500);
+  await expect
+    .poll(
+      async () => Number((await stage.getAttribute("data-cam"))!.split(",")[2]),
+      { timeout: 8000 },
+    )
+    .toBeLessThan(z0 - 0.3);
   await page.keyboard.up("w");
-  const z1 = Number((await stage.getAttribute("data-cam"))!.split(",")[2]);
-  expect(z1).toBeLessThan(z0 - 0.3);
   await page.keyboard.press("Escape");
   await expect(stage).toHaveAttribute("data-walk", "false");
 });
