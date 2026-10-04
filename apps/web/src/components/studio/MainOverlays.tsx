@@ -24,15 +24,25 @@ import {
   ExportIcon,
   CompassIcon,
   EyeIcon,
+  FitIcon,
   HelpIcon,
   InspectIcon,
   PlusIcon,
   RedoIcon,
+  RulerIcon,
   UndoIcon,
+  ZoomInIcon,
+  ZoomOutIcon,
 } from "./icons";
 import { orderedIds, useOrders } from "./order-store";
 import { topLevelOf, useScene, useTopLevel } from "./scene-store";
-import { useStudio, viewName, type ShelfTab, type Tool } from "./studio-store";
+import {
+  type ShelfTab,
+  type Tool,
+  useStudio,
+  viewName,
+  ZOOM,
+} from "./studio-store";
 import { useDismiss } from "./useDismiss";
 import { useFixedMenu } from "./useFixedMenu";
 
@@ -70,6 +80,10 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
   const { wrap: prefsWrap, menu: prefsMenu } = prefs;
   const { wrap: exportWrap, menu: exportMenu } = exporting;
   const view = useStudio((s) => s.view);
+  const planZoom = useStudio((s) => s.planZoom);
+  const planPan = useStudio((s) => s.planPan);
+  const planFitted = planZoom === 1 && planPan.x === 0 && planPan.y === 0;
+  const { zoomPlan, fitPlan } = useStudio.getState();
   const canUndo = useScene((s) => s.past.length > 0);
   const canRedo = useScene((s) => s.future.length > 0);
   const { undo, redo } = useScene.getState();
@@ -127,6 +141,14 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
               resting={resting}
               onPick={setTool}
             />
+            <ToolButton
+              id="measure"
+              label="Measure"
+              icon={<RulerIcon />}
+              tool={tool}
+              resting={resting}
+              onPick={setTool}
+            />
             <div className="main-add">
               <button
                 type="button"
@@ -143,6 +165,58 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
               </button>
             </div>
           </div>
+          {view === "2d" && (
+            <>
+              <span className="main-sep" aria-hidden="true" />
+              <div
+                className="main-top-group"
+                role="group"
+                aria-label="Plan zoom"
+                data-resting={resting}
+              >
+                <button
+                  type="button"
+                  className="main-icon shell-tip"
+                  data-tooltip="Zoom out"
+                  aria-label="Zoom out"
+                  disabled={resting}
+                  onClick={() => zoomPlan(1 / ZOOM.step)}
+                >
+                  <ZoomOutIcon />
+                </button>
+                <button
+                  type="button"
+                  className="main-zoom shell-tip f-num"
+                  data-tooltip="Fit the plan"
+                  aria-label={`Zoom ${Math.round(planZoom * 100)} percent; fit the plan`}
+                  disabled={resting}
+                  onClick={fitPlan}
+                >
+                  {Math.round(planZoom * 100)}%
+                </button>
+                <button
+                  type="button"
+                  className="main-icon shell-tip"
+                  data-tooltip="Zoom in"
+                  aria-label="Zoom in"
+                  disabled={resting}
+                  onClick={() => zoomPlan(ZOOM.step)}
+                >
+                  <ZoomInIcon />
+                </button>
+                <button
+                  type="button"
+                  className="main-icon shell-tip"
+                  data-tooltip="Fit"
+                  aria-label="Fit the plan"
+                  disabled={resting || planFitted}
+                  onClick={fitPlan}
+                >
+                  <FitIcon />
+                </button>
+              </div>
+            </>
+          )}
           <span className="main-sep" aria-hidden="true" />
           <button
             type="button"

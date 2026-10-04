@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { turned } from "./piece-detail";
 import { propsOf, topLevelOf, useScene } from "./scene-store";
-import { useStudio } from "./studio-store";
+import { useStudio, ZOOM } from "./studio-store";
 
 /**
  * The keyboard: one key per tool and view, the eye, and undo and redo
@@ -13,17 +13,24 @@ export const SHORTCUTS = [
   { keys: ["V"], does: "Select tool" },
   { keys: ["I"], does: "Inspect tool" },
   { keys: ["W"], does: "Wall tool" },
+  { keys: ["M"], does: "Measure tool, on the plan" },
   { keys: ["3"], does: "3D view" },
   { keys: ["2"], does: "2D plan" },
   { keys: ["H"], does: "Hide or show the panels" },
   { keys: ["G"], does: "Walk the room in 3D (W A S D to move, drag to look)" },
   { keys: ["P"], does: "Preview, or back to Edit" },
+  { keys: ["+"], does: "Zoom the plan in" },
+  { keys: ["-"], does: "Zoom the plan out" },
+  { keys: ["0"], does: "Fit the plan" },
   { keys: ["R"], does: "Turn the picked piece a quarter" },
   { keys: ["⌫"], does: "Remove the picked piece from the room" },
   { keys: ["⌘", "Z"], does: "Undo" },
   { keys: ["⌘", "⇧", "Z"], does: "Redo" },
   { keys: ["?"], does: "This list" },
-  { keys: ["Esc"], does: "Close a menu, stop drawing, leave focus" },
+  {
+    keys: ["Esc"],
+    does: "Close a menu, stop drawing or measuring, leave focus",
+  },
 ] as const;
 
 const typing = (t: EventTarget | null) =>
@@ -50,6 +57,18 @@ export function useShortcuts(onHelp: () => void) {
           return st.setTool("inspect");
         case "w":
           return st.setTool("wall");
+        case "m":
+          return st.setTool("measure");
+        case "+":
+        case "=":
+          if (st.view === "2d") st.zoomPlan(ZOOM.step);
+          return;
+        case "-":
+          if (st.view === "2d") st.zoomPlan(1 / ZOOM.step);
+          return;
+        case "0":
+          if (st.view === "2d") st.fitPlan();
+          return;
         case "3":
           return st.setView("3d");
         case "2":

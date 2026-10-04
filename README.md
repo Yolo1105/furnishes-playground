@@ -60,7 +60,10 @@ and `/api/checkout` says so rather than pretend. The right rail shows the
 other view small over Eva's Agent, History and Preference tabs.
 
 The 2D plan is a CAD sheet with four interior elevations and the
-planner's zones; the 3D room is three.js with furniture built from what
+planner's zones, zoomed with the wheel or the keys about the pointer,
+panned by dragging the sheet, fitted again in one click, and measured
+with the Measure tool (two clicks, the distance in millimetres, the run
+and rise on a slant); the 3D room is three.js with furniture built from what
 each piece is (18 mm panel carcasses for Furnishes pieces), dragging with
 wall snap and clash outlines, a view cube that glides the camera, and a
 walk mode. Preview runs a stand-in render with a before/after divider.

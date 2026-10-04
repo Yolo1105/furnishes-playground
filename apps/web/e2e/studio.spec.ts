@@ -565,15 +565,8 @@ test("the toolbar reads mode · select, add, wall · undo, guide, export", async
   );
   await expect(
     bar.getByRole("group", { name: "Tools" }).getByRole("button"),
-  ).toHaveText(["", "", ""]);
-  for (const gone of [
-    "Move",
-    "Rotate",
-    "Measure",
-    "Note",
-    "Share",
-    "Draw wall",
-  ])
+  ).toHaveText(["", "", "", ""]);
+  for (const gone of ["Move", "Rotate", "Note", "Share", "Draw wall"])
     await expect(bar.getByRole("button", { name: gone })).toHaveCount(0);
   await expect(bar.getByText("100%")).toHaveCount(0);
   // nothing to undo yet: both grey
@@ -2301,4 +2294,113 @@ test("the room's rules shape the planner: the walkway, what is kept clear, a bed
     .click();
   await place("Bed", "2400", "1200");
   await expect(health.getByText(/Bed .*wall/)).toHaveCount(0);
+});
+
+test("the plan's tools: the wheel and the keys zoom it, a drag pans it, Fit brings it back, Measure reads a distance", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  // the zoom controls belong to the plan: none in 3D
+  await expect(page.getByRole("group", { name: "Plan zoom" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Show 2D plan in main" }).click();
+  const zoom = page.getByRole("group", { name: "Plan zoom" });
+  await expect(zoom).toBeVisible();
+  const sheet = page.locator(".shell-stage .plan");
+  await expect(sheet).toHaveAttribute("data-zoomed", "false");
+  await expect(
+    zoom.getByRole("button", { name: "Fit the plan", exact: true }),
+  ).toBeDisabled();
+  // the keys and the buttons
+  await page.keyboard.press("+");
+  await expect(sheet).toHaveAttribute("data-zoomed", "true");
+  await expect(
+    zoom.getByRole("button", { name: /^Zoom 115 percent/ }),
+  ).toBeVisible();
+  await zoom.getByRole("button", { name: "Zoom in" }).click();
+  await expect(
+    zoom.getByRole("button", { name: /^Zoom 132 percent/ }),
+  ).toBeVisible();
+  await page.keyboard.press("0");
+  await expect(sheet).toHaveAttribute("data-zoomed", "false");
+  // the wheel zooms about the pointer
+  const svg = page.locator(".shell-stage .plan-svg");
+  const box = (await svg.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.wheel(0, -300);
+  await expect(
+    zoom.getByRole("button", { name: /^Zoom 212 percent/ }),
+  ).toBeVisible();
+  await expect(sheet).toHaveCSS("transform", /matrix\(2\.1/);
+  // a drag on the sheet (from its margin, at 100 percent) pans it
+  await zoom.getByRole("button", { name: "Fit the plan", exact: true }).click();
+  await expect(sheet).toHaveAttribute("data-zoomed", "false");
+  await page.mouse.move(box.x + 10, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 110, box.y + box.height / 2 + 60, { steps: 6 });
+  await page.mouse.up();
+  await expect(sheet).toHaveCSS("transform", "matrix(1, 0, 0, 1, 100, 60)");
+  await expect(sheet).toHaveAttribute("data-zoomed", "true");
+  await zoom.getByRole("button", { name: "Fit the plan", exact: true }).click();
+  await expect(sheet).toHaveAttribute("data-zoomed", "false");
+  // Measure: two clicks, the distance in millimetres, snapped to 50
+  await page.getByRole("button", { name: "Measure" }).click();
+  await expect(page.getByRole("button", { name: "Measure" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  const vw = 6500 + 2 * 1100;
+  const vh = 4000 + 2 * 1100;
+  const at = (x: number, y: number) => ({
+    x: box.x + ((x + 1100) / vw) * box.width,
+    y: box.y + ((y + 1100) / vh) * box.height,
+  });
+  const a = at(1000, 1000);
+  const b = at(4000, 1000);
+  await page.mouse.click(a.x, a.y);
+  await page.mouse.move(b.x, b.y);
+  // a pixel is some 20 mm here and the reading snaps to 50, so within 50
+  const read = svg.locator(".plan-measure text");
+  const near = async (want: number[]) => {
+    const got = ((await read.textContent()) ?? "").match(/\d+/g)!.map(Number);
+    expect(got.length).toBe(want.length);
+    got.forEach((g, i) =>
+      expect(Math.abs(g - want[i]!)).toBeLessThanOrEqual(50),
+    );
+  };
+  await expect(read).toContainText("mm");
+  await near([3000]);
+  await page.mouse.click(b.x, b.y);
+  await expect(svg.locator(".plan-measure")).toHaveAttribute(
+    "data-set",
+    "true",
+  );
+  // on the slant, the run and the rise too
+  const c = at(4000, 3000);
+  await page.mouse.click(c.x, c.y);
+  await page.mouse.click(a.x, a.y);
+  await expect(read).toContainText("×");
+  await near([3606, 3000, 2000]);
+  // Escape clears it; the pieces are not picked while measuring
+  await page.keyboard.press("Escape");
+  await expect(svg.locator(".plan-measure")).toHaveCount(0);
+  await page.keyboard.press("v");
+  await expect(page.getByRole("button", { name: "Select" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  // in 3D the tool is put down
+  await page.keyboard.press("m");
+  await expect(page.getByRole("button", { name: "Measure" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await page.keyboard.press("3");
+  await expect(page.getByRole("button", { name: "Select" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  // and from 3D, Measure brings the plan up
+  await page.getByRole("button", { name: "Measure" }).click();
+  await expect(zoom).toBeVisible();
 });

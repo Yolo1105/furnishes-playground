@@ -451,3 +451,38 @@ export function MoreIcon({ size = 16 }: IconProps) {
     </svg>
   );
 }
+
+export function RulerIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <path d="M3 17 17 3l4 4L7 21zM8 12l2 2M11 9l2 2M14 6l2 2" />
+    </svg>
+  );
+}
+
+export function ZoomInIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="M21 21l-4.5-4.5M11 8v6M8 11h6" />
+    </svg>
+  );
+}
+
+export function ZoomOutIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="M21 21l-4.5-4.5M8 11h6" />
+    </svg>
+  );
+}
+
+export function FitIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <path d="M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5" />
+      <rect x="8" y="8" width="8" height="8" rx="1" />
+    </svg>
+  );
+}

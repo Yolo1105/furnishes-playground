@@ -3,8 +3,9 @@ import { create } from "zustand";
 /**
  * What the toolbar holds and the surfaces follow: the mode, the tool
  * (Select picks and moves; Inspect picks and offers a piece's details or
- * a label for Eva; Wall draws, from the Room tab), which view is on the
- * main surface, whether the panels are hidden to look at the room, a
+ * a label for Eva; Wall draws, from the Room tab; Measure reads a
+ * distance off the plan), which view is on the main surface, how far
+ * the plan is zoomed and panned, whether the panels are hidden to look at the room, a
  * piece in focus on its own, the project panel's tab, the loading line,
  * and the Preview run. Preview walks
  * a fixed path: generating (the line on the toolbar's edge), revealing
@@ -14,7 +15,9 @@ import { create } from "zustand";
  * dragged: the sketch is left of it, the render right).
  */
 export type Mode = "edit" | "preview";
-export type Tool = "select" | "inspect" | "wall";
+export type Tool = "select" | "inspect" | "wall" | "measure";
+/** how far the plan can be zoomed, and by how much a step zooms */
+export const ZOOM = { min: 0.5, max: 4, step: 1.15 };
 /** the project panel's tabs */
 type PanelTab = "assets" | "products" | "room" | "detail";
 /** Eva's tabs */
@@ -58,6 +61,9 @@ type StudioState = {
   preview: PreviewStatus;
   /** where the divider stands, as a percent of the stage's width */
   split: number;
+  /** the plan's zoom (1 is the sheet fitted) and pan, px */
+  planZoom: number;
+  planPan: { x: number; y: number };
   setMode: (mode: Mode) => void;
   setTool: (tool: Tool) => void;
   setView: (view: View) => void;
@@ -75,6 +81,12 @@ type StudioState = {
   /** bring the divider to the middle and let it be dragged */
   compare: () => void;
   setSplit: (split: number) => void;
+  /** zoom the plan by a factor, about a point (px from the sheet's
+      middle) so what is under the pointer stays put */
+  zoomPlan: (factor: number, about?: { x: number; y: number }) => void;
+  panPlan: (dx: number, dy: number) => void;
+  /** the sheet fitted again */
+  fitPlan: () => void;
 };
 
 const clamp = (n: number) => Math.min(100, Math.max(0, n));
@@ -98,6 +110,8 @@ export const useStudio = create<StudioState>((set, get) => ({
   loadingAt: 0,
   preview: "idle",
   split: 0,
+  planZoom: 1,
+  planPan: { x: 0, y: 0 },
   setMode: (mode) =>
     set((s) =>
       mode === "preview"
@@ -110,7 +124,21 @@ export const useStudio = create<StudioState>((set, get) => ({
           }
         : { mode, preview: "idle", split: 0, loading: null },
     ),
-  setTool: (tool) => set({ tool }),
+  // measuring is done on the plan: the tool brings the plan up, and
+  // leaving the plan puts the tool down
+  setTool: (tool) =>
+    set((s) =>
+      tool === "measure" && s.view !== "2d"
+        ? {
+            tool,
+            view: "2d",
+            angle: ANGLES["2d"][0]!,
+            walk: false,
+            loading: "view",
+            loadingAt: s.loadingAt + 1,
+          }
+        : { tool },
+    ),
   setView: (view) =>
     set((s) =>
       s.view === view
@@ -121,6 +149,9 @@ export const useStudio = create<StudioState>((set, get) => ({
             walk: false,
             loading: "view",
             loadingAt: s.loadingAt + 1,
+            ...(view === "3d" && s.tool === "measure"
+              ? { tool: "select" as const }
+              : {}),
           },
     ),
   setAngle: (angle) => set({ angle, walk: false }),
@@ -159,4 +190,19 @@ export const useStudio = create<StudioState>((set, get) => ({
     }, 40);
   },
   setSplit: (split) => set({ split: clamp(split) }),
+  zoomPlan: (factor, about = { x: 0, y: 0 }) =>
+    set((s) => {
+      const zoom = Math.min(ZOOM.max, Math.max(ZOOM.min, s.planZoom * factor));
+      const k = zoom / s.planZoom;
+      return {
+        planZoom: zoom,
+        planPan: {
+          x: about.x - (about.x - s.planPan.x) * k,
+          y: about.y - (about.y - s.planPan.y) * k,
+        },
+      };
+    }),
+  panPlan: (dx, dy) =>
+    set((s) => ({ planPan: { x: s.planPan.x + dx, y: s.planPan.y + dy } })),
+  fitPlan: () => set({ planZoom: 1, planPan: { x: 0, y: 0 } }),
 }));

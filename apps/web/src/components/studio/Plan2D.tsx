@@ -1,11 +1,19 @@
 "use client";
 
-import { useEffect, useRef, type MouseEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+  type PointerEvent,
+  type ReactNode,
+} from "react";
 import { doorCentreAlong, OPENINGS, ROOM_NAMES, type Wall } from "./room-data";
 import { usePieceActions } from "./piece-actions";
 import { zonesOf } from "./room-health";
 import { CLOSE_WITHIN, footprintOf, useRoom } from "./room-store";
 import { useStudio } from "./studio-store";
+import { PLACE_SNAP } from "./piece-detail";
 
 /**
  * The plan as a drawing office draws it, a stand-in until the real plan.
@@ -16,7 +24,11 @@ import { useStudio } from "./studio-store";
  * title block. The pieces sit on it as symbols (the layer over this).
  * Everything scales from the Room tab's millimetres. With the Wall tool
  * on, a click sets a corner, snapped to the grid; a click back on the
- * first corner closes the room; Escape forgets the corners so far.
+ * first corner closes the room; Escape forgets the corners so far. With
+ * Measure on, a click sets one end and a click the other, the distance
+ * in millimetres between them (and the run and rise when it is on the
+ * slant); Escape clears it. The wheel zooms the sheet about the pointer,
+ * dragging the sheet pans it, and Fit brings it back.
  */
 const WALL = 150; // mm, half the band's thickness
 const FACE = 14; // mm, the face line either side of the band
@@ -72,7 +84,19 @@ export function Plan2D({
 }) {
   const r = useRoom();
   const tool = useStudio((s) => s.tool);
+  const planZoom = useStudio((s) => s.planZoom);
+  const planPan = useStudio((s) => s.planPan);
+  const { zoomPlan, panPlan } = useStudio.getState();
   const svgRef = useRef<SVGSVGElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const [measure, setMeasure] = useState<{
+    from: [number, number] | null;
+    to: [number, number] | null;
+    /** the pointer, while the other end is not yet set */
+    at: [number, number] | null;
+  }>({ from: null, to: null, at: null });
+  const [panning, setPanning] = useState(false);
+  const pan = useRef<{ x: number; y: number } | null>(null);
   const W = r.width;
   const D = r.depth;
   const vw = W + 2 * MARGIN;
@@ -80,6 +104,7 @@ export function Plan2D({
   const outline = footprintOf(r);
   const poly = outline.map((p) => p.join(",")).join(" ");
   const drawingOn = interactive && tool === "wall";
+  const measuring = interactive && tool === "measure";
   // the planner's zones show on the sheet while something stands in them
   const { issues } = usePieceActions();
   const zones = zonesOf({
@@ -94,23 +119,93 @@ export function Plan2D({
   const windowBlocked = issues.some((i) => i.kind === "window");
 
   useEffect(() => {
-    if (!drawingOn) return;
+    if (!drawingOn && !measuring) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && useRoom.getState().drawing.length)
+      if (e.key !== "Escape") return;
+      if (drawingOn && useRoom.getState().drawing.length)
         useRoom.setState({ drawing: [] });
+      if (measuring) setMeasure({ from: null, to: null, at: null });
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [drawingOn]);
+  }, [drawingOn, measuring]);
 
-  // a click on the sheet, in millimetres of the room
-  const onPlanClick = (e: MouseEvent<SVGSVGElement>) => {
-    if (!drawingOn || !svgRef.current) return;
-    const m = svgRef.current.getScreenCTM();
-    if (!m) return;
+  // the wheel zooms about the pointer, over the sheet and the pieces
+  // alike; a listener of its own, since the page must not scroll with it
+  useEffect(() => {
+    const sheet = sheetRef.current;
+    if (!interactive || !sheet) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const r = sheet.getBoundingClientRect();
+      zoomPlan(Math.exp(-e.deltaY * 0.0025), {
+        x: e.clientX - (r.left + r.width / 2),
+        y: e.clientY - (r.top + r.height / 2),
+      });
+    };
+    sheet.addEventListener("wheel", onWheel, { passive: false });
+    return () => sheet.removeEventListener("wheel", onWheel);
+  }, [interactive, zoomPlan]);
+
+  // a point on the sheet, in millimetres of the room
+  const mmOf = (e: { clientX: number; clientY: number }) => {
+    const m = svgRef.current?.getScreenCTM();
+    if (!m) return null;
     const pt = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse());
-    r.addCorner([pt.x, pt.y]);
+    return [pt.x, pt.y] as [number, number];
   };
+  const snapped = (p: [number, number]): [number, number] => [
+    Math.round(p[0] / PLACE_SNAP) * PLACE_SNAP,
+    Math.round(p[1] / PLACE_SNAP) * PLACE_SNAP,
+  ];
+  // a click on the sheet: a corner while drawing, an end while measuring
+  const onPlanClick = (e: MouseEvent<SVGSVGElement>) => {
+    const pt = mmOf(e);
+    if (!pt) return;
+    if (drawingOn) r.addCorner(pt);
+    else if (measuring)
+      setMeasure((m) =>
+        !m.from || m.to
+          ? { from: snapped(pt), to: null, at: null }
+          : { ...m, to: snapped(pt), at: null },
+      );
+  };
+  const onPlanMove = (e: MouseEvent<SVGSVGElement>) => {
+    if (!measuring || !measure.from || measure.to) return;
+    const pt = mmOf(e);
+    if (pt) setMeasure((m) => ({ ...m, at: snapped(pt) }));
+  };
+  // dragging the sheet pans it, from anywhere but a piece (those have
+  // their own drags)
+  const canPan = interactive && !drawingOn && !measuring;
+  const onDown = (e: PointerEvent<HTMLDivElement>) => {
+    if (!canPan || e.button !== 0) return;
+    if ((e.target as HTMLElement).closest(".stage-piece, button, a, input"))
+      return;
+    pan.current = { x: e.clientX, y: e.clientY };
+  };
+  const onMove = (e: PointerEvent<HTMLDivElement>) => {
+    const p = pan.current;
+    if (!p) return;
+    const dx = e.clientX - p.x;
+    const dy = e.clientY - p.y;
+    if (!panning && Math.hypot(dx, dy) < 3) return;
+    if (!panning) {
+      setPanning(true);
+      e.currentTarget.setPointerCapture(e.pointerId);
+    }
+    panPlan(dx, dy);
+    pan.current = { x: e.clientX, y: e.clientY };
+  };
+  const onUp = () => {
+    pan.current = null;
+    setPanning(false);
+  };
+  // the measurement: one end set, the other following the pointer or set
+  const a = measure.from;
+  const b = measure.to ?? measure.at;
+  const slant = a && b && a[0] !== b[0] && a[1] !== b[1];
+  const length = a && b ? Math.round(Math.hypot(b[0] - a[0], b[1] - a[1])) : 0;
 
   const WINDOW = r.windowWidth;
   // the door sits along its wall by the HDB convention, the window in
@@ -188,16 +283,33 @@ export function Plan2D({
 
   return (
     <div
+      ref={sheetRef}
       className="plan"
-      style={{ aspectRatio: `${vw} / ${vh}`, ["--ratio" as string]: vw / vh }}
+      data-zoomed={planZoom !== 1 || planPan.x !== 0 || planPan.y !== 0}
+      data-pan={canPan ? (panning ? "moving" : "ready") : undefined}
+      onPointerDown={onDown}
+      onPointerMove={onMove}
+      onPointerUp={onUp}
+      onPointerCancel={onUp}
+      style={{
+        aspectRatio: `${vw} / ${vh}`,
+        ["--ratio" as string]: vw / vh,
+        ...(interactive
+          ? {
+              transform: `translate(${planPan.x}px, ${planPan.y}px) scale(${planZoom})`,
+            }
+          : {}),
+      }}
     >
       <svg
         ref={svgRef}
         className="plan-svg"
         data-drawing={drawingOn}
+        data-measuring={measuring}
         viewBox={`${-MARGIN} ${-MARGIN} ${vw} ${vh}`}
         aria-label={`Plan of the ${ROOM_NAMES[r.room]}, ${W} by ${D} millimetres`}
         onClick={onPlanClick}
+        onMouseMove={onPlanMove}
       >
         <defs>
           <pattern
@@ -322,6 +434,23 @@ export function Plan2D({
                 }
               />
             ))}
+          </g>
+        )}
+        {measuring && a && (
+          <g className="plan-measure" data-set={measure.to !== null}>
+            <circle cx={a[0]} cy={a[1]} r={45} />
+            {b && (
+              <>
+                <line x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} />
+                <circle cx={b[0]} cy={b[1]} r={45} />
+                <text x={(a[0] + b[0]) / 2} y={(a[1] + b[1]) / 2} dy={-110}>
+                  {length} mm
+                  {slant
+                    ? ` · ${Math.abs(b[0] - a[0])} × ${Math.abs(b[1] - a[1])}`
+                    : ""}
+                </text>
+              </>
+            )}
           </g>
         )}
       </svg>
