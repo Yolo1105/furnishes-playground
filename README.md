@@ -65,6 +65,13 @@ each piece is (18 mm panel carcasses for Furnishes pieces), dragging with
 wall snap and clash outlines, a view cube that glides the camera, and a
 walk mode. Preview runs a stand-in render with a before/after divider.
 
+Add also makes room items: things that set the scene and are not for
+sale (an armchair, a plant, a pendant) from a few words. With `FAL_KEY`
+set, `/api/generate-item` has Flux draw a product shot and Hunyuan 3D
+turn it into a mesh that stands in the room; without a key the item
+stands as a shape and the strip says so. Generations are kept in the
+browser, can be starred, and a tile puts another into the room.
+
 Eva speaks through Claude when `ANTHROPIC_API_KEY` is set (`/api/chat`,
 with the chatbot's rules and a fixed answer shape); without a key her rule
 brain answers from the room's facts and the catalogue. Either way she

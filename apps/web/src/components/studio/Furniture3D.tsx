@@ -1,7 +1,8 @@
 "use client";
 
-import { Edges } from "@react-three/drei";
-import type { Vector3Tuple } from "three";
+import { Edges, useGLTF } from "@react-three/drei";
+import { Component, Suspense, type ReactNode } from "react";
+import { Box3, Vector3, type Vector3Tuple } from "three";
 import type { AssetNode } from "./assets-data";
 import { ACCENT_HEX, FOLIAGE_HEX } from "./piece-detail";
 
@@ -118,7 +119,68 @@ function Round({
   );
 }
 
+/** a generated mesh fitted into the item's size, standing on the floor */
+function Model({
+  src,
+  size,
+  onPick,
+}: {
+  src: string;
+  size: Vector3Tuple;
+  onPick: () => void;
+}) {
+  const { scene } = useGLTF(src);
+  const box = new Box3().setFromObject(scene);
+  const dims = box.getSize(new Vector3());
+  const k = Math.min(
+    size[0] / (dims.x || 1),
+    size[1] / (dims.y || 1),
+    size[2] / (dims.z || 1),
+  );
+  const centre = box.getCenter(new Vector3());
+  return (
+    <group
+      scale={k}
+      position={[-centre.x * k, -box.min.y * k, -centre.z * k]}
+      onClick={(e) => {
+        e.stopPropagation();
+        onPick();
+      }}
+    >
+      <primitive object={scene} />
+    </group>
+  );
+}
+
+/** a mesh that fails to load falls back to the shape */
+class ModelGuard extends Component<
+  { fallback: ReactNode; children: ReactNode },
+  { failed: boolean }
+> {
+  override state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  override render() {
+    return this.state.failed ? this.props.fallback : this.props.children;
+  }
+}
+
 export function Furniture3D(p: Props) {
+  if (p.node.model) {
+    const shape = <Shape {...p} />;
+    return (
+      <ModelGuard fallback={shape}>
+        <Suspense fallback={shape}>
+          <Model src={p.node.model} size={p.size} onPick={p.onPick} />
+        </Suspense>
+      </ModelGuard>
+    );
+  }
+  return <Shape {...p} />;
+}
+
+function Shape(p: Props) {
   const [w, h, d] = p.size;
   const look: Look = {
     colour: p.colour,

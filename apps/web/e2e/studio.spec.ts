@@ -2065,3 +2065,120 @@ test("the room knows its flat: what fits, where the door is, a kitchen without a
       .first(),
   ).toBeVisible();
 });
+
+test("Generate makes a room item from a few words; it stands as a shape without a provider", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  const shelf = page.locator(".main-shelf");
+  const saved = shelf.getByRole("tab", { name: /Saved/ });
+  const n = totals.pieces;
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  const strip = page.getByRole("dialog", { name: "Add to the room" });
+  await strip
+    .getByRole("group", { name: "Category" })
+    .getByRole("button", { name: "Generate" })
+    .click();
+  const words = strip.getByRole("textbox", { name: "Describe a room item" });
+  await expect(words).toBeVisible();
+  // no key on this server: the item still arrives, as a shape, with a note
+  await words.fill("a rattan armchair");
+  await strip.locator("form").getByRole("button", { name: "Generate" }).click();
+  await expect(
+    strip.getByText("No image or mesh provider is connected"),
+  ).toBeVisible();
+  const tile = strip.locator(".add-tile-gen").filter({
+    hasText: "Rattan armchair",
+  });
+  await expect(tile).toHaveCount(1);
+  await expect(tile.locator(".add-tile-price")).toHaveText("shape");
+  // the room has it, as a room item (not for sale, no price), selected
+  const row = page.getByRole("treeitem", { name: "Rattan armchair" });
+  await expect(row).toHaveAttribute("aria-selected", "true");
+  await expect(saved).toHaveText(`Saved${n}`);
+  // starred ones can be shown on their own
+  await tile.getByRole("button", { name: "Star Rattan armchair" }).click();
+  await expect(
+    tile.getByRole("button", { name: "Unstar Rattan armchair" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await words.fill("a tall fiddle-leaf fig");
+  await words.press("Enter");
+  await expect(strip.locator(".add-tile-gen")).toHaveCount(2);
+  await strip.getByRole("button", { name: "Starred" }).click();
+  await expect(strip.locator(".add-tile-gen")).toHaveCount(1);
+  await expect(strip.locator(".add-gen-label")).toHaveText("Starred · 1");
+  // a tile click adds another of it and closes the strip
+  await tile.getByRole("button", { name: "Add Rattan armchair" }).click();
+  await expect(strip).toHaveCount(0);
+  await expect(
+    page.getByRole("treeitem", { name: "Rattan armchair 2" }),
+  ).toHaveAttribute("aria-selected", "true");
+  // the generations survive a reload; one can be forgotten
+  await page.reload();
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await strip
+    .getByRole("group", { name: "Category" })
+    .getByRole("button", { name: "Generate" })
+    .click();
+  await expect(strip.locator(".add-tile-gen")).toHaveCount(2);
+  await strip
+    .getByRole("button", { name: "Forget Tall fiddle-leaf fig" })
+    .click();
+  await expect(strip.locator(".add-tile-gen")).toHaveCount(1);
+  await expect(
+    page.getByRole("treeitem", { name: "Tall fiddle-leaf fig" }),
+  ).toHaveCount(1);
+  // the route itself: no key says so, a bad body is refused
+  const res = await page.request.post("/api/generate-item", {
+    data: { prompt: "a paper pendant" },
+  });
+  expect(res.status()).toBe(503);
+  expect(await res.json()).toEqual({ fallback: true, reason: "no-key" });
+  const bad = await page.request.post("/api/generate-item", {
+    data: { prompt: "a" },
+  });
+  expect(bad.status()).toBe(400);
+});
+
+test("a connected provider's picture shows on the tile and the item carries it", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const pic =
+    "data:image/svg+xml;utf8," +
+    encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><rect width="8" height="8" fill="#c96"/></svg>',
+    );
+  await page.route("**/api/generate-item", async (route) => {
+    const body = route.request().postDataJSON() as { prompt: string };
+    expect(body.prompt).toBe("a paper pendant");
+    await route.fulfill({ json: { imageUrl: pic } });
+  });
+  await page.goto("/rounded");
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  const strip = page.getByRole("dialog", { name: "Add to the room" });
+  await strip
+    .getByRole("group", { name: "Category" })
+    .getByRole("button", { name: "Generate" })
+    .click();
+  await strip
+    .getByRole("textbox", { name: "Describe a room item" })
+    .fill("a paper pendant");
+  await strip.locator("form").getByRole("button", { name: "Generate" }).click();
+  const tile = strip.locator(".add-tile-gen").filter({
+    hasText: "Paper pendant",
+  });
+  await expect(tile.locator(".add-tile-price")).toHaveText("picture");
+  await expect(tile.locator(".add-tile-pic-btn")).toHaveCSS(
+    "background-image",
+    /^url\("data:image\/svg\+xml/,
+  );
+  await expect(
+    strip.getByText("The picture came, the mesh did not"),
+  ).toBeVisible();
+  // a lamp: it files under lighting in the room's list
+  await expect(
+    page.getByRole("treeitem", { name: "Paper pendant" }),
+  ).toHaveAttribute("aria-selected", "true");
+});

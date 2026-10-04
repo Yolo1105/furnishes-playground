@@ -932,6 +932,81 @@
   background: rgba(255, 255, 255, 0.8);
   border-color: rgb(from var(--color-accent) r g b / 0.4);
 }
+/* generating a room item: the words, the button, the tiles made */
+.add-gen {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+.add-gen-form {
+  display: flex;
+  gap: 8px;
+}
+.add-gen-input {
+  flex: 1;
+  padding-right: 8px;
+}
+.add-gen-hint {
+  margin: 0;
+  font-size: 11.5px;
+  color: rgb(from var(--color-ink) r g b / 0.55);
+}
+.add-gen-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.add-gen-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(from var(--color-ink) r g b / 0.5);
+}
+.add-tile-gen {
+  position: relative;
+  cursor: default;
+}
+.add-tile-pic-btn {
+  appearance: none;
+  width: 100%;
+  padding: 0;
+  cursor: pointer;
+  background-size: cover;
+  background-position: center;
+}
+.add-tile-pic-btn:hover {
+  border-color: rgb(from var(--color-accent) r g b / 0.5);
+}
+.add-tile-star {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(from var(--color-glass) r g b / 0.9);
+  color: rgb(from var(--color-ink) r g b / 0.5);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+}
+.add-tile-x {
+  right: auto;
+  left: 4px;
+}
+.add-tile-star[aria-pressed="true"] {
+  color: var(--color-accent);
+  background: rgb(from var(--color-accent) r g b / 0.14);
+}
+.add-tile-star[aria-pressed="true"] svg {
+  fill: currentColor;
+}
 .add-tile-name {
   margin-top: 4px;
   font-size: 11.5px;

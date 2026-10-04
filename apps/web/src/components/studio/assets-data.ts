@@ -41,6 +41,9 @@ export type AssetNode = {
   price?: number;
   /** a piece built from parts, or a set that stands together */
   children?: AssetNode[];
+  /** a generated room item's picture and mesh, when a provider made them */
+  image?: string;
+  model?: string;
 };
 
 export type AssetGroup = {

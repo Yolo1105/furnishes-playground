@@ -2,6 +2,7 @@ import { create } from "zustand";
 import {
   assetGroups as seed,
   CATEGORY_NAMES,
+  type AssetCategory,
   type AssetGroup,
   type AssetNode,
 } from "./assets-data";
@@ -37,6 +38,14 @@ type SceneState = {
   redo: () => void;
   /** put a catalogue product into the room; returns the new node's id */
   addProduct: (p: Product) => string;
+  /** put a room item into the room: something that sets the scene and is
+      not for sale; returns the new node's id */
+  addItem: (item: {
+    name: string;
+    category: AssetCategory;
+    image?: string;
+    model?: string;
+  }) => string;
   select: (id: string | null, reveal?: boolean) => void;
   toggleCart: (id: string) => void;
   /** the cart after an order: empty (not a step to undo) */
@@ -119,6 +128,36 @@ export const useScene = create<SceneState>((set, get) => {
               {
                 id: p.category,
                 name: CATEGORY_NAMES[p.category],
+                items: [node],
+              },
+              ...s.groups,
+            ];
+        return { groups, ...remember(s) };
+      });
+      return node.id;
+    },
+    addItem: (item) => {
+      const n = get()
+        .groups.flatMap((g) => g.items)
+        .filter((a) => a.name === item.name).length;
+      const node: AssetNode = {
+        id: `item-${Date.now().toString(36)}`,
+        name: n === 0 ? item.name : `${item.name} ${n + 1}`,
+        kind: "decor",
+        category: item.category,
+        ...(item.image ? { image: item.image } : {}),
+        ...(item.model ? { model: item.model } : {}),
+      };
+      set((s) => {
+        const has = s.groups.some((g) => g.id === item.category);
+        const groups = has
+          ? s.groups.map((g) =>
+              g.id === item.category ? { ...g, items: [...g.items, node] } : g,
+            )
+          : [
+              {
+                id: item.category,
+                name: CATEGORY_NAMES[item.category],
                 items: [node],
               },
               ...s.groups,
