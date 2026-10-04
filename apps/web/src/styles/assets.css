@@ -457,6 +457,13 @@
 }
 
 /* ---- the Room tab ---- */
+.room .eva-pref[data-muted="true"] > :not(.eva-pref-head):not(.eva-pref-hint) {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.room-start-lead {
+  margin: 4px 2px 0;
+}
 .room {
   flex: 1;
   min-height: 0;
@@ -735,7 +742,8 @@
 .detail-acts .main-btn {
   flex: 0 0 auto;
   height: 32px;
-  padding: 0 11px;
+  padding: 0 10px;
+  white-space: nowrap;
 }
 .detail-acts .detail-cart {
   flex: 1 1 auto;

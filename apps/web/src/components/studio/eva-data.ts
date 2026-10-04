@@ -85,9 +85,6 @@ export type PreferenceCategory =
   | "color"
   | "furniture";
 
-/** who set it: the visitor, or Eva from the chat (confirmed by the visitor) */
-export type PreferenceOrigin = "you" | "chat";
-
 type Swatch = { id: string; name: string; hex: string };
 
 export const PREFERENCE_BLOCKS: {

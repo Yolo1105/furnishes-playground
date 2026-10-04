@@ -93,12 +93,17 @@ export function DetailTab() {
           type="button"
           className="main-btn"
           aria-pressed={label >= 0}
+          aria-label={
+            label >= 0 ? `Label ${label + 1}, for Eva` : "Label for Eva"
+          }
           disabled={labelsFull}
-          title={labelsFull ? `Up to ${LABEL_MAX} labels at a time` : undefined}
+          title={
+            labelsFull ? `Up to ${LABEL_MAX} labels at a time` : "Label for Eva"
+          }
           onClick={() => toggleLabel(piece.id)}
         >
           <TagIcon size={14} />
-          <span>{label >= 0 ? `Label ${label + 1}` : "Label for Eva"}</span>
+          <span>{label >= 0 ? `Label ${label + 1}` : "Label"}</span>
         </button>
         <button
           type="button"

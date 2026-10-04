@@ -3,15 +3,16 @@ import {
   conversations as seed,
   type Conversation,
   type PreferenceCategory,
-  type PreferenceOrigin,
 } from "./eva-data";
 
 type PreferenceValue = {
   /** chip ids, or the budget as a range: from and to, S$ */
   values: string[];
   budget?: [number, number];
-  origin: PreferenceOrigin;
 };
+
+/** how many options of their own a block takes */
+export const CUSTOM_MAX = 3;
 
 type EvaState = {
   conversations: Conversation[];
@@ -22,6 +23,8 @@ type EvaState = {
   exploration: boolean;
   activeId: string | null;
   preferences: Partial<Record<PreferenceCategory, PreferenceValue>>;
+  /** options typed in by hand, per block, up to CUSTOM_MAX */
+  custom: Partial<Record<PreferenceCategory, string[]>>;
   selectConversation: (id: string) => void;
   deleteConversation: (id: string) => void;
   renameConversation: (id: string, title: string) => void;
@@ -29,6 +32,9 @@ type EvaState = {
   toggleValue: (cat: PreferenceCategory, value: string, multi: boolean) => void;
   setBudget: (from: number, to: number) => void;
   clearPreference: (cat: PreferenceCategory) => void;
+  /** add an option of one's own and pick it; a fourth is refused */
+  addCustom: (cat: PreferenceCategory, value: string, multi: boolean) => void;
+  removeCustom: (cat: PreferenceCategory, value: string) => void;
   setDraft: (draft: string) => void;
   setExploration: (on: boolean) => void;
 };
@@ -41,9 +47,10 @@ export const useEva = create<EvaState>((set) => ({
   exploration: false,
   activeId: seed[0]?.id ?? null,
   preferences: {
-    room: { values: ["Living room"], origin: "chat" },
-    style: { values: ["Japandi", "Minimalist"], origin: "chat" },
+    room: { values: ["Living room"] },
+    style: { values: ["Japandi", "Minimalist"] },
   },
+  custom: {},
   setDraft: (draft) => set({ draft }),
   setExploration: (exploration) => set({ exploration }),
   selectConversation: (id) => set({ activeId: id }),
@@ -71,14 +78,40 @@ export const useEva = create<EvaState>((set) => ({
           : [value];
       const next = { ...s.preferences };
       if (values.length === 0) delete next[cat];
-      else next[cat] = { values, origin: "you" };
+      else next[cat] = { values };
       return { preferences: next };
+    }),
+  addCustom: (cat, value, multi) =>
+    set((s) => {
+      const v = value.trim();
+      const cur = s.custom[cat] ?? [];
+      if (!v || cur.includes(v) || cur.length >= CUSTOM_MAX) return {};
+      const was = s.preferences[cat]?.values ?? [];
+      const values = multi ? [...was, v] : [v];
+      return {
+        custom: { ...s.custom, [cat]: [...cur, v] },
+        preferences: { ...s.preferences, [cat]: { values } },
+      };
+    }),
+  removeCustom: (cat, value) =>
+    set((s) => {
+      const custom = {
+        ...s.custom,
+        [cat]: (s.custom[cat] ?? []).filter((x) => x !== value),
+      };
+      const values = (s.preferences[cat]?.values ?? []).filter(
+        (x) => x !== value,
+      );
+      const preferences = { ...s.preferences };
+      if (values.length === 0) delete preferences[cat];
+      else preferences[cat] = { values };
+      return { custom, preferences };
     }),
   setBudget: (from, to) =>
     set((s) => ({
       preferences: {
         ...s.preferences,
-        budget: { values: [], budget: [from, to], origin: "you" },
+        budget: { values: [], budget: [from, to] },
       },
     })),
   clearPreference: (cat) =>

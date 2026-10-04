@@ -9,7 +9,7 @@ import { ArrowLeftIcon } from "./icons";
 import { usePieceActions } from "./piece-actions";
 import { PieceActions } from "./PieceActions";
 import { COLOURS } from "./piece-detail";
-import { WALL_TONES } from "./room-data";
+import { FLOOR_TONES, WALL_TONES, type Floor } from "./room-data";
 import { useRoom } from "./room-store";
 import { propsOf } from "./scene-store";
 import { placeInRoom } from "./StagePieces";
@@ -22,13 +22,8 @@ import { useStudio, type Angle } from "./studio-store";
  * the boxes as on the plan; the view angle chip moves the camera; drag
  * to orbit. A piece in focus stands alone on a blank ground.
  */
+/* the accent as three.js needs it, a plain hex: the token itself is oklch */
 const ACCENT = "#ed5c00";
-const FLOOR_HEX: Record<string, string> = {
-  Vinyl: "#d8c1a4",
-  Tiles: "#e4ded4",
-  Parquet: "#c59b6b",
-  Concrete: "#b9b4ad",
-};
 const colourHex = (id: string) =>
   COLOURS.find((c) => c.id === id)?.hex ?? COLOURS[0].hex;
 const m = (mm: number) => mm / 1000;
@@ -81,6 +76,7 @@ function Piece({
   at,
   size,
   colour,
+  parts,
   selected,
   label,
   actions,
@@ -93,6 +89,8 @@ function Piece({
   at: Vector3Tuple;
   size: Vector3Tuple;
   colour: string;
+  /** the parts' colours and widths, in metres, when the piece has parts */
+  parts: { colour: string; width: number }[];
   selected: boolean;
   label: number;
   actions: React.ReactNode;
@@ -100,19 +98,30 @@ function Piece({
 }) {
   return (
     <group position={at}>
-      <mesh
-        position={[0, size[1] / 2, 0]}
-        castShadow
-        receiveShadow
-        onClick={(e) => {
-          e.stopPropagation();
-          onPick();
-        }}
-      >
-        <boxGeometry args={size} />
-        <meshStandardMaterial color={colour} roughness={0.85} />
-        {selected && <Edges color={ACCENT} lineWidth={1.5} />}
-      </mesh>
+      {/* a piece built from parts stands as its parts, side by side, each
+          in its own colour; a click on any part picks the piece */}
+      {(parts.length ? parts : [{ colour, width: size[0] }]).map(
+        (part, i, all) => {
+          const x0 =
+            -size[0] / 2 + all.slice(0, i).reduce((sum, q) => sum + q.width, 0);
+          return (
+            <mesh
+              key={i}
+              position={[x0 + part.width / 2, size[1] / 2, 0]}
+              castShadow
+              receiveShadow
+              onClick={(e) => {
+                e.stopPropagation();
+                onPick();
+              }}
+            >
+              <boxGeometry args={[part.width, size[1], size[2]]} />
+              <meshStandardMaterial color={part.colour} roughness={0.85} />
+              {selected && <Edges color={ACCENT} lineWidth={1.5} />}
+            </mesh>
+          );
+        },
+      )}
       {label >= 0 && (
         <Html
           portal={portal}
@@ -161,8 +170,9 @@ export default function Scene3D() {
   const w = m(room.width);
   const d = m(room.depth);
   const h = m(room.height);
-  const wall = WALL_TONES.find((t) => t.id === room.wallTone)?.hex ?? "#f6f1ea";
-  const floor = FLOOR_HEX[room.floor] ?? FLOOR_HEX.Vinyl!;
+  const wall =
+    WALL_TONES.find((t) => t.id === room.wallTone)?.hex ?? WALL_TONES[0].hex;
+  const floor = FLOOR_TONES[room.floor as Floor] ?? FLOOR_TONES.Vinyl;
   return (
     <div className="stage-3d" data-focus={a.focus !== null}>
       <Canvas
@@ -220,6 +230,10 @@ export default function Scene3D() {
               at={pos}
               size={size}
               colour={colourHex(p.colour)}
+              parts={(n.children ?? []).map((c) => ({
+                colour: colourHex(propsOf(c, a.overrides).colour),
+                width: size[0] / (n.children?.length ?? 1),
+              }))}
               selected={a.selectedId === n.id}
               label={label}
               onPick={() => a.onPick(n)}

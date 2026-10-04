@@ -1229,6 +1229,14 @@
 .stage-3d-overlay > * {
   pointer-events: auto;
 }
+.stage-3d-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.stage-3d-overlay > * {
+  pointer-events: auto;
+}
 .stage-3d .stage-back {
   top: 56px;
 }

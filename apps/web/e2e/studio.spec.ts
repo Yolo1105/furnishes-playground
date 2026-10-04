@@ -437,14 +437,33 @@ test("Eva's Preference blocks take a room, a budget, styles and colours", async 
   const blocks = page.locator(".eva-pref");
   await expect(blocks).toHaveCount(5);
   // two came from the chat, say so, and read as set
-  await expect(
-    page.locator(".eva-pref-origin[data-origin='chat']"),
-  ).toHaveCount(2);
+  // nothing says who set a block: everything here is what Eva keeps to
+  await expect(page.locator(".eva-pref-origin")).toHaveCount(0);
   await expect(blocks.nth(0)).toHaveAttribute("data-set", "true");
   // pick a room (single), a colour (multi), slide the budget
   await page.getByRole("radio", { name: "Bedroom" }).click();
   await expect(blocks.nth(0).locator(".eva-pref-hint")).toHaveText("Bedroom");
-  await expect(blocks.nth(0).locator(".eva-pref-origin")).toHaveText("You");
+  // options of one's own, typed: three at most per block
+  const style = blocks.nth(2);
+  for (const own of ["Loft", "Wabi-sabi", "Art deco"]) {
+    await style.getByRole("button", { name: "+ Your own" }).click();
+    await style
+      .getByRole("textbox", { name: /Your own design style/ })
+      .fill(own);
+    await page.keyboard.press("Enter");
+    await expect(style.getByRole("checkbox", { name: own })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+  }
+  await expect(style.getByRole("button", { name: "+ Your own" })).toHaveCount(
+    0,
+  );
+  await style.getByRole("button", { name: "Remove Loft" }).click();
+  await expect(style.getByRole("button", { name: "+ Your own" })).toHaveCount(
+    1,
+  );
+  await expect(style.getByRole("checkbox", { name: "Loft" })).toHaveCount(0);
   await page.getByRole("checkbox", { name: "Walnut" }).click();
   await page.getByRole("checkbox", { name: "Sage" }).click();
   await expect(blocks.nth(3).locator(".eva-pref-hint")).toHaveText(
@@ -598,6 +617,9 @@ test("the Room tab starts from the HDB preset and takes a size of your own", asy
   await page.goto("/rounded");
   await page.getByRole("tab", { name: "Room", exact: true }).click();
   await expect(page.getByRole("searchbox")).toHaveCount(0);
+  // before the choice, only the choice
+  await expect(page.getByRole("radio", { name: "4-room" })).toHaveCount(0);
+  await page.getByRole("radio", { name: "Template" }).click();
   await expect(page.getByRole("radio", { name: "4-room" })).toHaveAttribute(
     "aria-checked",
     "true",
@@ -784,7 +806,17 @@ test("the Room tab starts from drawn walls or a template", async ({ page }) => {
   await expect(howTo.getByText("Don't show next time")).toBeVisible();
   await howTo.getByRole("button", { name: "Close guide" }).click();
   await expect(page.getByRole("button", { name: "Show me how" })).toBeVisible();
+  // drawing: the size comes from the walls, so no size block; the door and
+  // window wait for walls; the flat and room stay, to name the room
+  const titles = page.locator(".room .eva-pref-title");
+  await expect(titles.filter({ hasText: /^Walls$/ })).toBeVisible();
+  await expect(page.getByText("No walls yet")).toBeVisible();
+  await expect(titles.filter({ hasText: /^Size$/ })).toHaveCount(0);
+  await expect(page.locator(".eva-pref[data-muted='true']")).toHaveCount(1);
+  await expect(page.getByRole("radio", { name: "4-room" })).toBeVisible();
   await start.getByRole("radio", { name: "Template" }).click();
+  await expect(titles.filter({ hasText: /^Size$/ })).toBeVisible();
+  await expect(page.locator(".eva-pref[data-muted='true']")).toHaveCount(0);
   const shapes = page.getByRole("radiogroup", { name: "Room shape" });
   await expect(shapes.getByRole("radio")).toHaveCount(ROOM_TEMPLATES.length);
   await expect(shapes.locator("polygon").first()).toBeVisible();

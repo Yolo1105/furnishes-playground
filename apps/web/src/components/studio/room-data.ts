@@ -62,6 +62,14 @@ export type Wall = "north" | "east" | "south" | "west";
 export const WALLS: Wall[] = ["north", "east", "south", "west"];
 
 export const FLOORS = ["Vinyl", "Tiles", "Parquet", "Concrete"] as const;
+export type Floor = (typeof FLOORS)[number];
+/** how each floor reads in the scene */
+export const FLOOR_TONES: Record<Floor, string> = {
+  Vinyl: "#d8c1a4",
+  Tiles: "#e4ded4",
+  Parquet: "#c59b6b",
+  Concrete: "#b9b4ad",
+};
 export const WALL_TONES = [
   { id: "white", name: "White", hex: "#f6f1ea" },
   { id: "warm", name: "Warm white", hex: "#f3e9dc" },

@@ -10,15 +10,17 @@ import {
   SWATCHES,
   type PreferenceCategory,
 } from "./eva-data";
-import { useEva } from "./eva-store";
+import { useState } from "react";
+import { CUSTOM_MAX, useEva } from "./eva-store";
 import { CompassIcon } from "./icons";
 
 /**
  * The five preference blocks of the playground's design, as controls:
  * pick the room, slide the budget, choose styles, colours and what the
- * room needs. A block Eva filled from the chat says so ("Chat"); one you
- * set says "You". Eva reads these on every turn, unless Exploration is
- * on: then she sets them aside and stays open to anything.
+ * room needs. Everything here is what Eva keeps to, however it got here.
+ * Room type and Design style also take options of one's own, typed in,
+ * three at most per block. Eva reads these on every turn, unless
+ * Exploration is on: then she sets them aside and stays open to anything.
  */
 export function PreferenceTab() {
   const prefs = useEva((s) => s.preferences);
@@ -27,13 +29,27 @@ export function PreferenceTab() {
   const clear = useEva((s) => s.clearPreference);
   const exploration = useEva((s) => s.exploration);
   const setExploration = useEva((s) => s.setExploration);
+  const custom = useEva((s) => s.custom);
+  const addCustom = useEva((s) => s.addCustom);
+  const removeCustom = useEva((s) => s.removeCustom);
+  const [typing, setTyping] = useState<{
+    cat: PreferenceCategory;
+    draft: string;
+  } | null>(null);
 
   const chips = (
     cat: PreferenceCategory,
     options: readonly string[],
     multi: boolean,
+    own = false,
   ) => {
     const on = prefs[cat]?.values ?? [];
+    const mine = custom[cat] ?? [];
+    const isTyping = typing?.cat === cat;
+    const commit = () => {
+      if (typing) addCustom(cat, typing.draft, multi);
+      setTyping(null);
+    };
     return (
       <div className="eva-chips" role={multi ? "group" : "radiogroup"}>
         {options.map((o) => (
@@ -48,6 +64,52 @@ export function PreferenceTab() {
             {o}
           </button>
         ))}
+        {mine.map((o) => (
+          <span key={o} className="eva-own">
+            <button
+              type="button"
+              role={multi ? "checkbox" : "radio"}
+              aria-checked={on.includes(o)}
+              className="assets-chip eva-own-chip"
+              onClick={() => toggle(cat, o, multi)}
+            >
+              {o}
+            </button>
+            <button
+              type="button"
+              className="eva-own-x"
+              aria-label={`Remove ${o}`}
+              onClick={() => removeCustom(cat, o)}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+        {own && mine.length < CUSTOM_MAX && !isTyping && (
+          <button
+            type="button"
+            className="assets-chip eva-own-add"
+            onClick={() => setTyping({ cat, draft: "" })}
+          >
+            + Your own
+          </button>
+        )}
+        {own && isTyping && (
+          <input
+            className="assets-chip eva-own-input"
+            autoFocus
+            value={typing.draft}
+            placeholder="Type and press Enter"
+            aria-label={`Your own ${cat === "room" ? "room type" : "design style"}`}
+            maxLength={24}
+            onChange={(e) => setTyping({ cat, draft: e.target.value })}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commit();
+              if (e.key === "Escape") setTyping(null);
+            }}
+            onBlur={commit}
+          />
+        )}
       </div>
     );
   };
@@ -93,19 +155,6 @@ export function PreferenceTab() {
                 {b.label}
               </span>
               {set && (
-                <span
-                  className="eva-pref-origin"
-                  data-origin={p.origin}
-                  title={
-                    p.origin === "chat"
-                      ? "Eva heard this in the chat and you confirmed it"
-                      : "You set this"
-                  }
-                >
-                  {p.origin === "chat" ? "Chat" : "You"}
-                </span>
-              )}
-              {set && (
                 <button
                   type="button"
                   className="eva-pref-clear"
@@ -123,7 +172,7 @@ export function PreferenceTab() {
                   : b.hint}
             </p>
 
-            {b.id === "room" && chips("room", ROOMS, false)}
+            {b.id === "room" && chips("room", ROOMS, false, true)}
             {b.id === "budget" && (
               <div className="eva-budget">
                 {(
@@ -158,7 +207,7 @@ export function PreferenceTab() {
                 ))}
               </div>
             )}
-            {b.id === "style" && chips("style", STYLES, true)}
+            {b.id === "style" && chips("style", STYLES, true, true)}
             {b.id === "color" && (
               <div className="eva-swatches" role="group">
                 {SWATCHES.map((s) => {

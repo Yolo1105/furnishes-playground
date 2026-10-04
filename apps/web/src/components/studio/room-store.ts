@@ -14,6 +14,8 @@ export type RoomStart = "draw" | "template";
 type RoomConfig = {
   start: RoomStart | null;
   template: TemplateId;
+  /** the walls traced on the plan, as segments; none until drawing lands */
+  walls: number;
   flat: FlatType;
   room: RoomId;
   width: number;
@@ -52,6 +54,7 @@ const sized = (flat: FlatType, room: RoomId) => {
 export const useRoom = create<RoomState>((set, get) => ({
   start: null,
   template: ROOM_TEMPLATES[0]!.id,
+  walls: 0,
   flat: "4-room",
   room: "living",
   ...sized("4-room", "living"),

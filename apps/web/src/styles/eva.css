@@ -160,22 +160,6 @@
   font-weight: 600;
   color: rgb(from var(--color-ink) r g b / 0.85);
 }
-/* who set it: "You", or Eva from the "Chat" */
-.eva-pref-origin {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  padding: 2px 6px;
-  border-radius: var(--r-control);
-  border: 1px solid rgb(from var(--color-line) r g b / 0.2);
-  color: rgb(from var(--color-ink) r g b / 0.55);
-}
-.eva-pref-origin[data-origin="chat"] {
-  color: var(--color-accent);
-  border-color: rgb(from var(--color-accent) r g b / 0.14);
-  background: rgb(from var(--color-accent) r g b / 0.08);
-}
 .eva-pref-clear {
   appearance: none;
   border: 0;
@@ -456,4 +440,48 @@
   color: var(--color-cream);
   font-size: 10px;
   font-weight: 700;
+}
+
+/* an option of one's own: a chip with its own small remove */
+.eva-own {
+  position: relative;
+  display: inline-flex;
+}
+.eva-own-chip {
+  padding-right: 22px;
+}
+.eva-own-x {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  translate: 0 -50%;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  color: rgb(from var(--color-ink) r g b / 0.45);
+  cursor: pointer;
+}
+.eva-own-x:hover {
+  background: rgb(from var(--color-ink) r g b / 0.08);
+  color: rgb(from var(--color-ink) r g b / 0.85);
+}
+.eva-own-add {
+  border-style: dashed;
+  color: rgb(from var(--color-ink) r g b / 0.55);
+}
+.eva-own-input {
+  width: 150px;
+  cursor: text;
+}
+.eva-own-input:focus-visible {
+  outline: none;
+  border-color: rgb(from var(--color-accent) r g b / 0.55);
 }
