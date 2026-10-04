@@ -91,7 +91,12 @@ moment later; the view and the wheel stay the device's own. The
 account page (`/account`) shows who is signed in with the name
 editable, when the mirror was last taken, the projects with a way into
 each, the orders, and the end of the account, which takes the mirror
-with it and leaves the browser's copy. The database is Neon Postgres when `DATABASE_URL` is set and
+with it and leaves the browser's copy. Export has Share a link: a copy
+of the open project's room and pieces, without Eva's side, kept under a
+short id for anyone with the link (`/s/<id>`), who sees the room in 3D
+read-only with the pieces and their total and can take it into a studio
+of their own as a new project; the account page lists what is shared
+and takes a link down. The database is Neon Postgres when `DATABASE_URL` is set and
 PGlite otherwise, a Postgres inside the server process that keeps its
 files under `apps/web/.data/pglite`, so a checkout runs and tests with
 no account anywhere; the migrations under `apps/web/drizzle` run when

@@ -14,7 +14,9 @@ import { useScene } from "./scene-store";
  * mirrors them (account-sync), so a deleted one is remembered as gone
  * with the time, and a merged list can be adopted whole. The studio
  * opens the project a link names (?project=id, from the account page)
- * once what was kept is back.
+ * once what was kept is back. A room is shared as a snapshot without
+ * Eva's side, shown read-only on the share page, and taken in from
+ * there as a project of one's own.
  */
 const KEY = "furnishes.projects";
 const SAVE_AFTER = 600; // ms after the last change
@@ -23,7 +25,7 @@ type RoomData = ReturnType<typeof useRoom.getState>;
 type SceneData = ReturnType<typeof useScene.getState>;
 type EvaData = ReturnType<typeof useEva.getState>;
 
-type Snapshot = {
+export type Snapshot = {
   room: Omit<RoomData, keyof FunctionsOf<RoomData>>;
   scene: Pick<SceneData, "groups" | "cart" | "labels" | "overrides">;
   eva: Pick<
@@ -137,6 +139,56 @@ const load = (data: Snapshot) => {
   useEva.setState({ ...data.eva, draft: "" });
 };
 
+/** the open project's room and pieces, with Eva's side left out */
+export const shareable = (): Snapshot => ({
+  ...snapshot(),
+  eva: fresh().eva,
+});
+/** put a shared room into the stores to look at */
+export const showSnapshot = (data: Snapshot) => load(data);
+
+/** what the browser kept of the projects, read and written whole */
+const readKept = () => {
+  try {
+    const raw = localStorage.getItem(KEY);
+    return raw
+      ? (JSON.parse(raw) as Partial<
+          Pick<ProjectState, "projects" | "activeId" | "gone">
+        >)
+      : {};
+  } catch {
+    return {};
+  }
+};
+const writeKept = (
+  kept: Pick<ProjectState, "projects" | "activeId" | "gone">,
+) => {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(kept));
+  } catch {
+    /* the projects last the session */
+  }
+};
+
+/** a shared room taken in as a new project, kept and made the open
+    one; the studio opens it on arrival */
+export const importProject = (name: string, data: Snapshot) => {
+  const kept = readKept();
+  const projects = kept.projects?.length ? kept.projects : [FIRST];
+  const p: Project = {
+    id: newId("p"),
+    name: `${name} (shared)`,
+    at: Date.now(),
+    data,
+  };
+  writeKept({
+    projects: [...projects, p],
+    activeId: p.id,
+    gone: kept.gone ?? {},
+  });
+  return p.id;
+};
+
 const FIRST: Project = {
   id: "p-first",
   name: "First project",
@@ -218,44 +270,28 @@ export const useProjects = create<ProjectState>((set, get) => ({
  */
 export function useProjectSync(wanted: string | null = null) {
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(KEY);
-      if (raw) {
-        const kept = JSON.parse(raw) as Partial<
-          Pick<ProjectState, "projects" | "activeId" | "gone">
-        >;
-        if (kept.projects?.length) {
-          useProjects.setState({
-            projects: kept.projects,
-            gone: kept.gone ?? {},
-            activeId: kept.projects.some((p) => p.id === kept.activeId)
-              ? kept.activeId!
-              : kept.projects[0]!.id,
-          });
-          const open = useProjects
-            .getState()
-            .projects.find((p) => p.id === useProjects.getState().activeId);
-          if (open?.data) load(open.data);
-        }
-      }
-      if (wanted) useProjects.getState().open(wanted);
-    } catch {
-      /* nothing kept, or storage blocked: the first project stands */
+    const kept = readKept();
+    if (kept.projects?.length) {
+      useProjects.setState({
+        projects: kept.projects,
+        gone: kept.gone ?? {},
+        activeId: kept.projects.some((p) => p.id === kept.activeId)
+          ? kept.activeId!
+          : kept.projects[0]!.id,
+      });
+      const open = useProjects
+        .getState()
+        .projects.find((p) => p.id === useProjects.getState().activeId);
+      if (open?.data) load(open.data);
     }
+    if (wanted) useProjects.getState().open(wanted);
     let timer: ReturnType<typeof setTimeout> | undefined;
     const soon = () => {
       clearTimeout(timer);
       timer = setTimeout(() => {
         useProjects.getState().save();
-        try {
-          const { projects, activeId, gone } = useProjects.getState();
-          localStorage.setItem(
-            KEY,
-            JSON.stringify({ projects, activeId, gone }),
-          );
-        } catch {
-          /* the project lasts the session */
-        }
+        const { projects, activeId, gone } = useProjects.getState();
+        writeKept({ projects, activeId, gone });
       }, SAVE_AFTER);
     };
     const unsubs = [

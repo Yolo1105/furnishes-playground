@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AccountDialog } from "./AccountDialog";
 import { syncNow, useAccountSync, useSyncState } from "./account-sync";
 import { useGenerationsSync } from "./generation-store";
@@ -19,6 +19,7 @@ import { authClient, useSession } from "@/lib/auth-client";
  * a session it offers to sign in. `from` says which studio to go back
  * to, the square or the rounded one.
  */
+type Share = { id: string; name: string; at: number };
 const when = (at: number) =>
   new Date(at).toLocaleString("en-SG", {
     day: "numeric",
@@ -40,6 +41,26 @@ export function AccountPage() {
   const [name, setName] = useState<string | null>(null);
   const [ending, setEnding] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  // the rooms shared by link, from the account
+  const [shares, setShares] = useState<Share[]>([]);
+  const userId = session?.user.id ?? null;
+  useEffect(() => {
+    if (!userId) return;
+    let live = true;
+    void fetch("/api/share")
+      .then((r) => (r.ok ? r.json() : { shares: [] }))
+      .then((j: { shares: Share[] }) => live && setShares(j.shares))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [userId]);
+  // signed out, the list is nothing, whatever was fetched before
+  const shown = userId ? shares : [];
+  const unshare = async (id: string) => {
+    await fetch(`/api/share/${encodeURIComponent(id)}`, { method: "DELETE" });
+    setShares((s) => s.filter((x) => x.id !== id));
+  };
 
   const saveName = async () => {
     const t = name?.trim();
@@ -173,6 +194,40 @@ export function AccountPage() {
           <section className="glass account-card">
             <h2 className="eva-pref-title">Orders</h2>
             <OrderList />
+          </section>
+          <section className="glass account-card">
+            <h2 className="eva-pref-title">Shared rooms</h2>
+            {shown.length === 0 ? (
+              <p className="assets-empty">
+                Nothing shared yet. Export, then Share a link, in the studio.
+              </p>
+            ) : (
+              <ul className="shell-dialog-list">
+                {shown.map((s) => (
+                  <li key={s.id}>
+                    <span>
+                      <span className="account-project">{s.name}</span>
+                      <small className="account-when">
+                        shared {when(s.at)}
+                      </small>
+                    </span>
+                    <span className="shell-dialog-acts account-row-acts">
+                      <Link className="main-btn" href={`/s/${s.id}`}>
+                        Open
+                      </Link>
+                      <button
+                        type="button"
+                        className="main-btn"
+                        aria-label={`Stop sharing ${s.name}`}
+                        onClick={() => void unshare(s.id)}
+                      >
+                        Stop sharing
+                      </button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
           <section className="glass account-card">
             <h2 className="eva-pref-title">The end of the account</h2>

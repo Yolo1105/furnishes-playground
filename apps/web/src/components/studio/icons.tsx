@@ -125,6 +125,16 @@ export function KeyboardIcon({ size = 16 }: IconProps) {
   );
 }
 
+/** a link shared: two joined rings */
+export function ShareIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <path d="M10 13a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7L11.5 5.8" />
+      <path d="M14 11a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1.5-1.5" />
+    </svg>
+  );
+}
+
 /** a person: the account */
 export function UserIcon({ size = 16 }: IconProps) {
   return (

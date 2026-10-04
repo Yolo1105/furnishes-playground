@@ -95,6 +95,9 @@ type StudioState = {
   tourOf: number;
   /** a product being dragged towards the room, from a tile or a card */
   carrying: Product | null;
+  /** a shared room is looked at, not changed: a click picks, nothing
+      moves, no actions */
+  readOnly: boolean;
   setMode: (mode: Mode) => void;
   setTool: (tool: Tool) => void;
   setView: (view: View) => void;
@@ -157,6 +160,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   tourStop: 0,
   tourOf: 0,
   carrying: null,
+  readOnly: false,
   setMode: (mode) =>
     set((s) =>
       mode === "preview"

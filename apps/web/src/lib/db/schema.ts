@@ -16,8 +16,9 @@ import {
  * keys below while the database reads as Postgres usually does. The
  * first four tables are the shape Better Auth asks for; `sync` is the
  * account's mirror of the browser, one JSON document per kind (see
- * api/sync). `drizzle-kit generate` turns a change here into a
- * migration under drizzle/.
+ * api/sync); `share` holds the rooms shared by link (see api/share).
+ * `drizzle-kit generate` turns a change here into a migration under
+ * drizzle/.
  */
 export const user = pgTable("user", {
   id: text().primaryKey(),
@@ -106,4 +107,20 @@ export const sync = pgTable(
     at: bigint({ mode: "number" }).notNull(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.kind] })],
+);
+
+export const share = pgTable(
+  "share",
+  {
+    /** short and random, the tail of the link */
+    id: text().primaryKey(),
+    userId: text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    name: text().notNull(),
+    /** the room and its pieces, as a project's snapshot without Eva */
+    data: jsonb().notNull(),
+    at: bigint({ mode: "number" }).notNull(),
+  },
+  (t) => [index("share_user_id_idx").on(t.userId)],
 );

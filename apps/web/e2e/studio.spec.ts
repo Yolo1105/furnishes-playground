@@ -2963,3 +2963,69 @@ test("signed in, the projects follow the account to another browser; the account
   await ctxA.close();
   await ctxB.close();
 });
+
+test("a room shared by link: read-only for anyone, taken into a studio as a project, listed and taken down on the account page", async ({
+  browser,
+}) => {
+  const seed = (ctx: BrowserContext) =>
+    ctx.addInitScript(({ key, value }) => localStorage.setItem(key, value), {
+      key: GUIDE_STORAGE_KEY,
+      value: JSON.stringify({ intro: true }),
+    });
+  const ctxA = await browser.newContext({
+    viewport: { width: 1440, height: 900 },
+  });
+  await seed(ctxA);
+  const a = await ctxA.newPage();
+  await a.goto("/rounded");
+  // signed out, Share asks for an account
+  const exportBtn = a.getByRole("button", { name: "Export", exact: true });
+  await exportBtn.click();
+  await a.getByRole("menuitem", { name: /^Share a link/ }).click();
+  const account = a.getByRole("dialog", { name: "Account" });
+  await expect(account).toBeVisible();
+  await account.getByRole("tab", { name: "Create account" }).click();
+  const email = `share-${Date.now()}@example.com`;
+  await account.getByLabel("Name").fill("Mei Tan");
+  await account.getByLabel("Email").fill(email);
+  await account.getByLabel("Password").fill(PASSWORD);
+  await account.getByRole("button", { name: "Create account" }).click();
+  await expect(account).toHaveCount(0, { timeout: 20_000 });
+  // signed in, a link comes
+  await exportBtn.click();
+  await a.getByRole("menuitem", { name: /^Share a link/ }).click();
+  const share = a.getByRole("dialog", { name: "Share the room" });
+  const url = await share.getByRole("textbox", { name: "Link" }).inputValue();
+  expect(url).toMatch(/\/s\/[A-Za-z0-9_-]{8}$/);
+  await share.getByRole("button", { name: "Close" }).click();
+  // anyone: the room, read-only, with its pieces and their total
+  const ctxB = await browser.newContext({
+    viewport: { width: 1440, height: 900 },
+  });
+  await seed(ctxB);
+  const b = await ctxB.newPage();
+  await b.goto(url);
+  await expect(
+    b.getByRole("heading", { name: "First project", exact: true }),
+  ).toBeVisible();
+  await expect(b.locator(".stage-3d canvas")).toHaveCount(1);
+  const inRoom = b.getByRole("list").last();
+  await expect(inRoom).toContainText("Bookwall");
+  await expect(inRoom).toContainText("5 pieces");
+  await expect(inRoom).toContainText("S$1,540");
+  // into a studio of their own, as a new project
+  await b.getByRole("button", { name: "Open in my studio" }).click();
+  await expect(b.locator(".shell-project-name")).toHaveText(
+    "First project (shared)",
+  );
+  await b.getByRole("button", { name: /^Project, / }).click();
+  await expect(b.getByRole("menuitemradio")).toHaveCount(2);
+  // the account page lists it; taking it down ends the link
+  await a.goto("/account?from=rounded");
+  await expect(a.getByText("shared", { exact: false }).first()).toBeVisible();
+  await a.getByRole("button", { name: "Stop sharing First project" }).click();
+  await b.goto(url);
+  await expect(b.getByText("This room is no longer shared")).toBeVisible();
+  await ctxA.close();
+  await ctxB.close();
+});

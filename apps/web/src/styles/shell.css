@@ -1254,6 +1254,26 @@ body > .shell-menu {
   font-size: 11px;
   color: rgb(from var(--color-ink) r g b / 0.5);
 }
+/* the share page: the room large, then what is in it */
+.share-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+  display: grid;
+  gap: 12px;
+}
+.share-acts {
+  margin-top: 0;
+}
+.share-stage {
+  position: relative;
+  height: min(62vh, 640px);
+  border-radius: var(--r-card);
+  overflow: clip;
+}
+.account-row-acts {
+  margin-top: 0;
+}
 /* the account form: fields down the card, what went wrong under them */
 .account-form {
   display: grid;

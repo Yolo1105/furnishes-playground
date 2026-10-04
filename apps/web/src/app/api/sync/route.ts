@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { authReady, getAuth } from "@/lib/auth";
+import { userIdOf } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { sync } from "@/lib/db/schema";
 
@@ -26,14 +26,8 @@ const Body = z.object({
   guides: z.unknown().optional(),
 });
 
-const who = async (req: Request) => {
-  await authReady();
-  const s = await getAuth().api.getSession({ headers: req.headers });
-  return s?.user.id ?? null;
-};
-
 export async function GET(req: Request) {
-  const userId = await who(req);
+  const userId = await userIdOf(req);
   if (!userId) return NextResponse.json({ error: "sign in" }, { status: 401 });
   const rows = await getDb()
     .db.select()
@@ -46,7 +40,7 @@ export async function GET(req: Request) {
 }
 
 export async function PUT(req: Request) {
-  const userId = await who(req);
+  const userId = await userIdOf(req);
   if (!userId) return NextResponse.json({ error: "sign in" }, { status: 401 });
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success)

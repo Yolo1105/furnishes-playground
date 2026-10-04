@@ -7,8 +7,12 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { AccountDialog } from "./AccountDialog";
 import { AddStrip } from "./AddStrip";
 import { CheckoutDialog } from "./CheckoutDialog";
+import { ShareDialog } from "./ShareDialog";
+import { shareable, useProjects } from "./project-store";
+import { useSession } from "@/lib/auth-client";
 import { Floating } from "./Floating";
 import { ProgressLine } from "./ProgressLine";
 import { pieceTotals, sgd, type AssetNode } from "./assets-data";
@@ -37,6 +41,7 @@ import {
   UndoIcon,
   ZoomInIcon,
   ZoomOutIcon,
+  ShareIcon,
 } from "./icons";
 import { orderedIds, useOrders } from "./order-store";
 import { useRoom } from "./room-store";
@@ -74,6 +79,26 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
   const { setMode, setTool, setUiHidden } = useStudio.getState();
   const startTour = useGuide((s) => s.startTour);
   const [adding, setAdding] = useState(false);
+  // sharing: a link to a copy of the room, for anyone; needs an account
+  const { data: session } = useSession();
+  const [sharing, setSharing] = useState<"sign-in" | "busy" | string | null>(
+    null,
+  );
+  const shareRoom = async () => {
+    if (!session) return setSharing("sign-in");
+    setSharing("busy");
+    const name = useProjects
+      .getState()
+      .projects.find((p) => p.id === useProjects.getState().activeId)?.name;
+    const r = await fetch("/api/share", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: name ?? "A room", data: shareable() }),
+    });
+    if (!r.ok) return setSharing(null);
+    const { id } = (await r.json()) as { id: string };
+    setSharing(`${location.origin}/s/${id}`);
+  };
   const addWrap = useRef<HTMLDivElement>(null);
   useDismiss(addWrap, adding, () => setAdding(false));
   const exploration = useEva((s) => s.exploration);
@@ -487,8 +512,30 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
                       </span>
                     </span>
                   </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="shell-menu-row main-menu-row"
+                    onClick={() => pick(shareRoom)}
+                  >
+                    <ShareIcon size={14} />
+                    <span className="main-menu-row-text">
+                      Share a link
+                      <span className="main-menu-row-sub">
+                        {session
+                          ? "A read-only room for anyone with the link"
+                          : "Sign in first; the link is kept with your account"}
+                      </span>
+                    </span>
+                  </button>
                 </div>
               </Floating>
+            )}
+            {sharing === "sign-in" && (
+              <AccountDialog onClose={() => setSharing(null)} />
+            )}
+            {sharing && sharing !== "sign-in" && sharing !== "busy" && (
+              <ShareDialog url={sharing} onClose={() => setSharing(null)} />
             )}
           </div>
         </div>

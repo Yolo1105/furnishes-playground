@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { callerOf, perHour } from "@/lib/rate-limit";
 import type { Context } from "@/components/studio/eva-brain";
 import { pickDocs } from "@/components/studio/design-docs";
 import {
@@ -24,7 +25,6 @@ export const runtime = "nodejs";
 
 const MODEL = process.env.EVA_MODEL ?? "claude-opus-5-5";
 const TURNS_PER_HOUR = 40;
-const HOUR = 60 * 60 * 1000;
 
 const Body = z.object({
   message: z.string().trim().min(1).max(2000),
@@ -90,15 +90,7 @@ const Body = z.object({
   }),
 });
 
-const seen = new Map<string, number[]>();
-const allowed = (key: string) => {
-  const now = Date.now();
-  const hits = (seen.get(key) ?? []).filter((t) => now - t < HOUR);
-  if (hits.length >= TURNS_PER_HOUR) return false;
-  hits.push(now);
-  seen.set(key, hits);
-  return true;
-};
+const allowed = perHour(TURNS_PER_HOUR);
 
 const fallback = (reason: string, status: number) =>
   NextResponse.json({ fallback: true, reason }, { status });
@@ -107,7 +99,7 @@ export async function POST(req: Request) {
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return fallback("bad-request", 400);
   if (!process.env.ANTHROPIC_API_KEY) return fallback("no-key", 503);
-  const key = req.headers.get("x-forwarded-for") ?? "local";
+  const key = callerOf(req);
   if (!allowed(key)) return fallback("rate-limit", 429);
   const { message, thread, context, mode } = parsed.data;
   const ctx = context as Context;

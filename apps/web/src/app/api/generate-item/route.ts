@@ -1,6 +1,7 @@
 import { fal } from "@fal-ai/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { callerOf, perHour } from "@/lib/rate-limit";
 
 /**
  * A room item from a few words, the way the archive made them: Flux
@@ -15,19 +16,10 @@ export const maxDuration = 180;
 const IMAGE_MODEL = "fal-ai/flux/schnell";
 const MESH_MODEL = "fal-ai/hunyuan-3d/v3.1/rapid/image-to-3d";
 const ITEMS_PER_HOUR = 12;
-const HOUR = 60 * 60 * 1000;
 
 const Body = z.object({ prompt: z.string().trim().min(2).max(200) });
 
-const seen = new Map<string, number[]>();
-const allowed = (key: string) => {
-  const now = Date.now();
-  const hits = (seen.get(key) ?? []).filter((t) => now - t < HOUR);
-  if (hits.length >= ITEMS_PER_HOUR) return false;
-  hits.push(now);
-  seen.set(key, hits);
-  return true;
-};
+const allowed = perHour(ITEMS_PER_HOUR);
 
 const fallback = (reason: string, status: number) =>
   NextResponse.json({ fallback: true, reason }, { status });
@@ -47,7 +39,7 @@ export async function POST(req: Request) {
   if (!parsed.success) return fallback("bad-request", 400);
   const key = process.env.FAL_KEY;
   if (!key) return fallback("no-key", 503);
-  const who = req.headers.get("x-forwarded-for") ?? "local";
+  const who = callerOf(req);
   if (!allowed(who)) return fallback("rate-limit", 429);
   fal.config({ credentials: key });
   try {

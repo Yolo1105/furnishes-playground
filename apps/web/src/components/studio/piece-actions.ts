@@ -27,7 +27,9 @@ export function usePieceActions() {
   const selectedId = useScene((s) => s.selectedId);
   const { select, toggleLabel, setProps, placeAll, addProduct, addItem } =
     useScene.getState();
-  const tool = useStudio((s) => s.tool);
+  const readOnly = useStudio((s) => s.readOnly);
+  // a shared room reads as Inspect, with nothing offered on a click
+  const tool = useStudio((s) => (readOnly ? "inspect" : s.tool));
   const focusId = useStudio((s) => s.focusId);
   const { setFocus, setPanelTab } = useStudio.getState();
   const [actionsFor, setActionsFor] = useState<string | null>(null);
@@ -114,7 +116,8 @@ export function usePieceActions() {
   );
 
   const onPick = (n: AssetNode) => {
-    if (tool === "inspect") {
+    if (readOnly) select(n.id, false);
+    else if (tool === "inspect") {
       select(n.id, false);
       setActionsFor((cur) => (cur === n.id ? null : n.id));
     } else {
@@ -125,7 +128,7 @@ export function usePieceActions() {
   /** a long press under a finger: the piece's actions, whatever the tool */
   const hold = (n: AssetNode) => {
     select(n.id, false);
-    setActionsFor(n.id);
+    if (!readOnly) setActionsFor(n.id);
   };
   const details = (n: AssetNode) => {
     setFocus(n.id);
