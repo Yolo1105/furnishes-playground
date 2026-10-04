@@ -422,6 +422,18 @@ export function ThumbIcon({
   );
 }
 
+export function WalkIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <circle cx="13" cy="4" r="1.6" />
+      <path d="M10 9.5l2.5-1.5 3 2.5 2.5 1" />
+      <path d="M12.5 8l-1 5 3 3v5" />
+      <path d="M11.5 13l-2.5 3-1.5 5" />
+      <path d="M9 10l-3 1.5" />
+    </svg>
+  );
+}
+
 export function MoreIcon({ size = 16 }: IconProps) {
   return (
     <svg {...svg(size)}>

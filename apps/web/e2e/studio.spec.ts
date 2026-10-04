@@ -1690,3 +1690,83 @@ test("without a model the route says so and Eva answers from the rules, once not
   await expect(page.locator(".agent-bubble[data-who='eva']")).toHaveCount(1);
   await expect(page.locator(".agent-offline")).toBeVisible();
 });
+
+test("in 3D a piece is dragged over the floor, the camera glides between angles, and Walk puts you in the room", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  const stage = page.locator(".stage-3d");
+  await expect(stage.locator("canvas")).toHaveCount(1);
+  await arrived(page);
+  // the camera reports where it stands; Top takes it high, in a glide
+  await expect
+    .poll(async () => (await stage.getAttribute("data-cam")) ?? "")
+    .toMatch(/\d/);
+  const y = () =>
+    Number((stage.getAttribute("data-cam") as unknown as string) ?? "0");
+  void y;
+  await page
+    .getByRole("radiogroup", { name: "View angle" })
+    .getByRole("radio", { name: "Top" })
+    .click();
+  await expect
+    .poll(async () =>
+      Number((await stage.getAttribute("data-cam"))!.split(",")[1]),
+    )
+    .toBeGreaterThan(8);
+  await page
+    .getByRole("radiogroup", { name: "View angle" })
+    .getByRole("radio", { name: "Perspective" })
+    .click();
+  await page.waitForTimeout(800);
+  // a drag on a piece moves it over the floor, snapped to 50 mm and kept
+  // inside the room; which piece stands under the press depends on the
+  // perspective, so the moved one is read back from the kept project
+  const first = top.filter((a) => a.kind === "piece")[0]!;
+  const tag = stage.locator(".stage-3d-name", { hasText: first.name }).first();
+  const t = (await tag.boundingBox())!;
+  await page.mouse.move(t.x + t.width / 2, t.y - 22);
+  await page.mouse.down();
+  await page.mouse.move(t.x + t.width / 2 + 60, t.y - 22, { steps: 8 });
+  await page.mouse.move(t.x + t.width / 2 + 120, t.y - 22, { steps: 8 });
+  await expect(stage).toHaveAttribute("data-dragging", "true");
+  await page.mouse.up();
+  await expect(stage).toHaveAttribute("data-dragging", "false");
+  await expect(page.getByRole("button", { name: "Undo" })).toBeEnabled();
+  await page.waitForTimeout(900);
+  const placed = await page.evaluate(() => {
+    const kept = JSON.parse(
+      localStorage.getItem("furnishes.projects") ?? "{}",
+    ) as {
+      projects?: {
+        data?: {
+          scene?: { overrides?: Record<string, { x?: number; y?: number }> };
+        };
+      }[];
+    };
+    return Object.values(
+      kept.projects?.[0]?.data?.scene?.overrides ?? {},
+    ).filter((o) => o.x !== undefined);
+  });
+  expect(placed).toHaveLength(1);
+  expect(placed[0]!.x! % 50).toBe(0);
+  expect(placed[0]!.y! % 50).toBe(0);
+  expect(placed[0]!.x!).toBeGreaterThanOrEqual(0);
+  // Walk: the camera drops to eye height; W moves it north; Esc leaves
+  await page.getByRole("button", { name: "Walk the room" }).click();
+  await expect(stage).toHaveAttribute("data-walk", "true");
+  await expect
+    .poll(async () =>
+      Number((await stage.getAttribute("data-cam"))!.split(",")[1]),
+    )
+    .toBeCloseTo(1.6, 1);
+  const z0 = Number((await stage.getAttribute("data-cam"))!.split(",")[2]);
+  await page.keyboard.down("w");
+  await page.waitForTimeout(500);
+  await page.keyboard.up("w");
+  const z1 = Number((await stage.getAttribute("data-cam"))!.split(",")[2]);
+  expect(z1).toBeLessThan(z0 - 0.3);
+  await page.keyboard.press("Escape");
+  await expect(stage).toHaveAttribute("data-walk", "false");
+});

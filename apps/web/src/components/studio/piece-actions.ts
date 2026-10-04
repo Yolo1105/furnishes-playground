@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import type { AssetNode } from "./assets-data";
-import { LABEL_MAX, turned } from "./piece-detail";
-import { layoutRoom } from "./room-layout";
+import { footprint, LABEL_MAX, turned } from "./piece-detail";
+import { clashesOf, layoutRoom } from "./room-layout";
 import { useRoom } from "./room-store";
 import { propsOf, useScene, useTopLevel } from "./scene-store";
 import { useStudio } from "./studio-store";
@@ -44,6 +44,15 @@ export function usePieceActions() {
   const shown = focus
     ? [focus]
     : pieces.filter((n) => !props.get(n.id)!.hidden);
+  const clashes = clashesOf(
+    pieces
+      .filter((n) => !props.get(n.id)!.hidden)
+      .map((n) => {
+        const f = footprint(props.get(n.id)!);
+        const s = spots.get(n.id)!;
+        return { id: n.id, x: s.x, y: s.y, w: f.w, d: f.d };
+      }),
+  );
 
   const onPick = (n: AssetNode) => {
     if (tool === "inspect") {
@@ -76,6 +85,8 @@ export function usePieceActions() {
     props,
     /** where each piece stands, by id, mm */
     spots,
+    /** the pieces standing over another */
+    clashes,
     room: { W, D },
     selectedId,
     tool,

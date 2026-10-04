@@ -21,7 +21,7 @@ import {
   TEXTURES,
   turned,
 } from "./piece-detail";
-import { clampSnap } from "./room-layout";
+import { settle } from "./room-layout";
 import { findNode, propsOf, useScene } from "./scene-store";
 import { useStudio } from "./studio-store";
 
@@ -74,8 +74,8 @@ export function DetailTab() {
   const f = footprint(whole_);
   const place = (patch: { x?: number; y?: number }) =>
     setProps(piece.id, {
-      x: clampSnap(patch.x ?? spot.x, f.w, stage.room.W, PLACE_SNAP),
-      y: clampSnap(patch.y ?? spot.y, f.d, stage.room.D, PLACE_SNAP),
+      x: settle(patch.x ?? spot.x, f.w, stage.room.W, PLACE_SNAP),
+      y: settle(patch.y ?? spot.y, f.d, stage.room.D, PLACE_SNAP),
     });
 
   const dim = (key: "width" | "depth" | "height", text: string) => (

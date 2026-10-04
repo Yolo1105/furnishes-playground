@@ -50,11 +50,37 @@ export const layoutRoom = (
   return spots as Spot[];
 };
 
-/** `v` kept inside the room along one side, on the snap grid */
-export const clampSnap = (
-  v: number,
-  size: number,
-  side: number,
-  snap: number,
-) =>
-  Math.round(Math.min(Math.max(0, v), Math.max(0, side - size)) / snap) * snap;
+/** within this of a wall a dragged piece goes flush to it, mm */
+const MAGNET = 150;
+
+/** `v` kept inside the room along one side, on the snap grid, and drawn
+    flush to a wall when near it */
+export const settle = (v: number, size: number, side: number, snap: number) => {
+  const max = Math.max(0, side - size);
+  const inside = Math.min(Math.max(0, v), max);
+  if (inside < MAGNET) return 0;
+  if (max - inside < MAGNET) return max;
+  return Math.round(inside / snap) * snap;
+};
+
+/** the pieces that stand over another: both of each pair, by id */
+export const clashesOf = (
+  boxes: readonly { id: string; x: number; y: number; w: number; d: number }[],
+) => {
+  const out = new Set<string>();
+  for (let i = 0; i < boxes.length; i++)
+    for (let j = i + 1; j < boxes.length; j++) {
+      const a = boxes[i]!;
+      const b = boxes[j]!;
+      if (
+        a.x < b.x + b.w &&
+        b.x < a.x + a.w &&
+        a.y < b.y + b.d &&
+        b.y < a.y + a.d
+      ) {
+        out.add(a.id);
+        out.add(b.id);
+      }
+    }
+  return out;
+};

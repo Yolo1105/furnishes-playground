@@ -1,5 +1,6 @@
 "use client";
 
+import { WalkIcon } from "./icons";
 import { ANGLES, useStudio, type Angle } from "./studio-store";
 
 /**
@@ -21,6 +22,8 @@ export function ViewCube() {
   const angle = useStudio((s) => s.angle);
   const mode = useStudio((s) => s.mode);
   const setAngle = useStudio((s) => s.setAngle);
+  const walk = useStudio((s) => s.walk);
+  const setWalk = useStudio((s) => s.setWalk);
   if (mode === "preview") return null;
   const face = (
     id: Angle,
@@ -133,7 +136,24 @@ export function ViewCube() {
           </>
         )}
       </svg>
-      <span className="view-cube-name">{angle}</span>
+      <span className="view-cube-name">{walk ? "Walking" : angle}</span>
+      {view === "3d" && (
+        <button
+          type="button"
+          className="view-cube-walk"
+          aria-pressed={walk}
+          aria-label={walk ? "Stop walking" : "Walk the room"}
+          title={
+            walk
+              ? "Stop walking (Esc)"
+              : "Walk the room: W A S D, drag to look, click the floor to go there"
+          }
+          onClick={() => setWalk(!walk)}
+        >
+          <WalkIcon size={13} />
+          {walk ? "Stop" : "Walk"}
+        </button>
+      )}
       {/* every angle the view has, for the record and the keyboard */}
       <span className="sr-only">{ANGLES[view].join(", ")}</span>
     </div>

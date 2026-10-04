@@ -370,6 +370,46 @@
 .view-cube-face[aria-checked="true"] .view-cube-dot {
   fill: var(--color-accent) !important;
 }
+.view-cube-walk {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+  padding: 3px 8px;
+  border: 0;
+  border-radius: var(--r-chip);
+  background: rgb(from var(--color-ink) r g b / 0.05);
+  font: inherit;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: rgb(from var(--color-ink) r g b / 0.65);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+.view-cube-walk:hover {
+  background: rgb(from var(--color-ink) r g b / 0.09);
+  color: var(--color-ink);
+}
+.view-cube-walk[aria-pressed="true"] {
+  background: rgb(from var(--color-accent) r g b / 0.12);
+  color: var(--color-accent);
+}
+/* walking or dragging: the canvas takes the hand; a clash on the plan
+   reads in the accent */
+.stage-3d[data-walk="true"] canvas {
+  cursor: grab;
+}
+.stage-3d[data-walk="true"]:active canvas,
+.stage-3d[data-dragging="true"] canvas {
+  cursor: grabbing;
+}
+.plan-pieces .stage-piece[data-clash="true"] .stage-piece-body {
+  border-color: var(--color-accent);
+  background: rgb(from var(--color-accent) r g b / 0.1);
+}
 .view-cube-name {
   font-size: 10.5px;
   font-weight: 600;
@@ -1057,6 +1097,10 @@
   place-items: center;
   box-shadow: 0 2px 6px -2px rgb(from var(--color-shadow) r g b / 0.35);
   cursor: pointer;
+}
+/* in 3D the handle floats over the piece's corner, placed by the scene */
+.stage-3d-overlay .stage-turn-3d {
+  position: static;
 }
 .stage-piece-lock {
   position: absolute;

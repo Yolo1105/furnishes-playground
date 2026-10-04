@@ -16,6 +16,7 @@ export const SHORTCUTS = [
   { keys: ["3"], does: "3D view" },
   { keys: ["2"], does: "2D plan" },
   { keys: ["H"], does: "Hide or show the panels" },
+  { keys: ["G"], does: "Walk the room in 3D (W A S D to move, drag to look)" },
   { keys: ["P"], does: "Preview, or back to Edit" },
   { keys: ["R"], does: "Turn the picked piece a quarter" },
   { keys: ["⌫"], does: "Remove the picked piece from the room" },
@@ -55,6 +56,9 @@ export function useShortcuts(onHelp: () => void) {
           return st.setView("2d");
         case "h":
           return st.setUiHidden(!st.uiHidden);
+        case "g":
+          if (st.view === "3d") st.setWalk(!st.walk);
+          return;
         case "p":
           return st.setMode(st.mode === "preview" ? "edit" : "preview");
         case "r": {
@@ -79,7 +83,8 @@ export function useShortcuts(onHelp: () => void) {
         case "?":
           return onHelp();
         case "Escape":
-          if (st.focusId) st.setFocus(null);
+          if (st.walk) st.setWalk(false);
+          else if (st.focusId) st.setFocus(null);
           return;
       }
     };

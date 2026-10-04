@@ -6,7 +6,7 @@ import { ArrowLeftIcon, LockIcon, RotateIcon } from "./icons";
 import { usePieceActions } from "./piece-actions";
 import { PieceActions } from "./PieceActions";
 import { footprint, PLACE_SNAP } from "./piece-detail";
-import { clampSnap } from "./room-layout";
+import { settle } from "./room-layout";
 import { useScene } from "./scene-store";
 
 /**
@@ -66,8 +66,8 @@ export function StagePieces() {
       .getState()
       .dragMove(
         n.id,
-        clampSnap(d.x0 + dx, f.w, W, PLACE_SNAP),
-        clampSnap(d.y0 + dy, f.d, D, PLACE_SNAP),
+        settle(d.x0 + dx, f.w, W, PLACE_SNAP),
+        settle(d.y0 + dy, f.d, D, PLACE_SNAP),
       );
   };
   const onUp = (n: AssetNode) => {
@@ -117,6 +117,7 @@ export function StagePieces() {
             data-selected={selected}
             data-labelled={label >= 0}
             data-locked={p.locked}
+            data-clash={a.clashes.has(n.id)}
             data-turn={p.rotation}
             style={style}
           >

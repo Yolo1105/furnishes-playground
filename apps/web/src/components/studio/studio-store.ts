@@ -42,6 +42,8 @@ type StudioState = {
   /** how the view is looked at, one of ANGLES[view] */
   angle: Angle;
   uiHidden: boolean;
+  /** walking the room in 3D at eye height */
+  walk: boolean;
   /** where the toolbar's eye was when the panels were hidden, so the peek
       bar's eye stands in the same place */
   peekAt: { top: number; left: number } | null;
@@ -60,6 +62,7 @@ type StudioState = {
   setTool: (tool: Tool) => void;
   setView: (view: View) => void;
   setAngle: (angle: Angle) => void;
+  setWalk: (walk: boolean) => void;
   setUiHidden: (hidden: boolean, at?: { top: number; left: number }) => void;
   setFocus: (id: string | null) => void;
   setPanelTab: (tab: PanelTab) => void;
@@ -85,6 +88,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   view: "3d",
   angle: "Perspective",
   uiHidden: false,
+  walk: false,
   peekAt: null,
   focusId: null,
   panelTab: "assets",
@@ -114,11 +118,13 @@ export const useStudio = create<StudioState>((set, get) => ({
         : {
             view,
             angle: ANGLES[view][0]!,
+            walk: false,
             loading: "view",
             loadingAt: s.loadingAt + 1,
           },
     ),
-  setAngle: (angle) => set({ angle }),
+  setAngle: (angle) => set({ angle, walk: false }),
+  setWalk: (walk) => set({ walk }),
   setUiHidden: (uiHidden, at) =>
     set((s) => ({
       uiHidden,
