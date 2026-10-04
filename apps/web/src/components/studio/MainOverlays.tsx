@@ -359,7 +359,7 @@ export function MainShelf() {
           )}
           <button
             type="button"
-            className="shell-iconbtn shell-tip main-shelf-toggle"
+            className="main-icon shell-tip main-shelf-toggle"
             data-tooltip={collapsed ? "Show pieces" : "Hide pieces"}
             aria-label={collapsed ? "Show pieces" : "Hide pieces"}
             aria-expanded={!collapsed}
@@ -368,7 +368,7 @@ export function MainShelf() {
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => setCollapsed((v) => !v)}
           >
-            <ChevronUpDownIcon up={collapsed} />
+            <ChevronUpDownIcon size={16} up={collapsed} />
           </button>
         </div>
       </div>

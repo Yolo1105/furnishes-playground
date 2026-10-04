@@ -105,16 +105,17 @@
 .main-shelf-acts .main-btn {
   height: 28px;
 }
-.main-shelf-toggle {
-  width: 28px;
-  height: 28px;
-}
+/* the fold chevron: the toolbar's own icon button; its tip opens upward,
+   since the shelf sits on the screen's bottom edge */
 .main-shelf-toggle::after {
+  top: auto;
+  bottom: calc(100% + 6px);
   right: auto;
   left: 50%;
-  transform: translate(-50%, -2px);
+  transform: translate(-50%, 2px);
 }
-.main-shelf-toggle:hover::after {
+.main-shelf-toggle:hover::after,
+.main-shelf-toggle:focus-visible::after {
   transform: translate(-50%, 0);
 }
 
