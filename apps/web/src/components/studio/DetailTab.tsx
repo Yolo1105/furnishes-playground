@@ -46,17 +46,19 @@ export function DetailTab() {
   const setFocus = useStudio((s) => s.setFocus);
   const stage = usePieceActions();
   const found = findNode(groups, selectedId);
-  if (!found || found.node.kind !== "piece")
+  if (!found || found.node.kind === "fixed")
     return (
       <div className="detail-empty">
         <p className="assets-empty">
-          Pick a Furnishes piece in the room, on the shelf or in the outliner to
-          see it here.
+          Pick a piece or a room item in the room, on the shelf or in the
+          outliner to see it here.
         </p>
       </div>
     );
   const { node, parent } = found;
   const piece = parent ?? node;
+  // a room item sets the scene and is not for sale: no cart, no finish
+  const item = piece.kind !== "piece";
   const parts = piece.children ?? [];
   // what the finish and size apply to: the picked part, or the whole piece
   const whole = node.id === piece.id;
@@ -99,11 +101,20 @@ export function DetailTab() {
   return (
     <div className="detail">
       <section className="detail-head">
-        <div className="detail-pic" aria-hidden="true" />
+        <div
+          className="detail-pic"
+          aria-hidden="true"
+          style={
+            piece.image
+              ? { backgroundImage: `url("${piece.image}")` }
+              : undefined
+          }
+        />
         <div className="detail-title">
           <h3 className="detail-name">{piece.name}</h3>
           <p className="detail-meta">
             {CATEGORY_NAMES[piece.category]}
+            {item && " · room item"}
             {parts.length > 0 && ` · ${parts.length} parts`}
           </p>
         </div>
@@ -112,15 +123,17 @@ export function DetailTab() {
         )}
       </section>
       <div className="detail-acts">
-        <button
-          type="button"
-          className="main-btn main-btn-primary detail-cart"
-          aria-pressed={inCart}
-          onClick={() => toggleCart(piece.id)}
-        >
-          {inCart ? <CheckIcon size={14} /> : <CartIcon size={14} />}
-          <span>{inCart ? "In the cart" : "Add to cart"}</span>
-        </button>
+        {!item && (
+          <button
+            type="button"
+            className="main-btn main-btn-primary detail-cart"
+            aria-pressed={inCart}
+            onClick={() => toggleCart(piece.id)}
+          >
+            {inCart ? <CheckIcon size={14} /> : <CartIcon size={14} />}
+            <span>{inCart ? "In the cart" : "Add to cart"}</span>
+          </button>
+        )}
         <button
           type="button"
           className="main-btn"
@@ -272,50 +285,54 @@ export function DetailTab() {
           </button>
         </div>
       </section>
-      <section className="eva-pref">
-        <div className="eva-pref-head">
-          <span className="eva-pref-title">Colour</span>
-        </div>
-        <div className="eva-swatches" role="radiogroup" aria-label="Colour">
-          {COLOURS.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              role="radio"
-              className="eva-swatch"
-              aria-checked={p.colour === c.id}
-              aria-label={c.name}
-              onClick={() => apply({ colour: c.id })}
-            >
-              <span
-                className="eva-swatch-dot"
-                style={{ background: c.hex }}
-                aria-hidden="true"
-              />
-              <span className="eva-swatch-name">{c.name}</span>
-            </button>
-          ))}
-        </div>
-      </section>
-      <section className="eva-pref">
-        <div className="eva-pref-head">
-          <span className="eva-pref-title">Texture</span>
-        </div>
-        <div className="eva-chips" role="radiogroup" aria-label="Texture">
-          {TEXTURES.map((t) => (
-            <button
-              key={t}
-              type="button"
-              role="radio"
-              className="assets-chip"
-              aria-checked={p.texture === t}
-              onClick={() => apply({ texture: t })}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-      </section>
+      {!item && (
+        <>
+          <section className="eva-pref">
+            <div className="eva-pref-head">
+              <span className="eva-pref-title">Colour</span>
+            </div>
+            <div className="eva-swatches" role="radiogroup" aria-label="Colour">
+              {COLOURS.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  role="radio"
+                  className="eva-swatch"
+                  aria-checked={p.colour === c.id}
+                  aria-label={c.name}
+                  onClick={() => apply({ colour: c.id })}
+                >
+                  <span
+                    className="eva-swatch-dot"
+                    style={{ background: c.hex }}
+                    aria-hidden="true"
+                  />
+                  <span className="eva-swatch-name">{c.name}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+          <section className="eva-pref">
+            <div className="eva-pref-head">
+              <span className="eva-pref-title">Texture</span>
+            </div>
+            <div className="eva-chips" role="radiogroup" aria-label="Texture">
+              {TEXTURES.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  role="radio"
+                  className="assets-chip"
+                  aria-checked={p.texture === t}
+                  onClick={() => apply({ texture: t })}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          </section>
+        </>
+      )}
       <section className="eva-pref">
         <div className="eva-pref-head">
           <span className="eva-pref-title">Size</span>

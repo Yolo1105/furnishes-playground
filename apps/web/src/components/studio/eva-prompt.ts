@@ -70,6 +70,7 @@ In the room: ${
   }. Furnishes pieces total ${sgd(plan.total)}${plan.to !== undefined ? `, budget ${sgd(plan.to)}, ${plan.remaining! >= 0 ? `${sgd(plan.remaining!)} left` : `${sgd(-plan.remaining!)} over`}` : ""}.
 In the cart: ${c.cart.length} piece(s).
 Kept preferences: ${prefs || "none yet"}. Exploration: ${c.exploration ? "on" : "off"}.
+The room's rules: walkways ${c.rules.walkway} mm; the door's swing ${c.rules.doorClear ? "kept clear" : "may be stood in"}; the window ${c.rules.windowClear ? "kept clear of tall pieces" : "may be stood in front of"}; a bed against a wall ${c.rules.bedWall === "off" ? "not asked" : c.rules.bedWall}; must have ${c.rules.mustHave.join(", ") || "nothing in particular"}; layouts ${c.rules.walkway + c.rules.spacing} mm apart.
 What fits this room of a ${c.room.flat} HDB flat: ${fitLines(c).join(" ") || "no guidance for this room"}
 ${plan.bands.length ? `Where the budget should go: ${plan.bands.map((b) => `${b.label} ${sgd(b.from)} to ${sgd(b.upTo)} (${sgd(b.spent)} so far)`).join("; ")}.` : ""}
 New HDB flats in general: ${HDB_CONVENTIONS.join("; ")}.`;

@@ -81,4 +81,12 @@ list, proposes the preferences she hears or that a quiz works out (style,
 budget, room) for you to keep or set aside, picks catalogue pieces with
 why each fits, and reads the room plan's readiness, budget and health
 (walkways, the door's swing, the window, clashes), each finding with a
-Fix. Keyboard shortcuts are listed under the gear.
+Fix. The Room tab's Rules set what the planner holds to: the walkway's
+width, whether the door's swing and the window are kept clear, a bed
+against a wall (preferred, required or off), what the room must have
+(a missing thing gets an Add), and how far apart a layout spreads the
+pieces. Under the room's health, Layouts lays the room out three ways
+(rows across the width, rows down the depth, along the walls with the
+middle open), reads each against the same rules, marks Eva's pick and
+applies one in a single undo step; locked pieces stay put. Keyboard
+shortcuts are listed under the gear.

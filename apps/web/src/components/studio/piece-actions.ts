@@ -2,9 +2,12 @@
 
 import { useState } from "react";
 import type { AssetNode } from "./assets-data";
-import { footprint, LABEL_MAX, turned } from "./piece-detail";
-import { healthOf, type Issue } from "./room-health";
-import { layoutRoom } from "./room-layout";
+import { products } from "./catalogue";
+import { describeItem } from "./generation-store";
+import { footprint, LABEL_MAX, turned, type PieceProps } from "./piece-detail";
+import { healthOf, type Issue, type Room } from "./room-health";
+import { gapOf, layoutPlans, layoutRoom, type Placed } from "./room-layout";
+import { MUST_HAVE_CHOICES } from "./room-data";
 import { useRoom } from "./room-store";
 import { propsOf, useScene, useTopLevel } from "./scene-store";
 import { useStudio } from "./studio-store";
@@ -14,14 +17,16 @@ import { useStudio } from "./studio-store";
  * 3D scene: with Select a click picks it everywhere; with Inspect a
  * click also raises two actions over it, Details (the piece alone, and
  * the Detail tab) and Label (for Eva, five at a time). A piece in focus
- * stands alone.
+ * stands alone. The same hook reads the room's health against its rules
+ * and lays the room out three ways for the plan's Layouts.
  */
 export function usePieceActions() {
   const items = useTopLevel();
   const overrides = useScene((s) => s.overrides);
   const labels = useScene((s) => s.labels);
   const selectedId = useScene((s) => s.selectedId);
-  const { select, toggleLabel, setProps } = useScene.getState();
+  const { select, toggleLabel, setProps, placeAll, addProduct, addItem } =
+    useScene.getState();
   const tool = useStudio((s) => s.tool);
   const focusId = useStudio((s) => s.focusId);
   const { setFocus, setPanelTab } = useStudio.getState();
@@ -32,46 +37,66 @@ export function usePieceActions() {
   const doorOffset = useRoom((s) => s.doorOffset);
   const window_ = useRoom((s) => s.window);
   const windowWidth = useRoom((s) => s.windowWidth);
+  const rules = useRoom((s) => s.rules);
+  const room: Room = {
+    W,
+    D,
+    door,
+    doorOffset,
+    window: window_,
+    windowWidth,
+    rules,
+  };
 
   // what stands on the stage: the pieces and the room items, never the
   // architecture (that is the room itself); a hidden piece keeps its
   // place in the rows but is not drawn
   const pieces = items.filter((n) => n.kind !== "fixed");
   const props = new Map(pieces.map((n) => [n.id, propsOf(n, overrides)]));
-  const spots = new Map(
-    layoutRoom(
-      pieces.map((n) => ({ ...props.get(n.id)!, name: n.name })),
-      W,
-      D,
-    ).map((s, i) => [pieces[i]!.id, s]),
-  );
+  const named = pieces.map((n) => ({ ...props.get(n.id)!, name: n.name }));
+  const laid = layoutRoom(named, W, D, gapOf(rules));
+  const spots = new Map(laid.map((s, i) => [pieces[i]!.id, s]));
   const focus = pieces.find((n) => n.id === focusId) ?? null;
   const shown = focus
     ? [focus]
     : pieces.filter((n) => !props.get(n.id)!.hidden);
-  const issues: Issue[] = healthOf(
-    pieces
-      .filter((n) => !props.get(n.id)!.hidden)
-      .map((n) => {
-        const p = props.get(n.id)!;
-        const f = footprint(p);
-        const s = spots.get(n.id)!;
-        return {
-          id: n.id,
-          name: n.name,
-          x: s.x,
-          y: s.y,
-          w: f.w,
-          d: f.d,
-          h: p.height,
-        };
-      }),
-    { W, D, door, doorOffset, window: window_, windowWidth },
-  );
+  /** the pieces as boxes on the floor, standing as `where` says */
+  const boxes = (where: (i: number) => Placed | undefined) =>
+    pieces.flatMap((n, i) => {
+      const p = props.get(n.id)!;
+      const at = where(i);
+      if (p.hidden || !at) return [];
+      const f = footprint({ ...p, rotation: at.rotation });
+      return [{ id: n.id, name: n.name, x: at.x, y: at.y, ...f, h: p.height }];
+    });
+  const now = (i: number): Placed => ({
+    ...laid[i]!,
+    rotation: props.get(pieces[i]!.id)!.rotation,
+  });
+  const issues: Issue[] = healthOf(boxes(now), room);
   const clashes = new Set(
     issues
       .filter((i) => i.kind === "overlap")
-      .flatMap((i) => [i.pieceId, i.otherId!]),
+      .flatMap((i) => [i.pieceId!, i.otherId!]),
+  );
+  // the three layouts, each read against the same rules
+  const plans = layoutPlans(named, room, laid).map((plan) => ({
+    ...plan,
+    findings: healthOf(
+      boxes((i) => plan.places[i]),
+      room,
+    ).filter((i) => i.kind !== "missing").length,
+    applied: pieces.every((n, i) => {
+      const p = plan.places[i]!;
+      const s = laid[i]!;
+      return (
+        p.x === s.x && p.y === s.y && p.rotation === props.get(n.id)!.rotation
+      );
+    }),
+  }));
+  const pick = plans.reduce(
+    (best, p, i) => (p.findings < plans[best]!.findings ? i : best),
+    0,
   );
 
   const onPick = (n: AssetNode) => {
@@ -96,6 +121,17 @@ export function usePieceActions() {
   const turn = (n: AssetNode) =>
     setProps(n.id, { rotation: turned(props.get(n.id)!.rotation) });
 
+  /** what the room is missing goes in: the catalogue piece that is it,
+      or a room item of that name */
+  const add = (key: string) => {
+    const c = MUST_HAVE_CHOICES.find((x) => x.key === key);
+    const product = c && products.find((p) => c.match.test(p.name));
+    const id = product
+      ? addProduct(product)
+      : addItem(describeItem(key.replace(/^\w/, (ch) => ch.toUpperCase())));
+    select(id);
+  };
+
   return {
     pieces,
     focus,
@@ -107,10 +143,26 @@ export function usePieceActions() {
     spots,
     /** the pieces standing over another */
     clashes,
-    /** the planner's findings, each with a Fix where one exists */
+    /** the planner's findings, each with a Fix or an Add where one exists */
     issues,
-    /** move a piece to its Fix, one undo step */
-    fix: (i: Issue) => i.fix && setProps(i.pieceId, i.fix),
+    /** move a piece to its Fix, or add what is missing: one undo step */
+    fix: (i: Issue) => {
+      if (i.add) add(i.add);
+      else if (i.fix && i.pieceId) setProps(i.pieceId, i.fix);
+    },
+    /** the room laid out three ways, and which Eva would pick */
+    plans,
+    pick,
+    /** stand every piece as a layout says, one undo step */
+    apply: (plan: (typeof plans)[number]) =>
+      placeAll(
+        Object.fromEntries(
+          pieces.map((n, i) => [
+            n.id,
+            plan.places[i]! satisfies Partial<PieceProps>,
+          ]),
+        ),
+      ),
     room: { W, D },
     selectedId,
     tool,

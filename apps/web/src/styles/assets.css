@@ -728,6 +728,8 @@
   background: rgba(255, 255, 255, 0.6);
   border: 1px solid rgb(from var(--color-line) r g b / 0.14);
   box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.6) inset;
+  background-size: cover;
+  background-position: center;
 }
 .detail-title {
   min-width: 0;
@@ -837,4 +839,29 @@
 }
 .room-opening-note {
   margin-top: 4px;
+}
+
+/* the room's rules: two sliders among the chips */
+.room-rule-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.room-rule-row .room-field-label {
+  flex: 0 0 64px;
+}
+.room-range {
+  flex: 1;
+  min-width: 0;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+.room-rule-value {
+  flex: 0 0 auto;
+  min-width: 56px;
+  text-align: right;
+  font-size: 11px;
+  color: rgb(from var(--color-ink) r g b / 0.6);
 }

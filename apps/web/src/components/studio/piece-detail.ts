@@ -80,6 +80,10 @@ const SIZES_BY_NAME: [RegExp, [number, number, number]][] = [
   [/rug/i, [1600, 1200, 15]],
   [/screen/i, [1500, 300, 1700]],
   [/bedside/i, [450, 400, 550]],
+  [/\bbed\b/i, [1550, 2000, 450]],
+  [/wardrobe/i, [1200, 600, 2000]],
+  [/\bdesk\b(?!-side| lamp)/i, [1200, 600, 750]],
+  [/dining table/i, [1400, 800, 750]],
   [/coat stand/i, [400, 400, 1750]],
 ];
 

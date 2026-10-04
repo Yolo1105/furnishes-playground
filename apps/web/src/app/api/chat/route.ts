@@ -77,6 +77,14 @@ const Body = z.object({
       }),
     ),
     exploration: z.boolean(),
+    rules: z.object({
+      walkway: z.number(),
+      doorClear: z.boolean(),
+      windowClear: z.boolean(),
+      bedWall: z.enum(["prefer", "required", "off"]),
+      mustHave: z.array(z.string().max(40)).max(20),
+      spacing: z.number(),
+    }),
   }),
 });
 

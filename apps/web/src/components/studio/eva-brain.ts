@@ -22,6 +22,7 @@ import {
   ROOM_NAMES,
   type FlatType,
   type RoomId,
+  type Rules,
 } from "./room-data";
 
 /**
@@ -55,6 +56,8 @@ export type Context = {
   cart: string[];
   prefs: Preferences;
   exploration: boolean;
+  /** the planner's rules for the room */
+  rules: Rules;
 };
 
 /* ---------- the stages of the work ---------- */

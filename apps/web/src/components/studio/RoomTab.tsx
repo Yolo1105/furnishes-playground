@@ -7,10 +7,16 @@ import {
   FLAT_TYPES,
   FLOORS,
   metres,
+  MUST_HAVE_CHOICES,
   PRESETS,
   ROOM_NAMES,
+  rulesFor,
+  sameRules,
+  SPACING,
+  type BedWall,
   type RoomId,
   type Wall,
+  WALKWAY,
   WALL_TONES,
   WALLS,
 } from "./room-data";
@@ -29,8 +35,16 @@ import { useRoom, wallsOf } from "./room-store";
  *   draw     — the walls (the size comes from them), the flat and room
  *              as what to call it, the door and window once there are
  *              walls to put them on, the finish.
- * Before the choice, only the choice.
+ * Before the choice, only the choice. The Rules come last: the walkway,
+ * what is kept clear, a bed against a wall, what the room must have, and
+ * how far apart a layout spreads the pieces; the plan's health and its
+ * layouts keep to them.
  */
+const BED_WALL: { id: BedWall; label: string }[] = [
+  { id: "prefer", label: "Preferred" },
+  { id: "required", label: "Required" },
+  { id: "off", label: "Off" },
+];
 export function RoomTab() {
   const s = useRoom();
   const start = s.start;
@@ -104,6 +118,28 @@ export function RoomTab() {
     </div>
   );
   const fit = FIT_FOR_ROOM[s.room].map((k) => FIT_GUIDANCE[s.flat][k]);
+  const rules = s.rules;
+  const slider = (
+    label: string,
+    key: "walkway" | "spacing",
+    range: { min: number; max: number; step: number },
+    shown: string,
+  ) => (
+    <label className="room-field room-rule-row">
+      <span className="room-field-label">{label}</span>
+      <input
+        type="range"
+        className="room-range"
+        min={range.min}
+        max={range.max}
+        step={range.step}
+        value={rules[key]}
+        aria-label={`${label} in millimetres`}
+        onChange={(e) => s.setRules({ [key]: Number(e.target.value) })}
+      />
+      <span className="room-rule-value f-num">{shown}</span>
+    </label>
+  );
 
   return (
     <div className="room">
@@ -258,6 +294,100 @@ export function RoomTab() {
             )}
             {wallPick("door", "Door on the")}
             {wallPick("window", "Window on the")}
+          </section>
+          <section className="eva-pref" data-set="true">
+            <div className="eva-pref-head">
+              <span className="eva-pref-index f-num">{index()}</span>
+              <span className="eva-pref-title">Rules</span>
+              {!sameRules(rules, rulesFor(s.room)) && (
+                <button
+                  type="button"
+                  className="eva-pref-clear"
+                  onClick={s.resetRules}
+                >
+                  Typical
+                </button>
+              )}
+            </div>
+            {slider("Walkway", "walkway", WALKWAY, `${rules.walkway} mm`)}
+            <div className="room-field">
+              <span className="room-field-label">Keep clear</span>
+              <div className="eva-chips" role="group" aria-label="Keep clear">
+                <button
+                  type="button"
+                  className="assets-chip"
+                  aria-pressed={rules.doorClear}
+                  onClick={() => s.setRules({ doorClear: !rules.doorClear })}
+                >
+                  Door swing
+                </button>
+                <button
+                  type="button"
+                  className="assets-chip"
+                  aria-pressed={rules.windowClear}
+                  onClick={() =>
+                    s.setRules({ windowClear: !rules.windowClear })
+                  }
+                >
+                  Window
+                </button>
+              </div>
+            </div>
+            <div className="room-field">
+              <span className="room-field-label">Bed against a wall</span>
+              <div
+                className="eva-chips"
+                role="radiogroup"
+                aria-label="Bed against a wall"
+              >
+                {BED_WALL.map((o) => (
+                  <button
+                    key={o.id}
+                    type="button"
+                    role="radio"
+                    className="assets-chip"
+                    aria-checked={rules.bedWall === o.id}
+                    onClick={() => s.setRules({ bedWall: o.id })}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="room-field">
+              <span className="room-field-label">Must have</span>
+              <div className="eva-chips" role="group" aria-label="Must have">
+                {MUST_HAVE_CHOICES.map((c) => {
+                  const on = rules.mustHave.includes(c.key);
+                  return (
+                    <button
+                      key={c.key}
+                      type="button"
+                      className="assets-chip"
+                      aria-pressed={on}
+                      onClick={() =>
+                        s.setRules({
+                          mustHave: on
+                            ? rules.mustHave.filter((k) => k !== c.key)
+                            : [...rules.mustHave, c.key],
+                        })
+                      }
+                    >
+                      {c.key}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            {slider(
+              "Spacing",
+              "spacing",
+              { min: 0, ...SPACING },
+              rules.spacing === 0 ? "snug" : `+${rules.spacing} mm`,
+            )}
+            <p className="eva-pref-hint">
+              The plan&apos;s health and its layouts keep to these.
+            </p>
           </section>
           <section className="eva-pref" data-set="true">
             <div className="eva-pref-head">

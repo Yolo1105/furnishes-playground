@@ -63,7 +63,7 @@ export const describeItem = (prompt: string) => {
     : "Room item";
   const t = prompt.toLowerCase();
   const category: AssetCategory =
-    /sofa|couch|chair|armchair|stool|bench|seat/.test(t)
+    /sofa|couch|chair|armchair|stool|bench|seat|\bbed\b(?!side)/.test(t)
       ? "seating"
       : /lamp|light|pendant|sconce/.test(t)
         ? "lighting"

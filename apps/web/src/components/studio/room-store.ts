@@ -3,8 +3,10 @@ import {
   CEILING,
   openingsFor,
   PRESETS,
+  rulesFor,
   type FlatType,
   type RoomId,
+  type Rules,
   type Wall,
 } from "./room-data";
 import { ROOM_TEMPLATES, type Point, type TemplateId } from "./room-templates";
@@ -34,6 +36,8 @@ type RoomConfig = {
   wallTone: string;
   /** true until the visitor edits a size: sizes then stop following presets */
   preset: boolean;
+  /** the planner's rules for this room */
+  rules: Rules;
 };
 
 type RoomState = RoomConfig & {
@@ -48,6 +52,9 @@ type RoomState = RoomConfig & {
     >,
   ) => void;
   resetSize: () => void;
+  setRules: (patch: Partial<Rules>) => void;
+  /** the rules back to what this room starts with */
+  resetRules: () => void;
   setStart: (start: RoomStart) => void;
   setTemplate: (template: TemplateId) => void;
   /** a corner on the plan; near the first one, with three or more, it closes */
@@ -117,6 +124,7 @@ export const useRoom = create<RoomState>((set, get) => ({
   floor: "Vinyl",
   wallTone: "white",
   preset: true,
+  rules: rulesFor("living"),
   setFlat: (flat) => {
     const room = PRESETS[flat][get().room] ? get().room : "living";
     set({
@@ -125,6 +133,7 @@ export const useRoom = create<RoomState>((set, get) => ({
       ...sized(flat, room),
       ...openingsFor(room),
       preset: true,
+      ...(room === get().room ? {} : { rules: rulesFor(room) }),
     });
   },
   setRoom: (room) =>
@@ -133,6 +142,7 @@ export const useRoom = create<RoomState>((set, get) => ({
       ...sized(get().flat, room),
       ...openingsFor(room),
       preset: true,
+      rules: rulesFor(room),
     }),
   setSize: (patch) => set({ ...patch, preset: false }),
   set: (patch) => set(patch),
@@ -142,6 +152,8 @@ export const useRoom = create<RoomState>((set, get) => ({
       height: CEILING.default,
       preset: true,
     }),
+  setRules: (patch) => set({ rules: { ...get().rules, ...patch } }),
+  resetRules: () => set({ rules: rulesFor(get().room) }),
   setStart: (start) => set({ start }),
   setTemplate: (template) => set({ template, start: "template", drawn: null }),
   addCorner: ([x, y]) => {

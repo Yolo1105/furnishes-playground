@@ -110,7 +110,7 @@ const fresh = (): Snapshot => {
 
 /** put a project's contents into the stores */
 const load = (data: Snapshot) => {
-  useRoom.setState(data.room);
+  useRoom.setState({ ...dataOnly(useRoom.getInitialState()), ...data.room });
   useScene.setState({
     ...data.scene,
     selectedId: null,

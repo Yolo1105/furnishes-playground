@@ -53,6 +53,8 @@ type SceneState = {
   /** label a piece for Eva, or take the label off; a sixth is refused */
   toggleLabel: (id: string) => void;
   setProps: (id: string, patch: Partial<PieceProps>) => void;
+  /** a whole layout at once: every piece's place, one undo step */
+  placeAll: (places: Record<string, Partial<PieceProps>>) => void;
   /** take a piece out of the room altogether */
   removeNode: (id: string) => void;
   /** a drag writes many positions; only the whole of it is one undo step */
@@ -192,6 +194,13 @@ export const useScene = create<SceneState>((set, get) => {
         overrides: { ...s.overrides, [id]: { ...s.overrides[id], ...patch } },
         ...remember(s),
       })),
+    placeAll: (places) =>
+      set((s) => {
+        const overrides = { ...s.overrides };
+        for (const [id, patch] of Object.entries(places))
+          overrides[id] = { ...overrides[id], ...patch };
+        return { overrides, ...remember(s) };
+      }),
     removeNode: (id) =>
       set((s) => {
         const overrides = { ...s.overrides };

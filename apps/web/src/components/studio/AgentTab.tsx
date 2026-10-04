@@ -66,6 +66,7 @@ export function AgentTab() {
     cart,
     prefs,
     exploration,
+    rules: room.rules,
   };
   const plan = planOf(ctx);
   const at = stageOf(ctx);
@@ -219,14 +220,14 @@ export function AgentTab() {
                 className="agent-plan-warn"
               >
                 <span>{i.text}</span>
-                {i.fix && (
+                {(i.fix || i.add) && (
                   <button
                     type="button"
                     className="agent-fix"
-                    aria-label={`Fix: ${i.text}`}
+                    aria-label={`${i.add ? "Add" : "Fix"}: ${i.text}`}
                     onClick={() => stage.fix(i)}
                   >
-                    Fix
+                    {i.add ? "Add" : "Fix"}
                   </button>
                 )}
               </li>
@@ -235,6 +236,38 @@ export function AgentTab() {
               <li className="agent-plan-more">and {issues.length - 4} more</li>
             )}
           </ul>
+        )}
+        {at !== "intake" && stage.pieces.length > 0 && (
+          <div className="agent-layouts" role="group" aria-label="Layouts">
+            <span className="agent-plan-label">Layouts</span>
+            {stage.plans.map((p, i) => (
+              <div key={p.id} className="agent-layout" data-applied={p.applied}>
+                <div className="agent-layout-text">
+                  <span className="agent-layout-name">
+                    {p.label}
+                    {i === stage.pick && (
+                      <span className="agent-layout-pick">Eva&apos;s pick</span>
+                    )}
+                  </span>
+                  <span className="agent-layout-note f-num">
+                    {p.note} ·{" "}
+                    {p.findings === 0
+                      ? "clear"
+                      : `${p.findings} finding${p.findings === 1 ? "" : "s"}`}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="agent-fix"
+                  aria-pressed={p.applied}
+                  disabled={p.applied}
+                  onClick={() => stage.apply(p)}
+                >
+                  {p.applied ? "Applied" : "Apply"}
+                </button>
+              </div>
+            ))}
+          </div>
         )}
         {at === "order" ? (
           <button

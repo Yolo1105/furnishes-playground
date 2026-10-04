@@ -100,6 +100,7 @@ const contextOf = (
     cart: sc.cart,
     prefs: s.preferences,
     exploration: s.exploration,
+    rules: r.rules,
   };
 };
 

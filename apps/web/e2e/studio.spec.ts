@@ -1682,6 +1682,14 @@ test("without a model the route says so and Eva answers from the rules, once not
         cart: [],
         prefs: {},
         exploration: false,
+        rules: {
+          walkway: 600,
+          doorClear: true,
+          windowClear: true,
+          bedWall: "prefer",
+          mustHave: ["sofa"],
+          spacing: 0,
+        },
       },
     },
   });
@@ -2181,4 +2189,116 @@ test("a connected provider's picture shows on the tile and the item carries it",
   await expect(
     page.getByRole("treeitem", { name: "Paper pendant" }),
   ).toHaveAttribute("aria-selected", "true");
+});
+
+test("the room's rules shape the planner: the walkway, what is kept clear, a bed against a wall, what the room must have; three layouts to apply", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  await page.getByRole("button", { name: "Show 2D plan in main" }).click();
+  const health = page
+    .locator(".agent")
+    .getByRole("list", { name: "Room health" });
+  await expect(health).toHaveCount(0);
+  // the rules, at the end of the Room tab
+  await page.getByRole("tab", { name: "Room", exact: true }).click();
+  await page
+    .getByRole("radiogroup", { name: "Start from" })
+    .getByRole("radio", { name: "Template" })
+    .click();
+  const walkway = page.getByRole("slider", { name: "Walkway in millimetres" });
+  await expect(walkway).toHaveValue("600");
+  const typical = page
+    .locator(".eva-pref", { hasText: "Rules" })
+    .getByRole("button", { name: "Typical" });
+  await expect(typical).toHaveCount(0);
+  // two pieces 800 mm apart: fine at 600, too close at 1000
+  const first = top.filter((a) => a.kind === "piece")[0]!;
+  const second = top.filter((a) => a.kind === "piece")[1]!;
+  const place = async (name: string, x: string, y: string) => {
+    await page.getByRole("tab", { name: "Assets", exact: true }).click();
+    await page.getByRole("treeitem", { name, exact: true }).click();
+    await page.getByRole("tab", { name: "Detail", exact: true }).click();
+    const sx = page.getByRole("spinbutton", {
+      name: `${name} from the west wall in millimetres`,
+    });
+    const sy = page.getByRole("spinbutton", {
+      name: `${name} from the north wall in millimetres`,
+    });
+    await sx.fill(x);
+    await sx.press("Tab");
+    await sy.fill(y);
+    await sy.press("Tab");
+  };
+  await place(second.name, "2000", "2600");
+  await place(first.name, "4000", "2600");
+  await expect(health.getByText(/Only 800 mm/)).toHaveCount(0);
+  await page.getByRole("tab", { name: "Room", exact: true }).click();
+  await walkway.fill("1000");
+  await expect(health).toContainText("Only 800 mm between");
+  await expect(health).toContainText("1000 mm walks");
+  // Typical brings the rules back
+  await typical.click();
+  await expect(walkway).toHaveValue("600");
+  await expect(health.getByText(/Only 800 mm/)).toHaveCount(0);
+  // the door's swing is kept clear only while asked
+  await place(first.name, "4800", "3500");
+  await expect(health).toContainText(`${first.name} blocks the door's swing`);
+  await page.getByRole("tab", { name: "Room", exact: true }).click();
+  const doorSwing = page
+    .getByRole("group", { name: "Keep clear" })
+    .getByRole("button", { name: "Door swing" });
+  await expect(doorSwing).toHaveAttribute("aria-pressed", "true");
+  await doorSwing.click();
+  await expect(health.getByText(/blocks the door/)).toHaveCount(0);
+  await doorSwing.click();
+  await expect(health).toContainText(`${first.name} blocks the door's swing`);
+  await health.getByRole("button", { name: /^Fix: .*door/ }).click();
+  // the three layouts: Along the walls leaves the middle open
+  const layouts = page
+    .locator(".agent")
+    .getByRole("group", { name: "Layouts" });
+  await expect(layouts.locator(".agent-layout")).toHaveCount(3);
+  await expect(layouts.locator(".agent-layout-pick")).toHaveCount(1);
+  const walls = layouts.locator(".agent-layout", {
+    hasText: "Along the walls",
+  });
+  await expect(walls).toContainText("facing the south door");
+  await walls.getByRole("button", { name: "Apply" }).click();
+  await expect(walls.getByRole("button", { name: "Applied" })).toBeDisabled();
+  await expect(layouts.getByRole("button", { name: "Apply" })).toHaveCount(2);
+  // what the room must have: a bed asked for, missing, then added
+  const mustHave = page.getByRole("group", { name: "Must have" });
+  await expect(mustHave.getByRole("button", { name: "sofa" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await mustHave.getByRole("button", { name: "bed" }).click();
+  await expect(health).toContainText("No bed in the room yet");
+  await health
+    .getByRole("button", { name: "Add: No bed in the room yet" })
+    .click();
+  await expect(health.getByText(/No bed/)).toHaveCount(0);
+  await expect(
+    page.getByRole("treeitem", { name: "Bed", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  // a bed in the middle of the room would sit better against a wall
+  await place("Bed", "2400", "1200");
+  await expect(health).toContainText("Bed would sit better against a wall");
+  await page.getByRole("tab", { name: "Room", exact: true }).click();
+  await page
+    .getByRole("radiogroup", { name: "Bed against a wall" })
+    .getByRole("radio", { name: "Required" })
+    .click();
+  await expect(health).toContainText("Bed must stand against a wall");
+  await health.getByRole("button", { name: /^Fix: Bed/ }).click();
+  await expect(health.getByText(/Bed .*wall/)).toHaveCount(0);
+  // Off asks nothing of the bed; Undo walks the changes back
+  await page
+    .getByRole("radiogroup", { name: "Bed against a wall" })
+    .getByRole("radio", { name: "Off" })
+    .click();
+  await place("Bed", "2400", "1200");
+  await expect(health.getByText(/Bed .*wall/)).toHaveCount(0);
 });

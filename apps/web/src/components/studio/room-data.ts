@@ -186,6 +186,71 @@ export const openingsFor = (room: RoomId): Openings => {
   }
 };
 
+/**
+ * The planner's rules, as the archive's Requirements tab had them: how
+ * wide a walkway must be, whether the door's swing and the window are
+ * kept clear, whether a bed must stand against a wall, what the room
+ * must have, and how far apart a layout spreads the pieces. The
+ * walkway starts at 600 mm, as HDB has it; a layout starts snug, at
+ * the walkway, and can be opened up to 600 mm more.
+ */
+export type BedWall = "prefer" | "required" | "off";
+export type Rules = {
+  /** mm between neighbours that a walkway needs */
+  walkway: number;
+  doorClear: boolean;
+  windowClear: boolean;
+  bedWall: BedWall;
+  /** what the room must have, by the keys of MUST_HAVE_CHOICES */
+  mustHave: string[];
+  /** mm added to the walkway between pieces a layout lays out */
+  spacing: number;
+};
+export const WALKWAY = { min: 500, max: 1200, step: 50, default: 600 };
+export const SPACING = { max: 600, step: 50 };
+/** what a room can be asked to have, and the words a piece's name
+    carries when it is that thing */
+export const MUST_HAVE_CHOICES: { key: string; match: RegExp }[] = [
+  { key: "sofa", match: /sofa|couch/i },
+  { key: "coffee table", match: /coffee table/i },
+  { key: "dining table", match: /dining/i },
+  { key: "bed", match: /\bbed\b(?!side)/i },
+  { key: "wardrobe", match: /wardrobe/i },
+  { key: "desk", match: /\bdesk\b(?!-side| lamp)/i },
+  {
+    key: "storage",
+    match:
+      /shelf|cabinet|sideboard|bookwall|organiser|drawer|trolley|cart|wardrobe/i,
+  },
+  { key: "rug", match: /rug/i },
+  { key: "lamp", match: /lamp|pendant/i },
+  { key: "plant", match: /plant|fig|palm|fern/i },
+];
+export const MUST_HAVE_FOR_ROOM: Record<RoomId, string[]> = {
+  living: ["sofa", "coffee table", "storage"],
+  master: ["bed", "wardrobe"],
+  "bedroom-1": ["bed", "wardrobe"],
+  "bedroom-2": ["bed", "storage"],
+  kitchen: ["storage"],
+  study: ["desk", "storage"],
+};
+export const rulesFor = (room: RoomId): Rules => ({
+  walkway: WALKWAY.default,
+  doorClear: true,
+  windowClear: true,
+  bedWall: "prefer",
+  mustHave: MUST_HAVE_FOR_ROOM[room],
+  spacing: 0,
+});
+export const sameRules = (a: Rules, b: Rules) =>
+  a.walkway === b.walkway &&
+  a.doorClear === b.doorClear &&
+  a.windowClear === b.windowClear &&
+  a.bedWall === b.bedWall &&
+  a.spacing === b.spacing &&
+  a.mustHave.length === b.mustHave.length &&
+  a.mustHave.every((k) => b.mustHave.includes(k));
+
 /** where the door's centre sits along a wall of length `L` */
 export const doorCentreAlong = (L: number, offset: number | null) =>
   offset === null ? L / 2 : L - offset - OPENINGS.door.width / 2;
