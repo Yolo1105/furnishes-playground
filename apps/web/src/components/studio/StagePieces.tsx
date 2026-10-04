@@ -5,6 +5,7 @@ import { CATEGORY_NAMES, type AssetNode } from "./assets-data";
 import { ArrowLeftIcon, LockIcon, RotateIcon } from "./icons";
 import { usePieceActions } from "./piece-actions";
 import { PieceActions } from "./PieceActions";
+import { DRAG_FROM, LONG_PRESS } from "./input";
 import { footprint, PLACE_SNAP } from "./piece-detail";
 import { settle } from "./room-layout";
 import { useScene } from "./scene-store";
@@ -16,11 +17,9 @@ import { useScene } from "./scene-store";
  * inside the walls; one undo step for the whole drag); the handle on a
  * picked piece turns it a quarter; Inspect raises its actions. A locked
  * piece shows its lock and stays put. A piece in focus stands alone on
- * a blank ground with a way back.
+ * a blank ground with a way back. Under a finger, a long press raises
+ * the actions, as Inspect's click does.
  */
-/** a press that travels less than this is a click, not a drag */
-const DRAG_FROM = 3;
-
 export function StagePieces() {
   const a = usePieceActions();
   const { W, D } = a.room;
@@ -33,9 +32,22 @@ export function StagePieces() {
     mmPerPx: number;
     moved: boolean;
   } | null>(null);
+  const press = useRef<number | null>(null);
+  const endPress = () => {
+    if (press.current !== null) window.clearTimeout(press.current);
+    press.current = null;
+  };
 
   const onDown = (e: PointerEvent<HTMLButtonElement>, n: AssetNode) => {
     const p = a.props.get(n.id)!;
+    if (e.pointerType === "touch" && !a.focus) {
+      endPress();
+      press.current = window.setTimeout(() => {
+        press.current = null;
+        drag.current = null;
+        a.hold(n);
+      }, LONG_PRESS);
+    }
     if (a.tool !== "select" || a.focus || p.locked || e.button !== 0) return;
     const box = e.currentTarget.parentElement?.parentElement;
     if (!box) return;
@@ -49,7 +61,11 @@ export function StagePieces() {
       mmPerPx: W / box.getBoundingClientRect().width,
       moved: false,
     };
-    e.currentTarget.setPointerCapture(e.pointerId);
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* a pointer the browser no longer knows */
+    }
   };
   const onMove = (e: PointerEvent<HTMLButtonElement>, n: AssetNode) => {
     const d = drag.current;
@@ -58,6 +74,7 @@ export function StagePieces() {
     const dy = (e.clientY - d.py) * d.mmPerPx;
     if (!d.moved) {
       if (Math.hypot(e.clientX - d.px, e.clientY - d.py) < DRAG_FROM) return;
+      endPress();
       d.moved = true;
       useScene.getState().dragStart();
     }
@@ -71,6 +88,7 @@ export function StagePieces() {
       );
   };
   const onUp = (n: AssetNode) => {
+    endPress();
     const d = drag.current;
     if (!d || d.id !== n.id) return;
     drag.current = null;

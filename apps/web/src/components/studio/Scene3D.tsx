@@ -25,6 +25,7 @@ import { FLOOR_TONES, WALL_TONES, type Floor } from "./room-data";
 import { settle } from "./room-layout";
 import { useRoom } from "./room-store";
 import { propsOf, useScene } from "./scene-store";
+import { useCoarse } from "./input";
 import { useStudio, type Angle } from "./studio-store";
 
 /**
@@ -53,6 +54,8 @@ type WalkState = {
   pitch: number;
   keys: Set<string>;
   goto: { x: number; z: number } | null;
+  /** ask the scene for a frame: set by the walker while it is mounted */
+  wake: () => void;
 };
 
 /** the walker's place and heading: one scene, one walker */
@@ -63,6 +66,7 @@ const WALK: WalkState = {
   pitch: 0,
   keys: new Set(),
   goto: null,
+  wake: () => undefined,
 };
 
 const reduced = () =>
@@ -111,6 +115,7 @@ function Rig({
 }) {
   const camera = useThree((s) => s.camera);
   const controls = useThree((s) => s.controls) as Controls;
+  const invalidate = useThree((s) => s.invalidate);
   const glide = useRef<{
     from: Vector3;
     fromAt: Vector3;
@@ -127,7 +132,8 @@ function Rig({
       toAt: new Vector3(...at),
       t: reduced() ? 1 : 0,
     };
-  }, [angle, w, d, h, camera, controls]);
+    invalidate();
+  }, [angle, w, d, h, camera, controls, invalidate]);
   useFrame((_, dt) => {
     const g = glide.current;
     if (g) {
@@ -139,6 +145,7 @@ function Rig({
       controls?.target.copy(at);
       controls?.update();
       if (g.t >= 1) glide.current = null;
+      else invalidate();
     }
     report(stage, camera.position);
   });
@@ -157,6 +164,7 @@ function Walker({
 }) {
   const camera = useThree((s) => s.camera);
   const gl = useThree((s) => s.gl);
+  const invalidate = useThree((s) => s.invalidate);
   useEffect(() => {
     // in from the south-east corner, looking into the room, a little down
     const s = WALK;
@@ -165,6 +173,7 @@ function Walker({
     s.yaw = Math.PI / 4;
     s.pitch = -0.12;
     s.goto = null;
+    s.wake = invalidate;
     camera.position.set(s.x, EYE, s.z);
     camera.rotation.set(0, 0, 0, "YXZ");
     const typing = (t: EventTarget | null) =>
@@ -173,6 +182,7 @@ function Walker({
     const down = (e: KeyboardEvent) => {
       if (typing(e.target)) return;
       s.keys.add(e.key.toLowerCase());
+      invalidate();
     };
     const up = (e: KeyboardEvent) => s.keys.delete(e.key.toLowerCase());
     let look: { x: number; y: number } | null = null;
@@ -188,6 +198,7 @@ function Walker({
         Math.min(1.2, s.pitch - (e.clientY - look.y) * 0.004),
       );
       look = { x: e.clientX, y: e.clientY };
+      invalidate();
     };
     const pup = () => {
       look = null;
@@ -205,9 +216,10 @@ function Walker({
       window.removeEventListener("pointermove", pmove);
       window.removeEventListener("pointerup", pup);
     };
-  }, [camera, gl, w, d]);
+  }, [camera, gl, w, d, invalidate]);
   useFrame((_, dt) => {
     const s = WALK;
+    if (s.keys.size || s.goto) invalidate();
     const fx = -Math.sin(s.yaw);
     const fz = -Math.cos(s.yaw);
     let mx = 0;
@@ -455,6 +467,8 @@ export default function Scene3D() {
     WALL_TONES.find((t) => t.id === room.wallTone)?.hex ?? WALL_TONES[0].hex;
   const floor = FLOOR_TONES[room.floor as Floor] ?? FLOOR_TONES.Vinyl;
   const canDrag = a.tool === "select" && !a.focus;
+  // a finger means a phone or a tablet: fewer pixels, no shadows
+  const coarse = useCoarse();
   return (
     <div
       ref={stage}
@@ -464,9 +478,20 @@ export default function Scene3D() {
       data-dragging={dragging}
     >
       <Canvas
-        shadows
+        // a frame only when something moves: the orbit, a glide, a walk, a
+        // drag or a change in the room; the rest of the time the GPU rests
+        frameloop="demand"
+        shadows={!coarse}
+        // at most two device pixels per CSS pixel: a phone's screen draws
+        // less than half of what it would, with nothing to see for it;
         // the buffer is kept so Export can read the canvas as a picture
-        gl={{ alpha: true, antialias: true, preserveDrawingBuffer: true }}
+        dpr={[1, 2]}
+        gl={{
+          alpha: true,
+          antialias: !coarse,
+          preserveDrawingBuffer: true,
+          powerPreference: "high-performance",
+        }}
         camera={{ fov: 42, near: 0.05, far: 100 }}
         onPointerMissed={() => undefined}
       >
@@ -493,6 +518,7 @@ export default function Scene3D() {
                 if (!walk) return;
                 e.stopPropagation();
                 WALK.goto = { x: e.point.x, z: e.point.z };
+                WALK.wake();
               }}
             >
               <planeGeometry args={[w, d]} />

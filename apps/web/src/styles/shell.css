@@ -512,10 +512,15 @@ body > .shell-menu {
     transform 0.15s ease;
   z-index: 10;
 }
-.shell-tip:hover::after,
 .shell-tip:focus-visible::after {
   opacity: 1;
   transform: translateY(0);
+}
+@media (hover: hover) {
+  .shell-tip:hover::after {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .shell-panel-title {
@@ -1195,7 +1200,13 @@ body > .shell-menu {
   border-radius: var(--r-control);
   background: rgb(from var(--color-ink) r g b / 0.05);
 }
-.shell-choice a {
+.shell-choice a,
+.shell-choice button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
   padding: 5px 12px;
   border-radius: calc(var(--r-control) - 2px);
   font-size: 12.5px;
@@ -1206,10 +1217,12 @@ body > .shell-menu {
     background 0.15s ease,
     color 0.15s ease;
 }
-.shell-choice a:hover {
+.shell-choice a:hover,
+.shell-choice button:hover {
   color: var(--color-ink);
 }
-.shell-choice a[aria-current="page"] {
+.shell-choice a[aria-current="page"],
+.shell-choice button[aria-checked="true"] {
   background: var(--color-glass);
   color: var(--color-accent);
   box-shadow: 0 1px 3px -1px rgb(from var(--color-shadow) r g b / 0.2);
@@ -1339,4 +1352,57 @@ body > .shell-menu {
   cursor: default;
   background: rgb(from var(--color-accent) r g b / 0.14);
   color: var(--color-accent);
+}
+
+/* ---- under a finger: targets a finger can hit, nothing that waits for
+   a hover ---- */
+@media (pointer: coarse) {
+  .main-icon,
+  .shell-iconbtn,
+  .agent-act,
+  .add-tile-star,
+  .eva-pref-clear {
+    min-width: 40px;
+    min-height: 40px;
+  }
+  .assets-chip,
+  .main-btn,
+  .chat-mode-btn,
+  .chat-eva,
+  .main-seg-btn {
+    min-height: 36px;
+  }
+  .chat-send,
+  .stage-piece-turn,
+  .main-zoom {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .shell-tip::after {
+    display: none;
+  }
+}
+
+/* ---- a browser below the studio's floor: the colours above are not
+   read, so this line says why instead of leaving a blank page ---- */
+.old-browser {
+  display: none;
+}
+@supports not (color: rgb(from red r g b)) {
+  .old-browser {
+    display: block;
+    position: fixed;
+    inset: 0 0 auto 0;
+    z-index: 1000;
+    margin: 0;
+    padding: 12px 16px;
+    background: var(--color-cream);
+    color: var(--color-ink);
+    font:
+      600 14px/1.4 var(--font-app),
+      system-ui,
+      sans-serif;
+    text-align: center;
+    border-bottom: 1px solid var(--color-line);
+  }
 }

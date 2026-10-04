@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { WHEEL_MODES } from "./input";
+import { useStudio } from "./studio-store";
 import { usePathname } from "next/navigation";
 import { useRef, useState } from "react";
 import { Dialog } from "./Dialog";
@@ -106,12 +108,37 @@ export function UserBar({
   );
 }
 
-/** the one setting the studio has: how the panels are cut */
+/** the studio's settings: how the panels are cut, what the wheel does */
 function SettingsDialog({ onClose }: { onClose: () => void }) {
   const path = usePathname();
   const rounded = path === "/rounded";
+  const wheelMode = useStudio((s) => s.wheelMode);
+  const { setWheelMode } = useStudio.getState();
   return (
     <Dialog title="Settings" onClose={onClose}>
+      <div className="shell-settings-row">
+        <span className="shell-settings-label">
+          Scroll wheel on the plan
+          <small>{WHEEL_MODES.find((m) => m.id === wheelMode)?.hint}</small>
+        </span>
+        <span
+          className="shell-choice"
+          role="radiogroup"
+          aria-label="Scroll wheel on the plan"
+        >
+          {WHEEL_MODES.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              role="radio"
+              aria-checked={wheelMode === m.id}
+              onClick={() => setWheelMode(m.id)}
+            >
+              {m.label}
+            </button>
+          ))}
+        </span>
+      </div>
       <div className="shell-settings-row">
         <span className="shell-settings-label">
           Panel corners

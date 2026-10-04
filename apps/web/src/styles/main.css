@@ -1459,6 +1459,7 @@
   position: relative;
   width: 100%;
   transform-origin: 50% 50%;
+  touch-action: none;
 }
 .plan-svg {
   display: block;

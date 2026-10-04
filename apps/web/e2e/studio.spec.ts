@@ -1317,8 +1317,39 @@ test("the gear opens Settings, the shortcuts and Help; keys drive the tools", as
     "aria-current",
     "page",
   );
+  // the wheel's meaning on the plan: Auto by default, Scroll kept
+  const wheel = settings.getByRole("radiogroup", {
+    name: "Scroll wheel on the plan",
+  });
+  await expect(wheel.getByRole("radio", { name: "Auto" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
+  await wheel.getByRole("radio", { name: "Scroll" }).click();
+  await expect(settings).toContainText("the wheel always moves the sheet");
   await page.keyboard.press("Escape");
   await expect(settings).toHaveCount(0);
+  await page.keyboard.press("2");
+  const sheet = page.locator(".shell-stage .plan");
+  const box = (await page.locator(".shell-stage .plan-svg").boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.wheel(0, 120);
+  await expect(sheet).toHaveCSS("transform", "matrix(1, 0, 0, 1, 0, -120)");
+  // a pinch (the wheel with Control) zooms whatever the setting
+  await page.keyboard.down("Control");
+  await page.mouse.wheel(0, -100);
+  await page.keyboard.up("Control");
+  await expect(sheet).toHaveCSS("transform", /matrix\(2\.7/);
+  await page.keyboard.press("0");
+  await page.reload();
+  await page.getByRole("button", { name: "Settings" }).click();
+  await menu.getByRole("menuitem", { name: "Settings" }).click();
+  await expect(wheel.getByRole("radio", { name: "Scroll" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
+  await wheel.getByRole("radio", { name: "Auto" }).click();
+  await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Settings" }).click();
   await menu.getByRole("menuitem", { name: "Keyboard shortcuts" }).click();
   const keys = page.getByRole("dialog", { name: "Keyboard shortcuts" });

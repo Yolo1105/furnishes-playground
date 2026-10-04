@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { WheelMode } from "./input";
 
 /**
  * What the toolbar holds and the surfaces follow: the mode, the tool
@@ -64,6 +65,8 @@ type StudioState = {
   /** the plan's zoom (1 is the sheet fitted) and pan, px */
   planZoom: number;
   planPan: { x: number; y: number };
+  /** what a plain wheel does on the plan: see input.ts */
+  wheelMode: WheelMode;
   setMode: (mode: Mode) => void;
   setTool: (tool: Tool) => void;
   setView: (view: View) => void;
@@ -87,6 +90,7 @@ type StudioState = {
   panPlan: (dx: number, dy: number) => void;
   /** the sheet fitted again */
   fitPlan: () => void;
+  setWheelMode: (wheelMode: WheelMode) => void;
 };
 
 const clamp = (n: number) => Math.min(100, Math.max(0, n));
@@ -112,6 +116,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   split: 0,
   planZoom: 1,
   planPan: { x: 0, y: 0 },
+  wheelMode: "auto",
   setMode: (mode) =>
     set((s) =>
       mode === "preview"
@@ -205,4 +210,5 @@ export const useStudio = create<StudioState>((set, get) => ({
   panPlan: (dx, dy) =>
     set((s) => ({ planPan: { x: s.planPan.x + dx, y: s.planPan.y + dy } })),
   fitPlan: () => set({ planZoom: 1, planPan: { x: 0, y: 0 } }),
+  setWheelMode: (wheelMode) => set({ wheelMode }),
 }));

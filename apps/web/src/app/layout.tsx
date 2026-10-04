@@ -33,6 +33,10 @@ export default function RootLayout({
         {/* Animated fluid background: three blurred warm blobs drifting on
             independent loops behind every studio surface. Pure CSS, see
             globals.css `.bg-fluid`. */}
+        <p className="old-browser" role="status">
+          This browser is older than the studio supports. It needs Chrome or
+          Edge 119, Safari 16.4 or Firefox 128, or newer.
+        </p>
         <div className="bg-fluid" aria-hidden="true">
           <div className="bg-blob bg-blob-1" />
           <div className="bg-blob bg-blob-2" />

@@ -14,6 +14,13 @@ import { zonesOf } from "./room-health";
 import { CLOSE_WITHIN, footprintOf, useRoom } from "./room-store";
 import { useStudio } from "./studio-store";
 import { PLACE_SNAP } from "./piece-detail";
+import {
+  DRAG_FROM,
+  pinchOf,
+  readWheel,
+  useCoarse,
+  type GestureEvent,
+} from "./input";
 
 /**
  * The plan as a drawing office draws it, a stand-in until the real plan.
@@ -27,8 +34,10 @@ import { PLACE_SNAP } from "./piece-detail";
  * first corner closes the room; Escape forgets the corners so far. With
  * Measure on, a click sets one end and a click the other, the distance
  * in millimetres between them (and the run and rise when it is on the
- * slant); Escape clears it. The wheel zooms the sheet about the pointer,
- * dragging the sheet pans it, and Fit brings it back.
+ * slant); Escape clears it. The wheel zooms the sheet about the pointer
+ * (a mouse) or scrolls it (a trackpad), a pinch zooms it on a trackpad
+ * and under two fingers, dragging the sheet pans it, and Fit brings it
+ * back. Under a finger the measure snaps to 100 mm.
  */
 const WALL = 150; // mm, half the band's thickness
 const FACE = 14; // mm, the face line either side of the band
@@ -86,7 +95,10 @@ export function Plan2D({
   const tool = useStudio((s) => s.tool);
   const planZoom = useStudio((s) => s.planZoom);
   const planPan = useStudio((s) => s.planPan);
+  const wheelMode = useStudio((s) => s.wheelMode);
   const { zoomPlan, panPlan } = useStudio.getState();
+  const coarse = useCoarse();
+  const snap = coarse ? 100 : PLACE_SNAP;
   const svgRef = useRef<SVGSVGElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   const [measure, setMeasure] = useState<{
@@ -97,6 +109,11 @@ export function Plan2D({
   }>({ from: null, to: null, at: null });
   const [panning, setPanning] = useState(false);
   const pan = useRef<{ x: number; y: number } | null>(null);
+  /** the pointers down on the sheet, for a two-finger pinch */
+  const fingers = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{ span: number; mid: { x: number; y: number } } | null>(
+    null,
+  );
   const W = r.width;
   const D = r.depth;
   const vw = W + 2 * MARGIN;
@@ -130,22 +147,44 @@ export function Plan2D({
     return () => window.removeEventListener("keydown", onKey);
   }, [drawingOn, measuring]);
 
-  // the wheel zooms about the pointer, over the sheet and the pieces
-  // alike; a listener of its own, since the page must not scroll with it
+  // the wheel, over the sheet and the pieces alike: a zoom about the
+  // pointer or a scroll, as the device and the setting say; listeners of
+  // their own, since the page must not scroll or zoom with them
   useEffect(() => {
     const sheet = sheetRef.current;
     if (!interactive || !sheet) return;
+    const about = (x: number, y: number) => {
+      const r = sheet.getBoundingClientRect();
+      return { x: x - (r.left + r.width / 2), y: y - (r.top + r.height / 2) };
+    };
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const r = sheet.getBoundingClientRect();
-      zoomPlan(Math.exp(-e.deltaY * 0.0025), {
-        x: e.clientX - (r.left + r.width / 2),
-        y: e.clientY - (r.top + r.height / 2),
-      });
+      const read = readWheel(e, wheelMode);
+      if (read.kind === "zoom")
+        zoomPlan(read.factor, about(e.clientX, e.clientY));
+      else panPlan(read.dx, read.dy);
+    };
+    // Safari's trackpad pinch
+    let scale = 1;
+    const onGestureStart = (e: Event) => {
+      e.preventDefault();
+      scale = 1;
+    };
+    const onGesture = (e: Event) => {
+      e.preventDefault();
+      const g = e as GestureEvent;
+      zoomPlan(g.scale / scale, about(g.clientX, g.clientY));
+      scale = g.scale;
     };
     sheet.addEventListener("wheel", onWheel, { passive: false });
-    return () => sheet.removeEventListener("wheel", onWheel);
-  }, [interactive, zoomPlan]);
+    sheet.addEventListener("gesturestart", onGestureStart);
+    sheet.addEventListener("gesturechange", onGesture);
+    return () => {
+      sheet.removeEventListener("wheel", onWheel);
+      sheet.removeEventListener("gesturestart", onGestureStart);
+      sheet.removeEventListener("gesturechange", onGesture);
+    };
+  }, [interactive, wheelMode, zoomPlan, panPlan]);
 
   // a point on the sheet, in millimetres of the room
   const mmOf = (e: { clientX: number; clientY: number }) => {
@@ -155,8 +194,8 @@ export function Plan2D({
     return [pt.x, pt.y] as [number, number];
   };
   const snapped = (p: [number, number]): [number, number] => [
-    Math.round(p[0] / PLACE_SNAP) * PLACE_SNAP,
-    Math.round(p[1] / PLACE_SNAP) * PLACE_SNAP,
+    Math.round(p[0] / snap) * snap,
+    Math.round(p[1] / snap) * snap,
   ];
   // a click on the sheet: a corner while drawing, an end while measuring
   const onPlanClick = (e: MouseEvent<SVGSVGElement>) => {
@@ -176,28 +215,65 @@ export function Plan2D({
     if (pt) setMeasure((m) => ({ ...m, at: snapped(pt) }));
   };
   // dragging the sheet pans it, from anywhere but a piece (those have
-  // their own drags)
+  // their own drags); two fingers pinch it and move it together
   const canPan = interactive && !drawingOn && !measuring;
+  const capture = (e: PointerEvent<HTMLDivElement>) => {
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* a pointer the browser no longer knows */
+    }
+  };
   const onDown = (e: PointerEvent<HTMLDivElement>) => {
+    if (!interactive) return;
+    if (e.pointerType === "touch") {
+      fingers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (fingers.current.size === 2) {
+        const [a, b] = [...fingers.current.values()];
+        pinch.current = pinchOf(a!, b!);
+        pan.current = null;
+        setPanning(false);
+        capture(e);
+        return;
+      }
+    }
     if (!canPan || e.button !== 0) return;
     if ((e.target as HTMLElement).closest(".stage-piece, button, a, input"))
       return;
     pan.current = { x: e.clientX, y: e.clientY };
   };
   const onMove = (e: PointerEvent<HTMLDivElement>) => {
+    if (fingers.current.has(e.pointerId)) {
+      fingers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const z = pinch.current;
+      if (z && fingers.current.size >= 2) {
+        const [a, b] = [...fingers.current.values()];
+        const now = pinchOf(a!, b!);
+        const r = e.currentTarget.getBoundingClientRect();
+        zoomPlan(now.span / z.span, {
+          x: now.mid.x - (r.left + r.width / 2),
+          y: now.mid.y - (r.top + r.height / 2),
+        });
+        panPlan(now.mid.x - z.mid.x, now.mid.y - z.mid.y);
+        pinch.current = now;
+        return;
+      }
+    }
     const p = pan.current;
     if (!p) return;
     const dx = e.clientX - p.x;
     const dy = e.clientY - p.y;
-    if (!panning && Math.hypot(dx, dy) < 3) return;
+    if (!panning && Math.hypot(dx, dy) < DRAG_FROM) return;
     if (!panning) {
       setPanning(true);
-      e.currentTarget.setPointerCapture(e.pointerId);
+      capture(e);
     }
     panPlan(dx, dy);
     pan.current = { x: e.clientX, y: e.clientY };
   };
-  const onUp = () => {
+  const onUp = (e: PointerEvent<HTMLDivElement>) => {
+    fingers.current.delete(e.pointerId);
+    if (fingers.current.size < 2) pinch.current = null;
     pan.current = null;
     setPanning(false);
   };

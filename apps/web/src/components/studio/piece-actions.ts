@@ -108,6 +108,11 @@ export function usePieceActions() {
       setActionsFor(null);
     }
   };
+  /** a long press under a finger: the piece's actions, whatever the tool */
+  const hold = (n: AssetNode) => {
+    select(n.id, false);
+    setActionsFor(n.id);
+  };
   const details = (n: AssetNode) => {
     setFocus(n.id);
     setPanelTab("detail");
@@ -169,6 +174,7 @@ export function usePieceActions() {
     turn,
     actionsFor,
     onPick,
+    hold,
     details,
     toggleLabel,
     labelOf,
