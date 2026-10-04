@@ -18,7 +18,6 @@ import {
   colourHex,
   footprint,
   isRug,
-  PLACE_SNAP,
   ROOM_ITEM_HEX,
   type PieceProps,
   normTurn,
@@ -27,6 +26,7 @@ import {
 import { FLOOR_TONES, WALL_TONES, type Floor } from "./room-data";
 import { settle } from "./room-layout";
 import { edgesOf, insideOutline } from "./room-geometry";
+import type { Point } from "./room-templates";
 import { footprintOf, useRoom } from "./room-store";
 import { propsOf, useScene } from "./scene-store";
 import { useCoarse } from "./input";
@@ -520,7 +520,7 @@ function Piece({
   label: number;
   /** Select is on, the piece is not locked, nothing is in focus */
   canDrag: boolean;
-  room: { W: number; D: number; w: number; d: number };
+  room: { W: number; D: number; w: number; d: number; outline: Point[] };
   actions: React.ReactNode;
   onPick: () => void;
   onTurn: () => void;
@@ -611,13 +611,13 @@ function Piece({
       useScene.getState().dragStart();
       onDragging(true);
     }
-    useScene
-      .getState()
-      .dragMove(
-        node.id,
-        settle(dr.x0 + dx * 1000, f.w, room.W, PLACE_SNAP),
-        settle(dr.y0 + dz * 1000, f.d, room.D, PLACE_SNAP),
-      );
+    const to = settle(
+      { x: dr.x0 + dx * 1000, y: dr.y0 + dz * 1000 },
+      f,
+      room,
+      useStudio.getState().magnet,
+    );
+    useScene.getState().dragMove(node.id, to.x, to.y);
   };
   const onUp = () => {
     const dr = drag.current;
@@ -901,7 +901,7 @@ export default function Scene3D() {
               clash={a.clashes.has(n.id)}
               label={label}
               canDrag={canDrag && !p.locked && !walk}
-              room={{ W: a.room.W, D: a.room.D, w, d }}
+              room={{ W: a.room.W, D: a.room.D, w, d, outline }}
               onPick={() => a.onPick(n)}
               onTurn={() => a.turn(n)}
               onDragging={setDragging}

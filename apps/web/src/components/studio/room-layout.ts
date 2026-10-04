@@ -1,5 +1,11 @@
-import { footprint, isRug, isSmall, type PieceProps } from "./piece-detail";
-import { edgesOf, rectInside } from "./room-geometry";
+import {
+  footprint,
+  isRug,
+  isSmall,
+  PLACE_SNAP,
+  type PieceProps,
+} from "./piece-detail";
+import { edgesOf, rectInside, WALL_MM } from "./room-geometry";
 import { keepOff, meets, zonesOf, type Room, type Zone } from "./room-health";
 import type { Rules } from "./room-data";
 
@@ -318,15 +324,63 @@ export const layoutPlans = (
   ];
 };
 
-/** within this of a wall a dragged piece goes flush to it, mm */
-const MAGNET = 150;
+/** within this of a wall a moved piece goes flush to it, mm */
+export const MAGNET = 150;
 
-/** `v` kept inside the room along one side, on the snap grid, and drawn
-    flush to a wall when near it */
-export const settle = (v: number, size: number, side: number, snap: number) => {
-  const max = Math.max(0, side - size);
-  const inside = Math.min(Math.max(0, v), max);
-  if (inside < MAGNET) return 0;
-  if (max - inside < MAGNET) return max;
-  return Math.round(inside / snap) * snap;
+/**
+ * Where a moved or dropped piece comes to rest: on the placing grid,
+ * free to stand anywhere, past the walls too. With the magnet on, a
+ * side within MAGNET of a wall goes flush to it: inside the room
+ * against the wall's face, outside against the band's far face. The
+ * nearest wall wins on each axis; a wall only draws a piece that
+ * stands along its span.
+ */
+export const settle = (
+  at: Spot,
+  f: { w: number; d: number },
+  room: Pick<Room, "outline">,
+  magnet: boolean,
+): Spot => {
+  const grid = (v: number) => Math.round(v / PLACE_SNAP) * PLACE_SNAP;
+  const spot = { x: grid(at.x), y: grid(at.y) };
+  if (!magnet) return spot;
+  const span = (p: number, q: number) => [Math.min(p, q), Math.max(p, q)];
+  let nearX = MAGNET;
+  let nearY = MAGNET;
+  for (const e of edgesOf(room.outline)) {
+    if (e.a[1] === e.b[1]) {
+      const [from, to] = span(e.a[0], e.b[0]);
+      if (!(at.x < to! && from! < at.x + f.w)) continue;
+      const line = e.a[1];
+      // the room lies below a north wall, above a south one
+      const faces =
+        e.wall === "north"
+          ? [line, line - WALL_MM - f.d]
+          : [line - f.d, line + WALL_MM];
+      for (const y of faces) {
+        const gap = Math.abs(at.y - y);
+        if (gap < nearY) {
+          nearY = gap;
+          spot.y = y;
+        }
+      }
+    } else {
+      const [from, to] = span(e.a[1], e.b[1]);
+      if (!(at.y < to! && from! < at.y + f.d)) continue;
+      const line = e.a[0];
+      // the room lies right of a west wall, left of an east one
+      const faces =
+        e.wall === "west"
+          ? [line, line - WALL_MM - f.w]
+          : [line - f.w, line + WALL_MM];
+      for (const x of faces) {
+        const gap = Math.abs(at.x - x);
+        if (gap < nearX) {
+          nearX = gap;
+          spot.x = x;
+        }
+      }
+    }
+  }
+  return spot;
 };

@@ -6,15 +6,10 @@ import { ArrowLeftIcon, LockIcon, RotateIcon } from "./icons";
 import { usePieceActions } from "./piece-actions";
 import { PieceActions } from "./PieceActions";
 import { DRAG_FROM, LONG_PRESS } from "./input";
-import {
-  footprint,
-  isSquare,
-  normTurn,
-  PLACE_SNAP,
-  ROTATE_SNAP,
-} from "./piece-detail";
+import { footprint, isSquare, normTurn, ROTATE_SNAP } from "./piece-detail";
 import { settle } from "./room-layout";
 import { useScene } from "./scene-store";
+import { useStudio } from "./studio-store";
 
 /**
  * The pieces standing in the room, drawn to plan on the stage (the 2D
@@ -34,6 +29,7 @@ const NAME_CHAR_PX = 6.4;
 export function StagePieces() {
   const a = usePieceActions();
   const { W, D } = a.room;
+  const magnet = useStudio((s) => s.magnet);
   // the layer's width in pixels, so a name is written only where its
   // whole word fits the footprint; the plan's zoom scales both alike
   const layer = useRef<HTMLDivElement>(null);
@@ -163,13 +159,8 @@ export function StagePieces() {
       useScene.getState().dragStart();
     }
     const f = footprint(a.props.get(n.id)!);
-    useScene
-      .getState()
-      .dragMove(
-        n.id,
-        settle(d.x0 + dx, f.w, W, PLACE_SNAP),
-        settle(d.y0 + dy, f.d, D, PLACE_SNAP),
-      );
+    const to = settle({ x: d.x0 + dx, y: d.y0 + dy }, f, a.room, magnet);
+    useScene.getState().dragMove(n.id, to.x, to.y);
   };
   const onUp = (n: AssetNode) => {
     endPress();

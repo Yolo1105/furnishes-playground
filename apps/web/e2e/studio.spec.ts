@@ -3035,3 +3035,54 @@ test("a room shared by link: read-only for anyone, taken into a studio as a proj
   await ctxA.close();
   await ctxB.close();
 });
+
+test("a piece may stand past the walls; near a wall the magnet draws it flush, inside or out, until Settings turns it off", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  await page.getByRole("button", { name: "Show 2D plan in main" }).click();
+  await page
+    .locator(".plan")
+    .evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
+  const sheet = (await page.locator(".plan-pieces").boundingBox())!;
+  const ppm = sheet.width / 6500; // px per mm, the room's own box
+  const name = top.filter((a) => a.kind === "piece")[0]!.name;
+  const body = page.locator(".stage-pieces").getByRole("button", {
+    name,
+    exact: true,
+  });
+  const dragTo = async (leftPx: number) => {
+    const b = (await body.boundingBox())!;
+    const cx = b.x + b.width / 2;
+    const cy = b.y + b.height / 2;
+    await page.mouse.move(cx, cy);
+    await page.mouse.down();
+    await page.mouse.move(cx + 30, cy + 30, { steps: 4 });
+    await page.mouse.move(leftPx + b.width / 2, cy + 30, { steps: 8 });
+    await page.mouse.up();
+    return (await body.boundingBox())!;
+  };
+  // left edge let go 100 mm from the west wall: it goes flush to it
+  let b = await dragTo(sheet.x + 100 * ppm);
+  expect(Math.abs(b.x - sheet.x)).toBeLessThan(2);
+  // let go outside, the right edge 400 mm past the wall: it stands
+  // outside, against the wall band's far face (300 mm)
+  b = await dragTo(sheet.x - 400 * ppm - b.width);
+  expect(Math.abs(b.x + b.width - (sheet.x - 300 * ppm))).toBeLessThan(2);
+  // the rules read it as past the wall
+  await expect(page.getByRole("list", { name: "Room health" })).toContainText(
+    `${name} stands past the wall`,
+  );
+  // the magnet off: the piece stays where it is let go, on the grid
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page
+    .getByRole("menu")
+    .getByRole("menuitem", { name: "Settings" })
+    .click();
+  await page.getByRole("radio", { name: "Off" }).click();
+  await page.keyboard.press("Escape");
+  b = await dragTo(sheet.x + 100 * ppm);
+  expect(Math.abs(b.x - (sheet.x + 100 * ppm))).toBeLessThan(2);
+  expect(Math.abs(b.x - sheet.x)).toBeGreaterThan(4);
+});

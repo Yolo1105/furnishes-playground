@@ -1,9 +1,9 @@
 import type { PointerEvent as ReactPointerEvent } from "react";
 import type { Product } from "./catalogue";
 import { DRAG_FROM, LONG_PRESS } from "./input";
-import { PLACE_SNAP, defaultProps, footprint } from "./piece-detail";
+import { defaultProps, footprint } from "./piece-detail";
 import { settle } from "./room-layout";
-import { useRoom } from "./room-store";
+import { footprintOf, useRoom } from "./room-store";
 import { useScene } from "./scene-store";
 import { useStudio } from "./studio-store";
 
@@ -127,14 +127,19 @@ export const endTileDrag = (e: ReactPointerEvent) => {
   if (sheet) {
     // stood where the pointer let go, its middle under the pointer
     const r = sheet.getBoundingClientRect();
-    const { width: W, depth: D } = useRoom.getState();
+    const room = useRoom.getState();
     const f = footprint(defaultProps({ ...c.product, kind: "piece" }));
-    const x = ((e.clientX - r.left) / r.width) * W - f.w / 2;
-    const y = ((e.clientY - r.top) / r.height) * D - f.d / 2;
-    setProps(id, {
-      x: settle(x, f.w, W, PLACE_SNAP),
-      y: settle(y, f.d, D, PLACE_SNAP),
-    });
+    const x = ((e.clientX - r.left) / r.width) * room.width - f.w / 2;
+    const y = ((e.clientY - r.top) / r.height) * room.depth - f.d / 2;
+    setProps(
+      id,
+      settle(
+        { x, y },
+        f,
+        { outline: footprintOf(room) },
+        useStudio.getState().magnet,
+      ),
+    );
   }
   select(id, false);
 };

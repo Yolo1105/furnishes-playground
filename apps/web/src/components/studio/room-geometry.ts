@@ -10,6 +10,10 @@ import type { Wall } from "./room-data";
 type Rect = { x: number; y: number; w: number; d: number };
 export type Edge = { a: Point; b: Point; wall: Wall };
 
+/** the walls' thickness, mm: the band drawn outside the outline on the
+    plan, the far face a piece outside the room leans on */
+export const WALL_MM = 300;
+
 /** whether a point lies in the polygon (on an edge counts as in) */
 export const insideOutline = (x: number, y: number, poly: readonly Point[]) => {
   let inside = false;

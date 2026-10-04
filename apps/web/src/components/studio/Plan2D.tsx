@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { OPENINGS, ROOM_NAMES, type Wall } from "./room-data";
+import { WALL_MM } from "./room-geometry";
 import { usePieceActions } from "./piece-actions";
 import { openingAt, zonesOf } from "./room-health";
 import { CLOSE_WITHIN, footprintOf, useRoom } from "./room-store";
@@ -41,7 +42,7 @@ import {
  * and under two fingers, dragging the sheet pans it, and Fit brings it
  * back. Under a finger the measure snaps to 100 mm.
  */
-const WALL = 150; // mm, half the band's thickness
+const WALL = WALL_MM / 2; // mm, half the band's thickness
 const FACE = 14; // mm, the face line either side of the band
 const MARGIN = 1100; // mm, room for the dimensions, the arrow, the title
 const DOOR = OPENINGS.door.width;

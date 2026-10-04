@@ -185,7 +185,7 @@ export function usePieceActions() {
           ]),
         ),
       ),
-    room: { W, D },
+    room,
     selectedId,
     tool,
     turn,

@@ -27,7 +27,7 @@ export const HELP_TABS: readonly HelpTab[] = [
           },
           {
             does: "Move a piece",
-            how: "Drag it; it snaps to the walls and to the grid.",
+            how: "Drag it anywhere, past the walls too; near a wall it goes flush (the magnet, in Settings).",
           },
           {
             does: "Turn a piece",

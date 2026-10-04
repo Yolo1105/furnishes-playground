@@ -148,9 +148,40 @@ function SettingsDialog({ onClose }: { onClose: () => void }) {
   const path = usePathname();
   const rounded = path === "/rounded";
   const wheelMode = useStudio((s) => s.wheelMode);
-  const { setWheelMode } = useStudio.getState();
+  const magnet = useStudio((s) => s.magnet);
+  const { setWheelMode, setMagnet } = useStudio.getState();
   return (
     <Dialog title="Settings" onClose={onClose}>
+      <div className="shell-settings-row">
+        <span className="shell-settings-label">
+          Magnet to the walls
+          <small>
+            A piece moved near a wall goes flush to it, inside or out
+          </small>
+        </span>
+        <span
+          className="shell-choice"
+          role="radiogroup"
+          aria-label="Magnet to the walls"
+        >
+          {(
+            [
+              [true, "On"],
+              [false, "Off"],
+            ] as const
+          ).map(([on, label]) => (
+            <button
+              key={label}
+              type="button"
+              role="radio"
+              aria-checked={magnet === on}
+              onClick={() => setMagnet(on)}
+            >
+              {label}
+            </button>
+          ))}
+        </span>
+      </div>
       <div className="shell-settings-row">
         <span className="shell-settings-label">
           Scroll wheel on the plan

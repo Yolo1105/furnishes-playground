@@ -27,6 +27,7 @@ export function useArrival() {
           view?: View;
           angle?: Angle;
           wheelMode?: WheelMode;
+          magnet?: boolean;
           scene?: Partial<SceneLook>;
         };
         const view = saved.view === "2d" ? "2d" : "3d";
@@ -47,7 +48,13 @@ export function useArrival() {
             ),
           ),
         };
-        useStudio.setState({ view, angle, wheelMode, scene });
+        useStudio.setState({
+          view,
+          angle,
+          wheelMode,
+          magnet: saved.magnet !== false,
+          scene,
+        });
       }
     } catch {
       /* nothing remembered, or storage blocked: the defaults stand */
@@ -60,6 +67,7 @@ export function useArrival() {
         s.view === prev.view &&
         s.angle === prev.angle &&
         s.wheelMode === prev.wheelMode &&
+        s.magnet === prev.magnet &&
         s.scene === prev.scene
       )
         return;
@@ -70,6 +78,7 @@ export function useArrival() {
             view: s.view,
             angle: s.angle,
             wheelMode: s.wheelMode,
+            magnet: s.magnet,
             scene: s.scene,
           }),
         );

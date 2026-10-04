@@ -85,6 +85,8 @@ type StudioState = {
   planPan: { x: number; y: number };
   /** what a plain wheel does on the plan: see input.ts */
   wheelMode: WheelMode;
+  /** a moved piece near a wall goes flush to it */
+  magnet: boolean;
   scene: SceneLook;
   /** the tour is playing: the walk camera runs through the stops */
   touring: boolean;
@@ -122,6 +124,7 @@ type StudioState = {
   /** the sheet fitted again */
   fitPlan: () => void;
   setWheelMode: (wheelMode: WheelMode) => void;
+  setMagnet: (magnet: boolean) => void;
   setScene: (patch: Partial<SceneLook>) => void;
   /** play the tour: the 3D room comes up, walking, and the camera goes */
   startTour: () => void;
@@ -154,6 +157,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   planZoom: 1,
   planPan: { x: 0, y: 0 },
   wheelMode: "auto",
+  magnet: true,
   scene: SCENE_DEFAULT,
   touring: false,
   tourAt: 0,
@@ -255,6 +259,7 @@ export const useStudio = create<StudioState>((set, get) => ({
     set((s) => ({ planPan: { x: s.planPan.x + dx, y: s.planPan.y + dy } })),
   fitPlan: () => set({ planZoom: 1, planPan: { x: 0, y: 0 } }),
   setWheelMode: (wheelMode) => set({ wheelMode }),
+  setMagnet: (magnet) => set({ magnet }),
   setScene: (patch) => set((s) => ({ scene: { ...s.scene, ...patch } })),
   startTour: () =>
     set((s) => ({

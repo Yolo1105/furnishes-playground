@@ -15,7 +15,6 @@ import {
 import { usePieceActions } from "./piece-actions";
 import {
   COLOURS,
-  footprint,
   LABEL_MAX,
   PLACE_SNAP,
   TEXTURES,
@@ -25,7 +24,6 @@ import {
   ROTATE_SNAP,
   squared,
 } from "./piece-detail";
-import { settle } from "./room-layout";
 import { findNode, propsOf, useScene } from "./scene-store";
 import { useStudio } from "./studio-store";
 
@@ -77,11 +75,11 @@ export function DetailTab() {
   // where the whole piece stands: its own place, or the layout's
   const whole_ = propsOf(piece, overrides);
   const spot = stage.spots.get(piece.id) ?? { x: 0, y: 0 };
-  const f = footprint(whole_);
+  // typed in millimetres, a place is taken as typed: no grid, no magnet
   const place = (patch: { x?: number; y?: number }) =>
     setProps(piece.id, {
-      x: settle(patch.x ?? spot.x, f.w, stage.room.W, PLACE_SNAP),
-      y: settle(patch.y ?? spot.y, f.d, stage.room.D, PLACE_SNAP),
+      x: Math.round(patch.x ?? spot.x),
+      y: Math.round(patch.y ?? spot.y),
     });
 
   const dim = (key: "width" | "depth" | "height", text: string) => (
@@ -223,8 +221,6 @@ export function DetailTab() {
               type="number"
               className="room-dim-input f-num"
               inputMode="numeric"
-              min={0}
-              max={stage.room.W}
               step={PLACE_SNAP}
               value={spot.x}
               aria-label={`${piece.name} from the west wall in millimetres`}
@@ -238,8 +234,6 @@ export function DetailTab() {
               type="number"
               className="room-dim-input f-num"
               inputMode="numeric"
-              min={0}
-              max={stage.room.D}
               step={PLACE_SNAP}
               value={spot.y}
               aria-label={`${piece.name} from the north wall in millimetres`}
