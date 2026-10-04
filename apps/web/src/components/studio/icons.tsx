@@ -125,6 +125,16 @@ export function KeyboardIcon({ size = 16 }: IconProps) {
   );
 }
 
+/** a person: the account */
+export function UserIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M5 20a7 7 0 0 1 14 0" />
+    </svg>
+  );
+}
+
 /** a mouse with its wheel: the Mouse & trackpad tab of Help */
 export function MouseIcon({ size = 16 }: IconProps) {
   return (

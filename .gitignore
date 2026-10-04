@@ -14,6 +14,9 @@ playwright-report/
 test-results/
 blob-report/
 
+# the local database (PGlite)
+.data/
+
 # env
 .env
 .env.*

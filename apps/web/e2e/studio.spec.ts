@@ -243,7 +243,7 @@ test("Eva's input box and the user bar", async ({ page }) => {
     page.getByRole("button", { name: /^Room layout/ }),
   ).toBeVisible();
 
-  await expect(page.locator(".user-name")).toHaveText("Studio User");
+  await expect(page.locator(".user-name")).toHaveText("Guest");
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await expect(page.getByRole("menuitem", { name: "Settings" })).toBeVisible();
 });
@@ -1309,8 +1309,9 @@ test("the gear opens Settings, Help and the Guide; keys drive the tools", async 
   await page.goto("/rounded");
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   const menu = page.getByRole("menu");
-  await expect(menu.getByRole("menuitem")).toHaveCount(4);
-  await expect(menu.getByRole("menuitem", { name: /Sign out/ })).toHaveCount(0);
+  await expect(menu.getByRole("menuitem")).toHaveCount(5);
+  await expect(menu.getByRole("menuitem", { name: "Sign in" })).toHaveCount(1);
+  await expect(menu.getByRole("menuitem", { name: "Sign out" })).toHaveCount(0);
   await menu.getByRole("menuitem", { name: "Settings" }).click();
   const settings = page.getByRole("dialog", { name: "Settings" });
   await expect(settings.getByRole("link", { name: "Rounded" })).toHaveAttribute(
@@ -2825,4 +2826,43 @@ test("the tour: stops on the plan, Play walks the camera through them, Stop and 
   await expect(run).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(run).toHaveCount(0);
+});
+
+test("an account: created with an email and a password, signed out, signed in again; a wrong password is said", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  const bar = page.locator(".user-bar");
+  await expect(bar).toContainText("Guest");
+  const gear = page.getByRole("button", { name: "Settings", exact: true });
+  const menu = page.getByRole("menu");
+  await gear.click();
+  await menu.getByRole("menuitem", { name: "Sign in" }).click();
+  const dialog = page.getByRole("dialog", { name: "Account" });
+  await dialog.getByRole("tab", { name: "Create account" }).click();
+  const email = `studio-${Date.now()}@example.com`;
+  await dialog.getByLabel("Name").fill("Mei Tan");
+  await dialog.getByLabel("Email").fill(email);
+  await dialog.getByLabel("Password").fill("a-long-enough-one");
+  await dialog.getByRole("button", { name: "Create account" }).click();
+  // the first call compiles the route and migrates the database
+  await expect(dialog).toHaveCount(0, { timeout: 20_000 });
+  await expect(bar).toContainText("Mei Tan");
+  await expect(bar).toContainText(email);
+  // signed out, a guest again
+  await gear.click();
+  await menu.getByRole("menuitem", { name: "Sign out" }).click();
+  await expect(bar).toContainText("Guest");
+  // back in: a wrong password is said, the right one lets in
+  await gear.click();
+  await menu.getByRole("menuitem", { name: "Sign in" }).click();
+  await dialog.getByLabel("Email").fill(email);
+  await dialog.getByLabel("Password").fill("not-the-right-one");
+  await dialog.getByRole("button", { name: "Sign in" }).click();
+  await expect(dialog.getByRole("alert")).toContainText(/password|invalid/i);
+  await dialog.getByLabel("Password").fill("a-long-enough-one");
+  await dialog.getByRole("button", { name: "Sign in" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(bar).toContainText("Mei Tan");
 });

@@ -79,6 +79,17 @@ and `/rounded` the floating one; Settings switches between them. Projects
 (new, rename, delete, switch) each hold a room, its pieces and Eva's
 side, autosaved in the browser.
 
+Accounts are Better Auth over Drizzle: an email and a password from the
+gear's Sign in, the name and email in the user bar, Sign out beside
+them. The database is Neon Postgres when `DATABASE_URL` is set and
+PGlite otherwise, a Postgres inside the server process that keeps its
+files under `apps/web/.data/pglite`, so a checkout runs and tests with
+no account anywhere; the migrations under `apps/web/drizzle` run when
+the server first touches the database, and `pnpm db:generate` writes a
+new one from a change to the schema. `BETTER_AUTH_SECRET` signs the
+sessions in production (a development run uses the library's own and
+says so).
+
 The room is a full-screen stage behind three panels. The project rail
 has Assets (an outliner with hide and remove), Products (the catalogue),
 Room (HDB presets, walls drawn on the plan or a template) and Detail (a

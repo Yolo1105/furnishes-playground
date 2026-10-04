@@ -10,6 +10,10 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
   // Workspace packages are consumed as TypeScript source.
   transpilePackages: ["@furnishes/domain", "@furnishes/scene"],
+  // PGlite loads its own wasm from disk, so it is required at runtime
+  // rather than bundled; the migrations ride along with every route
+  serverExternalPackages: ["@electric-sql/pglite"],
+  outputFileTracingIncludes: { "/**": ["./drizzle/**/*"] },
   turbopack: {
     // The pnpm workspace root, so workspace packages resolve.
     root: path.resolve(here, "../.."),

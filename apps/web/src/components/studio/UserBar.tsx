@@ -3,31 +3,29 @@
 import Link from "next/link";
 import { WHEEL_MODES } from "./input";
 import { useStudio } from "./studio-store";
+import { authClient, useSession } from "@/lib/auth-client";
 import { usePathname } from "next/navigation";
 import { useRef, useState } from "react";
+import { AccountDialog } from "./AccountDialog";
 import { Dialog } from "./Dialog";
 import { HelpDialog } from "./HelpDialog";
 import { useGuide } from "./guide-store";
-import { CartIcon, CompassIcon, GearIcon, HelpIcon } from "./icons";
+import { CartIcon, CompassIcon, GearIcon, HelpIcon, UserIcon } from "./icons";
 import { OrdersDialog } from "./OrdersDialog";
 import { useDismiss } from "./useDismiss";
 
 /**
- * The foot of the project rail: who is in the studio, and one gear that
- * opens settings (the panels' corners, the wheel), the orders, Help
- * (mouse, touch and keyboard) and the guide again. The name is a
- * placeholder until accounts land, so there is nothing to sign out of
- * yet.
+ * The foot of the project rail: who is in the studio (the account's
+ * name and email, or a guest), and one gear that opens settings (the
+ * panels' corners, the wheel), the orders, Help (mouse, touch and
+ * keyboard), the guide again, and signing in or out.
  */
-type Sheet = "settings" | "help" | "orders" | null;
+type Sheet = "settings" | "help" | "orders" | "account" | null;
 
-export function UserBar({
-  name = "Studio User",
-  line = "Free plan",
-}: {
-  name?: string;
-  line?: string;
-}) {
+export function UserBar() {
+  const { data: session } = useSession();
+  const name = session?.user.name ?? "Guest";
+  const line = session?.user.email ?? "Not signed in";
   const [open, setOpen] = useState(false);
   const [sheet, setSheet] = useState<Sheet>(null);
   const wrap = useRef<HTMLDivElement>(null);
@@ -98,12 +96,33 @@ export function UserBar({
           >
             <CompassIcon /> Guide
           </button>
+          <span className="shell-menu-sep" aria-hidden="true" />
+          {session ? (
+            <button
+              type="button"
+              role="menuitem"
+              className="shell-menu-row"
+              onClick={() => pick(() => void authClient.signOut())}
+            >
+              <UserIcon /> Sign out
+            </button>
+          ) : (
+            <button
+              type="button"
+              role="menuitem"
+              className="shell-menu-row"
+              onClick={() => pick(() => setSheet("account"))}
+            >
+              <UserIcon /> Sign in
+            </button>
+          )}
         </div>
       )}
       {sheet === "settings" && (
         <SettingsDialog onClose={() => setSheet(null)} />
       )}
       {sheet === "help" && <HelpDialog onClose={() => setSheet(null)} />}
+      {sheet === "account" && <AccountDialog onClose={() => setSheet(null)} />}
       {sheet === "orders" && <OrdersDialog onClose={() => setSheet(null)} />}
     </div>
   );

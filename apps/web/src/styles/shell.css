@@ -1214,6 +1214,16 @@ body > .shell-menu {
 .help-how {
   color: rgb(from var(--color-ink) r g b / 0.72);
 }
+/* the account form: fields down the card, what went wrong under them */
+.account-form {
+  display: grid;
+  gap: 10px;
+}
+.account-error {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-accent);
+}
 .shell-key {
   display: inline-block;
   min-width: 22px;
