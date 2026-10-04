@@ -8,10 +8,17 @@ import {
   type ReactNode,
 } from "react";
 import { AddStrip } from "./AddStrip";
+import { Dialog } from "./Dialog";
+import { Floating } from "./Floating";
 import { ProgressLine } from "./ProgressLine";
-import { ViewPicker } from "./ViewPicker";
 import { pieceTotals, sgd, type AssetNode } from "./assets-data";
 import { useEva } from "./eva-store";
+import {
+  exportCartCsv,
+  exportPlanSvg,
+  exportRoomJson,
+  exportScenePng,
+} from "./export";
 import { useGuide } from "./guide-store";
 import {
   CartIcon,
@@ -29,8 +36,9 @@ import {
   UndoIcon,
 } from "./icons";
 import { topLevelOf, useScene, useTopLevel } from "./scene-store";
-import { useStudio, type Tool } from "./studio-store";
+import { useStudio, viewName, type Tool } from "./studio-store";
 import { useDismiss } from "./useDismiss";
+import { useFixedMenu } from "./useFixedMenu";
 
 /**
  * What floats over the main surface: a thin toolbar across the top and a
@@ -59,11 +67,22 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
   useDismiss(addWrap, adding, () => setAdding(false));
   const exploration = useEva((s) => s.exploration);
   const setExploration = useEva((s) => s.setExploration);
-  const [prefsOpen, setPrefsOpen] = useState(false);
-  const prefsWrap = useRef<HTMLDivElement>(null);
-  useDismiss(prefsWrap, prefsOpen, () => setPrefsOpen(false));
+  // the toolbar clips what overflows it, so its menus are placed on screen
+  // from their buttons, like the project panel's filter
+  const prefs = useFixedMenu();
+  const exporting = useFixedMenu();
+  const { wrap: prefsWrap, menu: prefsMenu } = prefs;
+  const { wrap: exportWrap, menu: exportMenu } = exporting;
+  const view = useStudio((s) => s.view);
+  const canUndo = useScene((s) => s.past.length > 0);
+  const canRedo = useScene((s) => s.future.length > 0);
+  const { undo, redo } = useScene.getState();
   const { setEvaTab } = useStudio.getState();
   const resting = mode === "preview";
+  const pick = (go: () => unknown) => {
+    exporting.close();
+    go();
+  };
   return (
     <>
       <div className="glass main-top" role="toolbar" aria-label="Studio tools">
@@ -141,7 +160,6 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
           >
             <EyeIcon size={16} />
           </button>
-          <ViewPicker />
         </div>
 
         <div className="main-top-side main-top-right">
@@ -151,7 +169,8 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
               className="main-icon shell-tip"
               data-tooltip="Undo"
               aria-label="Undo"
-              disabled
+              disabled={!canUndo}
+              onClick={undo}
             >
               <UndoIcon />
             </button>
@@ -160,7 +179,8 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
               className="main-icon shell-tip"
               data-tooltip="Redo"
               aria-label="Redo"
-              disabled
+              disabled={!canRedo}
+              onClick={redo}
             >
               <RedoIcon />
             </button>
@@ -173,44 +193,48 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
               data-tooltip="Eva's preferences"
               aria-label="Eva's preferences"
               aria-haspopup="menu"
-              aria-expanded={prefsOpen}
-              onClick={() => setPrefsOpen((v) => !v)}
+              aria-expanded={prefs.open}
+              onClick={(e) => prefs.toggle(e.currentTarget)}
             >
               <CompassIcon />
             </button>
-            {prefsOpen && (
-              <div
-                className="shell-menu main-prefs-menu"
-                role="menu"
-                aria-label="Eva's preferences"
-              >
-                <p className="main-prefs-title">Eva&apos;s preferences</p>
-                <button
-                  type="button"
-                  role="menuitemcheckbox"
-                  aria-checked={exploration}
-                  className="shell-menu-row"
-                  onClick={() => setExploration(!exploration)}
+            {prefs.open && (
+              <Floating>
+                <div
+                  ref={prefsMenu}
+                  className="shell-menu main-prefs-menu"
+                  role="menu"
+                  aria-label="Eva's preferences"
+                  style={prefs.style}
                 >
-                  <span className="main-prefs-check" aria-hidden="true" />
-                  Exploration
-                  <span className="main-prefs-sub">
-                    {exploration ? "on" : "off"}
-                  </span>
-                </button>
-                <div className="shell-menu-sep" role="separator" />
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="shell-menu-row"
-                  onClick={() => {
-                    setEvaTab("preference");
-                    setPrefsOpen(false);
-                  }}
-                >
-                  Set preferences by hand
-                </button>
-              </div>
+                  <p className="main-prefs-title">Eva&apos;s preferences</p>
+                  <button
+                    type="button"
+                    role="menuitemcheckbox"
+                    aria-checked={exploration}
+                    className="shell-menu-row"
+                    onClick={() => setExploration(!exploration)}
+                  >
+                    <span className="main-prefs-check" aria-hidden="true" />
+                    Exploration
+                    <span className="main-prefs-sub">
+                      {exploration ? "on" : "off"}
+                    </span>
+                  </button>
+                  <div className="shell-menu-sep" role="separator" />
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="shell-menu-row"
+                    onClick={() => {
+                      setEvaTab("preference");
+                      prefs.close();
+                    }}
+                  >
+                    Set preferences by hand
+                  </button>
+                </div>
+              </Floating>
             )}
           </div>
           <button
@@ -222,14 +246,64 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
           >
             <HelpIcon />
           </button>
-          <button
-            type="button"
-            className="main-btn main-btn-primary"
-            aria-label="Export"
-          >
-            <ExportIcon size={14} />
-            <span>Export</span>
-          </button>
+          <div ref={exportWrap} className="main-prefs">
+            <button
+              type="button"
+              className="main-btn main-btn-primary"
+              aria-label="Export"
+              aria-haspopup="menu"
+              aria-expanded={exporting.open}
+              onClick={(e) => exporting.toggle(e.currentTarget)}
+            >
+              <ExportIcon size={14} />
+              <span>Export</span>
+            </button>
+            {exporting.open && (
+              <Floating>
+                <div
+                  ref={exportMenu}
+                  className="shell-menu main-prefs-menu"
+                  role="menu"
+                  aria-label="Export"
+                  style={exporting.style}
+                >
+                  <p className="main-prefs-title">Export</p>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="shell-menu-row main-menu-row"
+                    onClick={() =>
+                      pick(view === "2d" ? exportPlanSvg : exportScenePng)
+                    }
+                  >
+                    <ExportIcon size={14} />
+                    <span className="main-menu-row-text">
+                      {viewName(view)} as {view === "2d" ? "SVG" : "PNG"}
+                      <span className="main-menu-row-sub">
+                        {view === "2d"
+                          ? "The drawing, to scale in millimetres"
+                          : "The view as it stands on the stage"}
+                      </span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="shell-menu-row main-menu-row"
+                    onClick={() => pick(exportRoomJson)}
+                  >
+                    <ExportIcon size={14} />
+                    <span className="main-menu-row-text">
+                      Room and pieces as JSON
+                      <span className="main-menu-row-sub">
+                        Sizes, finishes, every piece and its settings
+                      </span>
+                    </span>
+                  </button>
+                </div>
+              </Floating>
+            )}
+          </div>
         </div>
         <ProgressLine />
       </div>
@@ -292,6 +366,7 @@ export function MainShelf() {
   const { select, toggleCart } = useScene.getState();
   const [tab, setTab] = useState<ShelfTab>("saved");
   const [collapsed, setCollapsed] = useState(false);
+  const [checkout, setCheckout] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
   const selected = topLevelOf(groups, selectedId);
   const pieces = items.filter((n) => n.kind === "piece");
@@ -357,7 +432,12 @@ export function MainShelf() {
               : `${sgd(c.total)} · ${c.pieces} ${c.pieces === 1 ? "piece" : "pieces"}`}
           </span>
           {tab === "cart" && inCart.length > 0 && (
-            <button type="button" className="main-btn main-btn-primary">
+            <button
+              type="button"
+              className="main-btn main-btn-primary"
+              aria-haspopup="dialog"
+              onClick={() => setCheckout(true)}
+            >
               <CartIcon size={14} />
               <span>Checkout</span>
             </button>
@@ -384,6 +464,13 @@ export function MainShelf() {
               Nothing in the cart yet. Hover a saved piece and press its cart.
             </p>
           )}
+          {checkout && (
+            <CheckoutDialog
+              pieces={inCart}
+              total={c.total}
+              onClose={() => setCheckout(false)}
+            />
+          )}
           {shown.map((n) => (
             <ShelfCard
               key={n.id}
@@ -398,6 +485,60 @@ export function MainShelf() {
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Checkout, as far as the studio goes today: the order read back, piece by
+ * piece with its price and the total, and the list as a file to take to
+ * the shop. Paying is not wired here yet, and the dialog says so.
+ */
+function CheckoutDialog({
+  pieces,
+  total,
+  onClose,
+}: {
+  pieces: AssetNode[];
+  total: number;
+  onClose: () => void;
+}) {
+  return (
+    <Dialog title="Your order" onClose={onClose}>
+      <ul className="shell-dialog-list f-num" data-total="true">
+        {pieces.map((n) => (
+          <li key={n.id}>
+            <span>{n.name}</span>
+            <span>{sgd(n.price ?? 0)}</span>
+          </li>
+        ))}
+        <li>
+          <span>
+            Total · {pieces.length} {pieces.length === 1 ? "piece" : "pieces"}
+          </span>
+          <span>{sgd(total)}</span>
+        </li>
+      </ul>
+      <p style={{ marginTop: 12 }}>
+        Paying from the studio is not wired yet. Download the list and take it
+        to the Furnishes shop, or keep shaping the room.
+      </p>
+      <div className="shell-dialog-acts">
+        <button type="button" className="main-btn" onClick={onClose}>
+          <span>Keep shaping</span>
+        </button>
+        <button
+          type="button"
+          className="main-btn main-btn-primary"
+          onClick={() => {
+            exportCartCsv();
+            onClose();
+          }}
+        >
+          <ExportIcon size={14} />
+          <span>Download the list</span>
+        </button>
+      </div>
+    </Dialog>
   );
 }
 

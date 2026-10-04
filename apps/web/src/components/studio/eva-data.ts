@@ -15,6 +15,23 @@ export type Conversation = {
   turns: number;
 };
 
+export type Message = {
+  id: string;
+  who: "you" | "eva";
+  text: string;
+  /** the name of a picture sent along, if any */
+  image?: string;
+  at: number;
+};
+
+/** what Eva can be asked first; each goes into the input box */
+export const PROMPTS = [
+  "Plan this room around the sofa and the window",
+  "Suggest storage for this wall under S$1,500",
+  "What fits along a 3 m wall?",
+  "Match the pieces to my wall tone",
+] as const;
+
 const h = 60 * 60 * 1000;
 const now = Date.now();
 

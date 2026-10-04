@@ -4,7 +4,7 @@
  * them as small isometric boxes and the real plan scales the chosen one
  * to the room's size.
  */
-type Point = readonly [number, number];
+export type Point = readonly [number, number];
 
 type RoomTemplate = {
   id: string;

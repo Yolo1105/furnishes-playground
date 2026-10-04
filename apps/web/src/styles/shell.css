@@ -63,7 +63,11 @@
   gap: var(--shell-gap);
   min-height: 0;
   min-width: 0;
-  transition: transform 0.28s var(--ease);
+  /* a drawer sliding, and the arrival (below) */
+  transition:
+    transform 0.28s var(--ease),
+    opacity 0.55s var(--ease),
+    translate 0.55s var(--ease);
 }
 .shell-rail-left {
   grid-area: left;
@@ -330,6 +334,10 @@
   top: calc(100% + 6px);
   left: -8px;
   z-index: 5;
+}
+/* a menu floated to the body stands over every panel */
+body > .shell-menu {
+  z-index: 30;
   min-width: 180px;
   padding: 6px;
   border-radius: var(--r-menu);
@@ -718,20 +726,6 @@
   border-radius: var(--shell-radius);
 }
 
-.main-restore {
-  position: absolute;
-  top: 0;
-  z-index: 2;
-  padding: 4px;
-  border-radius: var(--r-menu);
-}
-.shell[data-corners="square"] .main-restore {
-  border-radius: 0;
-}
-.main-restore-left {
-  left: 0;
-}
-
 /* ---- the stage: the room behind the panels, full screen ---- */
 .shell-stage {
   /* the room's footprint on the stage, shared by the view and the render */
@@ -909,8 +903,7 @@
   .shell[data-left="collapsed"] .shell-rail-left {
     margin-right: 0;
   }
-  .shell-rail-left .shell-collapse,
-  .main-restore-left {
+  .shell-rail-left .shell-collapse {
     display: none;
   }
   .shell-rail-left {
@@ -945,4 +938,261 @@
   .shell-rail {
     transition: none;
   }
+}
+
+/* prompts to pick from, and a picture on its way, above the input bar */
+.chat-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 10px 8px;
+}
+.chat-attach {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 10px 8px;
+  padding: 4px 6px 4px 8px;
+  border-radius: var(--r-chip);
+  border: 1px solid rgb(from var(--color-line) r g b / 0.18);
+  background: rgba(255, 255, 255, 0.55);
+  font-size: 11.5px;
+  color: rgb(from var(--color-ink) r g b / 0.7);
+}
+.chat-attach .eva-own-x {
+  position: static;
+  translate: none;
+}
+.chat-send[data-listening="true"] {
+  background: var(--color-accent);
+  color: var(--color-cream);
+  animation: chat-listen 1.2s ease-in-out infinite;
+}
+@keyframes chat-listen {
+  50% {
+    box-shadow: 0 0 0 6px rgb(from var(--color-accent) r g b / 0.18);
+  }
+}
+.chat-send:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ---- arriving: the rails slide in from their sides, the toolbar and the
+   shelf from theirs, the stage fades up; each a beat after the last ---- */
+:root:not([data-arrived]) .shell-rail-left,
+:root:not([data-arrived]) .shell-rail-right,
+:root:not([data-arrived]) .main-top,
+:root:not([data-arrived]) .main-shelf,
+:root:not([data-arrived]) .view-cube,
+:root:not([data-arrived]) .shell-stage {
+  opacity: 0;
+}
+:root:not([data-arrived]) .shell-rail-left {
+  translate: -16px 0;
+}
+:root:not([data-arrived]) .shell-rail-right {
+  translate: 16px 0;
+}
+:root:not([data-arrived]) .main-top {
+  translate: 0 -10px;
+}
+:root:not([data-arrived]) .main-shelf {
+  translate: 0 12px;
+}
+:root:not([data-arrived]) .shell-stage {
+  scale: 0.985;
+}
+.shell-rail-left,
+.shell-rail-right,
+.main-top,
+.main-shelf,
+.view-cube,
+.shell-stage {
+  transition-property: opacity, translate, scale;
+  transition-duration: 0.55s;
+  transition-timing-function: var(--ease);
+}
+.shell-stage {
+  transition-delay: 0.05s;
+}
+.main-top {
+  transition-delay: 0.15s;
+}
+.shell-rail-left {
+  transition-delay: 0.2s;
+}
+.shell-rail-right {
+  transition-delay: 0.28s;
+}
+.main-shelf {
+  transition-delay: 0.34s;
+}
+.view-cube {
+  transition-delay: 0.4s;
+}
+/* the rails also move for collapsing and the drawers: keep those */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-arrived]) .shell-rail-left,
+  :root:not([data-arrived]) .shell-rail-right,
+  :root:not([data-arrived]) .main-top,
+  :root:not([data-arrived]) .main-shelf,
+  :root:not([data-arrived]) .view-cube,
+  :root:not([data-arrived]) .shell-stage {
+    opacity: 1;
+    translate: none;
+    scale: none;
+  }
+}
+
+/* ---- a dialog: a card in the middle over a scrim ---- */
+.shell-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+}
+.shell-dialog-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgb(from var(--color-shadow) r g b / 0.18);
+  backdrop-filter: blur(2px);
+}
+.shell-dialog-card {
+  position: relative;
+  width: min(420px, calc(100% - 32px));
+  max-height: calc(100% - 32px);
+  display: grid;
+  grid-template-rows: auto 1fr;
+  border-radius: var(--r-panel);
+  outline: none;
+  animation: dialog-in 0.3s var(--ease) both;
+}
+.shell-dialog[data-wide="true"] .shell-dialog-card {
+  width: min(560px, calc(100% - 32px));
+}
+/* floated to the body, a dialog or menu still follows the shell's corners */
+:root:has(.shell[data-corners="square"]) .shell-dialog-card,
+:root:has(.shell[data-corners="square"]) body > .shell-menu {
+  border-radius: 0;
+}
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    translate: 0 8px;
+    scale: 0.98;
+  }
+}
+.shell-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 12px 8px 18px;
+}
+.shell-dialog-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--color-ink);
+}
+.shell-dialog-body {
+  overflow: auto;
+  padding: 0 18px 18px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: rgb(from var(--color-ink) r g b / 0.72);
+}
+.shell-dialog-body p {
+  margin: 0 0 10px;
+}
+.shell-dialog-acts {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 14px;
+}
+/* a list of lines: a shopping list, the shortcuts */
+.shell-dialog-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+}
+.shell-dialog-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+}
+.shell-dialog-list li:last-child {
+  border-bottom: 0;
+}
+.shell-dialog-list[data-total] li:last-child {
+  font-weight: 600;
+  color: var(--color-ink);
+}
+.shell-key {
+  display: inline-block;
+  min-width: 22px;
+  padding: 2px 6px;
+  margin-left: 3px;
+  border-radius: var(--r-chip);
+  border: 1px solid rgb(from var(--color-line) r g b / 0.25);
+  background: rgb(from var(--color-ink) r g b / 0.04);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--color-ink);
+}
+/* settings: a choice between two ways, as a row of links */
+.shell-choice {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: var(--r-control);
+  background: rgb(from var(--color-ink) r g b / 0.05);
+}
+.shell-choice a {
+  padding: 5px 12px;
+  border-radius: calc(var(--r-control) - 2px);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: rgb(from var(--color-ink) r g b / 0.6);
+  text-decoration: none;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+.shell-choice a:hover {
+  color: var(--color-ink);
+}
+.shell-choice a[aria-current="page"] {
+  background: var(--color-glass);
+  color: var(--color-accent);
+  box-shadow: 0 1px 3px -1px rgb(from var(--color-shadow) r g b / 0.2);
+}
+.shell-settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+}
+.shell-settings-row + .shell-settings-row {
+  border-top: 1px solid var(--line);
+}
+.shell-settings-label {
+  display: grid;
+  gap: 1px;
+  color: var(--color-ink);
+  font-weight: 600;
+}
+.shell-settings-label small {
+  font-weight: 400;
+  color: rgb(from var(--color-ink) r g b / 0.55);
 }

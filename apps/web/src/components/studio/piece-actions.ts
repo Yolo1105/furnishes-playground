@@ -24,7 +24,9 @@ export function usePieceActions() {
   const { setFocus, setPanelTab } = useStudio.getState();
   const [actionsFor, setActionsFor] = useState<string | null>(null);
 
-  const pieces = items.filter((n) => n.kind === "piece");
+  // what stands on the stage: the pieces and the room items, never the
+  // architecture (that is the room itself)
+  const pieces = items.filter((n) => n.kind !== "fixed");
   const focus = pieces.find((n) => n.id === focusId) ?? null;
   const shown = focus ? [focus] : pieces;
 

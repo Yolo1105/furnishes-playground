@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import {
   assetGroups,
   pieceTotals,
@@ -23,6 +23,15 @@ const lampRows = assetGroups
     (n, g) => n + 1 + g.items.filter((a) => /lamp/i.test(a.name)).length,
     0,
   );
+
+/** the panels slide in on arrival; geometry is measured once they stand */
+const arrived = (page: Page) =>
+  page.waitForFunction(() => {
+    if (document.documentElement.dataset.arrived !== "true") return false;
+    return [...document.querySelectorAll(".shell-rail, .main-top, .main-shelf")]
+      .map((el) => getComputedStyle(el))
+      .every((cs) => cs.opacity === "1" && cs.translate === "none");
+  });
 
 /* the intro guide opens itself on a first visit; most tests have seen it */
 test.beforeEach(async ({ page }) => {
@@ -117,6 +126,7 @@ test("/rounded has a toolbar on top and a sideways-scrolling shelf below", async
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
+  await arrived(page);
   const main = (await page.locator(".shell-main").boundingBox())!;
   const top = (await page.locator(".main-top").boundingBox())!;
   const shelf = (await page.locator(".main-shelf").boundingBox())!;
@@ -211,6 +221,7 @@ test("rails collapse into the toolbar and come back", async ({ page }) => {
 test("Eva's input box and the user bar", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
+  await arrived(page);
   // edges line up: toolbar top on the rails' top, shelf bottom on their bottom
   const left = (await page.locator(".shell-rail-left").boundingBox())!;
   const top = (await page.locator(".main-top").boundingBox())!;
@@ -237,7 +248,7 @@ test("Eva's input box and the user bar", async ({ page }) => {
 
   await expect(page.locator(".user-name")).toHaveText("Studio User");
   await page.getByRole("button", { name: "Settings" }).click();
-  await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Settings" })).toBeVisible();
 });
 
 test("the outliner searches, filters and marks the pieces", async ({
@@ -564,17 +575,19 @@ test("the toolbar reads mode · select, add, wall · undo, guide, export", async
   await expect(bar.getByRole("button", { name: "Redo" })).toBeDisabled();
   // the view angle: a perspective or a side in 3D, the plan or an
   // elevation in 2D
-  const angle = bar.getByRole("button", { name: /View angle/ });
-  await expect(angle).toHaveText("Perspective");
-  await angle.click();
-  await expect(page.getByRole("menuitemradio")).toHaveCount(6);
-  await page.getByRole("menuitemradio", { name: "Top" }).click();
-  await expect(angle).toHaveText("Top");
+  const cube = page.getByRole("radiogroup", { name: "View angle" });
+  await expect(cube.getByRole("radio")).toHaveCount(6);
+  await expect(
+    cube.getByRole("radio", { name: "Perspective" }),
+  ).toHaveAttribute("aria-checked", "true");
+  await cube.getByRole("radio", { name: "Top" }).click();
+  await expect(page.locator(".view-cube-name")).toHaveText("Top");
   await page.getByRole("button", { name: "Show 2D plan in main" }).click();
-  await expect(angle).toHaveText("Plan");
-  await angle.click();
-  await expect(page.getByRole("menuitemradio")).toHaveCount(5);
-  await page.keyboard.press("Escape");
+  await expect(cube.getByRole("radio")).toHaveCount(5);
+  await expect(cube.getByRole("radio", { name: "Plan" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
   await page.getByRole("button", { name: "Show 3D view in main" }).click();
   await bar.getByRole("button", { name: "Inspect" }).click();
   await expect(bar.getByRole("button", { name: "Inspect" })).toHaveAttribute(
@@ -1012,7 +1025,10 @@ test("Inspect raises Details and Label over a piece; labels reach Eva, five at m
   await page.getByRole("button", { name: "Show 2D plan in main" }).click();
   const stage = page.locator(".stage-pieces");
   const pieces = top.filter((a) => a.kind === "piece");
-  await expect(stage.locator(".stage-piece")).toHaveCount(pieces.length);
+  // the room's own items stand on the plan too, but only pieces are counted here
+  await expect(stage.locator('.stage-piece[data-kind="piece"]')).toHaveCount(
+    pieces.length,
+  );
   // with Select, a click on a piece picks it everywhere
   const first = pieces[0]!;
   await stage.getByRole("button", { name: first.name, exact: true }).click();
@@ -1131,4 +1147,215 @@ test("the Detail tab lists a piece's components and changes one", async ({
     "aria-checked",
     "true",
   );
+});
+
+test("Eva answers a message; New chat opens a thread; suggestions fill the box", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  const box = page.getByRole("textbox", { name: "Message Eva" });
+  await box.fill("What sofa suits this room?");
+  await box.press("Enter");
+  const bubbles = page.locator(".agent-bubble");
+  await expect(bubbles).toHaveCount(2);
+  await expect(bubbles.nth(0)).toHaveAttribute("data-who", "you");
+  await expect(bubbles.nth(1)).toHaveAttribute("data-who", "eva");
+  await expect(box).toHaveValue("");
+  // a new chat is a clean thread, listed first in History
+  await page.getByRole("button", { name: "New chat" }).click();
+  await expect(bubbles).toHaveCount(0);
+  await page.getByRole("button", { name: "Show suggestions" }).click();
+  const chip = page
+    .getByRole("group", { name: "Suggestions" })
+    .getByRole("button")
+    .first();
+  const text = (await chip.textContent())!;
+  await chip.click();
+  await expect(box).toHaveValue(text);
+});
+
+test("the Wall tool traces a room on the plan; Clear forgets it", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  await page.getByRole("tab", { name: "Room", exact: true }).click();
+  await page
+    .getByRole("radiogroup", { name: "Start from" })
+    .getByRole("radio", { name: "Draw walls" })
+    .click();
+  await page.getByRole("button", { name: "Close guide" }).click();
+  const svg = page.locator(".plan-svg");
+  await expect(svg).toHaveAttribute("data-drawing", "true");
+  await expect(svg).toHaveCSS("cursor", "crosshair");
+  const b = (await svg.boundingBox())!;
+  // four corners, the fifth click back on the first closes the room
+  const corners = [
+    [0.3, 0.3],
+    [0.7, 0.3],
+    [0.7, 0.7],
+    [0.3, 0.7],
+    [0.3, 0.3],
+  ] as const;
+  for (const [fx, fy] of corners.slice(0, 4)) {
+    await page.mouse.click(b.x + b.width * fx, b.y + b.height * fy);
+  }
+  await expect(page.locator(".plan-corner")).toHaveCount(4);
+  await expect(page.locator(".plan-corner-first")).toHaveCount(1);
+  await page.mouse.click(b.x + b.width * 0.3, b.y + b.height * 0.3);
+  await expect(page.locator(".plan-corner")).toHaveCount(0);
+  await expect(page.getByText(/^4 walls · /)).toBeVisible();
+  await page.getByRole("button", { name: "Clear" }).click();
+  await expect(page.getByText("No walls yet")).toBeVisible();
+});
+
+test("the plan reads as a drawing: hatched walls, a door swing, dimensions, a title", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  await page.getByRole("button", { name: "Show 2D plan in main" }).click();
+  const svg = page.locator(".plan-svg");
+  await expect(svg.locator(".plan-wall")).toHaveCSS("stroke", /url/);
+  await expect(svg.locator(".plan-swing")).toHaveCount(1);
+  await expect(svg.locator(".plan-leaf")).toHaveCount(1);
+  await expect(svg.locator(".plan-line")).toHaveCount(3);
+  await expect(svg.locator(".plan-dim")).toHaveCount(2);
+  await expect(svg.locator(".plan-north")).toHaveCount(1);
+  await expect(svg.locator(".plan-title text").first()).toContainText("HDB");
+  // the room's own items stand on the plan as quiet symbols
+  await expect(
+    page.locator('.stage-piece[data-kind="decor"]').first(),
+  ).toBeVisible();
+});
+
+test("Export offers the view and the room as files; Undo and Redo follow the changes", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  const undo = page.getByRole("button", { name: "Undo" });
+  const redo = page.getByRole("button", { name: "Redo" });
+  await expect(undo).toBeDisabled();
+  await expect(redo).toBeDisabled();
+  // the Export menu names the current view's file and the room's JSON
+  await page.getByRole("button", { name: "Export" }).click();
+  const menu = page.getByRole("menu", { name: "Export" });
+  await expect(menu).toBeVisible();
+  const mb = (await menu.boundingBox())!;
+  expect(mb.x).toBeGreaterThanOrEqual(0);
+  expect(mb.x + mb.width).toBeLessThanOrEqual(1440);
+  await expect(
+    menu.getByRole("menuitem", { name: /3D view as PNG/ }),
+  ).toBeVisible();
+  const json = page.waitForEvent("download");
+  await menu.getByRole("menuitem", { name: /JSON/ }).click();
+  expect((await json).suggestedFilename()).toMatch(/\.json$/);
+  await expect(menu).toHaveCount(0);
+  // a change puts Undo on; Undo takes it back and puts Redo on
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await page
+    .getByRole("dialog", { name: "Add to the room" })
+    .getByRole("button", { name: new RegExp(`^Add ${coat.name},`) })
+    .click();
+  await expect(
+    page.getByRole("treeitem", { name: coat.name, exact: true }),
+  ).toBeVisible();
+  await expect(undo).toBeEnabled();
+  await undo.click();
+  await expect(
+    page.getByRole("treeitem", { name: coat.name, exact: true }),
+  ).toHaveCount(0);
+  await expect(redo).toBeEnabled();
+  await page.keyboard.press("Control+Shift+Z");
+  await expect(
+    page.getByRole("treeitem", { name: coat.name, exact: true }),
+  ).toBeVisible();
+});
+
+test("Checkout reads the order back and hands over the list", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  const pieces = top.filter((a) => a.kind === "piece");
+  const first = pieces[0]!;
+  const card = page.locator(`.shelf-card[data-id="${first.id}"]`);
+  await card.hover();
+  await card
+    .getByRole("button", { name: `Add ${first.name} to the cart` })
+    .click();
+  await page.getByRole("tab", { name: /^Cart/ }).click();
+  await page.getByRole("button", { name: "Checkout" }).click();
+  const dialog = page.getByRole("dialog", { name: "Your order" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText(first.name)).toBeVisible();
+  await expect(dialog.getByText(sgd(first.price ?? 0)).first()).toBeVisible();
+  const csv = page.waitForEvent("download");
+  await dialog.getByRole("button", { name: "Download the list" }).click();
+  expect((await csv).suggestedFilename()).toMatch(/shopping-list\.csv$/);
+  await expect(dialog).toHaveCount(0);
+});
+
+test("the gear opens Settings, the shortcuts and Help; keys drive the tools", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  await page.getByRole("button", { name: "Settings" }).click();
+  const menu = page.getByRole("menu");
+  await expect(menu.getByRole("menuitem")).toHaveCount(3);
+  await expect(menu.getByRole("menuitem", { name: /Sign out/ })).toHaveCount(0);
+  await menu.getByRole("menuitem", { name: "Settings" }).click();
+  const settings = page.getByRole("dialog", { name: "Settings" });
+  await expect(settings.getByRole("link", { name: "Rounded" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  await page.keyboard.press("Escape");
+  await expect(settings).toHaveCount(0);
+  await page.getByRole("button", { name: "Settings" }).click();
+  await menu.getByRole("menuitem", { name: "Keyboard shortcuts" }).click();
+  const keys = page.getByRole("dialog", { name: "Keyboard shortcuts" });
+  await expect(keys.locator("kbd").first()).toBeVisible();
+  await keys.getByRole("button", { name: "Close" }).click();
+  // the keys themselves
+  await page.keyboard.press("i");
+  await expect(page.getByRole("button", { name: "Inspect" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await page.keyboard.press("2");
+  await expect(page.locator(".plan-svg")).toBeVisible();
+  await page.keyboard.press("h");
+  await expect(page.locator(".shell")).toHaveAttribute("data-ui", "hidden");
+  await page.keyboard.press("h");
+  await expect(page.locator(".shell")).toHaveAttribute("data-ui", "shown");
+  await page.keyboard.press("Shift+?");
+  await expect(keys).toBeVisible();
+  await page.keyboard.press("Escape");
+  // Help runs the tour again
+  await page.getByRole("button", { name: "Settings" }).click();
+  await menu.getByRole("menuitem", { name: "Help" }).click();
+  await expect(page.locator(".tour-card[data-welcome='true']")).toBeVisible();
+});
+
+test("the studio arrives with its transitions and remembers the last view", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  await expect(page.locator("html")).toHaveAttribute("data-arrived", "true");
+  await arrived(page);
+  await expect(page.locator(".stage-3d canvas")).toHaveCount(1);
+  await page.getByRole("button", { name: "Show 2D plan in main" }).click();
+  await expect(page.locator(".plan-svg")).toBeVisible();
+  await page
+    .getByRole("radiogroup", { name: "View angle" })
+    .getByRole("radio", { name: "Front" })
+    .click();
+  await page.reload();
+  await expect(page.locator(".plan-svg")).toBeVisible();
+  await expect(page.locator(".view-cube-name")).toHaveText("Front");
 });

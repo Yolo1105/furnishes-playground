@@ -12,7 +12,7 @@ import { COLOURS } from "./piece-detail";
 import { FLOOR_TONES, WALL_TONES, type Floor } from "./room-data";
 import { useRoom } from "./room-store";
 import { propsOf } from "./scene-store";
-import { placeInRoom } from "./StagePieces";
+import { layoutRoom } from "./room-layout";
 import { useStudio, type Angle } from "./studio-store";
 
 /**
@@ -24,6 +24,8 @@ import { useStudio, type Angle } from "./studio-store";
  */
 /* the accent as three.js needs it, a plain hex: the token itself is oklch */
 const ACCENT = "#ed5c00";
+/* a room item: there to read the room, so it stays quiet */
+const ROOM_ITEM = "#d9d2c8";
 const colourHex = (id: string) =>
   COLOURS.find((c) => c.id === id)?.hex ?? COLOURS[0].hex;
 const m = (mm: number) => mm / 1000;
@@ -170,6 +172,8 @@ export default function Scene3D() {
   const w = m(room.width);
   const d = m(room.depth);
   const h = m(room.height);
+  const sizes = a.shown.map((n) => propsOf(n, a.overrides));
+  const spots = layoutRoom(sizes, room.width, room.depth);
   const wall =
     WALL_TONES.find((t) => t.id === room.wallTone)?.hex ?? WALL_TONES[0].hex;
   const floor = FLOOR_TONES[room.floor as Floor] ?? FLOOR_TONES.Vinyl;
@@ -177,7 +181,8 @@ export default function Scene3D() {
     <div className="stage-3d" data-focus={a.focus !== null}>
       <Canvas
         shadows
-        gl={{ alpha: true, antialias: true }}
+        // the buffer is kept so Export can read the canvas as a picture
+        gl={{ alpha: true, antialias: true, preserveDrawingBuffer: true }}
         camera={{ fov: 42, near: 0.05, far: 100 }}
         onPointerMissed={() => undefined}
       >
@@ -211,15 +216,15 @@ export default function Scene3D() {
           </group>
         )}
         {a.shown.map((n, i) => {
-          const p = propsOf(n, a.overrides);
+          const p = sizes[i]!;
           const size: Vector3Tuple = [m(p.width), m(p.height), m(p.depth)];
-          const at = placeInRoom(i);
+          const at = spots[i]!;
           const pos: Vector3Tuple = a.focus
             ? [0, 0, 0]
             : [
-                -w / 2 + at.left * w + size[0] / 2,
+                -w / 2 + m(at.x) + size[0] / 2,
                 0,
-                -d / 2 + at.top * d + size[2] / 2,
+                -d / 2 + m(at.y) + size[2] / 2,
               ];
           const label = a.labelOf(n);
           return (
@@ -229,7 +234,7 @@ export default function Scene3D() {
               node={n}
               at={pos}
               size={size}
-              colour={colourHex(p.colour)}
+              colour={n.kind === "piece" ? colourHex(p.colour) : ROOM_ITEM}
               parts={(n.children ?? []).map((c) => ({
                 colour: colourHex(propsOf(c, a.overrides).colour),
                 width: size[0] / (n.children?.length ?? 1),

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { PROMPTS } from "./eva-data";
 import {
   ChevronDownIcon,
   ImageIcon,
@@ -30,8 +31,27 @@ const PLACEHOLDERS = [
  * design: a growing textarea; below it image and suggestions buttons on
  * the left, the mode dropdown, the Eva chip and the send / mic button on
  * the right. The border lights orange while anything inside has focus.
- * Nothing is sent yet: this is the surface, not the wiring.
+ * Enter or the arrow sends; the bulb shows prompts to pick from; the
+ * picture button attaches one; the mic dictates where the browser can.
  */
+type Recognizer = {
+  lang: string;
+  interimResults: boolean;
+  onresult:
+    | ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void)
+    | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+const recognizerOf = (): (new () => Recognizer) | null => {
+  if (typeof window === "undefined") return null;
+  const w = window as unknown as {
+    SpeechRecognition?: new () => Recognizer;
+    webkitSpeechRecognition?: new () => Recognizer;
+  };
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
+};
 export function ChatInput() {
   const [message, setMessage] = useState("");
   const [focused, setFocused] = useState(false);
@@ -40,9 +60,45 @@ export function ChatInput() {
   const [suggestions, setSuggestions] = useState(false);
   const [placeholder, setPlaceholder] = useState(0);
   const [dim, setDim] = useState(false);
+  const [image, setImage] = useState<string | null>(null);
+  const [listening, setListening] = useState(false);
   const area = useRef<HTMLTextAreaElement>(null);
   const wrap = useRef<HTMLDivElement>(null);
-  const canSend = message.trim().length > 0;
+  const file = useRef<HTMLInputElement>(null);
+  const recognizer = useRef<Recognizer | null>(null);
+  const Speech = recognizerOf();
+  const send = useEva((s) => s.send);
+  const canSend = message.trim().length > 0 || image !== null;
+  const submit = () => {
+    if (!canSend) return;
+    send(message, image ?? undefined);
+    setMessage("");
+    setImage(null);
+    setSuggestions(false);
+  };
+  const dictate = () => {
+    if (!Speech) return;
+    if (recognizer.current) {
+      recognizer.current.stop();
+      return;
+    }
+    const r = new Speech();
+    r.lang = "en-SG";
+    r.interimResults = false;
+    r.onresult = (e) => {
+      const said = Array.from(e.results)
+        .map((x) => x[0]?.transcript ?? "")
+        .join(" ");
+      setMessage((m) => (m ? `${m} ${said}` : said));
+    };
+    r.onend = () => {
+      recognizer.current = null;
+      setListening(false);
+    };
+    recognizer.current = r;
+    setListening(true);
+    r.start();
+  };
 
   // a prompt picked in the Agent tab lands here, ready to send or edit
   useEffect(
@@ -97,16 +153,66 @@ export function ChatInput() {
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         onKeyDown={(e) => {
-          if (e.key === "Enter" && !e.shiftKey) e.preventDefault();
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            submit();
+          }
         }}
         style={{ opacity: !focused && !message && dim ? 0.3 : 1 }}
       />
+      {suggestions && (
+        <div className="chat-suggest" role="group" aria-label="Suggestions">
+          {PROMPTS.map((p) => (
+            <button
+              key={p}
+              type="button"
+              className="assets-chip"
+              onClick={() => {
+                setMessage(p);
+                setSuggestions(false);
+                area.current?.focus();
+              }}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+      )}
+      {image && (
+        <div className="chat-attach">
+          <ImageIcon size={13} />
+          <span className="chat-attach-name">{image}</span>
+          <button
+            type="button"
+            className="eva-own-x"
+            aria-label="Remove picture"
+            onClick={() => setImage(null)}
+          >
+            ×
+          </button>
+        </div>
+      )}
       <div className="chat-input-bar">
         <div className="chat-input-left">
+          <input
+            ref={file}
+            type="file"
+            accept="image/*"
+            className="sr-only"
+            tabIndex={-1}
+            aria-hidden="true"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) setImage(f.name);
+              e.target.value = "";
+            }}
+          />
           <button
             type="button"
             className="shell-iconbtn"
-            aria-label="Upload image"
+            aria-label="Add a picture"
+            aria-pressed={image !== null}
+            onClick={() => file.current?.click()}
           >
             <ImageIcon />
           </button>
@@ -147,7 +253,12 @@ export function ChatInput() {
               />
             )}
           </div>
-          <button type="button" className="chat-eva" aria-label="Open Eva">
+          <button
+            type="button"
+            className="chat-eva"
+            aria-label="Write to Eva"
+            onClick={() => area.current?.focus()}
+          >
             <span className="chat-eva-dot" aria-hidden="true" />
             Eva
           </button>
@@ -155,7 +266,18 @@ export function ChatInput() {
             type="button"
             className="chat-send"
             data-ready={canSend}
-            aria-label={canSend ? "Send" : "Voice input"}
+            data-listening={listening}
+            aria-label={
+              canSend ? "Send" : listening ? "Stop listening" : "Voice input"
+            }
+            aria-pressed={canSend ? undefined : listening}
+            disabled={!canSend && !Speech}
+            title={
+              !canSend && !Speech
+                ? "Voice input is not available in this browser"
+                : undefined
+            }
+            onClick={() => (canSend ? submit() : dictate())}
           >
             {canSend ? <SendArrowIcon /> : <MicIcon />}
           </button>

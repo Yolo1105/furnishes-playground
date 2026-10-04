@@ -13,7 +13,7 @@ import {
   type Wall,
 } from "./room-data";
 import { RoomStart } from "./RoomStart";
-import { useRoom } from "./room-store";
+import { useRoom, wallsOf } from "./room-store";
 
 /**
  * The room: which flat, which room in it, how big, where the door and
@@ -32,6 +32,7 @@ import { useRoom } from "./room-store";
 export function RoomTab() {
   const s = useRoom();
   const start = s.start;
+  const walls = wallsOf(s);
   let n = 0;
   const index = () => String(++n).padStart(2, "0");
   const rooms = (Object.keys(ROOM_NAMES) as RoomId[]).filter(
@@ -93,18 +94,30 @@ export function RoomTab() {
         </p>
       )}
       {start === "draw" && (
-        <section className="eva-pref" data-set={s.walls > 0}>
+        <section className="eva-pref" data-set={walls > 0}>
           <div className="eva-pref-head">
             <span className="eva-pref-index f-num">{index()}</span>
             <span className="eva-pref-title">Walls</span>
+            {walls > 0 && (
+              <button
+                type="button"
+                className="eva-pref-clear"
+                onClick={s.clearWalls}
+              >
+                Clear
+              </button>
+            )}
           </div>
           <p className="eva-pref-hint room-size">
-            {s.walls === 0
+            {walls === 0
               ? "No walls yet"
-              : `${s.walls} ${s.walls === 1 ? "wall" : "walls"}`}
+              : s.drawn
+                ? `${walls} walls · ${metres(s.width)} × ${metres(s.depth)}`
+                : `${walls} ${walls === 1 ? "wall" : "walls"} so far`}
             <span className="room-size-note">
-              {" "}
-              · the size comes from the walls you draw
+              {s.drawn
+                ? " · from your drawing"
+                : " · click the plan to set corners; click the first again to close"}
             </span>
           </p>
         </section>
@@ -196,14 +209,14 @@ export function RoomTab() {
         <>
           <section
             className="eva-pref"
-            data-set={start === "template" || s.walls > 0}
-            data-muted={start === "draw" && s.walls === 0}
+            data-set={start === "template" || walls > 0}
+            data-muted={start === "draw" && walls === 0}
           >
             <div className="eva-pref-head">
               <span className="eva-pref-index f-num">{index()}</span>
               <span className="eva-pref-title">Openings</span>
             </div>
-            {start === "draw" && s.walls === 0 && (
+            {start === "draw" && walls === 0 && (
               <p className="eva-pref-hint">
                 Draw the walls first; the door and window then go on them.
               </p>

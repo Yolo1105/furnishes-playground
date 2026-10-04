@@ -1,14 +1,6 @@
-import { AssetsPanel } from "@/components/studio/AssetsPanel";
-import { AgentTab } from "@/components/studio/AgentTab";
-import { StudioShell } from "@/components/studio/StudioShell";
+import { Studio } from "@/components/studio/Studio";
 
-/** The studio: square, edge-to-edge glass panels either side of the main surface. */
+/** The studio with square, edge-to-edge glass panels. */
 export default function Page() {
-  return (
-    <StudioShell
-      corners="square"
-      left={<AssetsPanel />}
-      right={<AgentTab />}
-    ></StudioShell>
-  );
+  return <Studio corners="square" />;
 }

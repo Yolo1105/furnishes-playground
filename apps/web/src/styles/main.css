@@ -251,8 +251,6 @@
   position: relative;
 }
 .main-prefs-menu {
-  left: auto;
-  right: 0;
   min-width: 220px;
 }
 .main-prefs-title {
@@ -270,40 +268,106 @@
   border: 1.5px solid rgb(from var(--color-line) r g b / 0.4);
   flex: 0 0 auto;
 }
-[aria-checked="true"] > .main-prefs-title {
-  margin: 2px 10px 6px;
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: rgb(from var(--color-ink) r g b / 0.5);
-}
-.main-prefs-check {
+[aria-checked="true"] > .main-prefs-check {
   background: var(--color-accent);
   border-color: var(--color-accent);
+}
+/* a menu row with a note under its name (Export says what each file is) */
+.main-menu-row {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  column-gap: 10px;
+  align-items: start;
+}
+.main-menu-row svg {
+  margin-top: 2px;
+}
+.main-menu-row-text {
+  display: grid;
+  gap: 1px;
+}
+.main-menu-row-sub {
+  font-size: 11px;
+  color: rgb(from var(--color-ink) r g b / 0.5);
 }
 .main-prefs-sub {
   margin-left: auto;
   font-size: 11px;
   color: rgb(from var(--color-ink) r g b / 0.45);
 }
-/* the view angle: a chip that names it, a menu that lists the rest */
-.view-picker {
-  position: relative;
-  margin-left: 4px;
+/* the view cube: the angle as the thing itself, top right of the stage */
+.view-cube {
+  position: absolute;
+  top: 56px;
+  right: 12px;
+  z-index: 3;
+  width: 84px;
+  padding: 6px 6px 4px;
+  border-radius: var(--r-card);
+  display: grid;
+  justify-items: center;
+  gap: 2px;
 }
-.view-picker-btn {
-  height: 28px;
-  padding: 0 8px 0 10px;
-  font-weight: 500;
+.view-cube-svg {
+  width: 72px;
+  height: 72px;
+  overflow: visible;
 }
-.view-picker-btn:disabled {
-  opacity: 0.45;
-  cursor: default;
+.view-cube-face {
+  cursor: pointer;
+  outline: none;
 }
-.view-picker-menu {
-  left: 0;
-  min-width: 140px;
+.view-cube-face polygon,
+.view-cube-face rect,
+.view-cube-face circle {
+  fill: rgba(255, 255, 255, 0.7);
+  stroke: rgb(from var(--color-line) r g b / 0.45);
+  stroke-width: 1;
+  stroke-linejoin: round;
+  transition:
+    fill 0.15s ease,
+    stroke 0.15s ease;
+}
+.view-cube-face text {
+  font-size: 9px;
+  font-weight: 700;
+  fill: rgb(from var(--color-ink) r g b / 0.55);
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+  user-select: none;
+}
+.view-cube-face:hover polygon,
+.view-cube-face:hover rect,
+.view-cube-face:hover circle,
+.view-cube-face:focus-visible polygon,
+.view-cube-face:focus-visible rect,
+.view-cube-face:focus-visible circle {
+  fill: rgba(255, 255, 255, 0.95);
+  stroke: rgb(from var(--color-ink) r g b / 0.5);
+}
+.view-cube-face[aria-checked="true"] polygon,
+.view-cube-face[aria-checked="true"] rect,
+.view-cube-face[aria-checked="true"] circle {
+  fill: rgb(from var(--color-accent) r g b / 0.16);
+  stroke: var(--color-accent);
+}
+.view-cube-face[aria-checked="true"] text {
+  fill: var(--color-accent);
+}
+.view-cube-dot {
+  fill: rgb(from var(--color-ink) r g b / 0.5) !important;
+  stroke: none !important;
+}
+.view-cube-face[aria-checked="true"] .view-cube-dot {
+  fill: var(--color-accent) !important;
+}
+.view-cube-name {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(from var(--color-ink) r g b / 0.55);
 }
 .main-sep {
   width: 1px;
@@ -404,16 +468,16 @@
   box-shadow: 0 4px 12px -3px rgb(from var(--color-accent) r g b / 0.4);
 }
 .main-btn-primary:hover {
-  background: #e64a16;
+  background: color-mix(in oklch, var(--color-accent), var(--color-ink) 10%);
   box-shadow: 0 6px 16px -4px rgb(from var(--color-accent) r g b / 0.45);
 }
 
 /* narrower: labels go, then undo/redo and zoom, then the sides altogether */
 @media (max-width: 1535px) {
-  .main-top .main-btn:not(.view-picker-btn) span {
+  .main-top .main-btn span {
     display: none;
   }
-  .main-top .main-btn:not(.view-picker-btn) {
+  .main-top .main-btn {
     padding: 0 8px;
   }
 }
@@ -963,18 +1027,6 @@
     border-color 0.15s ease,
     box-shadow 0.15s ease;
 }
-.stage-piece-body[data-colour="walnut"] {
-  background: #c9a98a;
-}
-.stage-piece-body[data-colour="ash"] {
-  background: #f4efe7;
-}
-.stage-piece-body[data-colour="charcoal"] {
-  background: #8d8782;
-}
-.stage-piece-body[data-colour="sage"] {
-  background: #d4d8c6;
-}
 .stage-piece-body:hover {
   border-color: rgb(from var(--color-accent) r g b / 0.5);
 }
@@ -1229,14 +1281,6 @@
 .stage-3d-overlay > * {
   pointer-events: auto;
 }
-.stage-3d-overlay {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-.stage-3d-overlay > * {
-  pointer-events: auto;
-}
 .stage-3d .stage-back {
   top: 56px;
 }
@@ -1277,36 +1321,112 @@
   height: auto;
   overflow: visible;
   font-family: inherit;
+  --plan-ink: rgb(from var(--color-ink) r g b / 0.78);
+  --plan-fine: rgb(from var(--color-ink) r g b / 0.55);
+}
+.plan-svg[data-drawing="true"] {
+  cursor: crosshair;
+}
+/* while drawing, the pieces' layer lets the clicks through to the sheet */
+.plan-svg[data-drawing="true"] ~ .plan-pieces {
+  pointer-events: none;
+}
+/* the sheet's lines: the floor as paper, the band poché-hatched, its
+   faces heavy, openings cut clean through it */
+.plan-floor {
+  fill: rgb(from var(--color-glass) r g b / 0.9);
+}
+.plan-face {
+  fill: none;
+  stroke: var(--plan-ink);
+  stroke-linejoin: miter;
+}
+.plan-wall {
+  fill: none;
+  stroke: url(#plan-hatch);
+  stroke-linejoin: miter;
+}
+.plan-hatch {
+  stroke: var(--plan-fine);
+  stroke-width: 14;
+}
+.plan-opening {
+  fill: rgb(from var(--color-glass) r g b / 0.9);
+}
+.plan-line,
+.plan-leaf {
+  stroke: var(--plan-ink);
+  stroke-width: 18;
+  stroke-linecap: square;
+}
+.plan-leaf {
+  stroke-width: 26;
+}
+.plan-swing {
+  fill: none;
+  stroke: var(--plan-fine);
+  stroke-width: 10;
+  stroke-dasharray: 60 60;
 }
 .plan-dim line {
-  stroke: rgb(from var(--color-ink) r g b / 0.55);
-  stroke-width: 12;
+  stroke: var(--plan-fine);
+  stroke-width: 10;
 }
 .plan-dim text,
 .plan-north text,
 .plan-title text {
-  fill: rgb(from var(--color-ink) r g b / 0.6);
+  fill: rgb(from var(--color-ink) r g b / 0.65);
   font-size: 170px;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-anchor: middle;
 }
+.plan-north circle {
+  fill: none;
+  stroke: var(--plan-fine);
+  stroke-width: 12;
+}
+.plan-north path {
+  fill: var(--plan-ink);
+}
+.plan-title rect {
+  fill: none;
+  stroke: var(--plan-fine);
+  stroke-width: 10;
+}
 .plan-title text {
   font-size: 150px;
-  text-anchor: end;
+  text-anchor: start;
+}
+.plan-title .plan-title-sub {
+  font-size: 115px;
+  font-weight: 500;
+  fill: rgb(from var(--color-ink) r g b / 0.5);
+}
+/* drawing walls: the corners set so far and the line between them */
+.plan-drawing-line {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 24;
+  stroke-linejoin: round;
+}
+.plan-corner {
+  fill: var(--color-accent);
+}
+.plan-corner-first {
+  fill: rgb(from var(--color-accent) r g b / 0.18);
+  stroke: var(--color-accent);
+  stroke-width: 16;
 }
 .plan-pieces {
   position: absolute;
 }
 /* on the plan a piece is a symbol: a thin outline, its name in capitals */
 .plan-pieces .stage-piece-body {
-  border: 1.5px solid rgb(from var(--color-ink) r g b / 0.7);
+  border: 1.5px solid var(--plan-ink);
   border-radius: 0;
   background: rgba(255, 255, 255, 0.35);
   box-shadow: none;
-}
-.plan-pieces .stage-piece-body[data-colour] {
-  background: rgba(255, 255, 255, 0.35);
 }
 .plan-pieces .stage-piece-name {
   text-transform: uppercase;
@@ -1314,6 +1434,24 @@
   font-size: 9px;
 }
 .plan-pieces .stage-piece[data-selected="true"] .stage-piece-body {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 2px rgb(from var(--color-accent) r g b / 0.2);
+  background: rgb(from var(--color-accent) r g b / 0.12);
+  box-shadow: none;
+}
+
+/* the view arrives: the scene and the plan fade up once mounted */
+.stage-3d,
+.plan {
+  animation: stage-in 0.6s var(--ease) both;
+}
+@keyframes stage-in {
+  from {
+    opacity: 0;
+    scale: 0.985;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage-3d,
+  .plan {
+    animation: none;
+  }
 }

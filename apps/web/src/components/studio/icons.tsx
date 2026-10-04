@@ -116,15 +116,6 @@ export function HelpIcon({ size = 16 }: IconProps) {
   );
 }
 
-export function SignOutIcon({ size = 16 }: IconProps) {
-  return (
-    <svg {...svg(size)}>
-      <path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4" />
-      <path d="M15 8l5 4-5 4M20 12H9" />
-    </svg>
-  );
-}
-
 export function KeyboardIcon({ size = 16 }: IconProps) {
   return (
     <svg {...svg(size)}>

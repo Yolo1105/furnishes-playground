@@ -485,3 +485,35 @@
   outline: none;
   border-color: rgb(from var(--color-accent) r g b / 0.55);
 }
+
+/* ---- the thread ---- */
+.agent-thread {
+  display: grid;
+  gap: 6px;
+}
+.agent-bubble {
+  max-width: 88%;
+  padding: 8px 11px;
+  border-radius: var(--r-card);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: rgb(from var(--color-ink) r g b / 0.8);
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgb(from var(--color-line) r g b / 0.14);
+  white-space: pre-wrap;
+}
+.agent-bubble[data-who="you"] {
+  justify-self: end;
+  background: rgb(from var(--color-accent) r g b / 0.1);
+  border-color: rgb(from var(--color-accent) r g b / 0.14);
+  color: var(--color-ink);
+}
+.agent-bubble-image {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(from var(--color-ink) r g b / 0.5);
+}

@@ -4,25 +4,22 @@ import { CATEGORY_NAMES } from "./assets-data";
 import { ArrowLeftIcon } from "./icons";
 import { usePieceActions } from "./piece-actions";
 import { PieceActions } from "./PieceActions";
+import { layoutRoom } from "./room-layout";
+import { useRoom } from "./room-store";
 import { propsOf } from "./scene-store";
 
 /**
  * The pieces standing in the room, drawn to plan on the stage (the 2D
- * view). Each is a button: Select picks it, Inspect raises its actions.
- * A piece in focus stands alone on a blank ground with a way back.
+ * view), each at its place and size in the room's millimetres. Each is a
+ * button: Select picks it, Inspect raises its actions. A piece in focus
+ * stands alone on a blank ground with a way back.
  */
-const ROOM_W = 6500;
-const ROOM_D = 4000;
-
-/** three to a row until the plan places them for real: left and top as
-    fractions of the room */
-export const placeInRoom = (i: number) => ({
-  left: (7 + (i % 3) * 31) / 100,
-  top: (14 + (Math.floor(i / 3) % 2) * 44) / 100,
-});
-
 export function StagePieces() {
   const a = usePieceActions();
+  const W = useRoom((s) => s.width);
+  const D = useRoom((s) => s.depth);
+  const sizes = a.shown.map((n) => propsOf(n, a.overrides));
+  const spots = layoutRoom(sizes, W, D);
   return (
     <div className="stage-pieces" data-focus={a.focus !== null}>
       {a.focus && (
@@ -36,21 +33,23 @@ export function StagePieces() {
         </button>
       )}
       {a.shown.map((n, i) => {
-        const p = propsOf(n, a.overrides);
+        const p = sizes[i]!;
         const label = a.labelOf(n);
-        const at = placeInRoom(i);
+        const at = spots[i]!;
         const style = a.focus
           ? undefined
           : {
-              left: `${at.left * 100}%`,
-              top: `${at.top * 100}%`,
-              width: `${(p.width / ROOM_W) * 100}%`,
-              height: `${(p.depth / ROOM_D) * 100}%`,
+              left: `${(at.x / W) * 100}%`,
+              top: `${(at.y / D) * 100}%`,
+              width: `${(p.width / W) * 100}%`,
+              height: `${(p.depth / D) * 100}%`,
             };
         return (
           <div
             key={n.id}
             className="stage-piece"
+            data-kind={n.kind}
+            data-category={n.category}
             data-selected={a.selectedId === n.id}
             data-labelled={label >= 0}
             style={style}
@@ -60,7 +59,6 @@ export function StagePieces() {
               className="stage-piece-body"
               aria-label={n.name}
               aria-pressed={a.selectedId === n.id}
-              data-colour={p.colour}
               onClick={() => a.onPick(n)}
             >
               <span className="stage-piece-name">{n.name}</span>

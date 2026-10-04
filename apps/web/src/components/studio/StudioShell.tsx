@@ -3,6 +3,7 @@
 import { useRef, useState, type DragEvent, type ReactNode } from "react";
 import type React from "react";
 import { ChatInput } from "./ChatInput";
+import { useEva } from "./eva-store";
 import { HistoryTab } from "./HistoryTab";
 import { PreferenceTab } from "./PreferenceTab";
 import { GuideCard } from "./GuideCard";
@@ -10,17 +11,20 @@ import { MainTopBar } from "./MainOverlays";
 import { PeekBar } from "./PeekBar";
 import { PreviewStage } from "./PreviewStage";
 import { Tour } from "./Tour";
+import { ViewCube } from "./ViewCube";
 import { carriesProduct, readProductDrag } from "./dnd";
 import { useScene } from "./scene-store";
 import { other, useStudio } from "./studio-store";
 import { RadioMenu } from "./RadioMenu";
+import { useShortcuts } from "./shortcuts";
 import { useDismiss } from "./useDismiss";
+import { useArrival } from "./useArrival";
 import { useInputMode } from "./useInputMode";
-import { UserBar } from "./UserBar";
+import { ShortcutsDialog, UserBar } from "./UserBar";
 import { MainView, ViewPanel } from "./ViewPanel";
 import { ChevronDownIcon, PanelLeftIcon, PlusIcon } from "./icons";
 
-type ShellCorners = "square" | "rounded";
+export type ShellCorners = "square" | "rounded";
 
 type Drawer = "left" | "right" | null;
 
@@ -45,16 +49,16 @@ export function StudioShell({
   left,
   right,
   children,
-  topBar = false,
 }: {
   corners: ShellCorners;
   left?: ReactNode;
   right?: ReactNode;
   children?: ReactNode;
-  /** draw the thin toolbar over the main surface (collapse icons dock in it) */
-  topBar?: boolean;
 }) {
   useInputMode();
+  useArrival();
+  const [keys, setKeys] = useState(false);
+  useShortcuts(() => setKeys(true));
   const [open, setOpen] = useState<Drawer>(null);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [project, setProject] = useState<Project>(PROJECTS[0]);
@@ -166,6 +170,7 @@ export function StudioShell({
       </div>
       <PeekBar />
       <Tour />
+      {keys && <ShortcutsDialog onClose={() => setKeys(false)} />}
 
       {/* ---- left: the project ---- */}
       <aside className="shell-rail shell-rail-left" aria-label="Project">
@@ -201,21 +206,14 @@ export function StudioShell({
 
       {/* ---- main ---- */}
       <main className="shell-main" aria-label="Studio">
-        {topBar ? (
-          <MainTopBar leading={restoreLeft} />
-        ) : (
-          restoreLeft && (
-            <div className="glass main-restore main-restore-left">
-              {restoreLeft}
-            </div>
-          )
-        )}
+        <MainTopBar leading={restoreLeft} />
         {dropping && (
           <div className="shell-drop" aria-hidden="true">
             <span>Drop to place</span>
           </div>
         )}
         {children}
+        <ViewCube />
         <GuideCard />
       </main>
 
@@ -292,6 +290,10 @@ export function StudioShell({
               className="shell-iconbtn shell-tip shell-primary"
               data-tooltip="New chat"
               aria-label="New chat"
+              onClick={() => {
+                useEva.getState().newConversation();
+                setTab("agent");
+              }}
             >
               <PlusIcon />
             </button>

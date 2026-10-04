@@ -1,6 +1,7 @@
 "use client";
 
 import { pieceTotals, sgd } from "./assets-data";
+import { PROMPTS } from "./eva-data";
 import { useEva } from "./eva-store";
 import { LightbulbIcon } from "./icons";
 import { metres, ROOM_NAMES } from "./room-data";
@@ -9,19 +10,10 @@ import { LABEL_MAX } from "./piece-detail";
 import { useScene, useTopLevel } from "./scene-store";
 import { TagIcon } from "./icons";
 
-/** What Eva can be asked first; each goes into the input box, to send
-    as is or to edit. */
-const PROMPTS = [
-  "Plan this room around the sofa and the window",
-  "Suggest storage for this wall under S$1,500",
-  "What fits along a 3 m wall?",
-  "Match the pieces to my wall tone",
-];
-
 /**
- * The Agent tab before a conversation: Eva says hello and what she has
- * read from the room, then offers a few places to start. The messages
- * themselves arrive when the chat is wired.
+ * The Agent tab: Eva says hello and what she has read from the room, and
+ * offers a few places to start; once something is said, the thread of
+ * the open conversation follows, you on the right and Eva on the left.
  */
 export function AgentTab() {
   const room = useRoom();
@@ -29,6 +21,11 @@ export function AgentTab() {
   const labels = useScene((s) => s.labels);
   const setDraft = useEva((s) => s.setDraft);
   const exploration = useEva((s) => s.exploration);
+  const activeId = useEva((s) => s.activeId);
+  const thread = useEva((s) => (activeId ? s.messages[activeId] : undefined));
+  const title = useEva(
+    (s) => s.conversations.find((c) => c.id === activeId)?.title,
+  );
   const t = pieceTotals(items);
   const labelled = labels
     .map((id) => items.find((n) => n.id === id))
@@ -92,9 +89,19 @@ export function AgentTab() {
           </div>
         </>
       )}
+      {thread && thread.length > 0 && (
+        <div className="agent-thread" aria-label={title ?? "Conversation"}>
+          {thread.map((m) => (
+            <div key={m.id} className="agent-bubble" data-who={m.who}>
+              {m.image && <span className="agent-bubble-image">{m.image}</span>}
+              {m.text}
+            </div>
+          ))}
+        </div>
+      )}
       <p className="agent-lead">
         <LightbulbIcon size={14} />
-        Start with one of these
+        {thread && thread.length > 0 ? "Or ask" : "Start with one of these"}
       </p>
       <div className="agent-prompts">
         {PROMPTS.map((p) => (

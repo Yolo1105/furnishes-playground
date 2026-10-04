@@ -2,8 +2,13 @@ import { create } from "zustand";
 import {
   conversations as seed,
   type Conversation,
+  type Message,
   type PreferenceCategory,
 } from "./eva-data";
+import { pieceTotals, sgd } from "./assets-data";
+import { metres, ROOM_NAMES } from "./room-data";
+import { useRoom } from "./room-store";
+import { useScene } from "./scene-store";
 
 type PreferenceValue = {
   /** chip ids, or the budget as a range: from and to, S$ */
@@ -16,6 +21,8 @@ export const CUSTOM_MAX = 3;
 
 type EvaState = {
   conversations: Conversation[];
+  /** what was said in each conversation, by its id */
+  messages: Record<string, Message[]>;
   /** text a prompt chip hands to the input box */
   draft: string;
   /** exploration: Eva sets the preferences aside and stays open to
@@ -37,12 +44,38 @@ type EvaState = {
   removeCustom: (cat: PreferenceCategory, value: string) => void;
   setDraft: (draft: string) => void;
   setExploration: (on: boolean) => void;
+  /** start a conversation and make it the open one */
+  newConversation: () => string;
+  /** say something in the open conversation (a new one if none): Eva answers
+      with what she has read, until she is wired to think */
+  send: (text: string, image?: string) => void;
+};
+
+let seq = 0;
+const nextId = (prefix: string) =>
+  `${prefix}-${Date.now().toString(36)}-${++seq}`;
+
+/** Eva's answer for now: what she has read, said back */
+const evaReply = (text: string, exploration: boolean) => {
+  const r = useRoom.getState();
+  const pieces = useScene
+    .getState()
+    .groups.flatMap((g) => g.items)
+    .filter((n) => n.kind === "piece");
+  const t = pieceTotals(pieces);
+  const room = `${ROOM_NAMES[r.room]}, ${metres(r.width)} × ${metres(r.depth)}`;
+  const held = `${t.pieces} pieces at ${sgd(t.total)}`;
+  const stance = exploration
+    ? "Exploration is on, so I'll range wide rather than keep to your preferences."
+    : "I'll keep to your preferences.";
+  return `On "${text}": I'm reading the ${room}, with ${held}. ${stance} I'm not connected to plan yet; when I am, this is where the plan comes back.`;
 };
 
 /** Eva's own state: the conversations and the confirmed preferences. The
     seed is placeholder; two preferences arrive as if Eva heard them. */
-export const useEva = create<EvaState>((set) => ({
+export const useEva = create<EvaState>((set, get) => ({
   conversations: seed,
+  messages: {},
   draft: "",
   exploration: false,
   activeId: seed[0]?.id ?? null,
@@ -52,6 +85,48 @@ export const useEva = create<EvaState>((set) => ({
   },
   custom: {},
   setDraft: (draft) => set({ draft }),
+  newConversation: () => {
+    const c: Conversation = {
+      id: nextId("c"),
+      title: "New conversation",
+      snippet: "",
+      at: Date.now(),
+      turns: 0,
+    };
+    set((s) => ({ conversations: [c, ...s.conversations], activeId: c.id }));
+    return c.id;
+  },
+  send: (text, image) => {
+    const body = text.trim();
+    if (!body && !image) return;
+    const id = get().activeId ?? get().newConversation();
+    const now = Date.now();
+    const you: Message = { id: nextId("m"), who: "you", text: body, at: now };
+    if (image) you.image = image;
+    const eva: Message = {
+      id: nextId("m"),
+      who: "eva",
+      text: evaReply(body || `the picture ${image}`, get().exploration),
+      at: now + 1,
+    };
+    set((s) => ({
+      messages: { ...s.messages, [id]: [...(s.messages[id] ?? []), you, eva] },
+      conversations: s.conversations.map((c) =>
+        c.id === id
+          ? {
+              ...c,
+              title:
+                c.title === "New conversation" && body
+                  ? body.slice(0, 48)
+                  : c.title,
+              snippet: body || `Picture: ${image}`,
+              at: now,
+              turns: c.turns + 1,
+            }
+          : c,
+      ),
+    }));
+  },
   setExploration: (exploration) => set({ exploration }),
   selectConversation: (id) => set({ activeId: id }),
   deleteConversation: (id) =>
