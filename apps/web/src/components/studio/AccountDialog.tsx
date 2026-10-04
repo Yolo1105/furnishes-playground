@@ -16,7 +16,14 @@ const MODES: { id: Mode; label: string }[] = [
   { id: "up", label: "Create account" },
 ];
 
-export function AccountDialog({ onClose }: { onClose: () => void }) {
+export function AccountDialog({
+  onClose,
+  onSignedIn,
+}: {
+  onClose: () => void;
+  /** what was waiting on the account goes on from here */
+  onSignedIn?: () => void;
+}) {
   const [mode, setMode] = useState<Mode>("in");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -39,6 +46,7 @@ export function AccountDialog({ onClose }: { onClose: () => void }) {
       return;
     }
     onClose();
+    onSignedIn?.();
   };
 
   return (

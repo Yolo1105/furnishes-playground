@@ -29,11 +29,21 @@ type SyncState = {
   state: "idle" | "syncing" | "synced" | "failed";
   /** when the account last took the mirror, epoch ms */
   at: number | null;
+  /** a word for the user bar when the account changed what is open */
+  note: string | null;
 };
 export const useSyncState = create<SyncState>(() => ({
   state: "idle",
   at: null,
+  note: null,
 }));
+const NOTE_FOR = 6000; // ms
+let noteTimer: ReturnType<typeof setTimeout> | undefined;
+const say = (note: string) => {
+  useSyncState.setState({ note });
+  clearTimeout(noteTimer);
+  noteTimer = setTimeout(() => useSyncState.setState({ note: null }), NOTE_FOR);
+};
 
 const laterGone = (a: Gone, b: Gone): Gone => {
   const out: Gone = { ...a };
@@ -123,8 +133,11 @@ const pull = async () => {
   if (!r.ok) throw new Error(`sync ${r.status}`);
   const { data } = (await r.json()) as { data: Partial<SyncBody> };
   const mine = collect();
-  if (data.projects)
-    useProjects.getState().adopt(mergeProjects(mine.projects, data.projects));
+  if (
+    data.projects &&
+    useProjects.getState().adopt(mergeProjects(mine.projects, data.projects))
+  )
+    say("The open project came up to date from your account");
   if (data.orders)
     useOrders.setState({ orders: mergeOrders(mine.orders, data.orders) });
   if (data.generations)
@@ -149,7 +162,7 @@ export const syncNow = async () => {
 export function useAccountSync(userId: string | null) {
   useEffect(() => {
     if (!userId) {
-      useSyncState.setState({ state: "idle", at: null });
+      useSyncState.setState({ state: "idle", at: null, note: null });
       return;
     }
     let stopped = false;

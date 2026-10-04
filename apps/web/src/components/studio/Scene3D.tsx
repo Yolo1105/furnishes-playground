@@ -769,6 +769,8 @@ export default function Scene3D() {
   // the View settings ask for them
   const coarse = useCoarse();
   const scene = useStudio((s) => s.scene);
+  // a shared room is small on its page: the names would pile up
+  const readOnly = useStudio((s) => s.readOnly);
   const shadows = scene.shadows === "auto" ? !coarse : scene.shadows === "on";
   const light = LIGHTS[scene.light];
   return (
@@ -903,7 +905,7 @@ export default function Scene3D() {
               onPick={() => a.onPick(n)}
               onTurn={() => a.turn(n)}
               onDragging={setDragging}
-              labels={scene.labels}
+              labels={scene.labels && !readOnly}
               edges={scene.edges}
               actions={
                 a.actionsFor === n.id ? (

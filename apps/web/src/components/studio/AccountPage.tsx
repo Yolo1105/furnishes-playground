@@ -92,7 +92,8 @@ export function AccountPage() {
             <>
               <p className="account-text">
                 Sign in to keep your projects, orders and room items with you on
-                every device. Without an account they stay in this browser.
+                every device, and to share a room by link. Without an account
+                they stay in this browser.
               </p>
               <div className="shell-dialog-acts">
                 <button
@@ -110,7 +111,7 @@ export function AccountPage() {
       ) : (
         <>
           <section className="glass account-card">
-            <h2 className="eva-pref-title">You</h2>
+            <h2 className="eva-pref-title">Your account</h2>
             <label className="order-field">
               <span className="room-dim-label">Name</span>
               <input
@@ -146,17 +147,17 @@ export function AccountPage() {
             </div>
           </section>
           <section className="glass account-card">
-            <h2 className="eva-pref-title">On every device</h2>
+            <h2 className="eva-pref-title">Saved to your account</h2>
             <p className="account-text">
-              The studio works in this browser and mirrors to your account: the
-              projects, the orders, the room items you made and what the guide
-              has shown.{" "}
+              The studio works in this browser and saves to your account as you
+              go: the projects, the orders, the room items you made and what the
+              guide has shown, so they are there on every device you sign in on.{" "}
               {sync.state === "syncing"
-                ? "Mirroring now."
+                ? "Saving now."
                 : sync.state === "failed"
-                  ? "The last mirror did not go through."
+                  ? "The last save did not go through."
                   : sync.at
-                    ? `Last mirrored ${when(sync.at)}.`
+                    ? `Last saved to your account ${when(sync.at)}.`
                     : ""}
             </p>
             <div className="shell-dialog-acts">
@@ -165,7 +166,7 @@ export function AccountPage() {
                 className="main-btn"
                 onClick={() => void syncNow()}
               >
-                Mirror now
+                Save now
               </button>
             </div>
           </section>
@@ -177,7 +178,7 @@ export function AccountPage() {
                   <span>
                     <span className="account-project">{p.name}</span>
                     <small className="account-when">
-                      {p.at ? `changed ${when(p.at)}` : "not yet changed"}
+                      {p.at ? `changed ${when(p.at)}` : "not changed yet"}
                     </small>
                   </span>
                   <Link
@@ -230,10 +231,10 @@ export function AccountPage() {
             )}
           </section>
           <section className="glass account-card">
-            <h2 className="eva-pref-title">The end of the account</h2>
+            <h2 className="eva-pref-title">Deleting the account</h2>
             <p className="account-text">
-              Deleting the account takes its mirror with it: the projects,
-              orders and room items it holds. What is in this browser stays
+              Deleting the account takes what it holds with it: the projects,
+              orders, room items and shared links. What is in this browser stays
               here.
             </p>
             <div className="shell-dialog-acts">

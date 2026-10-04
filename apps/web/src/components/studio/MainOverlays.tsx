@@ -84,8 +84,8 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
   const [sharing, setSharing] = useState<"sign-in" | "busy" | string | null>(
     null,
   );
-  const shareRoom = async () => {
-    if (!session) return setSharing("sign-in");
+  const shareRoom = async (signedIn = Boolean(session)) => {
+    if (!signedIn) return setSharing("sign-in");
     setSharing("busy");
     const name = useProjects
       .getState()
@@ -516,7 +516,7 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
                     type="button"
                     role="menuitem"
                     className="shell-menu-row main-menu-row"
-                    onClick={() => pick(shareRoom)}
+                    onClick={() => pick(() => shareRoom())}
                   >
                     <ShareIcon size={14} />
                     <span className="main-menu-row-text">
@@ -532,7 +532,10 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
               </Floating>
             )}
             {sharing === "sign-in" && (
-              <AccountDialog onClose={() => setSharing(null)} />
+              <AccountDialog
+                onClose={() => setSharing(null)}
+                onSignedIn={() => void shareRoom(true)}
+              />
             )}
             {sharing && sharing !== "sign-in" && sharing !== "busy" && (
               <ShareDialog url={sharing} onClose={() => setSharing(null)} />
@@ -758,7 +761,7 @@ export function MainShelf() {
         <div ref={scroller} className="main-shelf-scroll no-scrollbar">
           {tab === "cart" && inCart.length === 0 && (
             <p className="assets-empty main-shelf-empty">
-              Nothing in the cart yet. Hover a saved piece and press its cart.
+              Nothing in the cart yet. Press the cart on a saved piece.
             </p>
           )}
           {checkout && (

@@ -83,7 +83,7 @@ export function SharePage({ id }: { id: string }) {
             onClick={() => {
               if (!room) return;
               const pid = importProject(room.name, room.data);
-              router.push(`/rounded?project=${encodeURIComponent(pid)}`);
+              router.push(`/?project=${encodeURIComponent(pid)}`);
             }}
           >
             Open in my studio
@@ -94,7 +94,7 @@ export function SharePage({ id }: { id: string }) {
         {room ? <Scene3D /> : <p className="assets-empty">One moment.</p>}
       </section>
       <section className="glass account-card">
-        <h2 className="eva-pref-title">In the room</h2>
+        <h2 className="eva-pref-title">Furnishes pieces in the room</h2>
         {pieces.length === 0 ? (
           <p className="assets-empty">No Furnishes pieces in this room yet.</p>
         ) : (

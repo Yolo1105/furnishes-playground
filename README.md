@@ -103,7 +103,9 @@ no account anywhere; the migrations under `apps/web/drizzle` run when
 the server first touches the database, and `pnpm db:generate` writes a
 new one from a change to the schema. `BETTER_AUTH_SECRET` signs the
 sessions in production (a development run uses the library's own and
-says so).
+says so). Not built, as each needs a mail sender or a payment provider
+that is not connected: forgotten-password mail, email verification, and
+payment itself (an order waits at awaiting payment).
 
 The room is a full-screen stage behind three panels. The project rail
 has Assets (an outliner with hide and remove), Products (the catalogue),

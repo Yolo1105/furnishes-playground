@@ -23,6 +23,7 @@ export const GUIDES: Record<GuideId, Guide> = {
     lines: [
       "Plan a room with Furnishes pieces: pick or draw the room, put pieces in, see it rendered, and buy what you keep.",
       "Eva plans with you on the right; the project and its pieces live on the left; the room is the stage behind everything.",
+      "Everything stays in this browser; sign in from the gear at the foot of the project panel to keep it on every device.",
       "Take the short tour to see where each thing is, or skip it and start.",
     ],
   },
@@ -66,7 +67,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
   {
     id: "toolbar",
     title: "The toolbar",
-    body: "Edit or Preview. Select picks and moves; Inspect offers a piece's details or a label for Eva; Add opens the parts and pieces. The eye hides every panel to look at the room. Then undo, redo, Eva's preferences, this guide, and Export.",
+    body: "Edit or Preview. Select picks, moves and turns a piece; Inspect offers its details or a label for Eva; Wall draws the room, Measure reads a distance and Tour sets stops, all on the plan; Add opens the parts and pieces. In 3D, View settings sets edges, names, the grid, shadows and the light. Then the eye that hides every panel, undo and redo, Eva's preferences, this guide, and Export, which also shares the room by link.",
     target: ".main-top",
     side: "below",
   },
@@ -80,7 +81,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
   {
     id: "shelf",
     title: "Saved and Cart",
-    body: "Saved holds the Furnishes pieces in the room, what can be bought. Hover one and press its cart; the Cart tab counts and sums what you will buy.",
+    body: "Saved holds the Furnishes pieces in the room, what can be bought. Each has a cart button; press it, and the Cart tab counts and sums what you will buy.",
     target: ".main-shelf",
     side: "above",
   },

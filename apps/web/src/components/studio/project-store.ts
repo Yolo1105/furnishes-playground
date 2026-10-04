@@ -66,11 +66,11 @@ type ProjectState = {
   remove: (id: string) => void;
   open: (id: string) => void;
   /** take a merged list as the projects; the open one reloads if the
-      list's copy is newer */
+      list's copy is newer, and that is said back */
   adopt: (merged: {
     projects: Project[];
     gone: Record<string, number>;
-  }) => void;
+  }) => boolean;
 };
 
 const dataOnly = <T extends object>(s: T) =>
@@ -258,8 +258,9 @@ export const useProjects = create<ProjectState>((set, get) => ({
     const before = get().projects.find((p) => p.id === activeId);
     const active = projects.find((p) => p.id === activeId) ?? projects[0]!;
     set({ projects, gone, activeId: active.id });
-    if (!before || active.id !== activeId || active.at > before.at)
-      load(active.data ?? fresh());
+    const reload = !before || active.id !== activeId || active.at > before.at;
+    if (reload) load(active.data ?? fresh());
+    return reload;
   },
 }));
 

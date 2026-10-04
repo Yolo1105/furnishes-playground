@@ -2944,7 +2944,9 @@ test("signed in, the projects follow the account to another browser; the account
     b.getByRole("heading", { name: "Account", exact: true }),
   ).toBeVisible();
   await expect(b.getByText(email)).toBeVisible();
-  await expect(b.getByText(/Last mirrored/)).toBeVisible({ timeout: 15_000 });
+  await expect(b.getByText(/Last saved to your account/)).toBeVisible({
+    timeout: 15_000,
+  });
   await expect(
     b.getByRole("link", { name: "Back to the studio" }),
   ).toHaveAttribute("href", "/rounded");
@@ -2991,10 +2993,9 @@ test("a room shared by link: read-only for anyone, taken into a studio as a proj
   await account.getByLabel("Password").fill(PASSWORD);
   await account.getByRole("button", { name: "Create account" }).click();
   await expect(account).toHaveCount(0, { timeout: 20_000 });
-  // signed in, a link comes
-  await exportBtn.click();
-  await a.getByRole("menuitem", { name: /^Share a link/ }).click();
+  // signed in, the share goes on by itself and a link comes
   const share = a.getByRole("dialog", { name: "Share the room" });
+  await expect(share).toBeVisible();
   const url = await share.getByRole("textbox", { name: "Link" }).inputValue();
   expect(url).toMatch(/\/s\/[A-Za-z0-9_-]{8}$/);
   await share.getByRole("button", { name: "Close" }).click();

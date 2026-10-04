@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { WHEEL_MODES } from "./input";
 import { useStudio } from "./studio-store";
+import { useSyncState } from "./account-sync";
 import { authClient, useSession } from "@/lib/auth-client";
 import { usePathname } from "next/navigation";
 import { useRef, useState } from "react";
@@ -25,8 +26,9 @@ type Sheet = "settings" | "help" | "orders" | "account" | null;
 export function UserBar() {
   const { data: session } = useSession();
   const path = usePathname();
+  const note = useSyncState((s) => s.note);
   const name = session?.user.name ?? "Guest";
-  const line = session?.user.email ?? "Not signed in";
+  const line = note ?? session?.user.email ?? "Not signed in";
   const [open, setOpen] = useState(false);
   const [sheet, setSheet] = useState<Sheet>(null);
   const wrap = useRef<HTMLDivElement>(null);
