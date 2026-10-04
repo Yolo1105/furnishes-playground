@@ -27,7 +27,7 @@ export const ANGLES: Record<View, readonly string[]> = {
   "3d": ["Perspective", "Front", "Back", "Left", "Right", "Top"],
   "2d": ["Plan", "Front", "Back", "Left", "Right"],
 };
-type Angle = (typeof ANGLES)[View][number];
+export type Angle = (typeof ANGLES)[View][number];
 
 /** what the line under the toolbar is waiting for: a view swap is quick,
     a render takes its time */
@@ -115,7 +115,15 @@ export const useStudio = create<StudioState>((set, get) => ({
     ),
   setAngle: (angle) => set({ angle }),
   setUiHidden: (uiHidden, at) =>
-    set({ uiHidden, peekAt: uiHidden ? (at ?? null) : null }),
+    set((s) => ({
+      uiHidden,
+      peekAt: uiHidden ? (at ?? null) : null,
+      // comparing belongs to looking: with the panels back, the render
+      // stands whole again
+      ...(!uiHidden && s.preview === "compare"
+        ? { preview: "done" as const, split: 100 }
+        : {}),
+    })),
   setFocus: (focusId) => set({ focusId }),
   setPanelTab: (panelTab) => set({ panelTab }),
   setEvaTab: (evaTab) => set({ evaTab }),

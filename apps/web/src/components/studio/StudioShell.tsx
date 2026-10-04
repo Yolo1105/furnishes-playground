@@ -15,6 +15,7 @@ import { useScene } from "./scene-store";
 import { other, useStudio } from "./studio-store";
 import { RadioMenu } from "./RadioMenu";
 import { useDismiss } from "./useDismiss";
+import { useInputMode } from "./useInputMode";
 import { UserBar } from "./UserBar";
 import { MainView, ViewPanel } from "./ViewPanel";
 import { ChevronDownIcon, PanelLeftIcon, PlusIcon } from "./icons";
@@ -53,6 +54,7 @@ export function StudioShell({
   /** draw the thin toolbar over the main surface (collapse icons dock in it) */
   topBar?: boolean;
 }) {
+  useInputMode();
   const [open, setOpen] = useState<Drawer>(null);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [project, setProject] = useState<Project>(PROJECTS[0]);

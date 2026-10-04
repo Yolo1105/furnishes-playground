@@ -3,14 +3,16 @@
 import { useEffect, useRef, useState } from "react";
 import { dayLabel, timeLabel, type Conversation } from "./eva-data";
 import { useEva } from "./eva-store";
-import { MessageIcon, PencilIcon, TrashIcon } from "./icons";
+import { MessageIcon, MoreIcon, PencilIcon, TrashIcon } from "./icons";
+import { useDismiss } from "./useDismiss";
 
 /**
  * Past conversations, newest first, under the day they were last touched.
  * A row is the playground's: title, the last line, how many turns. The
- * open one sits in orange. Hover shows rename and delete; double-click
- * renames, as the archive did. No input box here: this tab is for
- * finding a conversation, not continuing one.
+ * open one sits in orange. Hover shows a three-dot button whose menu
+ * holds what can be done with the row: open, rename, delete;
+ * double-click renames, as the archive did. No input box here: this tab
+ * is for finding a conversation, not continuing one.
  */
 export function HistoryTab({ onOpen }: { onOpen?: () => void }) {
   const conversations = useEva((s) => s.conversations);
@@ -25,6 +27,9 @@ export function HistoryTab({ onOpen }: { onOpen?: () => void }) {
   useEffect(() => {
     if (editing) input.current?.select();
   }, [editing]);
+  const [menuFor, setMenuFor] = useState<string | null>(null);
+  const menuWrap = useRef<HTMLSpanElement>(null);
+  useDismiss(menuWrap, menuFor !== null, () => setMenuFor(null));
 
   const sorted = [...conversations].sort((a, b) => b.at - a.at);
   const groups: { label: string; rows: Conversation[] }[] = [];
@@ -94,23 +99,66 @@ export function HistoryTab({ onOpen }: { onOpen?: () => void }) {
                     </span>
                   </button>
                 )}
-                <span className="eva-conv-acts">
+                <span
+                  className="eva-conv-acts"
+                  ref={menuFor === c.id ? menuWrap : undefined}
+                  data-open={menuFor === c.id}
+                >
                   <button
                     type="button"
                     className="shell-iconbtn"
-                    aria-label={`Rename ${c.title}`}
-                    onClick={() => setEditing({ id: c.id, draft: c.title })}
+                    aria-label={`More for ${c.title}`}
+                    aria-haspopup="menu"
+                    aria-expanded={menuFor === c.id}
+                    onClick={() =>
+                      setMenuFor((cur) => (cur === c.id ? null : c.id))
+                    }
                   >
-                    <PencilIcon size={14} />
+                    <MoreIcon size={14} />
                   </button>
-                  <button
-                    type="button"
-                    className="shell-iconbtn"
-                    aria-label={`Delete ${c.title}`}
-                    onClick={() => remove(c.id)}
-                  >
-                    <TrashIcon size={14} />
-                  </button>
+                  {menuFor === c.id && (
+                    <div
+                      className="shell-menu eva-conv-menu"
+                      role="menu"
+                      aria-label={`${c.title} actions`}
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="shell-menu-row"
+                        onClick={() => {
+                          setMenuFor(null);
+                          select(c.id);
+                          onOpen?.();
+                        }}
+                      >
+                        <MessageIcon /> Open
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="shell-menu-row"
+                        onClick={() => {
+                          setMenuFor(null);
+                          setEditing({ id: c.id, draft: c.title });
+                        }}
+                      >
+                        <PencilIcon /> Rename
+                      </button>
+                      <div className="shell-menu-sep" role="separator" />
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="shell-menu-row"
+                        onClick={() => {
+                          setMenuFor(null);
+                          remove(c.id);
+                        }}
+                      >
+                        <TrashIcon /> Delete
+                      </button>
+                    </div>
+                  )}
                 </span>
               </div>
             );

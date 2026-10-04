@@ -255,6 +255,14 @@
   right: 0;
   min-width: 220px;
 }
+.main-prefs-title {
+  margin: 2px 10px 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgb(from var(--color-ink) r g b / 0.5);
+}
 .main-prefs-check {
   width: 14px;
   height: 14px;
@@ -262,7 +270,15 @@
   border: 1.5px solid rgb(from var(--color-line) r g b / 0.4);
   flex: 0 0 auto;
 }
-[aria-checked="true"] > .main-prefs-check {
+[aria-checked="true"] > .main-prefs-title {
+  margin: 2px 10px 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgb(from var(--color-ink) r g b / 0.5);
+}
+.main-prefs-check {
   background: var(--color-accent);
   border-color: var(--color-accent);
 }
@@ -1187,4 +1203,109 @@
 .tour-skip:hover {
   background: rgb(from var(--color-ink) r g b / 0.05);
   color: rgb(from var(--color-ink) r g b / 0.85);
+}
+
+/* ---- the room in 3D ---- */
+.stage-3d-slot,
+.stage-3d {
+  position: absolute;
+  inset: 0;
+}
+.stage-3d-slot[hidden] {
+  display: none;
+}
+.stage-3d {
+  pointer-events: auto;
+}
+.stage-3d canvas {
+  display: block;
+  touch-action: none;
+}
+.stage-3d-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.stage-3d-overlay > * {
+  pointer-events: auto;
+}
+.stage-3d .stage-back {
+  top: 56px;
+}
+.stage-3d .stage-focus-caption {
+  bottom: 48px;
+}
+.stage-3d-name {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: var(--r-chip);
+  background: rgb(from var(--color-glass) r g b / 0.8);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgb(from var(--color-ink) r g b / 0.6);
+  white-space: nowrap;
+}
+.stage-piece-tag-3d {
+  position: static;
+}
+/* while previewing, the stand-ins take the stage */
+.shell-stage:has(.preview) .stage-3d {
+  display: none;
+}
+
+/* ---- the plan, drawn as a drawing office draws it ---- */
+.stage-room-pieces:has(> .plan) {
+  aspect-ratio: auto;
+  height: auto;
+}
+.plan {
+  position: relative;
+  width: 100%;
+}
+.plan-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  font-family: inherit;
+}
+.plan-dim line {
+  stroke: rgb(from var(--color-ink) r g b / 0.55);
+  stroke-width: 12;
+}
+.plan-dim text,
+.plan-north text,
+.plan-title text {
+  fill: rgb(from var(--color-ink) r g b / 0.6);
+  font-size: 170px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-anchor: middle;
+}
+.plan-title text {
+  font-size: 150px;
+  text-anchor: end;
+}
+.plan-pieces {
+  position: absolute;
+}
+/* on the plan a piece is a symbol: a thin outline, its name in capitals */
+.plan-pieces .stage-piece-body {
+  border: 1.5px solid rgb(from var(--color-ink) r g b / 0.7);
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.35);
+  box-shadow: none;
+}
+.plan-pieces .stage-piece-body[data-colour] {
+  background: rgba(255, 255, 255, 0.35);
+}
+.plan-pieces .stage-piece-name {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 9px;
+}
+.plan-pieces .stage-piece[data-selected="true"] .stage-piece-body {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px rgb(from var(--color-accent) r g b / 0.2);
 }

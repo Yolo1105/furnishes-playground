@@ -20,8 +20,8 @@ import {
   CloseIcon,
   CursorIcon,
   ExportIcon,
+  CompassIcon,
   EyeIcon,
-  GearIcon,
   HelpIcon,
   InspectIcon,
   PlusIcon,
@@ -176,10 +176,15 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
               aria-expanded={prefsOpen}
               onClick={() => setPrefsOpen((v) => !v)}
             >
-              <GearIcon />
+              <CompassIcon />
             </button>
             {prefsOpen && (
-              <div className="shell-menu main-prefs-menu" role="menu">
+              <div
+                className="shell-menu main-prefs-menu"
+                role="menu"
+                aria-label="Eva's preferences"
+              >
+                <p className="main-prefs-title">Eva&apos;s preferences</p>
                 <button
                   type="button"
                   role="menuitemcheckbox"

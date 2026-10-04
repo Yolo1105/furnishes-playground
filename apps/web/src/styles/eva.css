@@ -35,7 +35,7 @@
 }
 .eva-conv[data-active="true"] {
   background: rgb(from var(--color-accent) r g b / 0.1);
-  border-color: rgb(from var(--color-accent) r g b / 0.2);
+  border-color: rgb(from var(--color-accent) r g b / 0.12);
 }
 .eva-conv-open {
   appearance: none;
@@ -97,8 +97,14 @@
   transition: opacity 0.12s ease;
 }
 .eva-conv:hover .eva-conv-acts,
-.eva-conv:focus-within .eva-conv-acts {
+.eva-conv:focus-within .eva-conv-acts,
+.eva-conv-acts[data-open="true"] {
   opacity: 1;
+}
+.eva-conv-menu {
+  left: auto;
+  right: 0;
+  min-width: 160px;
 }
 .eva-conv-acts .shell-iconbtn {
   width: 26px;
@@ -132,8 +138,9 @@
   border: 1px solid rgb(from var(--color-line) r g b / 0.14);
   background: rgba(255, 255, 255, 0.4);
 }
+/* a set block says so by its origin chip, not by an orange edge */
 .eva-pref[data-set="true"] {
-  border-color: rgb(from var(--color-accent) r g b / 0.28);
+  background: rgba(255, 255, 255, 0.55);
 }
 .eva-pref-head {
   display: flex;
@@ -166,7 +173,7 @@
 }
 .eva-pref-origin[data-origin="chat"] {
   color: var(--color-accent);
-  border-color: rgb(from var(--color-accent) r g b / 0.35);
+  border-color: rgb(from var(--color-accent) r g b / 0.14);
   background: rgb(from var(--color-accent) r g b / 0.08);
 }
 .eva-pref-clear {
@@ -263,7 +270,7 @@
   margin: 0;
   padding: 8px 11px;
   border-radius: var(--r-card);
-  border: 1px dashed rgb(from var(--color-accent) r g b / 0.4);
+  border: 1px dashed rgb(from var(--color-line) r g b / 0.4);
   font-size: 12px;
   color: rgb(from var(--color-ink) r g b / 0.65);
 }
@@ -370,8 +377,8 @@
   margin: 0;
   padding: 2px 12px;
   border-radius: var(--r-card);
-  border: 1px solid rgb(from var(--color-accent) r g b / 0.28);
-  background: rgb(from var(--color-accent) r g b / 0.04);
+  border: 1px solid rgb(from var(--color-line) r g b / 0.16);
+  background: rgba(255, 255, 255, 0.5);
 }
 .agent-context > div {
   display: flex;
@@ -428,7 +435,7 @@
 }
 .agent-prompt:hover {
   background: rgb(from var(--color-accent) r g b / 0.07);
-  border-color: rgb(from var(--color-accent) r g b / 0.35);
+  border-color: rgb(from var(--color-accent) r g b / 0.14);
   color: var(--color-accent);
 }
 

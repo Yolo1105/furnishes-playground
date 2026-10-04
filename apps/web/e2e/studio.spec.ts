@@ -170,6 +170,11 @@ test("rails collapse into the toolbar and come back", async ({ page }) => {
     page.getByRole("button", { name: "Collapse Eva panel" }),
   ).toHaveCount(0);
   const eye = page.getByRole("button", { name: "Hide panels" });
+  // the rail's reopening still moves the toolbar: wait until the main
+  // column is back to the width it had
+  await expect
+    .poll(async () => Math.abs((await main.boundingBox())!.width - wide) < 1)
+    .toBe(true);
   const eb = (await eye.boundingBox())!;
   await eye.click();
   await expect(shell).toHaveAttribute("data-ui", "hidden");
@@ -395,10 +400,19 @@ test("Eva's History lists conversations without an input box", async ({
   await expect(rows).toHaveCount(5);
   await expect(page.locator(".eva-day-label").first()).toHaveText("Today");
   await expect(rows.first()).toHaveAttribute("data-active", "true");
+  // a row's three dots hold what can be done with it
+  await rows.nth(2).hover();
   await rows
     .nth(2)
-    .getByRole("button", { name: /Delete/ })
+    .getByRole("button", { name: /^More for/ })
     .click();
+  const menu = page.getByRole("menu", { name: /actions$/ });
+  await expect(menu.getByRole("menuitem")).toHaveText([
+    "Open",
+    "Rename",
+    "Delete",
+  ]);
+  await menu.getByRole("menuitem", { name: "Delete" }).click();
   await expect(rows).toHaveCount(4);
   // opening one goes back to the conversation
   await rows.nth(1).locator(".eva-conv-open").click();
@@ -693,7 +707,10 @@ test("Preview runs a line along the top, sweeps the render in, then compares on 
   await page.mouse.move(sb.x + sb.width * 0.25, 300, { steps: 4 });
   await page.mouse.up();
   await expect(handle).toHaveAttribute("aria-valuenow", "25");
+  // the panels back: the compare is left, the render stands whole
   await page.getByRole("button", { name: "Show panels" }).click();
+  await expect(page.locator(".preview")).toHaveAttribute("data-status", "done");
+  await expect(handle).toHaveAttribute("aria-valuenow", "100");
   await bar.getByRole("button", { name: "Edit" }).click();
   await expect(page.locator(".preview")).toHaveCount(0);
   await expect(bar.getByRole("button", { name: "Select" })).toBeEnabled();
@@ -957,6 +974,10 @@ test("Inspect raises Details and Label over a piece; labels reach Eva, five at m
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
+  // the 3D view draws the room on a canvas; the plan draws the pieces as
+  // buttons, which is where this test clicks them
+  await expect(page.locator(".stage-3d canvas")).toHaveCount(1);
+  await page.getByRole("button", { name: "Show 2D plan in main" }).click();
   const stage = page.locator(".stage-pieces");
   const pieces = top.filter((a) => a.kind === "piece");
   await expect(stage.locator(".stage-piece")).toHaveCount(pieces.length);
@@ -1041,12 +1062,22 @@ test("the Detail tab lists a piece's components and changes one", async ({
     .click();
   await page.getByRole("tab", { name: "Detail" }).click();
   await expect(page.locator(".detail-name")).toHaveText(bookwall.name);
-  const parts = page.getByRole("radiogroup", { name: "Components" });
-  await expect(parts.getByRole("radio")).toHaveCount(bookwall.children!.length);
-  await expect(page.getByRole("radiogroup", { name: "Colour" })).toHaveCount(0);
+  // the whole piece is in hand first: a colour set here reaches every part
+  const parts = page.getByRole("radiogroup", { name: "Parts" });
+  await expect(parts.getByRole("radio")).toHaveCount(
+    bookwall.children!.length + 1,
+  );
+  await expect(
+    parts.getByRole("radio", { name: /Whole piece/ }),
+  ).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByRole("radiogroup", { name: "Colour" })).toBeVisible();
+  await page.getByRole("radio", { name: "Sage" }).click();
   const segment = bookwall.children![0]!;
   await parts.getByRole("radio", { name: new RegExp(segment.name) }).click();
-  await expect(page.getByRole("radiogroup", { name: "Colour" })).toBeVisible();
+  await expect(page.getByRole("radio", { name: "Sage" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
   await page.getByRole("radio", { name: "Walnut" }).click();
   await expect(page.getByRole("radio", { name: "Walnut" })).toHaveAttribute(
     "aria-checked",

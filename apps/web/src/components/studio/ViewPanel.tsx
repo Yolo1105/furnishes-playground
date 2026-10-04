@@ -1,6 +1,11 @@
 import { CubeIcon, PlanIcon, SwapIcon } from "./icons";
+import dynamic from "next/dynamic";
+import { Plan2D } from "./Plan2D";
 import { StagePieces } from "./StagePieces";
 import { other, viewName, type View } from "./studio-store";
+
+/* the 3D scene needs the browser's WebGL: it is never rendered on the server */
+const Scene3D = dynamic(() => import("./Scene3D"), { ssr: false });
 
 /**
  * The small view in the right rail: whichever of 3D and 2D the main
@@ -45,9 +50,9 @@ export function ViewPanel({
   );
 }
 
-/** The stage's placeholder for whichever view it holds: the room's
-    sketch between the rails, on the plan grid (which runs under the
-    rails) or on the gradient. */
+/** The stage for whichever view it holds, between the rails: the plan
+    (the grid runs under the rails; the drawn plan and its pieces on it)
+    or the room in 3D. */
 export function MainView({ view }: { view: View }) {
   return (
     <div className="shell-main-hint" data-view={view}>
@@ -55,11 +60,18 @@ export function MainView({ view }: { view: View }) {
         <div className="view-plan view-plan-main" aria-hidden="true" />
       )}
       <div className="stage-room">
-        <div className="preview-room preview-room-sketch" aria-hidden="true" />
-        <div className="preview-room stage-room-pieces">
-          <StagePieces />
+        {/* the scene stays mounted while the plan shows, hidden: its
+            WebGL context and its overlays survive the swap */}
+        <div className="stage-3d-slot" hidden={view !== "3d"}>
+          <Scene3D />
         </div>
-        <span>{viewName(view)}</span>
+        {view === "2d" && (
+          <div className="preview-room stage-room-pieces">
+            <Plan2D>
+              <StagePieces />
+            </Plan2D>
+          </div>
+        )}
       </div>
     </div>
   );

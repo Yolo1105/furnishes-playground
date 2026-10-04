@@ -400,3 +400,13 @@ export function CompassIcon({ size = 16 }: IconProps) {
     </svg>
   );
 }
+
+export function MoreIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <circle cx="5" cy="12" r="1.2" />
+      <circle cx="12" cy="12" r="1.2" />
+      <circle cx="19" cy="12" r="1.2" />
+    </svg>
+  );
+}

@@ -220,9 +220,16 @@ input:focus-visible,
 textarea:focus-visible,
 select:focus-visible,
 [tabindex]:focus-visible {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid rgb(from var(--color-ink) r g b / 0.45);
   outline-offset: 2px;
   border-radius: var(--r-control);
+}
+/* the ring is for the keyboard: after a pointer press it stays away until
+   the next Tab or arrow key (the root records how the last input came;
+   see useInputMode), since a browser keeps :focus-visible on after any
+   key, Escape to close a menu included */
+:root:not([data-input="keyboard"]) :focus-visible {
+  outline: none;
 }
 /* a tab or chip inside a clipped row keeps its ring inside its own box */
 [role="tab"]:focus-visible,
