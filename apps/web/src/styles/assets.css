@@ -824,3 +824,17 @@
 .detail-part[aria-checked="true"] .detail-part-price {
   color: inherit;
 }
+
+/* what fits in this room of this flat, and where its openings are */
+.room-fit {
+  margin: 8px 0 0;
+  padding: 0 0 0 14px;
+  display: grid;
+  gap: 4px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: rgb(from var(--color-ink) r g b / 0.65);
+}
+.room-opening-note {
+  margin-top: 4px;
+}

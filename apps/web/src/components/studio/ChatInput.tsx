@@ -9,13 +9,25 @@ import {
   MicIcon,
   SendArrowIcon,
 } from "./icons";
+import type { ChatMode } from "./eva-brain";
 import { useEva } from "./eva-store";
 import { RadioMenu } from "./RadioMenu";
 import { useDismiss } from "./useDismiss";
 
-/** The playground's modes, as the dropdown lists them. */
+/** The playground's modes, as the dropdown lists them: Ask lets the words
+    decide what Eva does; Furniture asks her for pieces; Room layout asks
+    her to place them. */
 const MODES = ["Ask", "Furniture", "Room layout"] as const;
 type Mode = (typeof MODES)[number];
+const MODE_KEYS: Record<Mode, ChatMode> = {
+  Ask: "ask",
+  Furniture: "furniture",
+  "Room layout": "layout",
+};
+const MODE_PLACEHOLDERS: Partial<Record<Mode, string>> = {
+  Furniture: "Which piece, for where? Eva picks from the catalogue.",
+  "Room layout": "How is the room used? Eva lays the pieces out.",
+};
 
 const PLACEHOLDERS = [
   "Describe the space you're working on…",
@@ -76,7 +88,7 @@ export function ChatInput() {
   const canSend = message.trim().length > 0 || image !== null;
   const submit = () => {
     if (!canSend) return;
-    send(message, image ?? undefined);
+    send(message, image ?? undefined, MODE_KEYS[mode]);
     setMessage("");
     setImage(null);
     setSuggestions(false);
@@ -152,7 +164,7 @@ export function ChatInput() {
         className="chat-textarea"
         rows={1}
         value={message}
-        placeholder={PLACEHOLDERS[placeholder]}
+        placeholder={MODE_PLACEHOLDERS[mode] ?? PLACEHOLDERS[placeholder]}
         aria-label="Message Eva"
         onChange={(e) => setMessage(e.target.value)}
         onFocus={() => setFocused(true)}

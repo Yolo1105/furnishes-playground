@@ -9,6 +9,7 @@ import { sgd } from "./assets-data";
 import {
   recommend,
   reply,
+  type ChatMode,
   type Chip,
   type Context,
   type Reply,
@@ -63,7 +64,7 @@ type EvaState = {
   newConversation: () => string;
   /** say something in the open conversation (a new one if none): the
       model answers when one is connected, the rules otherwise */
-  send: (text: string, image?: string) => Promise<void>;
+  send: (text: string, image?: string, mode?: ChatMode) => Promise<void>;
   /** a thumb on one of Eva's answers; the same thumb again takes it off */
   rate: (msgId: string, rating: "up" | "down") => void;
   /** a finished quiz: Eva says what it found and proposes its preferences */
@@ -129,7 +130,7 @@ export const useEva = create<EvaState>((set, get) => ({
     set((s) => ({ conversations: [c, ...s.conversations], activeId: c.id }));
     return c.id;
   },
-  send: async (text, image) => {
+  send: async (text, image, mode = "ask") => {
     const body = text.trim();
     if (!body && !image) return;
     const id = get().activeId ?? get().newConversation();
@@ -165,17 +166,17 @@ export const useEva = create<EvaState>((set, get) => ({
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ message: asked, thread, context: ctx }),
+        body: JSON.stringify({ message: asked, thread, context: ctx, mode }),
       });
       if (res.ok) {
         r = ((await res.json()) as { reply: Reply }).reply;
         source = "model";
       } else {
         if (res.status === 503) set({ offline: true });
-        r = reply(asked, ctx);
+        r = reply(asked, ctx, mode);
       }
     } catch {
-      r = reply(asked, ctx);
+      r = reply(asked, ctx, mode);
     }
     const eva: Message = {
       id: nextId("m"),

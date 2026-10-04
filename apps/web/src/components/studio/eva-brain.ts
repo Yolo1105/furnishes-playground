@@ -14,7 +14,15 @@ import {
   SWATCHES,
   type PreferenceCategory,
 } from "./eva-data";
-import { metres, ROOM_NAMES, type RoomId } from "./room-data";
+import { DESIGN_TIPS } from "./design-tips";
+import {
+  FIT_FOR_ROOM,
+  FIT_GUIDANCE,
+  metres,
+  ROOM_NAMES,
+  type FlatType,
+  type RoomId,
+} from "./room-data";
 
 /**
  * What Eva does with a message until she is wired to think: she reads
@@ -71,6 +79,73 @@ const CORE: Record<RoomId, AssetCategory[]> = {
 };
 const SECONDARY: AssetCategory[] = ["lighting", "decor"];
 
+/** where a room's budget should go, by category, as the chatbot's bands
+    have it (the bedroom's bed and the dining table are not Furnishes
+    pieces, so their shares are named but not counted) */
+export type Band = {
+  category: AssetCategory;
+  label: string;
+  lo: number;
+  hi: number;
+};
+const BANDS: Record<RoomId, Band[]> = {
+  living: [
+    { category: "seating", label: "Seating", lo: 0.3, hi: 0.4 },
+    { category: "tables", label: "Tables", lo: 0.1, hi: 0.15 },
+    { category: "storage", label: "Storage and media", lo: 0.08, hi: 0.12 },
+    { category: "lighting", label: "Lighting", lo: 0.08, hi: 0.1 },
+    { category: "decor", label: "Rug and décor", lo: 0.08, hi: 0.12 },
+  ],
+  master: [
+    { category: "storage", label: "Storage", lo: 0.15, hi: 0.2 },
+    { category: "lighting", label: "Lighting", lo: 0.08, hi: 0.1 },
+    { category: "decor", label: "Textiles and décor", lo: 0.08, hi: 0.12 },
+  ],
+  "bedroom-1": [
+    { category: "storage", label: "Storage", lo: 0.15, hi: 0.2 },
+    { category: "tables", label: "Desk", lo: 0.1, hi: 0.15 },
+    { category: "lighting", label: "Lighting", lo: 0.08, hi: 0.1 },
+  ],
+  "bedroom-2": [
+    { category: "storage", label: "Storage", lo: 0.15, hi: 0.2 },
+    { category: "tables", label: "Desk", lo: 0.1, hi: 0.15 },
+    { category: "lighting", label: "Lighting", lo: 0.08, hi: 0.1 },
+  ],
+  kitchen: [
+    { category: "tables", label: "Table and trolley", lo: 0.35, hi: 0.45 },
+    { category: "seating", label: "Seating", lo: 0.25, hi: 0.3 },
+    { category: "storage", label: "Storage", lo: 0.1, hi: 0.15 },
+    { category: "lighting", label: "Lighting", lo: 0.1, hi: 0.1 },
+  ],
+  study: [
+    { category: "tables", label: "Desk", lo: 0.3, hi: 0.4 },
+    { category: "storage", label: "Storage and shelving", lo: 0.2, hi: 0.25 },
+    { category: "seating", label: "Seating", lo: 0.15, hi: 0.2 },
+    { category: "lighting", label: "Lighting", lo: 0.1, hi: 0.1 },
+  ],
+};
+
+/** the fit guidance lines for this room of this flat */
+export const fitLines = (c: Context) => {
+  const flat = c.room.flat as FlatType;
+  const guide = FIT_GUIDANCE[flat];
+  return guide ? FIT_FOR_ROOM[c.room.id].map((k) => guide[k]) : [];
+};
+
+/** the fit line a message calls for: a bed, a sofa, a dining table */
+const fitNoteFor = (c: Context, text: string) => {
+  const flat = c.room.flat as FlatType;
+  const guide = FIT_GUIDANCE[flat];
+  if (!guide) return null;
+  const room = c.room.id;
+  if (/\b(bed|mattress|king|queen)\b/i.test(text))
+    return guide[room === "master" ? "master" : "common"];
+  if (/\b(sofa|couch|sectional|l-shape|l shaped)\b/i.test(text))
+    return guide.living;
+  if (/\b(dining|table for|seater)\b/i.test(text)) return guide.dining;
+  return null;
+};
+
 export const planOf = (c: Context) => {
   const have = new Set(c.pieces.map((n) => n.category));
   const core = CORE[c.room.id];
@@ -97,6 +172,19 @@ export const planOf = (c: Context) => {
         : score >= 40
           ? "Taking shape"
           : "Just started";
+  const spent = new Map<AssetCategory, number>();
+  for (const n of c.pieces)
+    if (n.kind === "piece" && n.price !== undefined)
+      spent.set(n.category, (spent.get(n.category) ?? 0) + n.price);
+  const bands =
+    to === undefined
+      ? []
+      : BANDS[c.room.id].map((b) => ({
+          ...b,
+          from: Math.round((to * b.lo) / 10) * 10,
+          upTo: Math.round((to * b.hi) / 10) * 10,
+          spent: spent.get(b.category) ?? 0,
+        }));
   return {
     score,
     label,
@@ -106,6 +194,8 @@ export const planOf = (c: Context) => {
     total: t.total,
     to,
     remaining,
+    /** where the budget should go, with what has gone there */
+    bands,
   };
 };
 
@@ -292,6 +382,9 @@ export const recommend = (
           : `${sgd(product.price - remaining)} over what is left of your budget`,
       );
     why.push(`fits the ${metres(long)} wall`);
+    const tip = c.prefs.style?.values.map((s) => DESIGN_TIPS[s]).find(Boolean);
+    if (tip && product.category === "storage" && /closed|hide/i.test(tip.do))
+      why.push("closed storage, as the style asks");
     return { product, why: why.join(" · ") };
   });
 };
@@ -316,12 +409,47 @@ export type Reply = {
 const roomLine = (c: Context) =>
   `${ROOM_NAMES[c.room.id]}, ${metres(c.room.width)} × ${metres(c.room.depth)}`;
 
-export const reply = (text: string, c: Context): Reply => {
+/** the box's mode: Ask lets the words decide; the others say what is wanted */
+export type ChatMode = "ask" | "furniture" | "layout";
+
+export const reply = (
+  text: string,
+  c: Context,
+  mode: ChatMode = "ask",
+): Reply => {
   const proposals = hear(text, c.prefs);
-  const intent = intentOf(text);
+  const intent: Intent =
+    mode === "furniture"
+      ? "furniture"
+      : mode === "layout"
+        ? "layout"
+        : intentOf(text);
   const stance = c.exploration
     ? " Exploration is on, so I'm ranging wide rather than keeping to your preferences."
     : "";
+  // what fits this flat comes first, when a bed, a sofa or a table is named
+  const fit = fitNoteFor(c, text);
+  const fitLead = fit ? `For a ${c.room.flat} flat: ${fit} ` : "";
+  const plan = planOf(c);
+  // a budget question with a budget kept: where the money should go
+  if (
+    plan.bands.length &&
+    !FURNITURE.some((f) => has(text, f)) &&
+    /\b(budget|spend|split|allocate|where|go)\b/i.test(text)
+  )
+    return {
+      text: `${fitLead}Of your ${sgd(plan.to!)} for the ${ROOM_NAMES[c.room.id]}, ${plan.bands
+        .map((b) => `${b.label.toLowerCase()} ${sgd(b.from)} to ${sgd(b.upTo)}`)
+        .join(
+          ", ",
+        )}. ${plan.total ? `So far ${sgd(plan.total)} is in the room.` : "Nothing is in the room yet."}`,
+      proposals,
+      cards: [],
+      chips: [
+        { label: "Pick the seating", send: "Suggest seating within my budget" },
+        { label: "Pick the storage", send: "Suggest storage within my budget" },
+      ],
+    };
   // the gates: the room's size before a layout, the budget before a list,
   // the room before furniture
   if (intent === "layout" && !c.room.sized)
@@ -368,9 +496,10 @@ export const reply = (text: string, c: Context): Reply => {
     if (cards.length)
       return {
         text:
-          intent === "layout"
+          fitLead +
+          (intent === "layout"
             ? `For the ${roomLine(c)}, here is what I'd stand along the walls first.${stance}`
-            : `For the ${roomLine(c)}, ${cards.length === 1 ? "one piece" : `${cards.length} pieces`} that fit.${stance}`,
+            : `For the ${roomLine(c)}, ${cards.length === 1 ? "one piece" : `${cards.length} pieces`} that fit.${stance}`),
         proposals,
         cards,
         chips: [
@@ -395,7 +524,7 @@ export const reply = (text: string, c: Context): Reply => {
           : " Ask me for pieces, a layout or a list and I'll keep to what fits.";
   const t = pieceTotals(c.pieces);
   return {
-    text: `I'm reading the ${roomLine(c)}, with ${t.pieces} Furnishes pieces at ${sgd(t.total)}.${stance}${next}`,
+    text: `${fitLead}I'm reading the ${roomLine(c)}, with ${t.pieces} Furnishes pieces at ${sgd(t.total)}.${stance}${next}`,
     proposals,
     cards: [],
     chips:

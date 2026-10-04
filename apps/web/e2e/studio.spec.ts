@@ -1919,8 +1919,9 @@ test("the planner's rules: the door's swing, the window, a walkway, each with a 
   const y = page.getByRole("spinbutton", {
     name: `${first.name} from the north wall in millimetres`,
   });
-  // into the door's swing (the door is on the south wall, in its middle)
-  await x.fill("2800");
+  // into the door's swing (the door is on the south wall, 800 mm from the
+  // east corner, as HDB has it: the zone runs 4800 to 5700 along the wall)
+  await x.fill("4800");
   await x.press("Tab");
   await y.fill("3500");
   await y.press("Tab");
@@ -1971,4 +1972,96 @@ test("the planner's rules: the door's swing, the window, a walkway, each with a 
   await expect(row).toHaveCount(1);
   await row.getByRole("button", { name: /^Fix/ }).click();
   await expect(health.locator("li", { hasText: pair })).toHaveCount(0);
+});
+
+test("the box's mode steers Eva: Furniture asks for pieces, Room layout for a layout", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  const box = page.getByRole("textbox", { name: "Message Eva" });
+  const agent = page.locator(".agent");
+  // Furniture: words that name nothing still bring pieces
+  await page.getByRole("button", { name: /^Ask/ }).click();
+  await page.getByRole("menuitemradio", { name: "Furniture" }).click();
+  await expect(box).toHaveAttribute("placeholder", /Which piece/);
+  await box.fill("something for the corner by the window");
+  await box.press("Enter");
+  await expect(agent.locator(".agent-card").first()).toBeVisible();
+  // Room layout: the room's size comes first, as the gate says
+  await page.getByRole("button", { name: /^Furniture/ }).click();
+  await page.getByRole("menuitemradio", { name: "Room layout" }).click();
+  await box.fill("something for the corner by the window");
+  await box.press("Enter");
+  await expect(
+    agent.locator(".agent-bubble[data-who='eva']").last(),
+  ).toContainText("room's size first");
+});
+
+test("the room knows its flat: what fits, where the door is, a kitchen without a window; Eva says where the money goes", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  await page.getByRole("tab", { name: "Room", exact: true }).click();
+  await page
+    .getByRole("radiogroup", { name: "Start from" })
+    .getByRole("radio", { name: "Template" })
+    .click();
+  // the fit lines for a 4-room living room, then for a 3-room master
+  const fit = page.getByRole("list", { name: "What fits" });
+  await expect(fit).toContainText("L-shaped sofa 2.6 to 2.8 m");
+  await page.getByRole("radio", { name: "3-room" }).click();
+  await page.getByRole("radio", { name: "Master bedroom" }).click();
+  await expect(fit).toContainText("A king bed will not fit");
+  // the door by convention: 600 mm from the corner; the plan draws it there
+  await expect(
+    page.getByText("600 mm from the corner, as HDB has it"),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Show 2D plan in main" }).click();
+  // the leaf hangs at the hinge: the door spans 1500 to 2400 on a 3000 wall
+  const leaf = page.locator(".plan-leaf");
+  expect(Number(await leaf.getAttribute("x1"))).toBe(3000 - 600 - 900);
+  // the kitchen has no window of its own
+  await page.getByRole("radio", { name: "Kitchen" }).click();
+  await expect(page.getByText("No window of its own")).toBeVisible();
+  await expect(page.locator(".plan-svg:not(.elev-svg) .plan-line")).toHaveCount(
+    0,
+  );
+  await expect(
+    page
+      .getByRole("radiogroup", { name: "Window on the" })
+      .getByRole("radio", { name: "none" }),
+  ).toHaveAttribute("aria-checked", "true");
+  // Eva keeps to the fit guidance, and splits a kept budget into bands
+  await page.getByRole("radio", { name: "Master bedroom" }).click();
+  const box = page.getByRole("textbox", { name: "Message Eva" });
+  await box.fill("Will a king bed fit in here?");
+  await box.press("Enter");
+  const agent = page.locator(".agent");
+  await expect(
+    agent.locator(".agent-bubble[data-who='eva']").last(),
+  ).toContainText("A king bed will not fit");
+  await box.fill("My budget is S$1,000 to S$3,000");
+  await box.press("Enter");
+  await agent
+    .getByRole("group", { name: "Budget range heard" })
+    .getByRole("button", { name: "Keep" })
+    .click();
+  await expect(
+    agent.getByRole("list", { name: "Where the budget should go" }),
+  ).toContainText("Storage");
+  await box.fill("Where should the budget go?");
+  await box.press("Enter");
+  await expect(
+    agent.locator(".agent-bubble[data-who='eva']").last(),
+  ).toContainText(/storage S\$[\d,]+ to S\$[\d,]+/);
+  // a kept style shows what it asks for
+  await page.getByRole("tab", { name: "Preference" }).click();
+  await expect(
+    page
+      .getByRole("definition")
+      .filter({ hasText: "closed storage hides clutter" })
+      .first(),
+  ).toBeVisible();
 });

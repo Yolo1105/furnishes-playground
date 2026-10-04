@@ -13,6 +13,7 @@ import {
 import { useState } from "react";
 import { CUSTOM_MAX, useEva } from "./eva-store";
 import { CompassIcon, LightbulbIcon } from "./icons";
+import { DESIGN_TIPS } from "./design-tips";
 import { QuizDialog } from "./QuizDialog";
 import { FLOW_NAMES, type Flow } from "./quiz-data";
 
@@ -231,6 +232,23 @@ export function PreferenceTab() {
               </div>
             )}
             {b.id === "style" && chips("style", STYLES, true, true)}
+            {b.id === "style" &&
+              (p?.values ?? [])
+                .filter((v) => DESIGN_TIPS[v])
+                .map((v) => (
+                  <dl
+                    key={v}
+                    className="eva-tip"
+                    aria-label={`${v}: what Eva keeps in mind`}
+                  >
+                    <dt>{v}</dt>
+                    <dd>{DESIGN_TIPS[v]!.do}</dd>
+                    <dd className="eva-tip-dont">
+                      Not: {DESIGN_TIPS[v]!.dont}
+                    </dd>
+                    <dd className="eva-tip-budget">{DESIGN_TIPS[v]!.budget}</dd>
+                  </dl>
+                ))}
             {b.id === "color" && (
               <div className="eva-swatches" role="group">
                 {SWATCHES.map((s) => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type MouseEvent, type ReactNode } from "react";
-import { OPENINGS, ROOM_NAMES, type Wall } from "./room-data";
+import { doorCentreAlong, OPENINGS, ROOM_NAMES, type Wall } from "./room-data";
 import { usePieceActions } from "./piece-actions";
 import { zonesOf } from "./room-health";
 import { CLOSE_WITHIN, footprintOf, useRoom } from "./room-store";
@@ -22,7 +22,6 @@ const WALL = 150; // mm, half the band's thickness
 const FACE = 14; // mm, the face line either side of the band
 const MARGIN = 1100; // mm, room for the dimensions, the arrow, the title
 const DOOR = OPENINGS.door.width;
-const WINDOW = OPENINGS.window.width;
 
 type Edge = {
   x: number;
@@ -83,7 +82,14 @@ export function Plan2D({
   const drawingOn = interactive && tool === "wall";
   // the planner's zones show on the sheet while something stands in them
   const { issues } = usePieceActions();
-  const zones = zonesOf({ W, D, door: r.door, window: r.window });
+  const zones = zonesOf({
+    W,
+    D,
+    door: r.door,
+    doorOffset: r.doorOffset,
+    window: r.window,
+    windowWidth: r.windowWidth,
+  });
   const doorBlocked = issues.some((i) => i.kind === "door");
   const windowBlocked = issues.some((i) => i.kind === "window");
 
@@ -106,8 +112,18 @@ export function Plan2D({
     r.addCorner([pt.x, pt.y]);
   };
 
-  const door = edgeOf(r.door, W, D);
-  const win = edgeOf(r.window, W, D);
+  const WINDOW = r.windowWidth;
+  // the door sits along its wall by the HDB convention, the window in
+  // the middle of its own
+  const mid = edgeOf(r.door, W, D);
+  const wallLen = r.door === "north" || r.door === "south" ? W : D;
+  const shift = doorCentreAlong(wallLen, r.doorOffset) - wallLen / 2;
+  const door: Edge = {
+    ...mid,
+    x: mid.x + mid.dx * shift,
+    y: mid.y + mid.dy * shift,
+  };
+  const win = r.window ? edgeOf(r.window, W, D) : null;
   // the door: the hinge at one jamb, the leaf standing into the room, the
   // swing from the leaf's tip to the other jamb
   const hinge = {
@@ -206,20 +222,24 @@ export function Plan2D({
         <polygon points={poly} className="plan-wall" strokeWidth={WALL * 2} />
 
         {/* the window: the opening in the band, then its three lines */}
-        <polygon
-          points={alongRect(win, WINDOW, WALL * 2 + 30)}
-          className="plan-opening"
-        />
-        {[-WALL, 0, WALL].map((k) => (
-          <line
-            key={k}
-            x1={win.x - (win.dx * WINDOW) / 2 + win.nx * k}
-            y1={win.y - (win.dy * WINDOW) / 2 + win.ny * k}
-            x2={win.x + (win.dx * WINDOW) / 2 + win.nx * k}
-            y2={win.y + (win.dy * WINDOW) / 2 + win.ny * k}
-            className="plan-line"
-          />
-        ))}
+        {win && (
+          <>
+            <polygon
+              points={alongRect(win, WINDOW, WALL * 2 + 30)}
+              className="plan-opening"
+            />
+            {[-WALL, 0, WALL].map((k) => (
+              <line
+                key={k}
+                x1={win.x - (win.dx * WINDOW) / 2 + win.nx * k}
+                y1={win.y - (win.dy * WINDOW) / 2 + win.ny * k}
+                x2={win.x + (win.dx * WINDOW) / 2 + win.nx * k}
+                y2={win.y + (win.dy * WINDOW) / 2 + win.ny * k}
+                className="plan-line"
+              />
+            ))}
+          </>
+        )}
 
         {/* the door: the opening, the leaf, the swing */}
         <polygon
@@ -275,7 +295,7 @@ export function Plan2D({
             height={zones.door.d}
           />
         )}
-        {windowBlocked && (
+        {windowBlocked && zones.window && (
           <rect
             className="plan-zone"
             x={zones.window.x}

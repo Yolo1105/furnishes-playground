@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import {
   CEILING,
+  openingsFor,
   PRESETS,
   type FlatType,
   type RoomId,
@@ -23,9 +24,12 @@ type RoomConfig = {
   width: number;
   depth: number;
   height: number;
-  /** which wall the door is on, and the window */
+  /** which wall the door is on and how far along it; the window, if
+      the room has one of its own, and how wide */
   door: Wall;
-  window: Wall;
+  doorOffset: number | null;
+  window: Wall | null;
+  windowWidth: number;
   floor: string;
   wallTone: string;
   /** true until the visitor edits a size: sizes then stop following presets */
@@ -39,7 +43,9 @@ type RoomState = RoomConfig & {
     patch: Partial<Pick<RoomConfig, "width" | "depth" | "height">>,
   ) => void;
   set: (
-    patch: Partial<Pick<RoomConfig, "door" | "window" | "floor" | "wallTone">>,
+    patch: Partial<
+      Pick<RoomConfig, "door" | "doorOffset" | "window" | "floor" | "wallTone">
+    >,
   ) => void;
   resetSize: () => void;
   setStart: (start: RoomStart) => void;
@@ -107,16 +113,27 @@ export const useRoom = create<RoomState>((set, get) => ({
   room: "living",
   ...sized("4-room", "living"),
   height: CEILING.default,
-  door: "south",
-  window: "north",
+  ...openingsFor("living"),
   floor: "Vinyl",
   wallTone: "white",
   preset: true,
   setFlat: (flat) => {
     const room = PRESETS[flat][get().room] ? get().room : "living";
-    set({ flat, room, ...sized(flat, room), preset: true });
+    set({
+      flat,
+      room,
+      ...sized(flat, room),
+      ...openingsFor(room),
+      preset: true,
+    });
   },
-  setRoom: (room) => set({ room, ...sized(get().flat, room), preset: true }),
+  setRoom: (room) =>
+    set({
+      room,
+      ...sized(get().flat, room),
+      ...openingsFor(room),
+      preset: true,
+    }),
   setSize: (patch) => set({ ...patch, preset: false }),
   set: (patch) => set(patch),
   resetSize: () =>

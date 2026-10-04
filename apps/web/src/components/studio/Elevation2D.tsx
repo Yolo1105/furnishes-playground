@@ -1,6 +1,6 @@
 "use client";
 
-import { OPENINGS, ROOM_NAMES, type Wall } from "./room-data";
+import { doorCentreAlong, OPENINGS, ROOM_NAMES, type Wall } from "./room-data";
 import { useRoom } from "./room-store";
 import { usePieceActions } from "./piece-actions";
 import { footprint } from "./piece-detail";
@@ -51,6 +51,14 @@ export function Elevation2D({ angle }: { angle: Angle }) {
   const vh = H + 2 * MARGIN;
   const door = r.door === wall;
   const win = r.window === wall;
+  // the door's place along the wall, seen from inside: the convention
+  // measures from the far end, and the south and west walls read mirrored
+  const doorAt = doorCentreAlong(L, r.doorOffset) - OPENINGS.door.width / 2;
+  const doorFrom =
+    wall === "south" || wall === "west"
+      ? L - doorAt - OPENINGS.door.width
+      : doorAt;
+  const winW = r.windowWidth;
   const pieces = a.shown
     .map((n) => {
       const p = a.props.get(n.id)!;
@@ -117,13 +125,13 @@ export function Elevation2D({ angle }: { angle: Angle }) {
         {door && (
           <g className="elev-opening">
             <rect
-              x={(L - OPENINGS.door.width) / 2}
+              x={doorFrom}
               y={up(OPENINGS.door.height)}
               width={OPENINGS.door.width}
               height={OPENINGS.door.height}
             />
             <circle
-              cx={(L + OPENINGS.door.width) / 2 - 90}
+              cx={doorFrom + OPENINGS.door.width - 90}
               cy={up(OPENINGS.door.height / 2)}
               r={28}
               className="elev-knob"
@@ -133,9 +141,9 @@ export function Elevation2D({ angle }: { angle: Angle }) {
         {win && (
           <g className="elev-opening">
             <rect
-              x={(L - OPENINGS.window.width) / 2}
+              x={(L - winW) / 2}
               y={up(OPENINGS.window.head)}
-              width={OPENINGS.window.width}
+              width={winW}
               height={OPENINGS.window.head - OPENINGS.window.sill}
             />
             <line

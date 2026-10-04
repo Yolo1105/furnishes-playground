@@ -3,6 +3,7 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import type { Context } from "@/components/studio/eva-brain";
+import { pickDocs } from "@/components/studio/design-docs";
 import {
   contextText,
   EVA_RULES,
@@ -26,6 +27,7 @@ const HOUR = 60 * 60 * 1000;
 
 const Body = z.object({
   message: z.string().trim().min(1).max(2000),
+  mode: z.enum(["ask", "furniture", "layout"]).default("ask"),
   thread: z
     .array(
       z.object({ who: z.enum(["you", "eva"]), text: z.string().max(4000) }),
@@ -97,9 +99,10 @@ export async function POST(req: Request) {
   if (!process.env.ANTHROPIC_API_KEY) return fallback("no-key", 503);
   const key = req.headers.get("x-forwarded-for") ?? "local";
   if (!allowed(key)) return fallback("rate-limit", 429);
-  const { message, thread, context } = parsed.data;
+  const { message, thread, context, mode } = parsed.data;
   const ctx = context as Context;
 
+  const docs = pickDocs(message, ctx.prefs.style?.values ?? []);
   const client = new Anthropic();
   try {
     const response = await client.messages.parse({
@@ -109,6 +112,25 @@ export async function POST(req: Request) {
       system: [
         { type: "text", text: EVA_RULES, cache_control: { type: "ephemeral" } },
         { type: "text", text: contextText(ctx) },
+        ...(docs.length
+          ? [
+              {
+                type: "text" as const,
+                text: `Design notes for this turn, from the studio's own guidance:\n\n${docs.map((d) => d.text).join("\n\n---\n\n")}`,
+              },
+            ]
+          : []),
+        ...(mode === "ask"
+          ? []
+          : [
+              {
+                type: "text" as const,
+                text:
+                  mode === "furniture"
+                    ? "The person set the box to Furniture: answer with picks from the catalogue, up to three, with why each fits."
+                    : "The person set the box to Room layout: answer about where things should stand in this room, in millimetres from its walls, and pick a piece only if one is missing.",
+              },
+            ]),
       ],
       messages: [
         ...thread.map((t) => ({

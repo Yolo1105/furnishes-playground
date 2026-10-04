@@ -2,15 +2,17 @@
 
 import {
   CEILING,
+  FIT_FOR_ROOM,
+  FIT_GUIDANCE,
   FLAT_TYPES,
   FLOORS,
+  metres,
   PRESETS,
   ROOM_NAMES,
-  WALL_TONES,
-  WALLS,
-  metres,
   type RoomId,
   type Wall,
+  WALL_TONES,
+  WALLS,
 } from "./room-data";
 import { RoomStart } from "./RoomStart";
 import { useRoom, wallsOf } from "./room-store";
@@ -68,14 +70,40 @@ export function RoomTab() {
             role="radio"
             className="assets-chip"
             aria-checked={s[key] === w}
-            onClick={() => s.set({ [key]: w })}
+            onClick={() =>
+              s.set(
+                key === "door" ? { door: w, doorOffset: null } : { window: w },
+              )
+            }
           >
             {w}
           </button>
         ))}
+        {key === "window" && (
+          <button
+            type="button"
+            role="radio"
+            className="assets-chip"
+            aria-checked={s.window === null}
+            onClick={() => s.set({ window: null })}
+          >
+            none
+          </button>
+        )}
       </div>
+      {key === "door" && s.doorOffset !== null && (
+        <p className="eva-pref-hint room-opening-note">
+          {s.doorOffset} mm from the corner, as HDB has it
+        </p>
+      )}
+      {key === "window" && s.window === null && (
+        <p className="eva-pref-hint room-opening-note">
+          No window of its own: the service yard has it.
+        </p>
+      )}
     </div>
   );
+  const fit = FIT_FOR_ROOM[s.room].map((k) => FIT_GUIDANCE[s.flat][k]);
 
   return (
     <div className="room">
@@ -202,6 +230,13 @@ export function RoomTab() {
               {num("depth")}
               {num("height")}
             </div>
+            {fit.length > 0 && (
+              <ul className="room-fit" aria-label="What fits">
+                {fit.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            )}
           </section>
         </>
       )}

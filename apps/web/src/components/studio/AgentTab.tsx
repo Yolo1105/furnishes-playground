@@ -186,6 +186,19 @@ export function AgentTab() {
                 }}
               />
             </div>
+            <ul
+              className="agent-bands f-num"
+              aria-label="Where the budget should go"
+            >
+              {plan.bands.map((b) => (
+                <li key={b.category} data-over={b.spent > b.upTo}>
+                  <span>{b.label}</span>
+                  <span>
+                    {sgd(b.spent)} of {sgd(b.from)}–{sgd(b.upTo)}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </>
         )}
         {plan.missing.length > 0 && (

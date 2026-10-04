@@ -971,3 +971,46 @@
   text-transform: uppercase;
   color: rgb(from var(--color-ink) r g b / 0.45);
 }
+
+/* where the budget should go, band by band */
+.agent-bands {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 3px;
+}
+.agent-bands li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11px;
+  color: rgb(from var(--color-ink) r g b / 0.6);
+}
+.agent-bands li[data-over="true"] {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+/* what a kept style asks for, under its chips */
+.eva-tip {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: var(--r-card);
+  background: rgba(255, 255, 255, 0.45);
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: rgb(from var(--color-ink) r g b / 0.7);
+}
+.eva-tip dt {
+  font-weight: 700;
+  color: var(--color-ink);
+}
+.eva-tip dd {
+  margin: 3px 0 0;
+}
+.eva-tip-dont {
+  color: rgb(from var(--color-ink) r g b / 0.55);
+}
+.eva-tip-budget {
+  color: var(--color-accent);
+}

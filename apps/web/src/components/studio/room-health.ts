@@ -1,5 +1,5 @@
 import { isRug, isSmall } from "./piece-detail";
-import { OPENINGS, type Wall } from "./room-data";
+import { doorCentreAlong, OPENINGS, type Wall } from "./room-data";
 
 /**
  * The planner's rules, read from where the pieces stand: nothing past a
@@ -35,25 +35,46 @@ export type Issue = {
   /** where the piece could stand instead, if a spot was found */
   fix?: { x: number; y: number } | undefined;
 };
-export type Room = { W: number; D: number; door: Wall; window: Wall };
+export type Room = {
+  W: number;
+  D: number;
+  door: Wall;
+  doorOffset: number | null;
+  window: Wall | null;
+  windowWidth: number;
+};
 
-/** the floor the door needs to swing, and the window's span by the wall */
-export const zonesOf = (r: Room): { door: Zone; window: Zone } => {
-  const along = (wall: Wall, len: number, depth: number): Zone => {
+/** the floor the door needs to swing, and the window's span by the wall
+    (none when the room has no window of its own) */
+export const zonesOf = (r: Room): { door: Zone; window: Zone | null } => {
+  const along = (
+    wall: Wall,
+    centre: number,
+    len: number,
+    depth: number,
+  ): Zone => {
+    const start = centre - len / 2;
     switch (wall) {
       case "north":
-        return { x: (r.W - len) / 2, y: 0, w: len, d: depth };
+        return { x: start, y: 0, w: len, d: depth };
       case "south":
-        return { x: (r.W - len) / 2, y: r.D - depth, w: len, d: depth };
+        return { x: start, y: r.D - depth, w: len, d: depth };
       case "west":
-        return { x: 0, y: (r.D - len) / 2, w: depth, d: len };
+        return { x: 0, y: start, w: depth, d: len };
       default:
-        return { x: r.W - depth, y: (r.D - len) / 2, w: depth, d: len };
+        return { x: r.W - depth, y: start, w: depth, d: len };
     }
   };
+  const doorLen = r.door === "north" || r.door === "south" ? r.W : r.D;
+  const winLen = r.window === "north" || r.window === "south" ? r.W : r.D;
   return {
-    door: along(r.door, OPENINGS.door.width, OPENINGS.door.width),
-    window: along(r.window, OPENINGS.window.width, 150),
+    door: along(
+      r.door,
+      doorCentreAlong(doorLen, r.doorOffset),
+      OPENINGS.door.width,
+      OPENINGS.door.width,
+    ),
+    window: r.window ? along(r.window, winLen / 2, r.windowWidth, 150) : null,
   };
 };
 
@@ -84,7 +105,8 @@ const troubles = (b: Box, others: Box[], r: Room, zones: Zones) => {
   if (!flat(b) && others.some((o) => !flat(o) && meets(b, o)))
     out.push("overlap");
   if (!flat(b) && meets(b, zones.door)) out.push("door");
-  if (b.h > OPENINGS.window.sill && meets(b, zones.window)) out.push("window");
+  if (zones.window && b.h > OPENINGS.window.sill && meets(b, zones.window))
+    out.push("window");
   if (
     !minor(b) &&
     others.some((o) => {

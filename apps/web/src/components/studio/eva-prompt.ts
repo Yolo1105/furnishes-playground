@@ -3,6 +3,7 @@ import { CATEGORY_NAMES, sgd } from "./assets-data";
 import { products } from "./catalogue";
 import { BUDGET, FURNITURE, ROOMS, STYLES, SWATCHES } from "./eva-data";
 import {
+  fitLines,
   planOf,
   stageOf,
   STAGES,
@@ -10,7 +11,7 @@ import {
   type Context,
   type Reply,
 } from "./eva-brain";
-import { metres, ROOM_NAMES } from "./room-data";
+import { HDB_CONVENTIONS, metres, ROOM_NAMES } from "./room-data";
 
 /**
  * What the model is told and what it must answer with. The rules are the
@@ -68,7 +69,10 @@ In the room: ${
       .join(", ") || "nothing yet"
   }. Furnishes pieces total ${sgd(plan.total)}${plan.to !== undefined ? `, budget ${sgd(plan.to)}, ${plan.remaining! >= 0 ? `${sgd(plan.remaining!)} left` : `${sgd(-plan.remaining!)} over`}` : ""}.
 In the cart: ${c.cart.length} piece(s).
-Kept preferences: ${prefs || "none yet"}. Exploration: ${c.exploration ? "on" : "off"}.`;
+Kept preferences: ${prefs || "none yet"}. Exploration: ${c.exploration ? "on" : "off"}.
+What fits this room of a ${c.room.flat} HDB flat: ${fitLines(c).join(" ") || "no guidance for this room"}
+${plan.bands.length ? `Where the budget should go: ${plan.bands.map((b) => `${b.label} ${sgd(b.from)} to ${sgd(b.upTo)} (${sgd(b.spent)} so far)`).join("; ")}.` : ""}
+New HDB flats in general: ${HDB_CONVENTIONS.join("; ")}.`;
 };
 
 /** what the model answers with */

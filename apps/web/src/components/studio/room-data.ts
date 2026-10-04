@@ -80,3 +80,112 @@ export const WALL_TONES = [
 ] as const;
 
 export const metres = (mm: number) => `${(mm / 1000).toFixed(1)} m`;
+
+/**
+ * What fits, by flat type, from the archive's Singapore HDB profile: the
+ * bed the master and the common bedrooms take, the sofa the living room
+ * takes, the dining table that leaves room to move. Eva keeps to these
+ * before suggesting anything, and the Room tab shows the lines for the
+ * room in hand.
+ */
+export type FitKey = "master" | "common" | "living" | "dining";
+export const FIT_GUIDANCE: Record<FlatType, Record<FitKey, string>> = {
+  "3-room": {
+    master:
+      "Queen bed (152 × 203 cm) only, a tight fit. A king bed will not fit. Allow 50 to 60 cm clearance on at least one side for getting in and out.",
+    common:
+      "Single (91 × 190 cm) or super single (107 × 190 cm) only. A queen fits but leaves no space for any other furniture: no desk, no wardrobe.",
+    living:
+      "A 3-seater straight sofa (about 2.0 to 2.2 m long). An L-shaped sofa does not fit comfortably.",
+    dining:
+      "A 4-seater dining table only (round 100 cm or rectangular 120 × 75 cm). A 6-seater will block circulation.",
+  },
+  "4-room": {
+    master:
+      "Queen bed (152 × 203 cm) comfortable. A king (193 × 203 cm) is tight: it fits but leaves under 40 cm on each side. Queen is the recommendation for a typical household.",
+    common:
+      "Single (91 × 190 cm) comfortable with a desk and wardrobe. Super single (107 × 190 cm) fits with a slim desk. A queen leaves no space for a desk.",
+    living:
+      "An L-shaped sofa 2.6 to 2.8 m on the long edge fits comfortably. A 3-seater straight sofa (2.2 to 2.4 m) is the conservative choice.",
+    dining:
+      "A 6-seater dining table (rectangular 150 × 85 cm or round 120 cm). A 4-seater feels small in this living and dining size.",
+  },
+  "5-room": {
+    master:
+      "King bed (193 × 203 cm) comfortable with bedside tables on both sides. A queen leaves room for a bench at the foot.",
+    common:
+      "Single, super single or queen all fit. A queen (152 × 203 cm) with a small desk works for older children.",
+    living:
+      "An L-shaped sofa 3.0 m or more on the long edge; a sectional with a chaise also fits. Coffee table 110 to 130 cm.",
+    dining:
+      "A 6 to 8-seater dining table, rectangular 180 × 90 cm or round 140 cm. Allows a reunion-dinner seating.",
+  },
+};
+
+/** which guidance lines speak to a room */
+export const FIT_FOR_ROOM: Record<RoomId, FitKey[]> = {
+  living: ["living", "dining"],
+  master: ["master"],
+  "bedroom-1": ["common"],
+  "bedroom-2": ["common"],
+  kitchen: ["dining"],
+  study: ["common"],
+};
+
+/** what every new HDB flat has in common, as the archive recorded it */
+export const HDB_CONVENTIONS = [
+  "ceilings 2.6 to 2.8 m",
+  "the master bedroom has an ensuite (about 1.5 × 2.0 m, shower only)",
+  "the kitchen is enclosed, with a service yard of about 2.5 m² behind it",
+  "a household shelter of about 1.75 m² is mandatory",
+  "the common bathroom is about 1.7 × 2.4 m, shower only",
+  "every bedroom has an external window",
+  "bedrooms are near square (aspect 1.0 to 1.2); living and dining run 1.5 to 1.9",
+] as const;
+
+/**
+ * Where the openings are by post-2000 HDB convention: bedrooms have the
+ * door on the corridor (south) wall 600 mm from the east corner and the
+ * window centred on the daylight (north) wall; the living room's entry
+ * door is 800 mm from the east corner with a wide window or balcony
+ * opening to the north; the kitchen's door is from the living room on
+ * the east wall, centred, and its light comes through the service yard,
+ * so it has no window of its own.
+ */
+export type Openings = {
+  door: Wall;
+  /** mm from the wall's far end (east for north and south walls, south
+      for east and west walls); null is the middle */
+  doorOffset: number | null;
+  window: Wall | null;
+  windowWidth: number;
+};
+export const openingsFor = (room: RoomId): Openings => {
+  switch (room) {
+    case "living":
+      return {
+        door: "south",
+        doorOffset: 800,
+        window: "north",
+        windowWidth: 1900,
+      };
+    case "kitchen":
+      return {
+        door: "east",
+        doorOffset: null,
+        window: null,
+        windowWidth: OPENINGS.window.width,
+      };
+    default:
+      return {
+        door: "south",
+        doorOffset: 600,
+        window: "north",
+        windowWidth: OPENINGS.window.width,
+      };
+  }
+};
+
+/** where the door's centre sits along a wall of length `L` */
+export const doorCentreAlong = (L: number, offset: number | null) =>
+  offset === null ? L / 2 : L - offset - OPENINGS.door.width / 2;

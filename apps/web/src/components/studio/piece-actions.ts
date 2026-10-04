@@ -29,7 +29,9 @@ export function usePieceActions() {
   const W = useRoom((s) => s.width);
   const D = useRoom((s) => s.depth);
   const door = useRoom((s) => s.door);
+  const doorOffset = useRoom((s) => s.doorOffset);
   const window_ = useRoom((s) => s.window);
+  const windowWidth = useRoom((s) => s.windowWidth);
 
   // what stands on the stage: the pieces and the room items, never the
   // architecture (that is the room itself); a hidden piece keeps its
@@ -64,7 +66,7 @@ export function usePieceActions() {
           h: p.height,
         };
       }),
-    { W, D, door, window: window_ },
+    { W, D, door, doorOffset, window: window_, windowWidth },
   );
   const clashes = new Set(
     issues
