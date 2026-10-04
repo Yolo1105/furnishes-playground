@@ -31,6 +31,8 @@ type SceneState = {
   /** the states before each change, oldest first, and the ones undone */
   past: Snapshot[];
   future: Snapshot[];
+  /** the state a drag started from, until it ends */
+  dragFrom: Snapshot | null;
   undo: () => void;
   redo: () => void;
   /** put a catalogue product into the room; returns the new node's id */
@@ -40,6 +42,12 @@ type SceneState = {
   /** label a piece for Eva, or take the label off; a sixth is refused */
   toggleLabel: (id: string) => void;
   setProps: (id: string, patch: Partial<PieceProps>) => void;
+  /** take a piece out of the room altogether */
+  removeNode: (id: string) => void;
+  /** a drag writes many positions; only the whole of it is one undo step */
+  dragStart: () => void;
+  dragMove: (id: string, x: number, y: number) => void;
+  dragEnd: () => void;
 };
 
 /** What stands in the room right now: the outliner, the shelf and the
@@ -67,6 +75,7 @@ export const useScene = create<SceneState>((set, get) => {
     overrides: {},
     past: [],
     future: [],
+    dragFrom: null,
     undo: () =>
       set((s) => {
         const back = s.past.at(-1);
@@ -141,6 +150,38 @@ export const useScene = create<SceneState>((set, get) => {
         overrides: { ...s.overrides, [id]: { ...s.overrides[id], ...patch } },
         ...remember(s),
       })),
+    removeNode: (id) =>
+      set((s) => {
+        const overrides = { ...s.overrides };
+        delete overrides[id];
+        return {
+          groups: s.groups
+            .map((g) => ({ ...g, items: g.items.filter((n) => n.id !== id) }))
+            .filter((g) => g.items.length > 0),
+          cart: s.cart.filter((x) => x !== id),
+          labels: s.labels.filter((x) => x !== id),
+          overrides,
+          selectedId: s.selectedId === id ? null : s.selectedId,
+          ...remember(s),
+        };
+      }),
+    dragStart: () => set((s) => ({ dragFrom: snap(s) })),
+    dragMove: (id, x, y) =>
+      set((s) => ({
+        overrides: { ...s.overrides, [id]: { ...s.overrides[id], x, y } },
+      })),
+    dragEnd: () =>
+      set((s) => {
+        const from = s.dragFrom;
+        if (!from) return {};
+        const moved = from.overrides !== s.overrides;
+        return {
+          dragFrom: null,
+          ...(moved
+            ? { past: [...s.past.slice(-(HISTORY_MAX - 1)), from], future: [] }
+            : {}),
+        };
+      }),
   };
 });
 

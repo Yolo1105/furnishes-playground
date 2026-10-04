@@ -8,7 +8,7 @@ import { create } from "zustand";
  * how-to is a small card of its own. Whether each was seen is kept in
  * the browser.
  */
-export type GuideId = "intro" | "walls";
+type GuideId = "intro" | "walls";
 
 export type Guide = {
   id: GuideId;

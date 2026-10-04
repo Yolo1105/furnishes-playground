@@ -1,8 +1,27 @@
 "use client";
 
 import { CATEGORY_NAMES, sgd, type AssetNode } from "./assets-data";
-import { CartIcon, CheckIcon, ExpandIcon, TagIcon } from "./icons";
-import { COLOURS, LABEL_MAX, TEXTURES } from "./piece-detail";
+import {
+  CartIcon,
+  CheckIcon,
+  ExpandIcon,
+  EyeIcon,
+  EyeOffIcon,
+  LockIcon,
+  RotateIcon,
+  TagIcon,
+  TrashIcon,
+} from "./icons";
+import { usePieceActions } from "./piece-actions";
+import {
+  COLOURS,
+  footprint,
+  LABEL_MAX,
+  PLACE_SNAP,
+  TEXTURES,
+  turned,
+} from "./piece-detail";
+import { clampSnap } from "./room-layout";
 import { findNode, propsOf, useScene } from "./scene-store";
 import { useStudio } from "./studio-store";
 
@@ -11,7 +30,9 @@ import { useStudio } from "./studio-store";
  * and price, what it is, and what can be done with it (cart, a label for
  * Eva, a look at it alone). A piece built from parts lists them under
  * "Whole piece": editing the whole piece changes every part; picking a
- * part changes that part. Then the finish, colour and texture, and the
+ * part changes that part. Then where it stands and which way it turns
+ * (locked, it stays put; hidden, it leaves the stage but not the room;
+ * removed, it leaves the room), the finish, colour and texture, and the
  * size, all kept over the defaults in the scene store.
  */
 export function DetailTab() {
@@ -20,8 +41,10 @@ export function DetailTab() {
   const overrides = useScene((s) => s.overrides);
   const cart = useScene((s) => s.cart);
   const labels = useScene((s) => s.labels);
-  const { select, setProps, toggleCart, toggleLabel } = useScene.getState();
+  const { select, setProps, toggleCart, toggleLabel, removeNode } =
+    useScene.getState();
   const setFocus = useStudio((s) => s.setFocus);
+  const stage = usePieceActions();
   const found = findNode(groups, selectedId);
   if (!found || found.node.kind !== "piece")
     return (
@@ -45,6 +68,15 @@ export function DetailTab() {
   const inCart = cart.includes(piece.id);
   const label = labels.indexOf(piece.id);
   const labelsFull = label < 0 && labels.length >= LABEL_MAX;
+  // where the whole piece stands: its own place, or the layout's
+  const whole_ = propsOf(piece, overrides);
+  const spot = stage.spots.get(piece.id) ?? { x: 0, y: 0 };
+  const f = footprint(whole_);
+  const place = (patch: { x?: number; y?: number }) =>
+    setProps(piece.id, {
+      x: clampSnap(patch.x ?? spot.x, f.w, stage.room.W, PLACE_SNAP),
+      y: clampSnap(patch.y ?? spot.y, f.d, stage.room.D, PLACE_SNAP),
+    });
 
   const dim = (key: "width" | "depth" | "height", text: string) => (
     <label className="room-dim">
@@ -160,6 +192,86 @@ export function DetailTab() {
         </section>
       )}
 
+      <section className="eva-pref">
+        <div className="eva-pref-head">
+          <span className="eva-pref-title">Place</span>
+          <span className="detail-of f-num">
+            {spot.x} · {spot.y} mm · {whole_.rotation}°
+          </span>
+        </div>
+        <div className="room-dims detail-place">
+          <label className="room-dim">
+            <span className="room-dim-label">From west</span>
+            <input
+              type="number"
+              className="room-dim-input f-num"
+              inputMode="numeric"
+              min={0}
+              max={stage.room.W}
+              step={PLACE_SNAP}
+              value={spot.x}
+              aria-label={`${piece.name} from the west wall in millimetres`}
+              onChange={(e) => place({ x: Number(e.target.value) })}
+            />
+            <span className="room-dim-unit">mm</span>
+          </label>
+          <label className="room-dim">
+            <span className="room-dim-label">From north</span>
+            <input
+              type="number"
+              className="room-dim-input f-num"
+              inputMode="numeric"
+              min={0}
+              max={stage.room.D}
+              step={PLACE_SNAP}
+              value={spot.y}
+              aria-label={`${piece.name} from the north wall in millimetres`}
+              onChange={(e) => place({ y: Number(e.target.value) })}
+            />
+            <span className="room-dim-unit">mm</span>
+          </label>
+          <button
+            type="button"
+            className="main-btn detail-turn"
+            disabled={whole_.locked}
+            onClick={() =>
+              setProps(piece.id, { rotation: turned(whole_.rotation) })
+            }
+          >
+            <RotateIcon size={14} />
+            <span>Turn</span>
+          </button>
+        </div>
+        <div className="detail-acts detail-place-acts">
+          <button
+            type="button"
+            className="main-btn"
+            aria-pressed={whole_.locked}
+            onClick={() => setProps(piece.id, { locked: !whole_.locked })}
+          >
+            <LockIcon size={14} />
+            <span>{whole_.locked ? "Locked" : "Lock"}</span>
+          </button>
+          <button
+            type="button"
+            className="main-btn"
+            aria-pressed={whole_.hidden}
+            onClick={() => setProps(piece.id, { hidden: !whole_.hidden })}
+          >
+            {whole_.hidden ? <EyeOffIcon size={14} /> : <EyeIcon size={14} />}
+            <span>{whole_.hidden ? "Hidden" : "Hide"}</span>
+          </button>
+          <button
+            type="button"
+            className="main-btn"
+            aria-label={`Remove ${piece.name} from the room`}
+            onClick={() => removeNode(piece.id)}
+          >
+            <TrashIcon size={14} />
+            <span>Remove</span>
+          </button>
+        </div>
+      </section>
       <section className="eva-pref">
         <div className="eva-pref-head">
           <span className="eva-pref-title">Colour</span>

@@ -517,3 +517,241 @@
   text-transform: uppercase;
   color: rgb(from var(--color-ink) r g b / 0.5);
 }
+
+/* ---- where the work stands: five steps, the current one lit ---- */
+.agent-stages {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.agent-stage {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px 3px 5px;
+  border-radius: var(--r-chip);
+  font-size: 11px;
+  font-weight: 600;
+  color: rgb(from var(--color-ink) r g b / 0.45);
+  background: rgba(255, 255, 255, 0.4);
+}
+.agent-stage-n {
+  width: 15px;
+  height: 15px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 9.5px;
+  background: rgb(from var(--color-ink) r g b / 0.08);
+}
+.agent-stage[data-done="true"] {
+  color: rgb(from var(--color-ink) r g b / 0.6);
+}
+.agent-stage[data-done="true"] svg {
+  color: var(--color-accent);
+}
+.agent-stage[data-now="true"] {
+  color: var(--color-accent);
+  background: rgb(from var(--color-accent) r g b / 0.1);
+}
+.agent-stage[data-now="true"] .agent-stage-n {
+  background: var(--color-accent);
+  color: var(--color-cream);
+}
+
+/* ---- the room plan: readiness, budget, what is missing ---- */
+.agent-plan {
+  display: grid;
+  gap: 7px;
+  padding: 10px 12px 12px;
+  border-radius: var(--r-card);
+  border: 1px solid rgb(from var(--color-line) r g b / 0.16);
+  background: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+}
+.agent-plan-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.agent-plan-label {
+  font-weight: 700;
+  color: var(--color-ink);
+}
+.agent-plan-score {
+  font-size: 11px;
+  color: rgb(from var(--color-ink) r g b / 0.5);
+}
+.agent-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: rgb(from var(--color-ink) r g b / 0.07);
+  overflow: hidden;
+}
+.agent-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-accent);
+  transition: width 0.4s var(--ease);
+}
+.agent-bar-budget > span {
+  background: rgb(from var(--color-accent) r g b / 0.55);
+}
+.agent-bar > span[data-over="true"] {
+  background: var(--color-accent);
+}
+.agent-plan-row {
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: rgb(from var(--color-ink) r g b / 0.7);
+}
+.agent-plan-row > span:first-child {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(from var(--color-ink) r g b / 0.45);
+}
+.agent-plan-row [data-over="true"] {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+.agent-plan-warn {
+  margin: 0;
+  padding-left: 14px;
+  position: relative;
+  color: var(--color-accent);
+  font-size: 11.5px;
+}
+.agent-plan-warn::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-accent);
+}
+.agent-plan-cta {
+  justify-self: start;
+  margin-top: 2px;
+}
+
+/* ---- the starters ---- */
+.agent-starters,
+.agent-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* ---- a turn: the bubble and what Eva offers under it ---- */
+.agent-turn {
+  display: grid;
+  gap: 6px;
+}
+.agent-turn[data-who="you"] {
+  justify-items: end;
+}
+.agent-chips {
+  max-width: 88%;
+}
+.agent-proposal {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  max-width: 88%;
+  padding: 7px 10px;
+  border-radius: var(--r-card);
+  background: rgb(from var(--color-accent) r g b / 0.07);
+  font-size: 12px;
+  color: var(--color-ink);
+}
+.agent-proposal[data-settled="dismissed"] {
+  background: rgba(255, 255, 255, 0.4);
+  color: rgb(from var(--color-ink) r g b / 0.5);
+}
+.agent-proposal-text {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.agent-proposal-cat {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgb(from var(--color-ink) r g b / 0.5);
+}
+.agent-proposal-acts {
+  display: inline-flex;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+.agent-proposal-acts .main-btn {
+  height: 26px;
+  padding: 0 9px;
+  font-size: 11.5px;
+}
+.agent-proposal-state {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-accent);
+}
+.agent-proposal[data-settled="dismissed"] .agent-proposal-state {
+  color: rgb(from var(--color-ink) r g b / 0.45);
+}
+.agent-cards {
+  display: grid;
+  gap: 6px;
+  max-width: 92%;
+}
+.agent-card {
+  display: grid;
+  gap: 4px;
+  padding: 9px 11px;
+  border-radius: var(--r-card);
+  border: 1px solid rgb(from var(--color-line) r g b / 0.16);
+  background: rgba(255, 255, 255, 0.55);
+}
+.agent-card[data-added="true"] {
+  background: rgb(from var(--color-accent) r g b / 0.06);
+}
+.agent-card-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+.agent-card-price {
+  color: rgb(from var(--color-ink) r g b / 0.6);
+  font-weight: 500;
+}
+.agent-card-why {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: rgb(from var(--color-ink) r g b / 0.65);
+}
+.agent-card-add {
+  justify-self: start;
+  height: 26px;
+  padding: 0 9px;
+  font-size: 11.5px;
+}
+.agent-card-add[aria-pressed="true"] {
+  color: var(--color-accent);
+  background: rgb(from var(--color-accent) r g b / 0.08);
+  border-color: transparent;
+}

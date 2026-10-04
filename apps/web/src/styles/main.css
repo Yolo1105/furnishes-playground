@@ -123,6 +123,9 @@
 .main-shelf-body {
   display: grid;
   grid-template-rows: 1fr;
+  overflow: hidden;
+  /* the cards must not size the folded tab: ignore them for inline size */
+  contain: inline-size;
   transition:
     grid-template-rows 0.28s var(--ease),
     opacity 0.2s ease,
@@ -148,11 +151,6 @@
   visibility: hidden;
   pointer-events: none;
 }
-.main-shelf-body {
-  overflow: hidden;
-  /* the cards must not size the folded tab: ignore them for inline size */
-  contain: inline-size;
-}
 
 .main-shelf-scroll {
   display: flex;
@@ -174,17 +172,27 @@
 }
 
 .shelf-card {
+  position: relative;
   flex: 0 0 auto;
   scroll-snap-align: start;
   width: 132px;
 }
 
+/* the picture is the card's button */
 .shelf-card-pic {
+  appearance: none;
+  display: block;
+  width: 100%;
   height: 108px;
+  padding: 0;
   border-radius: var(--r-card);
   background: rgba(255, 255, 255, 0.55);
   border: 1px solid rgb(from var(--color-line) r g b / 0.14);
   box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.6) inset;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 /* a room item: there to make it a room, not for sale */
 .shelf-card[data-kind="decor"] .shelf-card-pic,
@@ -927,19 +935,6 @@
 }
 
 /* a card: the picture is the pick, the cart button sits on it */
-.shelf-card {
-  position: relative;
-}
-.shelf-card-pic {
-  appearance: none;
-  display: block;
-  width: 100%;
-  padding: 0;
-  cursor: pointer;
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
-}
 .shelf-card-pic:hover {
   border-color: rgb(from var(--color-accent) r g b / 0.4);
 }
@@ -1046,6 +1041,36 @@
   max-width: 100%;
 }
 /* the label for Eva: a numbered tag on the piece's corner */
+/* a picked piece's turn handle, and the lock on one that stays put */
+.stage-piece-turn {
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  z-index: 2;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--color-glass);
+  color: var(--color-accent);
+  display: grid;
+  place-items: center;
+  box-shadow: 0 2px 6px -2px rgb(from var(--color-shadow) r g b / 0.35);
+  cursor: pointer;
+}
+.stage-piece-lock {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  color: rgb(from var(--color-ink) r g b / 0.45);
+  display: grid;
+}
+.stage-piece[data-locked="true"] .stage-piece-body {
+  cursor: default;
+}
+.stage-pieces .stage-piece-body {
+  touch-action: none;
+}
 .stage-piece-tag {
   position: absolute;
   top: -8px;
@@ -1402,6 +1427,52 @@
   font-size: 115px;
   font-weight: 500;
   fill: rgb(from var(--color-ink) r g b / 0.5);
+}
+/* an elevation: the wall's face, the cut walls and slab, the openings,
+   the pieces before it */
+.elev-face {
+  fill: rgb(from var(--color-glass) r g b / 0.7);
+}
+.elev-cut {
+  fill: url(#elev-hatch);
+  stroke: var(--plan-ink);
+  stroke-width: 14;
+}
+.elev-opening rect {
+  fill: rgb(from var(--color-glass) r g b / 0.95);
+  stroke: var(--plan-ink);
+  stroke-width: 16;
+}
+.elev-opening line {
+  stroke: var(--plan-fine);
+  stroke-width: 10;
+}
+.elev-knob {
+  fill: var(--plan-ink);
+}
+.elev-piece {
+  cursor: pointer;
+  outline: none;
+}
+.elev-piece rect {
+  fill: rgba(255, 255, 255, 0.55);
+  stroke: var(--plan-ink);
+  stroke-width: 14;
+  transition: fill 0.15s ease;
+}
+.elev-piece:hover rect {
+  fill: rgb(from var(--color-accent) r g b / 0.06);
+}
+.elev-piece[data-selected="true"] rect {
+  fill: rgb(from var(--color-accent) r g b / 0.12);
+}
+.elev-piece text {
+  fill: rgb(from var(--color-ink) r g b / 0.65);
+  font-size: 120px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-anchor: middle;
+  pointer-events: none;
 }
 /* drawing walls: the corners set so far and the line between them */
 .plan-drawing-line {

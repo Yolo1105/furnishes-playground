@@ -5,10 +5,11 @@ import {
   type Message,
   type PreferenceCategory,
 } from "./eva-data";
-import { pieceTotals, sgd } from "./assets-data";
-import { metres, ROOM_NAMES } from "./room-data";
+import { sgd } from "./assets-data";
+import { recommend, reply, type Chip, type Context } from "./eva-brain";
 import { useRoom } from "./room-store";
 import { useScene } from "./scene-store";
+import { useStudio } from "./studio-store";
 
 type PreferenceValue = {
   /** chip ids, or the budget as a range: from and to, S$ */
@@ -46,29 +47,41 @@ type EvaState = {
   setExploration: (on: boolean) => void;
   /** start a conversation and make it the open one */
   newConversation: () => string;
-  /** say something in the open conversation (a new one if none): Eva answers
-      with what she has read, until she is wired to think */
+  /** say something in the open conversation (a new one if none): Eva
+      answers from what she has read, until she is wired to think */
   send: (text: string, image?: string) => void;
+  /** take up, or set aside, a preference Eva heard */
+  settleProposal: (msgId: string, i: number, take: boolean) => void;
+  /** a chip under one of Eva's messages: say it, or do it */
+  pickChip: (msgId: string, chip: Chip) => void;
+  /** what Eva knows right now, for the room plan */
+  context: () => Context;
 };
 
 let seq = 0;
 const nextId = (prefix: string) =>
   `${prefix}-${Date.now().toString(36)}-${++seq}`;
 
-/** Eva's answer for now: what she has read, said back */
-const evaReply = (text: string, exploration: boolean) => {
+/** what Eva knows at this moment, from the room and the scene */
+const contextOf = (
+  s: Pick<EvaState, "preferences" | "exploration">,
+): Context => {
   const r = useRoom.getState();
-  const pieces = useScene
-    .getState()
-    .groups.flatMap((g) => g.items)
-    .filter((n) => n.kind === "piece");
-  const t = pieceTotals(pieces);
-  const room = `${ROOM_NAMES[r.room]}, ${metres(r.width)} × ${metres(r.depth)}`;
-  const held = `${t.pieces} pieces at ${sgd(t.total)}`;
-  const stance = exploration
-    ? "Exploration is on, so I'll range wide rather than keep to your preferences."
-    : "I'll keep to your preferences.";
-  return `On "${text}": I'm reading the ${room}, with ${held}. ${stance} I'm not connected to plan yet; when I am, this is where the plan comes back.`;
+  const sc = useScene.getState();
+  return {
+    room: {
+      id: r.room,
+      flat: r.flat,
+      width: r.width,
+      depth: r.depth,
+      height: r.height,
+      sized: r.start !== null,
+    },
+    pieces: sc.groups.flatMap((g) => g.items).filter((n) => n.kind !== "fixed"),
+    cart: sc.cart,
+    prefs: s.preferences,
+    exploration: s.exploration,
+  };
 };
 
 /** Eva's own state: the conversations and the confirmed preferences. The
@@ -103,11 +116,15 @@ export const useEva = create<EvaState>((set, get) => ({
     const now = Date.now();
     const you: Message = { id: nextId("m"), who: "you", text: body, at: now };
     if (image) you.image = image;
+    const r = reply(body || `the picture ${image}`, contextOf(get()));
     const eva: Message = {
       id: nextId("m"),
       who: "eva",
-      text: evaReply(body || `the picture ${image}`, get().exploration),
+      text: r.text,
       at: now + 1,
+      ...(r.proposals.length ? { proposals: r.proposals } : {}),
+      ...(r.cards.length ? { cards: r.cards } : {}),
+      ...(r.chips.length ? { chips: r.chips } : {}),
     };
     set((s) => ({
       messages: { ...s.messages, [id]: [...(s.messages[id] ?? []), you, eva] },
@@ -127,6 +144,76 @@ export const useEva = create<EvaState>((set, get) => ({
       ),
     }));
   },
+  settleProposal: (msgId, i, take) => {
+    const { activeId, messages } = get();
+    if (!activeId) return;
+    const msg = messages[activeId]?.find((m) => m.id === msgId);
+    const p = msg?.proposals?.[i];
+    if (!msg || !p || p.settled) return;
+    if (take) {
+      if (p.budget) get().setBudget(p.budget[0], p.budget[1]);
+      else {
+        const multi = p.cat !== "room";
+        for (const v of p.values) get().toggleValue(p.cat, v, multi);
+      }
+    }
+    set((s) => ({
+      messages: {
+        ...s.messages,
+        [activeId]: s.messages[activeId]!.map((m) =>
+          m.id === msgId
+            ? {
+                ...m,
+                proposals: m.proposals!.map((q, j) =>
+                  j === i
+                    ? { ...q, settled: take ? "accepted" : "dismissed" }
+                    : q,
+                ),
+              }
+            : m,
+        ),
+      },
+    }));
+  },
+  pickChip: (msgId, chip) => {
+    if (chip.send) return get().send(chip.send);
+    if (chip.act === "room-tab")
+      return useStudio.getState().setPanelTab("room");
+    if (chip.act === "budget" && chip.budget) {
+      get().setBudget(chip.budget[0], chip.budget[1]);
+      return get().send(`My budget is up to ${sgd(chip.budget[1])}`);
+    }
+    // more, or cheaper: another three, after the ones already shown
+    const { activeId, messages } = get();
+    if (!activeId) return;
+    const thread = messages[activeId] ?? [];
+    const shown = thread.flatMap(
+      (m) => m.cards?.map((c) => c.product.id) ?? [],
+    );
+    const asked =
+      [...thread].reverse().find((m) => m.who === "you")?.text ?? "";
+    const cards = recommend(contextOf(get()), asked, {
+      skip: chip.act === "more" ? shown : [],
+      cheaper: chip.act === "cheaper",
+    });
+    const eva: Message = {
+      id: nextId("m"),
+      who: "eva",
+      text: cards.length
+        ? chip.act === "cheaper"
+          ? "The same, from the least dear up."
+          : "Three more that would fit."
+        : "That is everything in the catalogue that fits for now.",
+      at: Date.now(),
+      ...(cards.length
+        ? { cards, chips: [{ label: "More options", act: "more" as const }] }
+        : {}),
+    };
+    set((s) => ({
+      messages: { ...s.messages, [activeId]: [...thread, eva] },
+    }));
+  },
+  context: () => contextOf(get()),
   setExploration: (exploration) => set({ exploration }),
   selectConversation: (id) => set({ activeId: id }),
   deleteConversation: (id) =>

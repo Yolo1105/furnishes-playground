@@ -15,14 +15,14 @@ import { ViewCube } from "./ViewCube";
 import { carriesProduct, readProductDrag } from "./dnd";
 import { useScene } from "./scene-store";
 import { other, useStudio } from "./studio-store";
-import { RadioMenu } from "./RadioMenu";
+import { useProjectSync } from "./project-store";
+import { ProjectSwitcher } from "./ProjectSwitcher";
 import { useShortcuts } from "./shortcuts";
-import { useDismiss } from "./useDismiss";
 import { useArrival } from "./useArrival";
 import { useInputMode } from "./useInputMode";
 import { ShortcutsDialog, UserBar } from "./UserBar";
 import { MainView, ViewPanel } from "./ViewPanel";
-import { ChevronDownIcon, PanelLeftIcon, PlusIcon } from "./icons";
+import { PanelLeftIcon, PlusIcon } from "./icons";
 
 export type ShellCorners = "square" | "rounded";
 
@@ -30,10 +30,6 @@ type Drawer = "left" | "right" | null;
 
 /** the view panel can be dragged down to this: its head alone */
 const VIEW_MIN = 44;
-
-/** Placeholder projects until the project store exists. */
-const PROJECTS = ["Project 0", "Project 1", "Project 2"] as const;
-type Project = (typeof PROJECTS)[number];
 
 /**
  * The studio's three panes on one fixed viewport: a left rail (the project),
@@ -57,11 +53,11 @@ export function StudioShell({
 }) {
   useInputMode();
   useArrival();
+  useProjectSync();
   const [keys, setKeys] = useState(false);
   useShortcuts(() => setKeys(true));
   const [open, setOpen] = useState<Drawer>(null);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
-  const [project, setProject] = useState<Project>(PROJECTS[0]);
   const tab = useStudio((s) => s.evaTab);
   const setTab = useStudio((s) => s.setEvaTab);
   // the view panel's height, dragged; null is the default third, which
@@ -176,7 +172,7 @@ export function StudioShell({
       <aside className="shell-rail shell-rail-left" aria-label="Project">
         <div className="glass shell-panel shell-panel-inner">
           <div className="shell-panel-head">
-            <ProjectSwitcher value={project} onChange={setProject} />
+            <ProjectSwitcher />
             <div className="shell-head-acts">
               <button
                 type="button"
@@ -332,50 +328,6 @@ export function StudioShell({
           Eva
         </button>
       </nav>
-    </div>
-  );
-}
-
-/** "Furnishes / Project 0" with a menu of the other projects. */
-function ProjectSwitcher({
-  value,
-  onChange,
-}: {
-  value: Project;
-  onChange: (v: Project) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const wrap = useRef<HTMLDivElement>(null);
-  useDismiss(wrap, open, () => setOpen(false));
-  return (
-    <div ref={wrap} className="shell-project">
-      <span className="shell-project-brand">Furnishes</span>
-      <span className="shell-project-sep" aria-hidden="true">
-        /
-      </span>
-      <button
-        type="button"
-        className="shell-project-btn"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label={`Project, ${value}`}
-        onClick={() => setOpen((v) => !v)}
-      >
-        <span className="shell-project-name">{value}</span>
-        <span className="shell-project-caret">
-          <ChevronDownIcon />
-        </span>
-      </button>
-      {open && (
-        <RadioMenu
-          options={PROJECTS}
-          value={value}
-          onChange={(p) => {
-            onChange(p);
-            setOpen(false);
-          }}
-        />
-      )}
     </div>
   );
 }

@@ -19,6 +19,8 @@ export type Tool = "select" | "inspect" | "wall";
 type PanelTab = "assets" | "products" | "room" | "detail";
 /** Eva's tabs */
 type EvaTab = "agent" | "history" | "preference";
+/** the shelf's tabs */
+export type ShelfTab = "saved" | "cart";
 export type View = "3d" | "2d";
 type PreviewStatus = "idle" | "generating" | "revealing" | "done" | "compare";
 /** the ways to look at each view: a perspective and the straight-on
@@ -47,6 +49,7 @@ type StudioState = {
   focusId: string | null;
   panelTab: PanelTab;
   evaTab: EvaTab;
+  shelfTab: ShelfTab;
   loading: Loading;
   /** counts each start, so a repeat of the same kind restarts the line */
   loadingAt: number;
@@ -61,6 +64,7 @@ type StudioState = {
   setFocus: (id: string | null) => void;
   setPanelTab: (tab: PanelTab) => void;
   setEvaTab: (tab: EvaTab) => void;
+  setShelfTab: (tab: ShelfTab) => void;
   /** the line reached the end */
   endLoading: () => void;
   /** the sweep reached the end */
@@ -85,6 +89,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   focusId: null,
   panelTab: "assets",
   evaTab: "agent",
+  shelfTab: "saved",
   loading: null,
   loadingAt: 0,
   preview: "idle",
@@ -127,6 +132,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   setFocus: (focusId) => set({ focusId }),
   setPanelTab: (panelTab) => set({ panelTab }),
   setEvaTab: (evaTab) => set({ evaTab }),
+  setShelfTab: (shelfTab) => set({ shelfTab }),
   endLoading: () => {
     const s = get();
     set(

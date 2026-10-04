@@ -1,3 +1,6 @@
+import type { Product } from "./catalogue";
+import type { Chip } from "./eva-brain";
+
 /**
  * What Eva's History and Preference tabs show. Placeholder conversations
  * until the chat is wired; the preference catalogue is the five blocks of
@@ -22,6 +25,17 @@ export type Message = {
   /** the name of a picture sent along, if any */
   image?: string;
   at: number;
+  /** preferences Eva heard, to accept or set aside; each is settled once */
+  proposals?: {
+    cat: PreferenceCategory;
+    values: string[];
+    budget?: [number, number];
+    settled?: "accepted" | "dismissed";
+  }[];
+  /** pieces Eva picked, with why each fits */
+  cards?: { product: Product; why: string }[];
+  /** what can be said or done next */
+  chips?: Chip[];
 };
 
 /** what Eva can be asked first; each goes into the input box */

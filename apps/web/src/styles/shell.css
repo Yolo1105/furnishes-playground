@@ -69,13 +69,16 @@
     opacity 0.55s var(--ease),
     translate 0.55s var(--ease);
 }
+/* (the delays pace the arrival, below: the rails after the stage) */
 .shell-rail-left {
   grid-area: left;
   margin-right: var(--shell-gap);
+  transition-delay: 0.2s;
 }
 .shell-rail-right {
   grid-area: right;
   margin-left: var(--shell-gap);
+  transition-delay: 0.28s;
 }
 .shell-rail > .shell-panel {
   flex: 1 1 0;
@@ -203,21 +206,48 @@
   background-size: 24px 24px;
   background-position: center;
 }
-.view-plan::after {
-  content: "";
-  position: absolute;
-  left: 18%;
-  top: 18%;
-  width: 64%;
-  height: 64%;
-  border: 2px solid rgb(from var(--color-line) r g b / 0.45);
-  background: rgba(255, 255, 255, 0.25);
-}
 .view-plan-main {
   opacity: 0.8;
 }
-.view-plan-main::after {
-  content: none;
+/* the small copies: the plan fitted to the panel, the iso box centred */
+.view-mini {
+  display: grid;
+  place-items: center;
+  padding: 10px;
+  container-type: size;
+}
+.view-mini .plan {
+  width: min(100%, calc(100cqh * var(--ratio, 1.5)));
+  pointer-events: none;
+}
+.view-mini .plan-svg {
+  --plan-ink: rgb(from var(--color-ink) r g b / 0.6);
+}
+.view-mini-piece {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid rgb(from var(--color-ink) r g b / 0.5);
+  background: rgba(255, 255, 255, 0.35);
+}
+.view-mini-piece[data-kind="decor"] {
+  border-color: rgb(from var(--color-ink) r g b / 0.3);
+}
+.view-mini-piece[data-selected="true"] {
+  border-color: var(--color-accent);
+  background: rgb(from var(--color-accent) r g b / 0.14);
+}
+.view-mini-iso {
+  width: 100%;
+  height: 100%;
+}
+.view-mini-iso [data-face="top"] {
+  filter: brightness(1.08);
+}
+.view-mini-iso [data-face="left"] {
+  filter: brightness(0.86);
+}
+.view-mini-iso [data-face="right"] {
+  filter: brightness(0.95);
 }
 .view-iso {
   position: absolute;
@@ -275,13 +305,10 @@
 }
 
 /* ---- project switcher: Furnishes / Project 0 ▾ ---- */
-.shell-project {
-  position: relative;
-  min-width: 0;
-}
 /* "Furnishes / Project 0": only the project's name is the button, and
    only it lights on hover; its focus shows the same way, never a ring */
 .shell-project {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -315,6 +342,27 @@
 }
 .shell-project-sep {
   color: rgb(from var(--color-ink) r g b / 0.35);
+}
+.shell-project-menu {
+  min-width: 200px;
+}
+.shell-project-menu .shell-menu-row:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.shell-project-rename {
+  min-width: 0;
+  width: 150px;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: var(--r-control);
+  border: 1px solid rgb(from var(--color-accent) r g b / 0.5);
+  background: rgba(255, 255, 255, 0.7);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-ink);
+  outline: none;
 }
 .shell-project-name {
   font-weight: 500;
@@ -717,6 +765,7 @@ body > .shell-menu {
 
 /* ghost rows: where real controls go */
 /* ---- main surface ---- */
+/* the main column is overlays only: the stage beneath takes the pointer */
 .shell-main {
   grid-area: main;
   position: relative;
@@ -724,6 +773,7 @@ body > .shell-menu {
   min-height: 0;
   overflow: hidden;
   border-radius: var(--shell-radius);
+  pointer-events: none;
 }
 
 /* ---- the stage: the room behind the panels, full screen ---- */
@@ -743,6 +793,7 @@ body > .shell-menu {
   position: absolute;
   inset: 0;
   z-index: 0;
+  transition-delay: 0.05s;
 }
 .stage-room,
 .preview-stage {
@@ -756,10 +807,6 @@ body > .shell-menu {
 .shell-main {
   position: relative;
   z-index: 1;
-}
-/* the main column is overlays only: the stage beneath takes the pointer */
-.shell-main {
-  pointer-events: none;
 }
 .shell-main > * {
   pointer-events: auto;
@@ -1013,17 +1060,8 @@ body > .shell-menu {
   transition-duration: 0.55s;
   transition-timing-function: var(--ease);
 }
-.shell-stage {
-  transition-delay: 0.05s;
-}
 .main-top {
   transition-delay: 0.15s;
-}
-.shell-rail-left {
-  transition-delay: 0.2s;
-}
-.shell-rail-right {
-  transition-delay: 0.28s;
 }
 .main-shelf {
   transition-delay: 0.34s;

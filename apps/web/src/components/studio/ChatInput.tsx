@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { PROMPTS } from "./eva-data";
 import {
   ChevronDownIcon,
@@ -52,6 +52,11 @@ const recognizerOf = (): (new () => Recognizer) | null => {
   };
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 };
+/* the browser's support is read after hydration: the server, which has
+   none, and the client must render the same mic */
+const noop = () => () => {};
+const useRecognizer = () =>
+  useSyncExternalStore(noop, recognizerOf, () => null);
 export function ChatInput() {
   const [message, setMessage] = useState("");
   const [focused, setFocused] = useState(false);
@@ -66,7 +71,7 @@ export function ChatInput() {
   const wrap = useRef<HTMLDivElement>(null);
   const file = useRef<HTMLInputElement>(null);
   const recognizer = useRef<Recognizer | null>(null);
-  const Speech = recognizerOf();
+  const Speech = useRecognizer();
   const send = useEva((s) => s.send);
   const canSend = message.trim().length > 0 || image !== null;
   const submit = () => {

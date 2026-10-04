@@ -392,6 +392,15 @@ export function CompassIcon({ size = 16 }: IconProps) {
   );
 }
 
+export function RotateIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <path d="M20 12a8 8 0 1 1-2.3-5.6" />
+      <path d="M20 4v4.5h-4.5" />
+    </svg>
+  );
+}
+
 export function MoreIcon({ size = 16 }: IconProps) {
   return (
     <svg {...svg(size)}>

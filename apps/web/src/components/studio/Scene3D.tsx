@@ -8,11 +8,15 @@ import { CATEGORY_NAMES, type AssetNode } from "./assets-data";
 import { ArrowLeftIcon } from "./icons";
 import { usePieceActions } from "./piece-actions";
 import { PieceActions } from "./PieceActions";
-import { COLOURS } from "./piece-detail";
 import { FLOOR_TONES, WALL_TONES, type Floor } from "./room-data";
 import { useRoom } from "./room-store";
 import { propsOf } from "./scene-store";
-import { layoutRoom } from "./room-layout";
+import {
+  ACCENT_HEX,
+  colourHex,
+  footprint,
+  ROOM_ITEM_HEX,
+} from "./piece-detail";
 import { useStudio, type Angle } from "./studio-store";
 
 /**
@@ -22,12 +26,6 @@ import { useStudio, type Angle } from "./studio-store";
  * the boxes as on the plan; the view angle chip moves the camera; drag
  * to orbit. A piece in focus stands alone on a blank ground.
  */
-/* the accent as three.js needs it, a plain hex: the token itself is oklch */
-const ACCENT = "#ed5c00";
-/* a room item: there to read the room, so it stays quiet */
-const ROOM_ITEM = "#d9d2c8";
-const colourHex = (id: string) =>
-  COLOURS.find((c) => c.id === id)?.hex ?? COLOURS[0].hex;
 const m = (mm: number) => mm / 1000;
 
 /** where the camera stands for each angle, scaled to the room */
@@ -76,6 +74,7 @@ function Piece({
   portal,
   node,
   at,
+  turn,
   size,
   colour,
   parts,
@@ -89,6 +88,8 @@ function Piece({
   portal: RefObject<HTMLDivElement>;
   node: AssetNode;
   at: Vector3Tuple;
+  /** radians about the vertical */
+  turn: number;
   size: Vector3Tuple;
   colour: string;
   /** the parts' colours and widths, in metres, when the piece has parts */
@@ -99,7 +100,7 @@ function Piece({
   onPick: () => void;
 }) {
   return (
-    <group position={at}>
+    <group position={at} rotation={[0, turn, 0]}>
       {/* a piece built from parts stands as its parts, side by side, each
           in its own colour; a click on any part picks the piece */}
       {(parts.length ? parts : [{ colour, width: size[0] }]).map(
@@ -119,7 +120,7 @@ function Piece({
             >
               <boxGeometry args={[part.width, size[1], size[2]]} />
               <meshStandardMaterial color={part.colour} roughness={0.85} />
-              {selected && <Edges color={ACCENT} lineWidth={1.5} />}
+              {selected && <Edges color={ACCENT_HEX} lineWidth={1.5} />}
             </mesh>
           );
         },
@@ -172,8 +173,6 @@ export default function Scene3D() {
   const w = m(room.width);
   const d = m(room.depth);
   const h = m(room.height);
-  const sizes = a.shown.map((n) => propsOf(n, a.overrides));
-  const spots = layoutRoom(sizes, room.width, room.depth);
   const wall =
     WALL_TONES.find((t) => t.id === room.wallTone)?.hex ?? WALL_TONES[0].hex;
   const floor = FLOOR_TONES[room.floor as Floor] ?? FLOOR_TONES.Vinyl;
@@ -215,17 +214,14 @@ export default function Scene3D() {
             </mesh>
           </group>
         )}
-        {a.shown.map((n, i) => {
-          const p = sizes[i]!;
+        {a.shown.map((n) => {
+          const p = a.props.get(n.id)!;
           const size: Vector3Tuple = [m(p.width), m(p.height), m(p.depth)];
-          const at = spots[i]!;
+          const at = a.spots.get(n.id)!;
+          const f = footprint(p);
           const pos: Vector3Tuple = a.focus
             ? [0, 0, 0]
-            : [
-                -w / 2 + m(at.x) + size[0] / 2,
-                0,
-                -d / 2 + m(at.y) + size[2] / 2,
-              ];
+            : [-w / 2 + m(at.x + f.w / 2), 0, -d / 2 + m(at.y + f.d / 2)];
           const label = a.labelOf(n);
           return (
             <Piece
@@ -233,8 +229,9 @@ export default function Scene3D() {
               portal={portal}
               node={n}
               at={pos}
+              turn={a.focus ? 0 : -(p.rotation * Math.PI) / 180}
               size={size}
-              colour={n.kind === "piece" ? colourHex(p.colour) : ROOM_ITEM}
+              colour={n.kind === "piece" ? colourHex(p.colour) : ROOM_ITEM_HEX}
               parts={(n.children ?? []).map((c) => ({
                 colour: colourHex(propsOf(c, a.overrides).colour),
                 width: size[0] / (n.children?.length ?? 1),

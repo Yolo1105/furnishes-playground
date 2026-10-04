@@ -58,6 +58,13 @@ export const PRESETS: Record<FlatType, Partial<Record<RoomId, Size>>> = {
 /** HDB ceilings run 2.6 to 2.8 m */
 export const CEILING = { default: 2600, min: 2400, max: 3200 } as const;
 
+/** the door and the window as the drawings show them, mm: the door from
+    the floor, the window from its sill */
+export const OPENINGS = {
+  door: { width: 900, height: 2100 },
+  window: { width: 1500, sill: 900, head: 2400 },
+} as const;
+
 export type Wall = "north" | "east" | "south" | "west";
 export const WALLS: Wall[] = ["north", "east", "south", "west"];
 

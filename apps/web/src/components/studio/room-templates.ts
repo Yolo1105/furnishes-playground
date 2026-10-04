@@ -86,8 +86,11 @@ export type TemplateId = (typeof ROOM_TEMPLATES)[number]["id"];
 /** one face of the little box, ready for an SVG polygon */
 type IsoFace = {
   points: string;
-  /** "floor", "in" (a wall seen from inside) or "out" (seen from outside) */
-  kind: "floor" | "in" | "out";
+  /** "floor", "in" (a wall seen from inside) or "out" (seen from outside);
+      "top", "left" and "right" are a piece's box standing in the room */
+  kind: "floor" | "in" | "out" | "top" | "left" | "right";
+  /** a piece's own colour */
+  fill?: string;
 };
 
 const COS30 = Math.cos(Math.PI / 6);
@@ -99,10 +102,14 @@ const WALL = 0.42;
  * them in order gives the right overlaps. Walls that face the viewer
  * show their outside; the rest show their inside.
  */
-export function isoFaces(
+/** the projection of a footprint into a box: `P` maps a point of the
+    room (and a height) to the drawing; `wall` is the wall's height in
+    the footprint's units */
+export function isoProjector(
   footprint: readonly Point[],
   box = { w: 120, h: 96 },
-): IsoFace[] {
+  wall = WALL,
+) {
   const pts = footprint;
   const xs = pts.map((p) => p[0]);
   const ys = pts.map((p) => p[1]);
@@ -112,9 +119,10 @@ export function isoFaces(
     Math.max(...xs) - Math.min(...xs),
     Math.max(...ys) - Math.min(...ys),
   );
+  const slack = span * 0.3;
   const scale = Math.min(
-    box.w / (span * 2 * COS30 + 0.3),
-    box.h / (span + WALL + 0.3),
+    box.w / (span * 2 * COS30 + slack),
+    box.h / (span + wall + slack),
   );
   const P = (x: number, y: number, z: number) => {
     const px = box.w / 2 + (x - cx - (y - cy)) * COS30 * scale;
@@ -122,9 +130,20 @@ export function isoFaces(
       box.h / 2 +
       (x - cx + (y - cy)) * SIN30 * scale -
       z * scale +
-      (WALL * scale) / 2;
+      (wall * scale) / 2;
     return `${px.toFixed(1)},${py.toFixed(1)}`;
   };
+  return { P, cx, cy, wall };
+}
+
+export function isoFaces(
+  footprint: readonly Point[],
+  box = { w: 120, h: 96 },
+  wall = WALL,
+): IsoFace[] {
+  const pts = footprint;
+  const { P, cx, cy } = isoProjector(footprint, box, wall);
+  const WALL = wall;
   const faces: IsoFace[] = [
     { kind: "floor", points: pts.map((p) => P(p[0], p[1], 0)).join(" ") },
   ];
@@ -156,4 +175,53 @@ export function isoFaces(
   });
   walls.sort((p, q) => p.depth - q.depth);
   return faces.concat(walls.map((w) => w.face));
+}
+
+/** a piece as a little box in the same projection: its top and the two
+    faces towards the viewer, nearest pieces last */
+export function isoBoxes(
+  P: ReturnType<typeof isoProjector>["P"],
+  items: readonly {
+    x: number;
+    y: number;
+    w: number;
+    d: number;
+    h: number;
+    fill: string;
+  }[],
+): IsoFace[] {
+  return [...items]
+    .sort((a, b) => a.x + a.y + a.w + a.d - (b.x + b.y + b.w + b.d))
+    .flatMap(({ x, y, w, d, h, fill }) => [
+      {
+        kind: "left" as const,
+        fill,
+        points: [
+          P(x, y + d, 0),
+          P(x + w, y + d, 0),
+          P(x + w, y + d, h),
+          P(x, y + d, h),
+        ].join(" "),
+      },
+      {
+        kind: "right" as const,
+        fill,
+        points: [
+          P(x + w, y, 0),
+          P(x + w, y + d, 0),
+          P(x + w, y + d, h),
+          P(x + w, y, h),
+        ].join(" "),
+      },
+      {
+        kind: "top" as const,
+        fill,
+        points: [
+          P(x, y, h),
+          P(x + w, y, h),
+          P(x + w, y + d, h),
+          P(x, y + d, h),
+        ].join(" "),
+      },
+    ]);
 }

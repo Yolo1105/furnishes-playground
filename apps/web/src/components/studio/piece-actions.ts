@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import type { AssetNode } from "./assets-data";
-import { LABEL_MAX } from "./piece-detail";
-import { useScene, useTopLevel } from "./scene-store";
+import { LABEL_MAX, turned } from "./piece-detail";
+import { layoutRoom } from "./room-layout";
+import { useRoom } from "./room-store";
+import { propsOf, useScene, useTopLevel } from "./scene-store";
 import { useStudio } from "./studio-store";
 
 /**
@@ -18,17 +20,30 @@ export function usePieceActions() {
   const overrides = useScene((s) => s.overrides);
   const labels = useScene((s) => s.labels);
   const selectedId = useScene((s) => s.selectedId);
-  const { select, toggleLabel } = useScene.getState();
+  const { select, toggleLabel, setProps } = useScene.getState();
   const tool = useStudio((s) => s.tool);
   const focusId = useStudio((s) => s.focusId);
   const { setFocus, setPanelTab } = useStudio.getState();
   const [actionsFor, setActionsFor] = useState<string | null>(null);
+  const W = useRoom((s) => s.width);
+  const D = useRoom((s) => s.depth);
 
   // what stands on the stage: the pieces and the room items, never the
-  // architecture (that is the room itself)
+  // architecture (that is the room itself); a hidden piece keeps its
+  // place in the rows but is not drawn
   const pieces = items.filter((n) => n.kind !== "fixed");
+  const props = new Map(pieces.map((n) => [n.id, propsOf(n, overrides)]));
+  const spots = new Map(
+    layoutRoom(
+      pieces.map((n) => props.get(n.id)!),
+      W,
+      D,
+    ).map((s, i) => [pieces[i]!.id, s]),
+  );
   const focus = pieces.find((n) => n.id === focusId) ?? null;
-  const shown = focus ? [focus] : pieces;
+  const shown = focus
+    ? [focus]
+    : pieces.filter((n) => !props.get(n.id)!.hidden);
 
   const onPick = (n: AssetNode) => {
     if (tool === "inspect") {
@@ -48,13 +63,23 @@ export function usePieceActions() {
   const labelsFull = (n: AssetNode) =>
     !labels.includes(n.id) && labels.length >= LABEL_MAX;
 
+  /** a quarter turn, in place */
+  const turn = (n: AssetNode) =>
+    setProps(n.id, { rotation: turned(props.get(n.id)!.rotation) });
+
   return {
     pieces,
     focus,
     shown,
     overrides,
+    /** each piece's properties, by id */
+    props,
+    /** where each piece stands, by id, mm */
+    spots,
+    room: { W, D },
     selectedId,
     tool,
+    turn,
     actionsFor,
     onPick,
     details,

@@ -156,12 +156,9 @@ test("rails collapse into the toolbar and come back", async ({ page }) => {
   const main = page.locator(".shell-main");
   const wide = (await main.boundingBox())!.width;
 
-  await expect(page.locator(".shell-project-name")).toHaveText("Project 0");
+  await expect(page.locator(".shell-project-name")).toHaveText("First project");
   // only the project's name is the button; the brand is not
   await expect(page.getByRole("button", { name: /Furnishes/ })).toHaveCount(0);
-  await page.getByRole("button", { name: /^Project, / }).click();
-  await page.getByRole("menuitemradio", { name: "Project 2" }).click();
-  await expect(page.locator(".shell-project-name")).toHaveText("Project 2");
 
   await page.getByRole("button", { name: "Collapse project panel" }).click();
   await expect(shell).toHaveAttribute("data-left", "collapsed");
@@ -339,12 +336,21 @@ test("the right rail holds the other view, and the swap trades them", async ({
     "3d",
   );
   await expect(view.locator(".view-stub")).toHaveAttribute("data-view", "2d");
+  // the small plan is the real plan, read-only, with the pieces on it
+  await expect(view.locator(".view-mini .plan-svg")).toHaveCount(1);
+  await expect(view.locator(".view-mini-piece")).toHaveCount(
+    top.filter((a) => a.kind !== "fixed").length,
+  );
   await page.getByRole("button", { name: "Show 2D plan in main" }).click();
   await expect(page.locator(".shell-main-hint")).toHaveAttribute(
     "data-view",
     "2d",
   );
   await expect(view.locator(".view-stub")).toHaveAttribute("data-view", "3d");
+  // and the small 3D view is the room as an isometric box with its pieces
+  await expect(view.locator(".view-mini-iso [data-face='top']")).toHaveCount(
+    top.filter((a) => a.kind !== "fixed").length,
+  );
   await page.getByRole("button", { name: "Show 3D view in main" }).click();
   await expect(page.locator(".shell-main-hint")).toHaveAttribute(
     "data-view",
@@ -1358,4 +1364,232 @@ test("the studio arrives with its transitions and remembers the last view", asyn
   await page.reload();
   await expect(page.locator(".plan-svg")).toBeVisible();
   await expect(page.locator(".view-cube-name")).toHaveText("Front");
+});
+
+test("Select drags a piece about the plan, turns it, locks it; the eye hides, Remove takes it out", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  await page.getByRole("button", { name: "Show 2D plan in main" }).click();
+  const stage = page.locator(".stage-pieces");
+  const pieces = top.filter((a) => a.kind === "piece");
+  const name = pieces[0]!.name;
+  const body = stage.getByRole("button", { name, exact: true });
+  // the plan fades up with a slight scale: measure once it stands still
+  await page
+    .locator(".plan")
+    .evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
+  const before = (await body.boundingBox())!;
+  // a drag moves it, snapped; one Undo brings it back
+  await page.mouse.move(
+    before.x + before.width / 2,
+    before.y + before.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    before.x + before.width / 2 + 60,
+    before.y + before.height / 2 + 90,
+    { steps: 6 },
+  );
+  await page.mouse.move(
+    before.x + before.width / 2 + 120,
+    before.y + before.height / 2 + 90,
+    { steps: 6 },
+  );
+  await page.mouse.up();
+  const after = (await body.boundingBox())!;
+  expect(after.x).toBeGreaterThan(before.x + 60);
+  expect(after.y).toBeGreaterThan(before.y + 40);
+  await expect(page.getByRole("button", { name: "Undo" })).toBeEnabled();
+  await page.getByRole("button", { name: "Undo" }).click();
+  expect((await body.boundingBox())!.x).toBeCloseTo(before.x, 0);
+  // picked, it shows a turn handle; a turn swaps its footprint
+  await body.click();
+  await page.getByRole("button", { name: `Turn ${name}` }).click();
+  // (small pieces keep a minimum size on the plan, so the swap is read as
+  // narrower and deeper, not to the pixel)
+  const turned = (await body.boundingBox())!;
+  expect(turned.width).toBeLessThan(before.width);
+  expect(turned.height).toBeGreaterThan(before.height * 2);
+  // the Detail tab places it in millimetres, locks it (no handle, no drag)
+  await page.getByRole("tab", { name: "Detail", exact: true }).click();
+  const x = page.getByRole("spinbutton", {
+    name: `${name} from the west wall in millimetres`,
+  });
+  await x.fill("1000");
+  await x.press("Tab");
+  await expect(
+    page.locator(".detail-of").filter({ hasText: /1000 ·/ }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Lock", exact: true }).click();
+  await expect(page.getByRole("button", { name: `Turn ${name}` })).toHaveCount(
+    0,
+  );
+  await expect(stage.locator(".stage-piece[data-locked='true']")).toHaveCount(
+    1,
+  );
+  // the outliner's eye takes a piece off the stage and brings it back
+  await page.getByRole("tab", { name: "Assets", exact: true }).click();
+  const n0 = await stage.locator(".stage-piece").count();
+  const row = page.getByRole("treeitem", { name: "Sofa", exact: true });
+  await row.hover();
+  await row.getByRole("button", { name: "Hide Sofa" }).click();
+  await expect(stage.locator(".stage-piece")).toHaveCount(n0 - 1);
+  await expect(row).toHaveAttribute("data-hidden", "true");
+  await row.getByRole("button", { name: "Show Sofa" }).click();
+  await expect(stage.locator(".stage-piece")).toHaveCount(n0);
+  // Remove takes it out of the room; Undo brings it back
+  await row.hover();
+  await row.getByRole("button", { name: "Remove Sofa from the room" }).click();
+  await expect(row).toHaveCount(0);
+  await expect(stage.locator(".stage-piece")).toHaveCount(n0 - 1);
+  await page.keyboard.press("Control+z");
+  await expect(
+    page.getByRole("treeitem", { name: "Sofa", exact: true }),
+  ).toBeVisible();
+});
+
+test("the cube's other 2D angles draw the wall's elevation", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  await page.getByRole("button", { name: "Show 2D plan in main" }).click();
+  const cube = page.getByRole("radiogroup", { name: "View angle" });
+  await cube.getByRole("radio", { name: "Front" }).click();
+  const svg = page.locator(".elev-svg");
+  await expect(svg).toHaveAttribute("aria-label", /^north wall/);
+  await expect(svg.locator(".elev-piece")).toHaveCount(
+    top.filter((a) => a.kind !== "fixed").length,
+  );
+  // the window is on the north wall by default, the door on the south
+  await expect(svg.locator(".elev-opening")).toHaveCount(1);
+  // a piece picked on the elevation is picked everywhere (the first row
+  // stands nearest the north wall, so it is in front here)
+  const first = top.filter((a) => a.kind === "piece")[0]!;
+  await svg.getByRole("button", { name: first.name, exact: true }).click();
+  await expect(
+    page.getByRole("treeitem", { name: first.name, exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await cube.getByRole("radio", { name: "Back" }).click();
+  await expect(svg).toHaveAttribute("aria-label", /^south wall/);
+  await expect(svg.locator(".elev-knob")).toHaveCount(1);
+  await cube.getByRole("radio", { name: "Plan" }).click();
+  await expect(page.locator(".plan-svg:not(.elev-svg)")).toBeVisible();
+});
+
+test("Eva keeps to the order of the work: the room's size first, a budget before a list, pieces with why they fit", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  const agent = page.locator(".agent");
+  // the stages: the room comes first while its walls are not set
+  await expect(agent.locator(".agent-stage[aria-current='step']")).toHaveText(
+    /Room/,
+  );
+  await expect(
+    agent.getByRole("progressbar", { name: "Readiness" }),
+  ).toBeVisible();
+  // a room starter asks for a layout, which waits for the room's size
+  await agent
+    .getByRole("group", { name: "Start from a room" })
+    .getByRole("button", { name: "Living room" })
+    .click();
+  await expect(
+    agent.locator(".agent-bubble[data-who='eva']").last(),
+  ).toContainText("room's size first");
+  await agent.getByRole("button", { name: "Open the Room tab" }).click();
+  await expect(
+    page.getByRole("tab", { name: "Room", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await page
+    .getByRole("radiogroup", { name: "Start from" })
+    .getByRole("radio", { name: "Template" })
+    .click();
+  await expect(agent.locator(".agent-stage[aria-current='step']")).toHaveText(
+    /Preferences/,
+  );
+  // a list without a budget asks for one
+  const box = page.getByRole("textbox", { name: "Message Eva" });
+  await box.fill("Give me a shopping list");
+  await box.press("Enter");
+  await expect(
+    agent.locator(".agent-bubble[data-who='eva']").last(),
+  ).toContainText("budget");
+  // a budget heard in a message is proposed; Keep confirms it
+  await box.fill("Suggest storage for this wall under S$1,500");
+  await box.press("Enter");
+  const proposal = agent.getByRole("group", { name: "Budget range heard" });
+  await expect(proposal).toBeVisible();
+  await proposal.getByRole("button", { name: "Keep" }).click();
+  await expect(proposal).toHaveAttribute("data-settled", "accepted");
+  await expect(agent.locator(".agent-context")).toContainText(
+    "S$500 – S$1,500",
+  );
+  // the pieces she picked say why, and go into the room
+  const cards = agent.locator(".agent-card");
+  await expect(cards).toHaveCount(3);
+  await expect(cards.first().locator(".agent-card-why")).toContainText(
+    "storage",
+  );
+  const name = (await cards.first().locator(".agent-card-name").textContent())!;
+  await cards.first().getByRole("button", { name: "Add to the room" }).click();
+  await expect(cards.first()).toHaveAttribute("data-added", "true");
+  await page.getByRole("tab", { name: "Assets", exact: true }).click();
+  await expect(page.getByRole("treeitem", { name, exact: true })).toBeVisible();
+  // and more can be asked for
+  await agent.getByRole("button", { name: "More options" }).last().click();
+  await expect(agent.locator(".agent-cards")).toHaveCount(2);
+  // the plan reads the budget against what is in the room
+  await expect(agent.locator(".agent-plan")).toContainText(/of S\$1,500/);
+});
+
+test("projects: a new one starts clean, the first keeps its room, rename and delete", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  const name = page.locator(".shell-project-name");
+  const saved = page.getByRole("tab", { name: /^Saved/ });
+  await expect(saved).toHaveText(`Saved${totals.pieces}`);
+  // a change in the first project: a piece into the cart
+  const card = page.locator(`.shelf-card[data-id="${first.id}"]`);
+  await card.hover();
+  await card
+    .getByRole("button", { name: `Add ${first.name} to the cart` })
+    .click();
+  await expect(page.getByRole("tab", { name: /^Cart/ })).toHaveText("Cart1");
+  // a new project: its own room, nothing in the cart, no conversations
+  await page.getByRole("button", { name: /^Project, / }).click();
+  await page.getByRole("menuitem", { name: "New project" }).click();
+  await expect(name).toHaveText("Project 2");
+  await expect(page.getByRole("tab", { name: /^Cart/ })).toHaveText("Cart0");
+  await page.getByRole("tab", { name: "History" }).click();
+  await expect(page.getByText("No conversations yet")).toBeVisible();
+  // rename in place
+  await page.getByRole("button", { name: /^Project, / }).click();
+  await page.getByRole("menuitem", { name: "Rename" }).click();
+  const input = page.getByRole("textbox", { name: "Project name" });
+  await input.fill("Study corner");
+  await input.press("Enter");
+  await expect(name).toHaveText("Study corner");
+  // back to the first: its cart is as it was; and it survives a reload
+  await page.getByRole("button", { name: /^Project, / }).click();
+  await page.getByRole("menuitemradio", { name: "First project" }).click();
+  await expect(page.getByRole("tab", { name: /^Cart/ })).toHaveText("Cart1");
+  await page.waitForTimeout(900);
+  await page.reload();
+  await expect(name).toHaveText("First project");
+  await expect(page.getByRole("tab", { name: /^Cart/ })).toHaveText("Cart1");
+  await page.getByRole("button", { name: /^Project, / }).click();
+  await expect(page.getByRole("menuitemradio")).toHaveCount(2);
+  // delete the other; the last one cannot go
+  await page.getByRole("menuitemradio", { name: "Study corner" }).click();
+  await page.getByRole("button", { name: /^Project, / }).click();
+  await page.getByRole("menuitem", { name: "Delete" }).click();
+  await expect(name).toHaveText("First project");
+  await page.getByRole("button", { name: /^Project, / }).click();
+  await expect(page.getByRole("menuitem", { name: "Delete" })).toBeDisabled();
 });

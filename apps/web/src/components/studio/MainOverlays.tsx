@@ -36,7 +36,7 @@ import {
   UndoIcon,
 } from "./icons";
 import { topLevelOf, useScene, useTopLevel } from "./scene-store";
-import { useStudio, viewName, type Tool } from "./studio-store";
+import { useStudio, viewName, type ShelfTab, type Tool } from "./studio-store";
 import { useDismiss } from "./useDismiss";
 import { useFixedMenu } from "./useFixedMenu";
 
@@ -355,8 +355,6 @@ function ToolButton({
  * the cards away. Picking a card picks the same thing in the outliner,
  * and the other way round.
  */
-type ShelfTab = "saved" | "cart";
-
 export function MainShelf() {
   const items = useTopLevel();
   const groups = useScene((s) => s.groups);
@@ -364,7 +362,8 @@ export function MainShelf() {
   const selectedId = useScene((s) => s.selectedId);
   const selectedAt = useScene((s) => s.selectedAt);
   const { select, toggleCart } = useScene.getState();
-  const [tab, setTab] = useState<ShelfTab>("saved");
+  const tab = useStudio((s) => s.shelfTab);
+  const { setShelfTab: setTab } = useStudio.getState();
   const [collapsed, setCollapsed] = useState(false);
   const [checkout, setCheckout] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);

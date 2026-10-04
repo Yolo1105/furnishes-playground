@@ -19,9 +19,11 @@ import {
   ChevronRightIcon,
   CubeIcon,
   EyeIcon,
+  EyeOffIcon,
   FilterIcon,
   LockIcon,
   SearchIcon,
+  TrashIcon,
 } from "./icons";
 
 type KindFilter = "all" | "piece" | "room";
@@ -337,9 +339,13 @@ function Node({
   selectedId: string | null;
   onSelect: (id: string) => void;
 }) {
+  const hidden = useScene((s) => s.overrides[n.id]?.hidden ?? false);
   const kids = n.children?.filter((c) => !q || matches(c, q)) ?? [];
   const hasKids = (n.children?.length ?? 0) > 0;
   const open = !closed[n.id];
+  // a piece or a room item can leave the stage or the room; a part
+  // follows its piece, and the architecture is the room itself
+  const own = depth === 1 && n.kind !== "fixed";
   return (
     <>
       <Row
@@ -354,6 +360,13 @@ function Node({
         onToggle={hasKids ? () => onToggle(n.id) : undefined}
         selected={selectedId === n.id}
         onSelect={() => onSelect(n.id)}
+        hidden={own && hidden}
+        onHide={
+          own
+            ? () => useScene.getState().setProps(n.id, { hidden: !hidden })
+            : undefined
+        }
+        onRemove={own ? () => useScene.getState().removeNode(n.id) : undefined}
       />
       {hasKids &&
         open &&
@@ -388,6 +401,9 @@ function Row({
   onToggle,
   selected = false,
   onSelect,
+  hidden = false,
+  onHide,
+  onRemove,
 }: {
   id?: string;
   depth: number;
@@ -401,6 +417,10 @@ function Row({
   onToggle?: (() => void) | undefined;
   selected?: boolean;
   onSelect?: () => void;
+  /** off the stage for now */
+  hidden?: boolean;
+  onHide?: (() => void) | undefined;
+  onRemove?: (() => void) | undefined;
 }) {
   return (
     <div
@@ -410,6 +430,7 @@ function Row({
       aria-label={kind === "group" ? undefined : name}
       data-kind={kind}
       data-leaf={!onToggle}
+      data-hidden={hidden}
       data-id={id}
       aria-expanded={onToggle ? open : undefined}
       style={{ ["--depth" as string]: depth }}
@@ -468,15 +489,33 @@ function Row({
         {price !== undefined && (
           <span className="assets-price f-num">{sgd(price)}</span>
         )}
-        {kind !== "group" && (
+        {onHide && (
           <button
             type="button"
             className="assets-eye"
-            aria-label={`Hide ${name}`}
+            aria-label={hidden ? `Show ${name}` : `Hide ${name}`}
+            aria-pressed={hidden}
             tabIndex={-1}
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onHide();
+            }}
           >
-            <EyeIcon />
+            {hidden ? <EyeOffIcon /> : <EyeIcon />}
+          </button>
+        )}
+        {onRemove && (
+          <button
+            type="button"
+            className="assets-eye assets-remove"
+            aria-label={`Remove ${name} from the room`}
+            tabIndex={-1}
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove();
+            }}
+          >
+            <TrashIcon />
           </button>
         )}
       </span>

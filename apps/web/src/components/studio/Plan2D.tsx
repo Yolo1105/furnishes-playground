@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type MouseEvent, type ReactNode } from "react";
-import { ROOM_NAMES, type Wall } from "./room-data";
+import { OPENINGS, ROOM_NAMES, type Wall } from "./room-data";
 import { CLOSE_WITHIN, footprintOf, useRoom } from "./room-store";
 import { useStudio } from "./studio-store";
 
@@ -19,8 +19,8 @@ import { useStudio } from "./studio-store";
 const WALL = 150; // mm, half the band's thickness
 const FACE = 14; // mm, the face line either side of the band
 const MARGIN = 1100; // mm, room for the dimensions, the arrow, the title
-const DOOR = 900;
-const WINDOW = 1500;
+const DOOR = OPENINGS.door.width;
+const WINDOW = OPENINGS.window.width;
 
 type Edge = {
   x: number;
@@ -61,7 +61,14 @@ const alongRect = (e: Edge, len: number, thick: number) => {
     .join(" ");
 };
 
-export function Plan2D({ children }: { children?: ReactNode }) {
+export function Plan2D({
+  children,
+  interactive = true,
+}: {
+  children?: ReactNode;
+  /** false for the small copy in the view panel: no drawing, no sheet */
+  interactive?: boolean;
+}) {
   const r = useRoom();
   const tool = useStudio((s) => s.tool);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -71,7 +78,7 @@ export function Plan2D({ children }: { children?: ReactNode }) {
   const vh = D + 2 * MARGIN;
   const outline = footprintOf(r);
   const poly = outline.map((p) => p.join(",")).join(" ");
-  const drawingOn = tool === "wall";
+  const drawingOn = interactive && tool === "wall";
 
   useEffect(() => {
     if (!drawingOn) return;
@@ -157,7 +164,10 @@ export function Plan2D({ children }: { children?: ReactNode }) {
   };
 
   return (
-    <div className="plan" style={{ aspectRatio: `${vw} / ${vh}` }}>
+    <div
+      className="plan"
+      style={{ aspectRatio: `${vw} / ${vh}`, ["--ratio" as string]: vw / vh }}
+    >
       <svg
         ref={svgRef}
         className="plan-svg"

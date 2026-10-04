@@ -153,6 +153,10 @@
 
 /* ---- the tree ---- */
 .assets-tree {
+  --indent: 18px;
+  --inset: 2px;
+  --twisty: 18px;
+  --row-gap: 6px;
   flex: 1;
   min-height: 0;
   overflow: auto;
@@ -168,12 +172,6 @@
 
 /* hierarchy lines: a vertical guide under each open parent, a tick into
    each child; the guide stops halfway on the last child */
-.assets-tree {
-  --indent: 18px;
-  --inset: 2px;
-  --twisty: 18px;
-  --row-gap: 6px;
-}
 .assets-guide {
   --level: 0;
   position: absolute;
@@ -341,6 +339,27 @@
 .assets-row:hover .assets-price {
   opacity: 0;
 }
+/* a hidden piece reads faint; its eye stays shown so it can come back */
+.assets-row[data-hidden="true"] .assets-name,
+.assets-row[data-hidden="true"] .assets-mark {
+  opacity: 0.4;
+}
+.assets-row[data-hidden="true"] .assets-eye[aria-pressed="true"] {
+  opacity: 1;
+}
+.assets-remove {
+  right: 26px;
+}
+.detail-place {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: end;
+}
+.detail-turn {
+  height: 32px;
+}
+.detail-place-acts {
+  margin-top: 8px;
+}
 .assets-eye:hover {
   background: rgb(from var(--color-ink) r g b / 0.06);
   color: rgb(from var(--color-ink) r g b / 0.85);
@@ -348,6 +367,9 @@
 
 /* ---- the Products tab: the catalogue as cards, one press adds ---- */
 .products {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   flex: 1;
   min-height: 0;
   overflow: auto;
@@ -431,11 +453,6 @@
 }
 
 /* catalogue groups, each under its title */
-.products {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
 .products-title {
   margin: 0 0 6px;
   display: flex;
@@ -693,6 +710,8 @@
   display: grid;
   gap: 10px;
   padding: 2px 0 12px;
+  min-width: 0;
+  overflow: hidden;
 }
 .detail-empty {
   padding: 8px 0;
@@ -737,6 +756,7 @@
 }
 .detail-acts {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 .detail-acts .main-btn {
@@ -761,6 +781,11 @@
   cursor: default;
 }
 .detail-of {
+  margin-left: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 11px;
   font-weight: 500;
   color: rgb(from var(--color-ink) r g b / 0.5);

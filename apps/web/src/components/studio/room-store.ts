@@ -53,7 +53,7 @@ type RoomState = RoomConfig & {
 /** how close to the first corner a click closes the room, mm */
 export const CLOSE_WITHIN = 350;
 /** the drawing snaps to this, mm */
-export const SNAP = 100;
+const SNAP = 100;
 
 const bbox = (pts: readonly Point[]) => {
   const xs = pts.map((p) => p[0]);

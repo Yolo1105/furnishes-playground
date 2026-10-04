@@ -37,17 +37,27 @@ Notes:
 
 ## Status
 
-UI shell with placeholder data, no AI yet. `/` is the square-cornered
-studio and `/rounded` the floating one; Settings switches between them.
-The room is a full-screen stage behind three panels: a project rail with
-Assets (an outliner), Products (the catalogue), Room (HDB presets, walls
-drawn on the plan or a template) and Detail (a piece's parts, colour,
-texture and size); the main column with a toolbar (Edit/Preview, Select,
-Inspect, Add, an eye that hides every panel, Undo/Redo over the room's
-contents, Eva's preferences, Guide, Export as SVG/PNG/JSON) and a shelf
+UI shell with placeholder data and a rule-based Eva, no model yet. `/` is
+the square-cornered studio and `/rounded` the floating one; Settings
+switches between them. Projects (new, rename, delete, switch) each hold
+a room, its pieces and Eva's side, autosaved in the browser.
+
+The room is a full-screen stage behind three panels. The project rail
+has Assets (an outliner with hide and remove), Products (the catalogue),
+Room (HDB presets, walls drawn on the plan or a template) and Detail (a
+piece's parts, place and turn, lock, hide, remove, colour, texture and
+size). The main column has a toolbar (Edit/Preview, Select, which also
+drags and turns pieces, Inspect, Add, an eye that hides every panel,
+Undo/Redo, Eva's preferences, Guide, Export as SVG/PNG/JSON) and a shelf
 with Saved and Cart (Checkout reads the order back and downloads it as
-CSV); a right rail with the other view (2D or 3D) over Eva's Agent,
-History and Preference tabs. The 2D plan is drawn as a CAD sheet, the 3D
+CSV). The right rail shows the other view small, the plan or an isometric
+room, over Eva's Agent, History and Preference tabs.
+
+The 2D plan is drawn as a CAD sheet with four interior elevations; the 3D
 view is a three.js stand-in with a view cube; Preview runs a stand-in
-render with a before/after divider. Keyboard shortcuts are listed under
-the gear. The last view and the guide dismissals live in the browser.
+render with a before/after divider. Eva follows the chatbot's order of
+work (room, preferences, pieces, refine, order), asks for the room's size
+before a layout and a budget before a list, proposes the preferences she
+hears for you to keep or set aside, picks catalogue pieces with why each
+fits, and reads the room plan's readiness, budget and clashes. Keyboard
+shortcuts are listed under the gear.
