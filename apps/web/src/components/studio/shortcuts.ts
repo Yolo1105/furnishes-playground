@@ -14,6 +14,7 @@ export const SHORTCUTS = [
   { keys: ["I"], does: "Inspect tool" },
   { keys: ["W"], does: "Wall tool" },
   { keys: ["M"], does: "Measure tool, on the plan" },
+  { keys: ["T"], does: "Tour tool: stops on the plan, then Play" },
   { keys: ["3"], does: "3D view" },
   { keys: ["2"], does: "2D plan" },
   { keys: ["H"], does: "Hide or show the panels" },
@@ -32,7 +33,7 @@ export const SHORTCUTS = [
   { keys: ["?"], does: "This list" },
   {
     keys: ["Esc"],
-    does: "Close a menu, stop drawing or measuring, leave focus",
+    does: "Close a menu, stop a tour, drawing or measuring, leave focus",
   },
 ] as const;
 
@@ -62,6 +63,8 @@ export function useShortcuts(onHelp: () => void) {
           return st.setTool("wall");
         case "m":
           return st.setTool("measure");
+        case "t":
+          return st.setTool("tour");
         case "+":
         case "=":
           if (st.view === "2d") st.zoomPlan(ZOOM.step);
@@ -105,7 +108,8 @@ export function useShortcuts(onHelp: () => void) {
         case "?":
           return onHelp();
         case "Escape":
-          if (st.walk) st.setWalk(false);
+          if (st.touring) st.stopTour();
+          else if (st.walk) st.setWalk(false);
           else if (st.focusId) st.setFocus(null);
           return;
       }

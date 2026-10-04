@@ -29,13 +29,17 @@ import {
   InspectIcon,
   PlusIcon,
   RedoIcon,
+  PlayIcon,
+  RouteIcon,
   RulerIcon,
   SlidersIcon,
+  StopIcon,
   UndoIcon,
   ZoomInIcon,
   ZoomOutIcon,
 } from "./icons";
 import { orderedIds, useOrders } from "./order-store";
+import { useRoom } from "./room-store";
 import { topLevelOf, useScene, useTopLevel } from "./scene-store";
 import {
   type ShelfTab,
@@ -81,6 +85,13 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
   const { wrap: prefsWrap, menu: prefsMenu } = prefs;
   const { wrap: exportWrap, menu: exportMenu } = exporting;
   const view = useStudio((s) => s.view);
+  const touring = useStudio((s) => s.touring);
+  const tourAt = useStudio((s) => s.tourAt);
+  const tourStop = useStudio((s) => s.tourStop);
+  const tourOf = useStudio((s) => s.tourOf);
+  const stops = useRoom((s) => s.stops);
+  const { startTour: playTour, stopTour } = useStudio.getState();
+  const { clearStops } = useRoom.getState();
   const scene = useStudio((s) => s.scene);
   const { setScene } = useStudio.getState();
   const looking = useFixedMenu();
@@ -150,6 +161,14 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
               id="measure"
               label="Measure"
               icon={<RulerIcon />}
+              tool={tool}
+              resting={resting}
+              onPick={setTool}
+            />
+            <ToolButton
+              id="tour"
+              label="Tour"
+              icon={<RouteIcon />}
               tool={tool}
               resting={resting}
               onPick={setTool}
@@ -478,6 +497,69 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
       {adding && (
         <div ref={addWrap} className="main-add-strip">
           <AddStrip onAdded={() => setAdding(false)} />
+        </div>
+      )}
+      {tool === "tour" && !touring && (
+        <div className="main-add-strip">
+          <div
+            className="glass shell-menu tour-strip"
+            role="group"
+            aria-label="Tour"
+          >
+            <span className="tour-strip-count f-num">
+              {stops.length === 0
+                ? "No stops yet: a round of the room"
+                : `${stops.length} ${stops.length === 1 ? "stop" : "stops"}`}
+            </span>
+            <span className="tour-strip-hint">
+              Click the plan to set a stop; click a stop to take it away.
+            </span>
+            <button
+              type="button"
+              className="main-btn"
+              disabled={stops.length === 0}
+              onClick={clearStops}
+            >
+              <span>Clear</span>
+            </button>
+            <button
+              type="button"
+              className="main-btn main-btn-primary"
+              onClick={playTour}
+            >
+              <PlayIcon size={14} />
+              <span>Play</span>
+            </button>
+          </div>
+        </div>
+      )}
+      {touring && (
+        <div className="main-add-strip">
+          <div className="glass shell-menu tour-run" role="status">
+            <span className="tour-strip-count f-num">
+              Tour · stop {Math.min(Math.max(tourStop, 1), Math.max(tourOf, 1))}{" "}
+              of {Math.max(tourOf, 1)}
+            </span>
+            <span
+              className="agent-bar tour-bar"
+              role="progressbar"
+              aria-label="Tour"
+              aria-valuenow={Math.round(tourAt * 100)}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
+              <span style={{ width: `${Math.round(tourAt * 100)}%` }} />
+            </span>
+            <button
+              type="button"
+              className="main-btn"
+              aria-label="Stop the tour"
+              onClick={stopTour}
+            >
+              <StopIcon size={14} />
+              <span>Stop</span>
+            </button>
+          </div>
         </div>
       )}
     </>

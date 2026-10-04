@@ -17,6 +17,7 @@ import { PieceActions } from "./PieceActions";
 import {
   colourHex,
   footprint,
+  isRug,
   PLACE_SNAP,
   ROOM_ITEM_HEX,
   type PieceProps,
@@ -84,6 +85,11 @@ const FLOOR = new Plane(new Vector3(0, 1, 0), 0);
 const EYE = 1.6;
 const GLIDE = 0.6; // s, the camera's move between angles
 const WALK_SPEED = 1.6; // m/s
+const TOUR_SPEED = 0.9; // m/s, a slow walk to look about
+const TOUR_INSET = 1.2; // m, the default round keeps this off the walls
+const TOUR_CLEAR = 0.4; // m, the round keeps this off the pieces
+const TOUR_NEAR = 0.8; // m, this close to what it looks at, it looks ahead
+const TOUR_LOOK_AT = 0.9; // m, the height the tour's eye settles on
 const DRAG_FROM_M = 0.03; // m, a press that travels less is a click
 
 type WalkState = {
@@ -95,6 +101,28 @@ type WalkState = {
   goto: { x: number; z: number } | null;
   /** ask the scene for a frame: set by the walker while it is mounted */
   wake: () => void;
+  /** the tour under way: its path in metres, how far along, and the
+      time since progress was last reported */
+  tour: {
+    pts: { x: number; z: number }[];
+    gone: number;
+    total: number;
+    since: number;
+  } | null;
+};
+
+/** a piece's box on the floor, metres from the room's middle */
+type Block = { x: number; z: number; w: number; d: number };
+/** where the pieces are, taken together: the room's middle with none */
+const middleOf = (blocks: Block[]) => {
+  if (blocks.length === 0) return { x: 0, z: 0 };
+  let x = 0;
+  let z = 0;
+  for (const b of blocks) {
+    x += b.x;
+    z += b.z;
+  }
+  return { x: x / blocks.length, z: z / blocks.length };
 };
 
 /** the walker's place and heading: one scene, one walker */
@@ -106,6 +134,7 @@ const WALK: WalkState = {
   keys: new Set(),
   goto: null,
   wake: () => undefined,
+  tour: null,
 };
 
 const reduced = () =>
@@ -180,7 +209,10 @@ function Rig({
     };
     invalidate();
   }, [angle, w, d, h, camera, controls, invalidate, size]);
-  useFrame((_, dt) => {
+  useFrame((_, raw) => {
+    // the clock runs while the scene rests: a frame after a pause steps
+    // no further than a tenth of a second
+    const dt = Math.min(raw, 0.1);
     const g = glide.current;
     if (g) {
       g.t = Math.min(1, g.t + dt / GLIDE);
@@ -203,17 +235,27 @@ function Walker({
   w,
   d,
   outline,
+  blocks,
   stage,
 }: {
   w: number;
   d: number;
   /** the room's outline, mm; the walk keeps inside it */
   outline: readonly (readonly [number, number])[];
+  /** the pieces on the floor, metres from the room's middle: the tour
+      looks at them and its round keeps clear of them */
+  blocks: Block[];
   stage: RefObject<HTMLDivElement | null>;
 }) {
   const camera = useThree((s) => s.camera);
   const gl = useThree((s) => s.gl);
   const invalidate = useThree((s) => s.invalidate);
+  const touring = useStudio((s) => s.touring);
+  // read when a tour starts and as it goes, without restarting it
+  const live = useRef(blocks);
+  useEffect(() => {
+    live.current = blocks;
+  }, [blocks]);
   useEffect(() => {
     // in from the south-east corner, looking into the room, a little down
     const s = WALK;
@@ -231,6 +273,8 @@ function Walker({
     const down = (e: KeyboardEvent) => {
       if (typing(e.target)) return;
       s.keys.add(e.key.toLowerCase());
+      // a key takes the walk over from the tour
+      if (s.tour && !e.key.startsWith("Esc")) useStudio.getState().stopTour();
       invalidate();
     };
     const up = (e: KeyboardEvent) => s.keys.delete(e.key.toLowerCase());
@@ -238,6 +282,7 @@ function Walker({
     const el = gl.domElement;
     const pdown = (e: PointerEvent) => {
       look = { x: e.clientX, y: e.clientY };
+      if (s.tour) useStudio.getState().stopTour();
     };
     const pmove = (e: PointerEvent) => {
       if (!look) return;
@@ -266,9 +311,127 @@ function Walker({
       window.removeEventListener("pointerup", pup);
     };
   }, [camera, gl, w, d, invalidate]);
-  useFrame((_, dt) => {
+  // the tour: through the stops on the plan, or, with fewer than two, a
+  // round of the room inset from its walls, each corner brought in off
+  // the pieces; starting from where the walker stands
+  useEffect(() => {
     const s = WALK;
-    if (s.keys.size || s.goto) invalidate();
+    if (!touring) {
+      s.tour = null;
+      return;
+    }
+    const toM = ([x, y]: readonly [number, number]) => ({
+      x: x / 1000 - w / 2,
+      z: y / 1000 - d / 2,
+    });
+    const stops = useRoom.getState().stops.map(toM);
+    const inset = Math.max(0.5, Math.min(TOUR_INSET, Math.min(w, d) / 2 - 0.3));
+    const inRoom = (x: number, z: number) =>
+      insideOutline((x + w / 2) * 1000, (z + d / 2) * 1000, outline);
+    // standing room: inside the walls with a little to spare, off the
+    // pieces by the clearance
+    const clear = (x: number, z: number) =>
+      inRoom(x, z) &&
+      inRoom(x - 0.3, z) &&
+      inRoom(x + 0.3, z) &&
+      inRoom(x, z - 0.3) &&
+      inRoom(x, z + 0.3) &&
+      !live.current.some(
+        (b) =>
+          Math.abs(x - b.x) < b.w / 2 + TOUR_CLEAR &&
+          Math.abs(z - b.z) < b.d / 2 + TOUR_CLEAR,
+      );
+    // a corner, or the nearest standing room round it, searched in
+    // rings; none within reach and the round skips that corner
+    const corner = (x: number, z: number) => {
+      if (clear(x, z)) return { x, z };
+      for (let r = 0.2; r <= 2; r += 0.2)
+        for (let i = 0; i < 16; i++) {
+          const px = x + r * Math.cos((i * Math.PI) / 8);
+          const pz = z + r * Math.sin((i * Math.PI) / 8);
+          if (clear(px, pz)) return { x: px, z: pz };
+        }
+      return null;
+    };
+    const round = [
+      [-w / 2 + inset, -d / 2 + inset],
+      [w / 2 - inset, -d / 2 + inset],
+      [w / 2 - inset, d / 2 - inset],
+      [-w / 2 + inset, d / 2 - inset],
+    ]
+      .map(([x, z]) => corner(x!, z!))
+      .filter((c) => c !== null);
+    // the round comes back to where it began
+    const path =
+      stops.length >= 2
+        ? stops
+        : round.length > 2
+          ? [...round, round[0]!]
+          : round;
+    const pts = [{ x: s.x, z: s.z }, ...path];
+    let total = 0;
+    for (let i = 1; i < pts.length; i++)
+      total += Math.hypot(pts[i]!.x - pts[i - 1]!.x, pts[i]!.z - pts[i - 1]!.z);
+    s.tour = { pts, gone: 0, total: Math.max(total, 0.01), since: 0 };
+    s.goto = null;
+    useStudio.getState().setTourAt(0, 1, path.length);
+    invalidate();
+  }, [touring, w, d, outline, invalidate]);
+  useFrame((_, raw) => {
+    const dt = Math.min(raw, 0.1);
+    const s = WALK;
+    if (s.keys.size || s.goto || s.tour) invalidate();
+    const t = s.tour;
+    if (t) {
+      // along the path at a slow walk, the heading eased towards each leg
+      t.gone = Math.min(t.total, t.gone + TOUR_SPEED * dt);
+      let left = t.gone;
+      let seg = 1;
+      while (seg < t.pts.length - 1) {
+        const a = t.pts[seg - 1]!;
+        const b = t.pts[seg]!;
+        const len = Math.hypot(b.x - a.x, b.z - a.z);
+        if (left <= len) break;
+        left -= len;
+        seg++;
+      }
+      const a = t.pts[seg - 1]!;
+      const b = t.pts[seg] ?? a;
+      const len = Math.hypot(b.x - a.x, b.z - a.z) || 1;
+      const k = Math.min(1, left / len);
+      s.x = a.x + (b.x - a.x) * k;
+      s.z = a.z + (b.z - a.z) * k;
+      // the eye on the room: the middle of the pieces (the room's middle
+      // when it is bare), a little down at it; when right by it, ahead
+      // along the path instead, so the camera does not spin
+      const at = middleOf(live.current);
+      const away = Math.hypot(at.x - s.x, at.z - s.z);
+      const to = away > TOUR_NEAR ? at : b;
+      const want = Math.atan2(-(to.x - s.x), -(to.z - s.z));
+      const down = Math.max(
+        -0.5,
+        Math.min(-0.08, Math.atan2(TOUR_LOOK_AT - EYE, Math.max(away, 1))),
+      );
+      let delta = want - s.yaw;
+      while (delta > Math.PI) delta -= 2 * Math.PI;
+      while (delta < -Math.PI) delta += 2 * Math.PI;
+      s.yaw += delta * Math.min(1, dt * 2.5);
+      s.pitch += (down - s.pitch) * Math.min(1, dt * 2);
+      t.since += dt;
+      if (t.since > 0.1) {
+        t.since = 0;
+        useStudio.getState().setTourAt(t.gone / t.total, seg);
+      }
+      if (t.gone >= t.total) {
+        s.tour = null;
+        useStudio.getState().setTourAt(1, seg);
+        useStudio.getState().stopTour();
+      }
+      camera.position.set(s.x, EYE, s.z);
+      camera.rotation.set(s.pitch, s.yaw, 0, "YXZ");
+      report(stage, camera.position);
+      return;
+    }
     const fx = -Math.sin(s.yaw);
     const fz = -Math.cos(s.yaw);
     let mx = 0;
@@ -587,6 +750,21 @@ export default function Scene3D() {
     WALL_TONES.find((t) => t.id === room.wallTone)?.hex ?? WALL_TONES[0].hex;
   const floor = FLOOR_TONES[room.floor as Floor] ?? FLOOR_TONES.Vinyl;
   const canDrag = a.tool === "select" && !a.focus;
+  // the pieces on the floor for the tour: a rug is walked over
+  const blocks: Block[] = a.focus
+    ? []
+    : a.shown
+        .filter((n) => !isRug(n))
+        .map((n) => {
+          const f = footprint(a.props.get(n.id)!);
+          const at = a.spots.get(n.id)!;
+          return {
+            x: -w / 2 + m(at.x + f.w / 2),
+            z: -d / 2 + m(at.y + f.d / 2),
+            w: m(f.w),
+            d: m(f.d),
+          };
+        });
   // a finger means a phone or a tablet: fewer pixels, no shadows unless
   // the View settings ask for them
   const coarse = useCoarse();
@@ -625,7 +803,7 @@ export default function Scene3D() {
         onPointerMissed={() => undefined}
       >
         {walk ? (
-          <Walker w={w} d={d} outline={outline} stage={stage} />
+          <Walker w={w} d={d} outline={outline} blocks={blocks} stage={stage} />
         ) : (
           <Rig angle={angle} w={w} d={d} h={h} stage={stage} />
         )}

@@ -521,3 +521,21 @@ export function SlidersIcon({ size = 16 }: IconProps) {
     </svg>
   );
 }
+
+export function RouteIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <circle cx="6" cy="19" r="2.5" />
+      <circle cx="18" cy="5" r="2.5" />
+      <path d="M8 17.5c4-1 2-6 6-7s4-4.5 2.5-5.5" />
+    </svg>
+  );
+}
+
+export function PlayIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <path d="M7 4.5v15l12-7.5z" />
+    </svg>
+  );
+}

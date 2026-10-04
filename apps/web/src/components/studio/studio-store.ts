@@ -17,7 +17,7 @@ import type { WheelMode } from "./input";
  * dragged: the sketch is left of it, the render right).
  */
 export type Mode = "edit" | "preview";
-export type Tool = "select" | "inspect" | "wall" | "measure";
+export type Tool = "select" | "inspect" | "wall" | "measure" | "tour";
 /** how the 3D room is looked at: edges on every piece, shadows (auto
     follows the pointer: off under a finger), names, a floor grid, and
     the light */
@@ -86,6 +86,13 @@ type StudioState = {
   /** what a plain wheel does on the plan: see input.ts */
   wheelMode: WheelMode;
   scene: SceneLook;
+  /** the tour is playing: the walk camera runs through the stops */
+  touring: boolean;
+  /** how far along, 0 to 1, which stop is next, and how many there are
+      on the path being walked (a round's corners count) */
+  tourAt: number;
+  tourStop: number;
+  tourOf: number;
   /** a product being dragged towards the room, from a tile or a card */
   carrying: Product | null;
   setMode: (mode: Mode) => void;
@@ -113,6 +120,10 @@ type StudioState = {
   fitPlan: () => void;
   setWheelMode: (wheelMode: WheelMode) => void;
   setScene: (patch: Partial<SceneLook>) => void;
+  /** play the tour: the 3D room comes up, walking, and the camera goes */
+  startTour: () => void;
+  stopTour: () => void;
+  setTourAt: (at: number, stop: number, of?: number) => void;
   setCarrying: (carrying: Product | null) => void;
 };
 
@@ -141,6 +152,10 @@ export const useStudio = create<StudioState>((set, get) => ({
   planPan: { x: 0, y: 0 },
   wheelMode: "auto",
   scene: SCENE_DEFAULT,
+  touring: false,
+  tourAt: 0,
+  tourStop: 0,
+  tourOf: 0,
   carrying: null,
   setMode: (mode) =>
     set((s) =>
@@ -154,11 +169,11 @@ export const useStudio = create<StudioState>((set, get) => ({
           }
         : { mode, preview: "idle", split: 0, loading: null },
     ),
-  // measuring is done on the plan: the tool brings the plan up, and
-  // leaving the plan puts the tool down
+  // measuring and placing the tour's stops are done on the plan: those
+  // tools bring the plan up, and leaving the plan puts them down
   setTool: (tool) =>
     set((s) =>
-      tool === "measure" && s.view !== "2d"
+      (tool === "measure" || tool === "tour") && s.view !== "2d"
         ? {
             tool,
             view: "2d",
@@ -179,13 +194,13 @@ export const useStudio = create<StudioState>((set, get) => ({
             walk: false,
             loading: "view",
             loadingAt: s.loadingAt + 1,
-            ...(view === "3d" && s.tool === "measure"
+            ...(view === "3d" && (s.tool === "measure" || s.tool === "tour")
               ? { tool: "select" as const }
               : {}),
           },
     ),
   setAngle: (angle) => set({ angle, walk: false }),
-  setWalk: (walk) => set({ walk }),
+  setWalk: (walk) => set(walk ? { walk } : { walk, touring: false }),
   setUiHidden: (uiHidden, at) =>
     set((s) => ({
       uiHidden,
@@ -237,5 +252,24 @@ export const useStudio = create<StudioState>((set, get) => ({
   fitPlan: () => set({ planZoom: 1, planPan: { x: 0, y: 0 } }),
   setWheelMode: (wheelMode) => set({ wheelMode }),
   setScene: (patch) => set((s) => ({ scene: { ...s.scene, ...patch } })),
+  startTour: () =>
+    set((s) => ({
+      touring: true,
+      tourAt: 0,
+      tourStop: 0,
+      walk: true,
+      tool: s.tool === "tour" ? "select" : s.tool,
+      ...(s.view === "3d"
+        ? {}
+        : {
+            view: "3d",
+            angle: ANGLES["3d"][0]!,
+            loading: "view",
+            loadingAt: s.loadingAt + 1,
+          }),
+    })),
+  stopTour: () => set({ touring: false }),
+  setTourAt: (tourAt, tourStop, tourOf) =>
+    set((s) => ({ tourAt, tourStop, tourOf: tourOf ?? s.tourOf })),
   setCarrying: (carrying) => set({ carrying }),
 }));

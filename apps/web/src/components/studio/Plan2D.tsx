@@ -34,7 +34,9 @@ import {
  * first corner closes the room; Escape forgets the corners so far. With
  * Measure on, a click sets one end and a click the other, the distance
  * in millimetres between them (and the run and rise when it is on the
- * slant); Escape clears it. The wheel zooms the sheet about the pointer
+ * slant); Escape clears it. With Tour on, a click sets a stop of the
+ * tour, numbered in order and joined by a dashed line; a click on a stop
+ * takes it away. The wheel zooms the sheet about the pointer
  * (a mouse) or scrolls it (a trackpad), a pinch zooms it on a trackpad
  * and under two fingers, dragging the sheet pans it, and Fit brings it
  * back. Under a finger the measure snaps to 100 mm.
@@ -122,6 +124,8 @@ export function Plan2D({
   const poly = outline.map((p) => p.join(",")).join(" ");
   const drawingOn = interactive && tool === "wall";
   const measuring = interactive && tool === "measure";
+  const touring = interactive && tool === "tour";
+  const stops = useRoom((s) => s.stops);
   // the planner's zones show on the sheet while something stands in them
   const { issues } = usePieceActions();
   const opening = {
@@ -204,6 +208,7 @@ export function Plan2D({
     const pt = mmOf(e);
     if (!pt) return;
     if (drawingOn) r.addCorner(pt);
+    else if (touring) r.addStop(pt);
     else if (measuring)
       setMeasure((m) =>
         !m.from || m.to
@@ -218,7 +223,7 @@ export function Plan2D({
   };
   // dragging the sheet pans it, from anywhere but a piece (those have
   // their own drags); two fingers pinch it and move it together
-  const canPan = interactive && !drawingOn && !measuring;
+  const canPan = interactive && !drawingOn && !measuring && !touring;
   const capture = (e: PointerEvent<HTMLDivElement>) => {
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
@@ -387,6 +392,7 @@ export function Plan2D({
         className="plan-svg"
         data-drawing={drawingOn}
         data-measuring={measuring}
+        data-touring={touring}
         viewBox={`${-MARGIN} ${-MARGIN} ${vw} ${vh}`}
         aria-label={`Plan of the ${ROOM_NAMES[r.room]}, ${W} by ${D} millimetres`}
         onClick={onPlanClick}
@@ -514,6 +520,39 @@ export function Plan2D({
                   i === 0 ? "plan-corner plan-corner-first" : "plan-corner"
                 }
               />
+            ))}
+          </g>
+        )}
+        {(touring || stops.length > 0) && (
+          <g className="plan-tour" data-on={touring}>
+            <polyline
+              points={stops.map((p) => p.join(",")).join(" ")}
+              className="plan-tour-line"
+            />
+            {stops.map(([x, y], i) => (
+              <g
+                key={i}
+                className="plan-stop"
+                role={touring ? "button" : undefined}
+                aria-label={touring ? `Take away stop ${i + 1}` : undefined}
+                tabIndex={touring ? 0 : undefined}
+                onClick={(e) => {
+                  if (!touring) return;
+                  e.stopPropagation();
+                  r.removeStop(i);
+                }}
+                onKeyDown={(e) => {
+                  if (touring && (e.key === "Enter" || e.key === " ")) {
+                    e.preventDefault();
+                    r.removeStop(i);
+                  }
+                }}
+              >
+                <circle cx={x} cy={y} r={130} />
+                <text x={x} y={y} dy={55}>
+                  {i + 1}
+                </text>
+              </g>
             ))}
           </g>
         )}

@@ -9,7 +9,7 @@ import {
   type Rules,
   type Wall,
 } from "./room-data";
-import { outlineFromCells } from "./room-geometry";
+import { insideOutline, outlineFromCells } from "./room-geometry";
 import { ROOM_TEMPLATES, type Point, type TemplateId } from "./room-templates";
 
 /** how the room's shape comes about: traced on the canvas, or picked */
@@ -20,6 +20,8 @@ type RoomConfig = {
   template: TemplateId;
   /** the squares tapped for a "Your shape" room, "x,y" each */
   cells: string[];
+  /** the tour's stops on the plan, mm, in the order they are walked */
+  stops: Point[];
   /** the corners traced so far on the plan, mm, until the room closes */
   drawing: Point[];
   /** the room's own outline once drawn and closed, mm */
@@ -62,6 +64,10 @@ type RoomState = RoomConfig & {
   setTemplate: (template: TemplateId) => void;
   /** tap a square into, or out of, a "Your shape" room */
   toggleCell: (x: number, y: number) => void;
+  /** a stop on the tour, if it is in the room */
+  addStop: (p: Point) => void;
+  removeStop: (i: number) => void;
+  clearStops: () => void;
   /** a corner on the plan; near the first one, with three or more, it closes */
   addCorner: (p: Point) => void;
   /** forget the drawing and the drawn room */
@@ -125,6 +131,7 @@ export const useRoom = create<RoomState>((set, get) => ({
   start: null,
   template: ROOM_TEMPLATES[0]!.id,
   cells: ["0,0", "1,0", "2,0", "0,1", "1,1", "2,1", "3,1", "4,1"],
+  stops: [],
   drawing: [],
   drawn: null,
   flat: "4-room",
@@ -167,6 +174,15 @@ export const useRoom = create<RoomState>((set, get) => ({
   resetRules: () => set({ rules: rulesFor(get().room) }),
   setStart: (start) => set({ start }),
   setTemplate: (template) => set({ template, start: "template", drawn: null }),
+  addStop: ([x, y]) =>
+    set((s) => {
+      const p: Point = [Math.round(x / 100) * 100, Math.round(y / 100) * 100];
+      return insideOutline(p[0], p[1], footprintOf(s))
+        ? { stops: [...s.stops, p] }
+        : {};
+    }),
+  removeStop: (i) => set((s) => ({ stops: s.stops.filter((_, k) => k !== i) })),
+  clearStops: () => set({ stops: [] }),
   toggleCell: (x, y) =>
     set((s) => {
       const key = `${x},${y}`;

@@ -565,7 +565,7 @@ test("the toolbar reads mode · select, add, wall · undo, guide, export", async
   );
   await expect(
     bar.getByRole("group", { name: "Tools" }).getByRole("button"),
-  ).toHaveText(["", "", "", ""]);
+  ).toHaveText(["", "", "", "", ""]);
   for (const gone of ["Move", "Rotate", "Note", "Share", "Draw wall"])
     await expect(bar.getByRole("button", { name: gone })).toHaveCount(0);
   await expect(bar.getByText("100%")).toHaveCount(0);
@@ -2749,4 +2749,64 @@ test("View settings: edges, names, a floor grid, shadows and the light, kept for
   await expect(stage).toHaveAttribute("data-light", "evening");
   await expect(stage).toHaveAttribute("data-grid", "true");
   await expect(stage).toHaveAttribute("data-labels", "false");
+});
+
+test("the tour: stops on the plan, Play walks the camera through them, Stop and Escape end it, a round when there are none", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  const tourTool = page.getByRole("button", { name: "Tour" });
+  await expect(tourTool).toBeVisible();
+  await page.keyboard.press("t");
+  const svg = page.locator(".shell-stage .plan-svg");
+  await expect(svg).toBeVisible();
+  await expect(tourTool).toHaveAttribute("aria-pressed", "true");
+  const strip = page.getByRole("group", { name: "Tour" });
+  await expect(strip).toContainText("No stops yet");
+  const box = (await svg.boundingBox())!;
+  const vw = 6500 + 2 * 1100;
+  const vh = 4000 + 2 * 1100;
+  const at = (x: number, y: number) => ({
+    x: box.x + ((x + 1100) / vw) * box.width,
+    y: box.y + ((y + 1100) / vh) * box.height,
+  });
+  const stops = svg.locator(".plan-stop");
+  for (const [x, y] of [
+    [800, 800],
+    [5600, 800],
+    [5600, 3200],
+  ]) {
+    const p = at(x!, y!);
+    await page.mouse.click(p.x, p.y);
+  }
+  await expect(stops).toHaveCount(3);
+  await expect(strip).toContainText("3 stops");
+  // a click past the walls sets nothing; a click on a stop takes it away
+  const outside = at(-600, 2000);
+  await page.mouse.click(outside.x, outside.y);
+  await expect(stops).toHaveCount(3);
+  await svg.getByRole("button", { name: "Take away stop 2" }).click();
+  await expect(stops).toHaveCount(2);
+  await expect(svg.locator(".plan-stop text").nth(1)).toHaveText("2");
+  // Play: the 3D room comes up walking, the camera goes, progress climbs
+  await strip.getByRole("button", { name: "Play" }).click();
+  const stage = page.locator(".shell-stage .stage-3d");
+  await expect(stage).toHaveAttribute("data-walk", "true");
+  const run = page.getByRole("status").filter({ hasText: /^Tour/ });
+  await expect(run).toBeVisible();
+  const bar = run.getByRole("progressbar", { name: "Tour" });
+  await page.waitForTimeout(1500);
+  expect(Number(await bar.getAttribute("aria-valuenow"))).toBeGreaterThan(0);
+  await run.getByRole("button", { name: "Stop the tour" }).click();
+  await expect(run).toHaveCount(0);
+  await expect(stage).toHaveAttribute("data-walk", "true");
+  // with the stops cleared, Play makes a round of the room; Escape ends it
+  await page.keyboard.press("t");
+  await strip.getByRole("button", { name: "Clear" }).click();
+  await expect(stops).toHaveCount(0);
+  await strip.getByRole("button", { name: "Play" }).click();
+  await expect(run).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(run).toHaveCount(0);
 });

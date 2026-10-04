@@ -102,7 +102,11 @@ with the Measure tool (two clicks, the distance in millimetres, the run
 and rise on a slant); the 3D room is three.js with furniture built from what
 each piece is (18 mm panel carcasses for Furnishes pieces), dragging with
 wall snap and clash outlines, a view cube that glides the camera, and a
-walk mode, and View settings (edges on every piece, the names, a floor
+walk mode, a tour (stops set on the plan, numbered and joined; Play
+walks the camera through them at a slow pace with its eye on the
+pieces, a progress bar and Stop; a round of the room clear of the
+pieces when there are no stops),
+and View settings (edges on every piece, the names, a floor
 grid, shadows, daylight or evening light), kept with the view. Preview
 runs a stand-in render with a before/after divider.
 
