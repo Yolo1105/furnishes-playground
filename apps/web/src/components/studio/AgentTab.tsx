@@ -4,7 +4,16 @@ import { CATEGORY_NAMES, pieceTotals, sgd } from "./assets-data";
 import { planOf, stageOf, STAGES, STARTERS, type Chip } from "./eva-brain";
 import { PREFERENCE_BLOCKS, PROMPTS } from "./eva-data";
 import { useEva } from "./eva-store";
-import { CartIcon, CheckIcon, LightbulbIcon, PlusIcon, TagIcon } from "./icons";
+import {
+  CartIcon,
+  CheckIcon,
+  CopyIcon,
+  LightbulbIcon,
+  PencilIcon,
+  PlusIcon,
+  TagIcon,
+  ThumbIcon,
+} from "./icons";
 import { usePieceActions } from "./piece-actions";
 import { footprint, LABEL_MAX } from "./piece-detail";
 import { metres, ROOM_NAMES } from "./room-data";
@@ -34,7 +43,9 @@ export function AgentTab() {
   const title = useEva(
     (s) => s.conversations.find((c) => c.id === activeId)?.title,
   );
-  const { send, settleProposal, pickChip } = useEva.getState();
+  const thinking = useEva((s) => s.thinking);
+  const offline = useEva((s) => s.offline);
+  const { send, settleProposal, pickChip, rate } = useEva.getState();
   const { addProduct, select } = useScene.getState();
   const { setShelfTab, setPanelTab } = useStudio.getState();
   const stage = usePieceActions();
@@ -266,6 +277,55 @@ export function AgentTab() {
                 )}
                 {m.text}
               </div>
+              <div
+                className="agent-acts"
+                role="group"
+                aria-label="Message actions"
+              >
+                <button
+                  type="button"
+                  className="agent-act shell-tip"
+                  data-tooltip="Copy"
+                  aria-label="Copy message"
+                  onClick={() => void navigator.clipboard?.writeText(m.text)}
+                >
+                  <CopyIcon size={12} />
+                </button>
+                {m.who === "you" ? (
+                  <button
+                    type="button"
+                    className="agent-act shell-tip"
+                    data-tooltip="Edit and resend"
+                    aria-label="Edit and resend"
+                    onClick={() => setDraft(m.text)}
+                  >
+                    <PencilIcon size={12} />
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="agent-act shell-tip"
+                      data-tooltip="Helpful"
+                      aria-label="Helpful"
+                      aria-pressed={m.rating === "up"}
+                      onClick={() => rate(m.id, "up")}
+                    >
+                      <ThumbIcon size={12} />
+                    </button>
+                    <button
+                      type="button"
+                      className="agent-act shell-tip"
+                      data-tooltip="Not helpful"
+                      aria-label="Not helpful"
+                      aria-pressed={m.rating === "down"}
+                      onClick={() => rate(m.id, "down")}
+                    >
+                      <ThumbIcon size={12} down />
+                    </button>
+                  </>
+                )}
+              </div>
               {m.proposals?.map((p, i) => {
                 const block = PREFERENCE_BLOCKS.find((b) => b.id === p.cat)!;
                 return (
@@ -361,6 +421,25 @@ export function AgentTab() {
               )}
             </div>
           ))}
+          {thinking && (
+            <div className="agent-turn" data-who="eva">
+              <div
+                className="agent-bubble agent-thinking"
+                data-who="eva"
+                aria-label="Eva is thinking"
+              >
+                <span />
+                <span />
+                <span />
+              </div>
+            </div>
+          )}
+          {offline && (
+            <p className="agent-offline">
+              No model is connected on this server, so Eva answers from the
+              room&apos;s facts and the catalogue.
+            </p>
+          )}
         </div>
       )}
 

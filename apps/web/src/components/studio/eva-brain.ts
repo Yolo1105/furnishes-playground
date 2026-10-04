@@ -306,7 +306,7 @@ export type Chip = {
   budget?: [number, number];
 };
 
-type Reply = {
+export type Reply = {
   text: string;
   proposals: Proposal[];
   cards: Recommendation[];

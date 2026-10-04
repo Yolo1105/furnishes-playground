@@ -1593,3 +1593,100 @@ test("projects: a new one starts clean, the first keeps its room, rename and del
   await page.getByRole("button", { name: /^Project, / }).click();
   await expect(page.getByRole("menuitem", { name: "Delete" })).toBeDisabled();
 });
+
+test("with a model connected Eva's answer comes through the route; the thumbs and edit work", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  // the route is stood in for: what a model would answer, in its shape
+  await page.route("**/api/chat", async (route) => {
+    const body = route.request().postDataJSON() as {
+      message: string;
+      context: { room: { id: string } };
+    };
+    expect(body.message).toBe("I want a calm Japandi living room");
+    expect(body.context.room.id).toBe("living");
+    await route.fulfill({
+      json: {
+        reply: {
+          text: "Calm it is. Two pieces would anchor the wall.",
+          proposals: [{ cat: "color", values: ["Warm neutrals"] }],
+          cards: [
+            {
+              product: {
+                id: "p-sideboard",
+                name: "Three-bay sideboard",
+                category: "storage",
+                price: 360,
+              },
+              why: "in keeping with Japandi · fits the 6.5 m wall",
+            },
+          ],
+          chips: [{ label: "Show me a bookwall", send: "Show me a bookwall" }],
+        },
+        model: "stand-in",
+      },
+    });
+  });
+  await page.goto("/rounded");
+  const agent = page.locator(".agent");
+  const box = page.getByRole("textbox", { name: "Message Eva" });
+  await box.fill("I want a calm Japandi living room");
+  await box.press("Enter");
+  await expect(
+    agent.locator(".agent-bubble[data-who='eva']").last(),
+  ).toHaveText("Calm it is. Two pieces would anchor the wall.");
+  await expect(
+    agent.getByRole("group", { name: "Colour preferences heard" }),
+  ).toBeVisible();
+  await expect(agent.locator(".agent-card")).toHaveCount(1);
+  await expect(
+    agent.getByRole("button", { name: "Show me a bookwall" }),
+  ).toBeVisible();
+  await expect(agent.locator(".agent-offline")).toHaveCount(0);
+  // a thumb stays lit; the same thumb again takes it off
+  const up = agent.getByRole("button", { name: "Helpful" }).last();
+  await up.click();
+  await expect(up).toHaveAttribute("aria-pressed", "true");
+  await up.click();
+  await expect(up).toHaveAttribute("aria-pressed", "false");
+  // edit and resend puts the words back in the box
+  await agent.getByRole("button", { name: "Edit and resend" }).first().click();
+  await expect(box).toHaveValue("I want a calm Japandi living room");
+});
+
+test("without a model the route says so and Eva answers from the rules, once noted", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  const res = await page.request.post("/api/chat", {
+    data: {
+      message: "hi",
+      thread: [],
+      context: {
+        room: {
+          id: "living",
+          flat: "4-room",
+          width: 6500,
+          depth: 4000,
+          height: 2600,
+          sized: false,
+        },
+        pieces: [],
+        cart: [],
+        prefs: {},
+        exploration: false,
+      },
+    },
+  });
+  expect(res.status()).toBe(503);
+  expect(await res.json()).toEqual({ fallback: true, reason: "no-key" });
+  const bad = await page.request.post("/api/chat", { data: { nope: 1 } });
+  expect(bad.status()).toBe(400);
+  const box = page.getByRole("textbox", { name: "Message Eva" });
+  await box.fill("What fits along a 3 m wall?");
+  await box.press("Enter");
+  await expect(page.locator(".agent-bubble[data-who='eva']")).toHaveCount(1);
+  await expect(page.locator(".agent-offline")).toBeVisible();
+});

@@ -36,6 +36,10 @@ export type Message = {
   cards?: { product: Product; why: string }[];
   /** what can be said or done next */
   chips?: Chip[];
+  /** whether a model answered, or the studio's own rules */
+  source?: "model" | "rules";
+  /** a thumb up or down on one of Eva's answers */
+  rating?: "up" | "down";
 };
 
 /** what Eva can be asked first; each goes into the input box */
@@ -202,6 +206,16 @@ export const FURNITURE = [
   "Wardrobe",
   "Bedside",
 ] as const;
+
+/** the fixed options of each block that takes chips */
+export const CUSTOM_OPTIONS: Partial<
+  Record<PreferenceCategory, readonly string[]>
+> = {
+  room: ROOMS,
+  style: STYLES,
+  color: SWATCHES.map((s) => s.name),
+  furniture: FURNITURE,
+};
 
 /** budget slider: S$, in steps */
 export const BUDGET = { min: 500, max: 10000, step: 250 } as const;

@@ -401,6 +401,27 @@ export function RotateIcon({ size = 16 }: IconProps) {
   );
 }
 
+export function CopyIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <rect x="9" y="9" width="11" height="11" rx="2" />
+      <path d="M5 15V6a2 2 0 0 1 2-2h9" />
+    </svg>
+  );
+}
+
+export function ThumbIcon({
+  size = 16,
+  down = false,
+}: IconProps & { down?: boolean }) {
+  return (
+    <svg {...svg(size)} style={down ? { transform: "scaleY(-1)" } : undefined}>
+      <path d="M7 11v9H4a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3z" />
+      <path d="M7 11l4-7a2.5 2.5 0 0 1 2.5 2.5V10h5a2 2 0 0 1 2 2.3l-1 6A2 2 0 0 1 17.5 20H7" />
+    </svg>
+  );
+}
+
 export function MoreIcon({ size = 16 }: IconProps) {
   return (
     <svg {...svg(size)}>

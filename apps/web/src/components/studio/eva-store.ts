@@ -6,7 +6,14 @@ import {
   type PreferenceCategory,
 } from "./eva-data";
 import { sgd } from "./assets-data";
-import { recommend, reply, type Chip, type Context } from "./eva-brain";
+import {
+  recommend,
+  reply,
+  type Chip,
+  type Context,
+  type Reply,
+} from "./eva-brain";
+import { CUSTOM_OPTIONS } from "./eva-data";
 import { useRoom } from "./room-store";
 import { useScene } from "./scene-store";
 import { useStudio } from "./studio-store";
@@ -30,6 +37,11 @@ type EvaState = {
       anything, instead of narrowing to what they say */
   exploration: boolean;
   activeId: string | null;
+  /** Eva is answering (the route is being asked) */
+  thinking: boolean;
+  /** no model is connected on this server: the rules answer, and the
+      Agent tab says so once */
+  offline: boolean;
   preferences: Partial<Record<PreferenceCategory, PreferenceValue>>;
   /** options typed in by hand, per block, up to CUSTOM_MAX */
   custom: Partial<Record<PreferenceCategory, string[]>>;
@@ -47,9 +59,11 @@ type EvaState = {
   setExploration: (on: boolean) => void;
   /** start a conversation and make it the open one */
   newConversation: () => string;
-  /** say something in the open conversation (a new one if none): Eva
-      answers from what she has read, until she is wired to think */
-  send: (text: string, image?: string) => void;
+  /** say something in the open conversation (a new one if none): the
+      model answers when one is connected, the rules otherwise */
+  send: (text: string, image?: string) => Promise<void>;
+  /** a thumb on one of Eva's answers; the same thumb again takes it off */
+  rate: (msgId: string, rating: "up" | "down") => void;
   /** take up, or set aside, a preference Eva heard */
   settleProposal: (msgId: string, i: number, take: boolean) => void;
   /** a chip under one of Eva's messages: say it, or do it */
@@ -90,6 +104,8 @@ export const useEva = create<EvaState>((set, get) => ({
   conversations: seed,
   messages: {},
   draft: "",
+  thinking: false,
+  offline: false,
   exploration: false,
   activeId: seed[0]?.id ?? null,
   preferences: {
@@ -109,25 +125,17 @@ export const useEva = create<EvaState>((set, get) => ({
     set((s) => ({ conversations: [c, ...s.conversations], activeId: c.id }));
     return c.id;
   },
-  send: (text, image) => {
+  send: async (text, image) => {
     const body = text.trim();
     if (!body && !image) return;
     const id = get().activeId ?? get().newConversation();
     const now = Date.now();
     const you: Message = { id: nextId("m"), who: "you", text: body, at: now };
     if (image) you.image = image;
-    const r = reply(body || `the picture ${image}`, contextOf(get()));
-    const eva: Message = {
-      id: nextId("m"),
-      who: "eva",
-      text: r.text,
-      at: now + 1,
-      ...(r.proposals.length ? { proposals: r.proposals } : {}),
-      ...(r.cards.length ? { cards: r.cards } : {}),
-      ...(r.chips.length ? { chips: r.chips } : {}),
-    };
+    const asked = body || `the picture ${image}`;
     set((s) => ({
-      messages: { ...s.messages, [id]: [...(s.messages[id] ?? []), you, eva] },
+      thinking: true,
+      messages: { ...s.messages, [id]: [...(s.messages[id] ?? []), you] },
       conversations: s.conversations.map((c) =>
         c.id === id
           ? {
@@ -143,6 +151,58 @@ export const useEva = create<EvaState>((set, get) => ({
           : c,
       ),
     }));
+    const ctx = contextOf(get());
+    const thread = (get().messages[id] ?? [])
+      .slice(-9, -1)
+      .map((m) => ({ who: m.who, text: m.text }));
+    let r: Reply;
+    let source: Message["source"] = "rules";
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ message: asked, thread, context: ctx }),
+      });
+      if (res.ok) {
+        r = ((await res.json()) as { reply: Reply }).reply;
+        source = "model";
+      } else {
+        if (res.status === 503) set({ offline: true });
+        r = reply(asked, ctx);
+      }
+    } catch {
+      r = reply(asked, ctx);
+    }
+    const eva: Message = {
+      id: nextId("m"),
+      who: "eva",
+      text: r.text,
+      at: Date.now(),
+      source,
+      ...(r.proposals.length ? { proposals: r.proposals } : {}),
+      ...(r.cards.length ? { cards: r.cards } : {}),
+      ...(r.chips.length ? { chips: r.chips } : {}),
+    };
+    set((s) => ({
+      thinking: false,
+      messages: { ...s.messages, [id]: [...(s.messages[id] ?? []), eva] },
+    }));
+  },
+  rate: (msgId, rating) => {
+    const { activeId } = get();
+    if (!activeId) return;
+    set((s) => ({
+      messages: {
+        ...s.messages,
+        [activeId]: (s.messages[activeId] ?? []).map((m) => {
+          if (m.id !== msgId) return m;
+          const next = { ...m };
+          if (m.rating === rating) delete next.rating;
+          else next.rating = rating;
+          return next;
+        }),
+      },
+    }));
   },
   settleProposal: (msgId, i, take) => {
     const { activeId, messages } = get();
@@ -154,7 +214,12 @@ export const useEva = create<EvaState>((set, get) => ({
       if (p.budget) get().setBudget(p.budget[0], p.budget[1]);
       else {
         const multi = p.cat !== "room";
-        for (const v of p.values) get().toggleValue(p.cat, v, multi);
+        for (const v of p.values) {
+          const known = (CUSTOM_OPTIONS[p.cat] ?? []).includes(v);
+          if (known || p.cat === "color" || p.cat === "furniture")
+            get().toggleValue(p.cat, v, multi);
+          else get().addCustom(p.cat, v, multi);
+        }
       }
     }
     set((s) => ({
