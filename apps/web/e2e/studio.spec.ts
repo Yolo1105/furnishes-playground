@@ -1301,6 +1301,11 @@ test("Checkout reads the order back and hands over the list", async ({
   const csv = page.waitForEvent("download");
   await dialog.getByRole("button", { name: "Download the list" }).click();
   expect((await csv).suggestedFilename()).toMatch(/shopping-list\.csv$/);
+  // the list is a side door; the order itself goes on to delivery
+  await expect(
+    dialog.getByRole("button", { name: "Continue to delivery" }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
 });
 
@@ -1311,7 +1316,7 @@ test("the gear opens Settings, the shortcuts and Help; keys drive the tools", as
   await page.goto("/rounded");
   await page.getByRole("button", { name: "Settings" }).click();
   const menu = page.getByRole("menu");
-  await expect(menu.getByRole("menuitem")).toHaveCount(3);
+  await expect(menu.getByRole("menuitem")).toHaveCount(4);
   await expect(menu.getByRole("menuitem", { name: /Sign out/ })).toHaveCount(0);
   await menu.getByRole("menuitem", { name: "Settings" }).click();
   const settings = page.getByRole("dialog", { name: "Settings" });
@@ -1830,4 +1835,67 @@ test("the quizzes work a result out and hand it to Eva as proposals", async ({
   await expect(
     page.locator(".agent").getByRole("group", { name: "Budget range heard" }),
   ).toBeVisible();
+});
+
+test("an order is placed with a delivery address, waits for payment, is listed and can be cancelled", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  const pieces = top.filter((a) => a.kind === "piece");
+  const first = pieces[0]!;
+  const card = page.locator(`.shelf-card[data-id="${first.id}"]`);
+  await card.hover();
+  await card
+    .getByRole("button", { name: `Add ${first.name} to the cart` })
+    .click();
+  await page.getByRole("tab", { name: /^Cart/ }).click();
+  await page.getByRole("button", { name: "Checkout" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "Continue to delivery" }).click();
+  // the address is checked: a bad postal code and phone are named
+  await dialog.getByRole("textbox", { name: "Recipient" }).fill("Mei Lin");
+  await dialog
+    .getByRole("textbox", { name: "Address" })
+    .fill("Blk 123 Bedok North Ave 3 #05-67");
+  await dialog.getByRole("textbox", { name: "Postal code" }).fill("12");
+  await dialog.getByRole("textbox", { name: "Phone" }).fill("123");
+  await dialog.getByRole("button", { name: /^Place order/ }).click();
+  await expect(dialog.getByText("Six digits")).toBeVisible();
+  await expect(dialog.getByText("A Singapore number, 8 digits")).toBeVisible();
+  await dialog.getByRole("textbox", { name: "Postal code" }).fill("460123");
+  await dialog.getByRole("textbox", { name: "Phone" }).fill("9123 4567");
+  await dialog.getByRole("button", { name: /^Place order/ }).click();
+  // placed: an order number, awaiting payment, the honest note; the cart empties
+  await expect(dialog.locator(".order-placed")).toContainText("FN-");
+  await expect(dialog.locator(".order-status")).toHaveText("Awaiting payment");
+  await expect(
+    dialog.getByText("Payment is not connected on this server"),
+  ).toBeVisible();
+  await dialog.getByRole("button", { name: "Done" }).click();
+  await expect(page.getByRole("tab", { name: /^Cart/ })).toHaveText("Cart0");
+  await page.getByRole("tab", { name: /^Saved/ }).click();
+  await expect(card).toHaveAttribute("data-ordered", "true");
+  await expect(
+    card.getByRole("button", { name: `${first.name} is ordered` }),
+  ).toBeDisabled();
+  // the route itself says offline
+  const res = await page.request.post("/api/checkout", {
+    data: { orderId: "FN-TEST", total: 540, currency: "SGD" },
+  });
+  expect((await res.json()).mode).toBe("offline");
+  // under the gear: Orders lists it; Cancel takes it back; it survives a reload
+  await page.getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("menuitem", { name: "Orders" }).click();
+  const orders = page.getByRole("dialog", { name: "Orders" });
+  await expect(orders.locator(".order")).toHaveCount(1);
+  await expect(orders.locator(".order")).toContainText(first.name);
+  await page.keyboard.press("Escape");
+  await page.reload();
+  await page.getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("menuitem", { name: "Orders" }).click();
+  await orders.getByRole("button", { name: "Cancel order" }).click();
+  await expect(orders.locator(".order-status")).toHaveText("Cancelled");
+  await page.keyboard.press("Escape");
+  await expect(card).toHaveAttribute("data-ordered", "false");
 });

@@ -1234,3 +1234,109 @@ body > .shell-menu {
   font-weight: 400;
   color: rgb(from var(--color-ink) r g b / 0.55);
 }
+
+/* ---- orders: the delivery form, the placed note, the ledger ---- */
+.order-form {
+  display: grid;
+  gap: 10px;
+}
+.order-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.order-field {
+  display: grid;
+  gap: 4px;
+}
+.order-field .room-dim-input {
+  padding-right: 8px;
+}
+.order-hint {
+  font-size: 11px;
+  color: var(--color-accent);
+}
+.order-note {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: rgb(from var(--color-ink) r g b / 0.6);
+}
+.order-placed {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  font-size: 13.5px;
+  color: var(--color-ink);
+}
+.order-placed svg {
+  color: var(--color-accent);
+}
+.order-status {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--r-chip);
+  font-size: 11px;
+  font-weight: 600;
+  background: rgb(from var(--color-ink) r g b / 0.06);
+  color: rgb(from var(--color-ink) r g b / 0.65);
+}
+.order-status[data-status="pending_payment"] {
+  background: rgb(from var(--color-accent) r g b / 0.1);
+  color: var(--color-accent);
+}
+.order-status[data-status="paid"],
+.order-status[data-status="fulfilled"] {
+  background: rgb(from var(--color-accent) r g b / 0.14);
+  color: var(--color-accent);
+}
+.order-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+.order {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: var(--r-card);
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgb(from var(--color-line) r g b / 0.14);
+}
+.order[data-status="cancelled"] {
+  opacity: 0.6;
+}
+.order-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.order-id {
+  font-weight: 700;
+  color: var(--color-ink);
+}
+.order-when {
+  margin-left: auto;
+  font-size: 11.5px;
+  color: rgb(from var(--color-ink) r g b / 0.5);
+}
+.order-lines,
+.order-to {
+  margin: 0;
+  font-size: 12px;
+  color: rgb(from var(--color-ink) r g b / 0.7);
+}
+.order-cancel {
+  justify-self: start;
+  margin-top: 4px;
+  height: 28px;
+  font-size: 12px;
+}
+.shelf-card[data-ordered="true"] .shelf-card-cart {
+  opacity: 1;
+  cursor: default;
+  background: rgb(from var(--color-accent) r g b / 0.14);
+  color: var(--color-accent);
+}

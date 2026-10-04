@@ -39,6 +39,8 @@ type SceneState = {
   addProduct: (p: Product) => string;
   select: (id: string | null, reveal?: boolean) => void;
   toggleCart: (id: string) => void;
+  /** the cart after an order: empty (not a step to undo) */
+  clearCart: () => void;
   /** label a piece for Eva, or take the label off; a sixth is refused */
   toggleLabel: (id: string) => void;
   setProps: (id: string, patch: Partial<PieceProps>) => void;
@@ -131,6 +133,7 @@ export const useScene = create<SceneState>((set, get) => {
         selectedAt: s.selectedAt + 1,
         revealAt: reveal ? s.revealAt + 1 : s.revealAt,
       })),
+    clearCart: () => set({ cart: [] }),
     toggleCart: (id) =>
       set((s) => ({
         cart: s.cart.includes(id)

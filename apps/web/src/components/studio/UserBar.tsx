@@ -5,7 +5,8 @@ import { usePathname } from "next/navigation";
 import { useRef, useState } from "react";
 import { Dialog } from "./Dialog";
 import { useGuide } from "./guide-store";
-import { GearIcon, HelpIcon, KeyboardIcon } from "./icons";
+import { CartIcon, GearIcon, HelpIcon, KeyboardIcon } from "./icons";
+import { OrdersDialog } from "./OrdersDialog";
 import { SHORTCUTS } from "./shortcuts";
 import { useDismiss } from "./useDismiss";
 
@@ -15,7 +16,7 @@ import { useDismiss } from "./useDismiss";
  * (the tour again). The name is a placeholder until accounts land, so
  * there is nothing to sign out of yet.
  */
-type Sheet = "settings" | "keys" | null;
+type Sheet = "settings" | "keys" | "orders" | null;
 
 export function UserBar({
   name = "Studio User",
@@ -74,6 +75,14 @@ export function UserBar({
             type="button"
             role="menuitem"
             className="shell-menu-row"
+            onClick={() => pick(() => setSheet("orders"))}
+          >
+            <CartIcon /> Orders
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="shell-menu-row"
             onClick={() => pick(() => setSheet("keys"))}
           >
             <KeyboardIcon /> Keyboard shortcuts
@@ -92,6 +101,7 @@ export function UserBar({
         <SettingsDialog onClose={() => setSheet(null)} />
       )}
       {sheet === "keys" && <ShortcutsDialog onClose={() => setSheet(null)} />}
+      {sheet === "orders" && <OrdersDialog onClose={() => setSheet(null)} />}
     </div>
   );
 }

@@ -15,6 +15,7 @@ import { ViewCube } from "./ViewCube";
 import { carriesProduct, readProductDrag } from "./dnd";
 import { useScene } from "./scene-store";
 import { other, useStudio } from "./studio-store";
+import { useOrdersSync } from "./order-store";
 import { useProjectSync } from "./project-store";
 import { ProjectSwitcher } from "./ProjectSwitcher";
 import { useShortcuts } from "./shortcuts";
@@ -54,6 +55,7 @@ export function StudioShell({
   useInputMode();
   useArrival();
   useProjectSync();
+  useOrdersSync();
   const [keys, setKeys] = useState(false);
   useShortcuts(() => setKeys(true));
   const [open, setOpen] = useState<Drawer>(null);
