@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { AssetNode } from "./assets-data";
 import { footprint, LABEL_MAX, turned } from "./piece-detail";
+import { healthOf, type Issue } from "./room-health";
 import { clashesOf, layoutRoom } from "./room-layout";
 import { useRoom } from "./room-store";
 import { propsOf, useScene, useTopLevel } from "./scene-store";
@@ -27,6 +28,8 @@ export function usePieceActions() {
   const [actionsFor, setActionsFor] = useState<string | null>(null);
   const W = useRoom((s) => s.width);
   const D = useRoom((s) => s.depth);
+  const door = useRoom((s) => s.door);
+  const window_ = useRoom((s) => s.window);
 
   // what stands on the stage: the pieces and the room items, never the
   // architecture (that is the room itself); a hidden piece keeps its
@@ -35,7 +38,7 @@ export function usePieceActions() {
   const props = new Map(pieces.map((n) => [n.id, propsOf(n, overrides)]));
   const spots = new Map(
     layoutRoom(
-      pieces.map((n) => props.get(n.id)!),
+      pieces.map((n) => ({ ...props.get(n.id)!, name: n.name })),
       W,
       D,
     ).map((s, i) => [pieces[i]!.id, s]),
@@ -44,6 +47,25 @@ export function usePieceActions() {
   const shown = focus
     ? [focus]
     : pieces.filter((n) => !props.get(n.id)!.hidden);
+  const issues: Issue[] = healthOf(
+    pieces
+      .filter((n) => !props.get(n.id)!.hidden)
+      .map((n) => {
+        const p = props.get(n.id)!;
+        const f = footprint(p);
+        const s = spots.get(n.id)!;
+        return {
+          id: n.id,
+          name: n.name,
+          x: s.x,
+          y: s.y,
+          w: f.w,
+          d: f.d,
+          h: p.height,
+        };
+      }),
+    { W, D, door, window: window_ },
+  );
   const clashes = clashesOf(
     pieces
       .filter((n) => !props.get(n.id)!.hidden)
@@ -87,6 +109,10 @@ export function usePieceActions() {
     spots,
     /** the pieces standing over another */
     clashes,
+    /** the planner's findings, each with a Fix where one exists */
+    issues,
+    /** move a piece to its Fix, one undo step */
+    fix: (i: Issue) => i.fix && setProps(i.pieceId, i.fix),
     room: { W, D },
     selectedId,
     tool,

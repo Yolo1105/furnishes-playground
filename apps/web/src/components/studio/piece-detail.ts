@@ -63,8 +63,32 @@ const SIZES: Record<AssetCategory, [number, number, number]> = {
   architecture: [1000, 100, 2600],
 };
 
+/** typical mm by what the piece is called, before its category's size */
+const SIZES_BY_NAME: [RegExp, [number, number, number]][] = [
+  [/armchair/i, [800, 850, 800]],
+  [/sofa/i, [1800, 900, 800]],
+  [/bench/i, [1200, 400, 450]],
+  [/coffee table/i, [1000, 600, 420]],
+  [/cart|trolley/i, [600, 450, 750]],
+  [/island/i, [1200, 700, 900]],
+  [/floor lamp/i, [300, 300, 1500]],
+  [/desk lamp/i, [200, 200, 450]],
+  [/plant/i, [400, 400, 900]],
+  [/vase/i, [200, 200, 350]],
+  [/rug/i, [1600, 1200, 15]],
+  [/screen/i, [1500, 300, 1700]],
+  [/bedside/i, [450, 400, 550]],
+  [/coat stand/i, [400, 400, 1750]],
+];
+
+/** a rug lies under things; a small item (a lamp, a vase) is no obstacle */
+export const isRug = (n: Pick<AssetNode, "name">) => /rug/i.test(n.name);
+export const isSmall = (p: Pick<PieceProps, "width" | "depth">) =>
+  Math.max(p.width, p.depth) < 500;
+
 export const defaultProps = (n: AssetNode): PieceProps => {
-  const [width, depth, height] = SIZES[n.category];
+  const [width, depth, height] =
+    SIZES_BY_NAME.find(([re]) => re.test(n.name))?.[1] ?? SIZES[n.category];
   return {
     colour: "oak",
     texture: "Matte",

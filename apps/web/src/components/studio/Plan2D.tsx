@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, type MouseEvent, type ReactNode } from "react";
 import { OPENINGS, ROOM_NAMES, type Wall } from "./room-data";
+import { usePieceActions } from "./piece-actions";
+import { zonesOf } from "./room-health";
 import { CLOSE_WITHIN, footprintOf, useRoom } from "./room-store";
 import { useStudio } from "./studio-store";
 
@@ -79,6 +81,11 @@ export function Plan2D({
   const outline = footprintOf(r);
   const poly = outline.map((p) => p.join(",")).join(" ");
   const drawingOn = interactive && tool === "wall";
+  // the planner's zones show on the sheet while something stands in them
+  const { issues } = usePieceActions();
+  const zones = zonesOf({ W, D, door: r.door, window: r.window });
+  const doorBlocked = issues.some((i) => i.kind === "door");
+  const windowBlocked = issues.some((i) => i.kind === "window");
 
   useEffect(() => {
     if (!drawingOn) return;
@@ -258,6 +265,25 @@ export function Plan2D({
           </text>
         </g>
 
+        {/* the door's swing and the window's light, while something stands in them */}
+        {doorBlocked && (
+          <rect
+            className="plan-zone"
+            x={zones.door.x}
+            y={zones.door.y}
+            width={zones.door.w}
+            height={zones.door.d}
+          />
+        )}
+        {windowBlocked && (
+          <rect
+            className="plan-zone"
+            x={zones.window.x}
+            y={zones.window.y}
+            width={zones.window.w}
+            height={zones.window.d}
+          />
+        )}
         {/* the corners set so far, and the line between them */}
         {r.drawing.length > 0 && (
           <g className="plan-drawing">

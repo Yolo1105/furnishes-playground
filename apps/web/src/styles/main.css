@@ -1518,6 +1518,14 @@
   text-anchor: middle;
   pointer-events: none;
 }
+/* a zone the planner wants clear, shown while something stands in it */
+.plan-zone {
+  fill: rgb(from var(--color-accent) r g b / 0.08);
+  stroke: var(--color-accent);
+  stroke-width: 12;
+  stroke-dasharray: 80 60;
+  pointer-events: none;
+}
 /* drawing walls: the corners set so far and the line between them */
 .plan-drawing-line {
   fill: none;

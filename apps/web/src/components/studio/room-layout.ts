@@ -1,53 +1,83 @@
-import { footprint, type PieceProps } from "./piece-detail";
+import { footprint, isRug, isSmall, type PieceProps } from "./piece-detail";
+import { WALKWAY } from "./room-health";
 
 /**
- * Where the pieces stand: a piece placed by hand stands where it was put;
- * the rest stand in rows along the room, each after the last with a gap
- * between, a new row when the wall is reached. Everything in millimetres
- * of the room; the plan and the 3D view both read this, so a piece
- * stands in the same place in each.
+ * Where the pieces stand: a piece placed by hand stands where it was
+ * put; the rest are laid out. Pieces of any size go in rows along the
+ * room, a walkway apart, a new row when the wall is reached; small
+ * things (lamps, vases, plants) and rugs then take the first clear spot
+ * on a coarse grid, since they are no obstacle to walking. Everything in
+ * millimetres of the room; the plan and the 3D view both read this, so
+ * a piece stands in the same place in each.
  */
 const MARGIN = 250;
-const GAP = 200;
+const GRID = 100;
 
-type Spot = { x: number; y: number };
+export type Spot = { x: number; y: number };
+
+type Rect = { x: number; y: number; w: number; d: number };
+const meets = (a: Rect, b: Rect) =>
+  a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.d && b.y < a.y + a.d;
 
 export const layoutRoom = (
-  items: readonly PieceProps[],
+  items: readonly (PieceProps & { name: string })[],
   W: number,
   D: number,
 ): Spot[] => {
   const spots: (Spot | null)[] = items.map((p) =>
     p.x !== undefined && p.y !== undefined ? { x: p.x, y: p.y } : null,
   );
+  const taken: Rect[] = items.flatMap((p, i) =>
+    spots[i] ? [{ ...spots[i]!, ...sizeOf(p) }] : [],
+  );
+  // the rows
   let x = MARGIN;
   let y = MARGIN;
   let rowDepth = 0;
-  const rows: number[] = [];
   items.forEach((p, i) => {
-    if (spots[i]) return;
+    if (spots[i] || isSmall(p) || isRug(p)) return;
     const f = footprint(p);
     if (x > MARGIN && x + f.w > W - MARGIN) {
       x = MARGIN;
-      y += rowDepth + GAP;
+      y += rowDepth + WALKWAY;
       rowDepth = 0;
     }
     spots[i] = { x, y };
-    rows.push(i);
-    x += f.w + GAP;
+    taken.push({ x, y, w: f.w, d: f.d });
+    x += f.w + WALKWAY;
     rowDepth = Math.max(rowDepth, f.d);
   });
-  // a room too small for its rows still shows everything: the rows are
-  // squeezed into the depth
-  const used = y + rowDepth + MARGIN;
-  if (used > D && rows.length) {
-    const k = (D - 2 * MARGIN) / Math.max(1, used - 2 * MARGIN);
-    for (const i of rows) {
-      const s = spots[i]!;
-      spots[i] = { x: s.x, y: MARGIN + (s.y - MARGIN) * k };
+  // the small things and the rugs: the first clear spot, reading the
+  // room like a page
+  items.forEach((p, i) => {
+    if (spots[i]) return;
+    const f = footprint(p);
+    const gap = isRug(p) ? 0 : GRID;
+    search: for (let gy = MARGIN; gy + f.d <= D - MARGIN; gy += GRID)
+      for (let gx = MARGIN; gx + f.w <= W - MARGIN; gx += GRID) {
+        const r = {
+          x: gx - gap,
+          y: gy - gap,
+          w: f.w + 2 * gap,
+          d: f.d + 2 * gap,
+        };
+        if (!taken.some((t) => meets(r, t))) {
+          spots[i] = { x: gx, y: gy };
+          taken.push({ x: gx, y: gy, w: f.w, d: f.d });
+          break search;
+        }
+      }
+    if (!spots[i]) {
+      spots[i] = { x: MARGIN, y: MARGIN };
+      taken.push({ x: MARGIN, y: MARGIN, w: f.w, d: f.d });
     }
-  }
+  });
   return spots as Spot[];
+};
+
+const sizeOf = (p: PieceProps) => {
+  const f = footprint(p);
+  return { w: f.w, d: f.d };
 };
 
 /** within this of a wall a dragged piece goes flush to it, mm */

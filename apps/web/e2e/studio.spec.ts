@@ -1899,3 +1899,76 @@ test("an order is placed with a delivery address, waits for payment, is listed a
   await page.keyboard.press("Escape");
   await expect(card).toHaveAttribute("data-ordered", "false");
 });
+
+test("the planner's rules: the door's swing, the window, a walkway, each with a Fix", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  await page.getByRole("button", { name: "Show 2D plan in main" }).click();
+  const health = page
+    .locator(".agent")
+    .getByRole("list", { name: "Room health" });
+  await expect(health).toHaveCount(0);
+  const first = top.filter((a) => a.kind === "piece")[0]!;
+  await page.getByRole("treeitem", { name: first.name, exact: true }).click();
+  await page.getByRole("tab", { name: "Detail", exact: true }).click();
+  const x = page.getByRole("spinbutton", {
+    name: `${first.name} from the west wall in millimetres`,
+  });
+  const y = page.getByRole("spinbutton", {
+    name: `${first.name} from the north wall in millimetres`,
+  });
+  // into the door's swing (the door is on the south wall, in its middle)
+  await x.fill("2800");
+  await x.press("Tab");
+  await y.fill("3500");
+  await y.press("Tab");
+  await expect(health).toContainText(`${first.name} blocks the door's swing`);
+  await expect(page.locator(".plan-zone")).toHaveCount(1);
+  await health.getByRole("button", { name: /^Fix: .*door/ }).click();
+  await expect(health.getByText(/blocks the door/)).toHaveCount(0);
+  await expect(page.locator(".plan-zone")).toHaveCount(0);
+  // tall, in front of the window (north wall, middle)
+  const h = page.getByRole("spinbutton", {
+    name: `${first.name} height in millimetres`,
+  });
+  await h.fill("1500");
+  await h.press("Tab");
+  await x.fill("2650");
+  await x.press("Tab");
+  await y.fill("0");
+  await y.press("Tab");
+  await expect(health).toContainText(`${first.name} blocks the window`);
+  await health.getByRole("button", { name: /^Fix: .*window/ }).click();
+  await expect(health.getByText(/blocks the window/)).toHaveCount(0);
+  // too close to a neighbour for a walkway: 300 mm between two pieces
+  const second = top.filter((a) => a.kind === "piece")[1]!;
+  await page.getByRole("tab", { name: "Assets", exact: true }).click();
+  await page.getByRole("treeitem", { name: second.name, exact: true }).click();
+  await page.getByRole("tab", { name: "Detail", exact: true }).click();
+  const sx = page.getByRole("spinbutton", {
+    name: `${second.name} from the west wall in millimetres`,
+  });
+  const sy = page.getByRole("spinbutton", {
+    name: `${second.name} from the north wall in millimetres`,
+  });
+  await sx.fill("2000");
+  await sx.press("Tab");
+  await sy.fill("2600");
+  await sy.press("Tab");
+  await page.getByRole("tab", { name: "Assets", exact: true }).click();
+  await page.getByRole("treeitem", { name: first.name, exact: true }).click();
+  await page.getByRole("tab", { name: "Detail", exact: true }).click();
+  await x.fill("3500");
+  await x.press("Tab");
+  await y.fill("2600");
+  await y.press("Tab");
+  const pair = new RegExp(
+    `Only 300 mm between (${second.name} and ${first.name}|${first.name} and ${second.name})`,
+  );
+  const row = health.locator("li", { hasText: pair });
+  await expect(row).toHaveCount(1);
+  await row.getByRole("button", { name: /^Fix/ }).click();
+  await expect(health.locator("li", { hasText: pair })).toHaveCount(0);
+});

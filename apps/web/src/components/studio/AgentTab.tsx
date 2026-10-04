@@ -15,7 +15,7 @@ import {
   ThumbIcon,
 } from "./icons";
 import { usePieceActions } from "./piece-actions";
-import { footprint, LABEL_MAX } from "./piece-detail";
+import { LABEL_MAX } from "./piece-detail";
 import { metres, ROOM_NAMES } from "./room-data";
 import { useRoom } from "./room-store";
 import { useScene, useTopLevel } from "./scene-store";
@@ -71,30 +71,8 @@ export function AgentTab() {
   const at = stageOf(ctx);
   const inRoom = new Set(items.map((n) => n.name));
 
-  // the room's health: pieces standing over each other, or past a wall
-  const warnings: string[] = [];
-  const boxes = stage.pieces
-    .filter((n) => !stage.props.get(n.id)!.hidden)
-    .map((n) => {
-      const f = footprint(stage.props.get(n.id)!);
-      const s = stage.spots.get(n.id)!;
-      return { n, x: s.x, y: s.y, w: f.w, d: f.d };
-    });
-  for (const b of boxes)
-    if (b.x + b.w > stage.room.W + 1 || b.y + b.d > stage.room.D + 1)
-      warnings.push(`${b.n.name} stands past the wall`);
-  for (let i = 0; i < boxes.length; i++)
-    for (let j = i + 1; j < boxes.length; j++) {
-      const a = boxes[i]!;
-      const b = boxes[j]!;
-      if (
-        a.x < b.x + b.w &&
-        b.x < a.x + a.w &&
-        a.y < b.y + b.d &&
-        b.y < a.y + a.d
-      )
-        warnings.push(`${a.n.name} overlaps ${b.n.name}`);
-    }
+  // the planner's findings: the room's health, with a Fix where one exists
+  const issues = stage.issues;
 
   const started = thread !== undefined && thread.length > 0;
   return (
@@ -220,11 +198,31 @@ export function AgentTab() {
             </span>
           </p>
         )}
-        {warnings.slice(0, 3).map((w) => (
-          <p key={w} className="agent-plan-warn">
-            {w}
-          </p>
-        ))}
+        {issues.length > 0 && (
+          <ul className="agent-issues" aria-label="Room health">
+            {issues.slice(0, 4).map((i) => (
+              <li
+                key={`${i.kind}-${i.pieceId}-${i.text}`}
+                className="agent-plan-warn"
+              >
+                <span>{i.text}</span>
+                {i.fix && (
+                  <button
+                    type="button"
+                    className="agent-fix"
+                    aria-label={`Fix: ${i.text}`}
+                    onClick={() => stage.fix(i)}
+                  >
+                    Fix
+                  </button>
+                )}
+              </li>
+            ))}
+            {issues.length > 4 && (
+              <li className="agent-plan-more">and {issues.length - 4} more</li>
+            )}
+          </ul>
+        )}
         {at === "order" ? (
           <button
             type="button"
