@@ -337,7 +337,7 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
           <span className="main-sep" aria-hidden="true" />
           <button
             type="button"
-            className="main-icon shell-tip"
+            className="main-icon main-eye shell-tip"
             data-tooltip="Hide panels"
             aria-label="Hide panels"
             onClick={(e) => {
@@ -426,7 +426,7 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
           </div>
           <button
             type="button"
-            className="main-icon shell-tip"
+            className="main-icon main-guide shell-tip"
             data-tooltip="Guide"
             aria-label="Guide"
             onClick={startTour}

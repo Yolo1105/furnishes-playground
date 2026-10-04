@@ -235,6 +235,17 @@
   .main-top {
     height: 40px;
   }
+  /* a phone's toolbar holds the tools and Eva: the panels are drawers
+     already, and the guide waits in the gear's menu */
+  .main-eye,
+  .main-sep:has(+ .main-eye),
+  .main-guide {
+    display: none;
+  }
+  .stage-3d-name {
+    padding: 1px 4px;
+    font-size: 8px;
+  }
   .main-shelf {
     bottom: calc(68px + env(safe-area-inset-bottom));
     padding: 0 10px 10px;
@@ -1088,9 +1099,18 @@
 .shelf-card[data-in-cart="true"] .shelf-card-cart {
   opacity: 1;
 }
-/* in the cart tab the remove shows only on hover */
-.shelf-card[data-tab="cart"]:not(:hover) .shelf-card-cart:not(:focus-visible) {
-  opacity: 0;
+/* in the cart tab the remove shows only on hover; under a finger, with
+   no hover, the button stands shown on every card */
+@media (hover: hover) {
+  .shelf-card[data-tab="cart"]:not(:hover)
+    .shelf-card-cart:not(:focus-visible) {
+    opacity: 0;
+  }
+}
+@media (hover: none) {
+  .shelf-card-cart {
+    opacity: 1;
+  }
 }
 .shelf-card-cart:hover,
 .shelf-card[data-in-cart="true"] .shelf-card-cart {

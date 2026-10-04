@@ -20,7 +20,8 @@ import { ProjectSwitcher } from "./ProjectSwitcher";
 import { useShortcuts } from "./shortcuts";
 import { useArrival } from "./useArrival";
 import { useInputMode } from "./useInputMode";
-import { ShortcutsDialog, UserBar } from "./UserBar";
+import { HelpDialog } from "./HelpDialog";
+import { UserBar } from "./UserBar";
 import { MainView, ViewPanel } from "./ViewPanel";
 import { PanelLeftIcon, PlusIcon } from "./icons";
 
@@ -139,7 +140,7 @@ export function StudioShell({
       </div>
       <PeekBar />
       <Tour />
-      {keys && <ShortcutsDialog onClose={() => setKeys(false)} />}
+      {keys && <HelpDialog tab="keyboard" onClose={() => setKeys(false)} />}
 
       {/* ---- left: the project ---- */}
       <aside className="shell-rail shell-rail-left" aria-label="Project">

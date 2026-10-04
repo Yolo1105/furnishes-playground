@@ -89,6 +89,24 @@ test("a finger: targets, no tooltips, a long press, nothing wider than the scree
   await expect(
     page.locator(".stage-pieces").getByRole("button", { name: "Details" }),
   ).toBeVisible();
+  // what a hover would reveal stands shown: the cart on a shelf card
+  const cart = page.locator(".shelf-card .shelf-card-cart").first();
+  expect(await cart.evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
+  // Help opens on the Touch tab under a finger; on a phone the gear is
+  // in the Project drawer
+  const projectTab = page
+    .locator(".shell-tabs")
+    .getByText("Project", { exact: true });
+  if (await projectTab.isVisible()) await projectTab.click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("menu").getByRole("menuitem", { name: "Help" }).click();
+  const help = page.getByRole("dialog", { name: "Help" });
+  await expect(help.getByRole("tab", { name: "Touch" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(help.getByRole("tabpanel")).toContainText("Press and hold it");
+  await help.getByRole("button", { name: "Close" }).click();
 });
 
 test("two fingers pinch the plan; a tile is carried after a hold", async ({

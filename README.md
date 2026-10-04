@@ -49,8 +49,12 @@ trackpad's two-finger scroll moves the sheet, a pinch zooms (as a wheel
 with Control, or Safari's own gesture), and Settings has "Scroll wheel
 on the plan" to settle it. Two fingers pinch and move the plan; a long
 press on a piece raises its actions; a tile is carried after a hold.
-Tooltips wait for a hover only where hover exists, and targets grow to
-a finger's size under a coarse pointer. On a tablet upright the panels
+Tooltips wait for a hover only where hover exists, targets grow to a
+finger's size under a coarse pointer, and what a hover would reveal (the
+cart on a card, the actions under an answer, the eye on a picked row)
+stands shown under a finger. Help, from the gear or ?, says what the
+hand does in three tabs: Mouse & trackpad, Touch and Keyboard, opening
+on the one in use. On a tablet upright the panels
 become drawers; on a phone the plan fills the width and the Project and
 Eva tabs open the drawers.
 

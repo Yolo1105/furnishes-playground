@@ -5,8 +5,8 @@ import { useStudio, ZOOM } from "./studio-store";
 
 /**
  * The keyboard: one key per tool and view, the eye, and undo and redo
- * with the modifier. The list is what the Keyboard shortcuts dialog
- * shows, and what `useShortcuts` listens for. Keys do nothing while
+ * with the modifier. The list is what Help's Keyboard tab shows, and
+ * what `useShortcuts` listens for. Keys do nothing while
  * typing in a field.
  */
 export const SHORTCUTS = [
@@ -30,7 +30,7 @@ export const SHORTCUTS = [
   { keys: ["⌫"], does: "Remove the picked piece from the room" },
   { keys: ["⌘", "Z"], does: "Undo" },
   { keys: ["⌘", "⇧", "Z"], does: "Redo" },
-  { keys: ["?"], does: "This list" },
+  { keys: ["?"], does: "Help, on this list" },
   {
     keys: ["Esc"],
     does: "Close a menu, stop a tour, drawing or measuring, leave focus",

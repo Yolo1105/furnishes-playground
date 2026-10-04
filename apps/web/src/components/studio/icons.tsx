@@ -125,6 +125,26 @@ export function KeyboardIcon({ size = 16 }: IconProps) {
   );
 }
 
+/** a mouse with its wheel: the Mouse & trackpad tab of Help */
+export function MouseIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <rect x="7" y="3" width="10" height="18" rx="5" />
+      <path d="M12 7v3" />
+    </svg>
+  );
+}
+
+/** a finger on a screen: the Touch tab of Help */
+export function TouchIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V11" />
+      <path d="M12 10.5a1.5 1.5 0 0 1 3 0V12a1.5 1.5 0 0 1 3 0v4.5a4.5 4.5 0 0 1-4.5 4.5h-1.2a4.5 4.5 0 0 1-3.8-2.1L6 15.5a1.4 1.4 0 0 1 2.3-1.6L9 15v-4" />
+    </svg>
+  );
+}
+
 export function SearchIcon({ size = 16 }: IconProps) {
   return (
     <svg {...svg(size)}>

@@ -101,6 +101,11 @@
 .eva-conv-acts[data-open="true"] {
   opacity: 1;
 }
+@media (hover: none) {
+  .eva-conv-acts {
+    opacity: 1;
+  }
+}
 .eva-conv-menu {
   left: auto;
   right: 0;
@@ -799,6 +804,12 @@
 .agent-acts:focus-within,
 .agent-acts:has([aria-pressed="true"]) {
   opacity: 1;
+}
+/* no hover under a finger: the actions stand shown */
+@media (hover: none) {
+  .agent-acts {
+    opacity: 1;
+  }
 }
 .agent-act {
   appearance: none;

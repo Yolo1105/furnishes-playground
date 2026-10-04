@@ -336,6 +336,15 @@
 .assets-eye:focus-visible {
   opacity: 1;
 }
+/* no hover under a finger: the picked row shows its eye instead */
+@media (hover: none) {
+  .assets-row[aria-selected="true"] .assets-eye {
+    opacity: 1;
+  }
+  .assets-row[aria-selected="true"] .assets-price {
+    opacity: 0;
+  }
+}
 .assets-row:hover .assets-price {
   opacity: 0;
 }
@@ -445,6 +454,11 @@
 .product-add:focus-visible,
 .product[data-added="true"] .product-add {
   opacity: 1;
+}
+@media (hover: none) {
+  .product-add {
+    opacity: 1;
+  }
 }
 .product-add:hover,
 .product[data-added="true"] .product-add {

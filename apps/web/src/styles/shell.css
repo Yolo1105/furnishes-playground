@@ -1179,6 +1179,41 @@ body > .shell-menu {
   font-weight: 600;
   color: var(--color-ink);
 }
+/* Help: three tabs, then a column of what to do and one of how */
+.help-tabs {
+  margin: 0 0 10px;
+}
+.help-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.help-tab[aria-selected="true"] {
+  background: rgb(from var(--color-accent) r g b / 0.12);
+  color: var(--color-accent);
+}
+.help-where {
+  margin: 14px 0 2px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgb(from var(--color-ink) r g b / 0.5);
+}
+.help-group:first-child .help-where {
+  margin-top: 0;
+}
+.help-list li {
+  display: grid;
+  grid-template-columns: minmax(110px, 34%) 1fr;
+  align-items: baseline;
+}
+.help-does {
+  font-weight: 500;
+}
+.help-how {
+  color: rgb(from var(--color-ink) r g b / 0.72);
+}
 .shell-key {
   display: inline-block;
   min-width: 22px;

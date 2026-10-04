@@ -6,19 +6,20 @@ import { useStudio } from "./studio-store";
 import { usePathname } from "next/navigation";
 import { useRef, useState } from "react";
 import { Dialog } from "./Dialog";
+import { HelpDialog } from "./HelpDialog";
 import { useGuide } from "./guide-store";
-import { CartIcon, GearIcon, HelpIcon, KeyboardIcon } from "./icons";
+import { CartIcon, CompassIcon, GearIcon, HelpIcon } from "./icons";
 import { OrdersDialog } from "./OrdersDialog";
-import { SHORTCUTS } from "./shortcuts";
 import { useDismiss } from "./useDismiss";
 
 /**
  * The foot of the project rail: who is in the studio, and one gear that
- * opens settings (the panels' corners), the keyboard shortcuts, and help
- * (the tour again). The name is a placeholder until accounts land, so
- * there is nothing to sign out of yet.
+ * opens settings (the panels' corners, the wheel), the orders, Help
+ * (mouse, touch and keyboard) and the guide again. The name is a
+ * placeholder until accounts land, so there is nothing to sign out of
+ * yet.
  */
-type Sheet = "settings" | "keys" | "orders" | null;
+type Sheet = "settings" | "help" | "orders" | null;
 
 export function UserBar({
   name = "Studio User",
@@ -85,9 +86,9 @@ export function UserBar({
             type="button"
             role="menuitem"
             className="shell-menu-row"
-            onClick={() => pick(() => setSheet("keys"))}
+            onClick={() => pick(() => setSheet("help"))}
           >
-            <KeyboardIcon /> Keyboard shortcuts
+            <HelpIcon /> Help
           </button>
           <button
             type="button"
@@ -95,14 +96,14 @@ export function UserBar({
             className="shell-menu-row"
             onClick={() => pick(startTour)}
           >
-            <HelpIcon /> Help
+            <CompassIcon /> Guide
           </button>
         </div>
       )}
       {sheet === "settings" && (
         <SettingsDialog onClose={() => setSheet(null)} />
       )}
-      {sheet === "keys" && <ShortcutsDialog onClose={() => setSheet(null)} />}
+      {sheet === "help" && <HelpDialog onClose={() => setSheet(null)} />}
       {sheet === "orders" && <OrdersDialog onClose={() => setSheet(null)} />}
     </div>
   );
@@ -153,27 +154,6 @@ function SettingsDialog({ onClose }: { onClose: () => void }) {
           </Link>
         </span>
       </div>
-    </Dialog>
-  );
-}
-
-export function ShortcutsDialog({ onClose }: { onClose: () => void }) {
-  return (
-    <Dialog title="Keyboard shortcuts" onClose={onClose}>
-      <ul className="shell-dialog-list">
-        {SHORTCUTS.map((s) => (
-          <li key={s.does}>
-            <span>{s.does}</span>
-            <span>
-              {s.keys.map((k) => (
-                <kbd key={k} className="shell-key">
-                  {k}
-                </kbd>
-              ))}
-            </span>
-          </li>
-        ))}
-      </ul>
     </Dialog>
   );
 }

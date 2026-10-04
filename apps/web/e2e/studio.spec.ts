@@ -1302,7 +1302,7 @@ test("Checkout reads the order back and hands over the list", async ({
   await expect(dialog).toHaveCount(0);
 });
 
-test("the gear opens Settings, the shortcuts and Help; keys drive the tools", async ({
+test("the gear opens Settings, Help and the Guide; keys drive the tools", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -1351,10 +1351,21 @@ test("the gear opens Settings, the shortcuts and Help; keys drive the tools", as
   await wheel.getByRole("radio", { name: "Auto" }).click();
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await menu.getByRole("menuitem", { name: "Keyboard shortcuts" }).click();
-  const keys = page.getByRole("dialog", { name: "Keyboard shortcuts" });
-  await expect(keys.locator("kbd").first()).toBeVisible();
-  await keys.getByRole("button", { name: "Close" }).click();
+  await menu.getByRole("menuitem", { name: "Help" }).click();
+  // Help opens on the mouse under a mouse; the tabs switch what it shows
+  const help = page.getByRole("dialog", { name: "Help" });
+  const tabs = help.getByRole("tablist", { name: "Help" });
+  await expect(
+    tabs.getByRole("tab", { name: "Mouse & trackpad" }),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(help.getByRole("tabpanel")).toContainText(
+    "A notch of the wheel, or a pinch on the trackpad",
+  );
+  await tabs.getByRole("tab", { name: "Touch" }).click();
+  await expect(help.getByRole("tabpanel")).toContainText("Press and hold it");
+  await tabs.getByRole("tab", { name: "Keyboard" }).click();
+  await expect(help.locator("kbd").first()).toBeVisible();
+  await help.getByRole("button", { name: "Close" }).click();
   // the keys themselves
   await page.keyboard.press("i");
   await expect(page.getByRole("button", { name: "Inspect" })).toHaveAttribute(
@@ -1367,12 +1378,17 @@ test("the gear opens Settings, the shortcuts and Help; keys drive the tools", as
   await expect(page.locator(".shell")).toHaveAttribute("data-ui", "hidden");
   await page.keyboard.press("h");
   await expect(page.locator(".shell")).toHaveAttribute("data-ui", "shown");
+  // ? opens Help on the keyboard
   await page.keyboard.press("Shift+?");
-  await expect(keys).toBeVisible();
+  await expect(help).toBeVisible();
+  await expect(help.getByRole("tab", { name: "Keyboard" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
   await page.keyboard.press("Escape");
-  // Help runs the tour again
+  // Guide runs the tour again
   await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await menu.getByRole("menuitem", { name: "Help" }).click();
+  await menu.getByRole("menuitem", { name: "Guide" }).click();
   await expect(page.locator(".tour-card[data-welcome='true']")).toBeVisible();
 });
 
