@@ -176,7 +176,7 @@ export function StagePieces() {
                 <RotateIcon size={12} />
               </button>
             )}
-            {a.actionsFor === n.id && a.tool === "inspect" && (
+            {a.actionsFor === n.id && (
               <PieceActions
                 node={n}
                 label={label}

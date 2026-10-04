@@ -3,7 +3,12 @@
 import { useMemo, useState } from "react";
 import { CATEGORY_NAMES, sgd, type AssetCategory } from "./assets-data";
 import { products } from "./catalogue";
-import { startProductDrag } from "./dnd";
+import {
+  droppedJustNow,
+  endTileDrag,
+  moveTileDrag,
+  startTileDrag,
+} from "./dnd";
 import {
   describeItem,
   useGenerations,
@@ -91,9 +96,12 @@ export function AddStrip({ onAdded }: { onAdded: (id: string) => void }) {
               key={p.id}
               type="button"
               className="add-tile"
-              draggable
-              onDragStart={(e) => startProductDrag(e, p)}
+              onPointerDown={(e) => startTileDrag(e, p)}
+              onPointerMove={moveTileDrag}
+              onPointerUp={endTileDrag}
+              onPointerCancel={endTileDrag}
               onClick={() => {
+                if (droppedJustNow()) return;
                 const id = add(p);
                 select(id, false);
                 onAdded(id);

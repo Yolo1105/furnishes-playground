@@ -107,7 +107,7 @@ const wallGap = (b: Box, r: Opening) =>
 
 /** the gap between two boxes along the axis they do not share, or null
     when they do not face each other */
-const gapOf = (a: Box, b: Box) => {
+const gapBetween = (a: Box, b: Box) => {
   const alongY = a.y < b.y + b.d && b.y < a.y + a.d;
   const alongX = a.x < b.x + b.w && b.x < a.x + a.w;
   if (alongY && !alongX) return Math.max(b.x - (a.x + a.w), a.x - (b.x + b.w));
@@ -143,7 +143,7 @@ const troubles = (b: Box, others: Box[], r: Room, zones: Zones) => {
     !minor(b) &&
     others.some((o) => {
       if (minor(o)) return false;
-      const g = gapOf(b, o);
+      const g = gapBetween(b, o);
       return g !== null && g > 0 && g < r.rules.walkway;
     })
   )
@@ -234,7 +234,7 @@ export const healthOf = (boxes: Box[], r: Room): Issue[] => {
         });
         continue;
       }
-      const g = minor(b) || minor(o) ? null : gapOf(b, o);
+      const g = minor(b) || minor(o) ? null : gapBetween(b, o);
       if (g !== null && g > 0 && g < r.rules.walkway) {
         seenPair.add(key);
         issues.push({

@@ -1,3 +1,4 @@
+import { hasWord } from "./text";
 import {
   CATEGORY_NAMES,
   pieceTotals,
@@ -226,12 +227,6 @@ type Proposal = {
   budget?: [number, number];
 };
 
-const has = (text: string, word: string) =>
-  new RegExp(
-    `\\b${word.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")}\\b`,
-    "i",
-  ).test(text);
-
 /** "under S$1,500", "around S$3k", "S$2,000 to S$4,000" */
 const hearBudget = (text: string): [number, number] | null => {
   const nums = [...text.matchAll(/s\$\s?([\d,.]+)\s?(k)?/gi)].map((m) => {
@@ -257,7 +252,7 @@ export const hear = (text: string, prefs: Preferences): Proposal[] => {
   const out: Proposal[] = [];
   const pick = (cat: PreferenceCategory, options: readonly string[]) => {
     const heard = options.filter(
-      (o) => has(text, o) && !prefs[cat]?.values.includes(o),
+      (o) => hasWord(text, o) && !prefs[cat]?.values.includes(o),
     );
     if (heard.length) out.push({ cat, values: heard });
   };
@@ -312,7 +307,7 @@ const intentOf = (text: string): Intent => {
     /s\$/i.test(text)
   )
     return "shopping";
-  if (FURNITURE_WORDS.some((w) => has(text, w))) return "furniture";
+  if (FURNITURE_WORDS.some((w) => hasWord(text, w))) return "furniture";
   return "talk";
 };
 
@@ -340,7 +335,7 @@ export const recommend = (
 ): Recommendation[] => {
   const inRoom = new Set(c.pieces.map((n) => n.name));
   const needs = c.exploration ? [] : (c.prefs.furniture?.values ?? []);
-  const asked = FURNITURE.filter((f) => has(text, f));
+  const asked = FURNITURE.filter((f) => hasWord(text, f));
   const wanted = asked.length ? asked : needs;
   const plan = planOf(c);
   const remaining = c.exploration ? undefined : plan.remaining;
@@ -460,7 +455,7 @@ export const reply = (
   // a budget question with a budget kept: where the money should go
   if (
     plan.bands.length &&
-    !FURNITURE.some((f) => has(text, f)) &&
+    !FURNITURE.some((f) => hasWord(text, f)) &&
     /\b(budget|spend|split|allocate|where|go)\b/i.test(text)
   )
     return {

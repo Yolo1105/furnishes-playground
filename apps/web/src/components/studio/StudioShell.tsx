@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type DragEvent, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import type React from "react";
 import { ChatInput } from "./ChatInput";
 import { useEva } from "./eva-store";
@@ -12,8 +12,6 @@ import { PeekBar } from "./PeekBar";
 import { PreviewStage } from "./PreviewStage";
 import { Tour } from "./Tour";
 import { ViewCube } from "./ViewCube";
-import { carriesProduct, readProductDrag } from "./dnd";
-import { useScene } from "./scene-store";
 import { other, useStudio } from "./studio-store";
 import { useGenerationsSync } from "./generation-store";
 import { useOrdersSync } from "./order-store";
@@ -102,34 +100,9 @@ export function StudioShell({
   const uiHidden = useStudio((s) => s.uiHidden);
   const focusId = useStudio((s) => s.focusId);
   const setView = useStudio((s) => s.setView);
-  const [dropping, setDropping] = useState(false);
-  const dragDepth = useRef(0);
-
-  // a product dragged from the + strip or the Products tab lands here
-  const onDragEnter = (e: DragEvent) => {
-    if (!carriesProduct(e)) return;
-    dragDepth.current += 1;
-    setDropping(true);
-  };
-  const onDragLeave = (e: DragEvent) => {
-    if (!carriesProduct(e)) return;
-    dragDepth.current = Math.max(0, dragDepth.current - 1);
-    if (dragDepth.current === 0) setDropping(false);
-  };
-  const onDragOver = (e: DragEvent) => {
-    if (!carriesProduct(e)) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "copy";
-  };
-  const onDrop = (e: DragEvent) => {
-    const p = readProductDrag(e);
-    dragDepth.current = 0;
-    setDropping(false);
-    if (!p) return;
-    e.preventDefault();
-    const { addProduct, select } = useScene.getState();
-    select(addProduct(p), false);
-  };
+  // a product dragged from the + strip or the Products tab lands on the
+  // stage: the drag itself is in dnd.ts; here the stage only lights
+  const dropping = useStudio((s) => s.carrying !== null);
 
   const toggleDrawer = (d: Exclude<Drawer, null>) =>
     setOpen((cur) => (cur === d ? null : d));
@@ -160,10 +133,6 @@ export function StudioShell({
         aria-label="Room"
         data-focus={focusId !== null}
         data-dropping={dropping}
-        onDragEnter={onDragEnter}
-        onDragLeave={onDragLeave}
-        onDragOver={onDragOver}
-        onDrop={onDrop}
       >
         <MainView view={view} />
         <PreviewStage />

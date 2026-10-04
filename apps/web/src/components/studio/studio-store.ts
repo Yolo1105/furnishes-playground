@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { Product } from "./catalogue";
 import type { WheelMode } from "./input";
 
 /**
@@ -67,6 +68,8 @@ type StudioState = {
   planPan: { x: number; y: number };
   /** what a plain wheel does on the plan: see input.ts */
   wheelMode: WheelMode;
+  /** a product being dragged towards the room, from a tile or a card */
+  carrying: Product | null;
   setMode: (mode: Mode) => void;
   setTool: (tool: Tool) => void;
   setView: (view: View) => void;
@@ -91,6 +94,7 @@ type StudioState = {
   /** the sheet fitted again */
   fitPlan: () => void;
   setWheelMode: (wheelMode: WheelMode) => void;
+  setCarrying: (carrying: Product | null) => void;
 };
 
 const clamp = (n: number) => Math.min(100, Math.max(0, n));
@@ -117,6 +121,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   planZoom: 1,
   planPan: { x: 0, y: 0 },
   wheelMode: "auto",
+  carrying: null,
   setMode: (mode) =>
     set((s) =>
       mode === "preview"
@@ -211,4 +216,5 @@ export const useStudio = create<StudioState>((set, get) => ({
     set((s) => ({ planPan: { x: s.planPan.x + dx, y: s.planPan.y + dy } })),
   fitPlan: () => set({ planZoom: 1, planPan: { x: 0, y: 0 } }),
   setWheelMode: (wheelMode) => set({ wheelMode }),
+  setCarrying: (carrying) => set({ carrying }),
 }));

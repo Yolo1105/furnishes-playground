@@ -1336,6 +1336,8 @@
   left: 50%;
   top: 50%;
   width: min(560px, calc(100% - 32px));
+  max-height: calc(100% - 32px);
+  overflow: auto;
   padding: 28px 30px 24px;
   transform: translate(-50%, -50%);
 }
@@ -1716,4 +1718,28 @@
 .main-zoom:disabled {
   cursor: default;
   opacity: 0.5;
+}
+
+/* the name carried under the pointer while a product is dragged in */
+.drag-ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 40;
+  padding: 5px 10px;
+  border-radius: var(--r-chip);
+  background: var(--color-accent);
+  color: #fff;
+  font:
+    600 11.5px/1.2 var(--font-app),
+    system-ui,
+    sans-serif;
+  pointer-events: none;
+  will-change: transform;
+}
+.add-tile,
+.product {
+  touch-action: pan-x pan-y;
+  user-select: none;
+  -webkit-user-select: none;
 }

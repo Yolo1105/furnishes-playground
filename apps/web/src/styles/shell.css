@@ -1406,3 +1406,27 @@ body > .shell-menu {
     border-bottom: 1px solid var(--color-line);
   }
 }
+
+/* ---- a tablet upright: the other view and the plan take more of the
+   width ---- */
+@media (max-width: 1023px) {
+  .shell-stage {
+    --room-w: min(62vw, 560px);
+  }
+}
+/* ---- a phone: the plan fills the width; an open drawer stands over the
+   toolbar and stops short of the Project and Eva tabs ---- */
+@media (max-width: 767px) {
+  .shell-stage {
+    --room-w: calc(100vw - 24px);
+  }
+  .shell[data-open] .shell-rail-left,
+  .shell[data-open] .shell-rail-right {
+    z-index: 4;
+  }
+  .shell-rail-left,
+  .shell-rail-right {
+    top: calc(var(--shell-edge) + 60px);
+    bottom: calc(var(--shell-edge) + 68px + env(safe-area-inset-bottom));
+  }
+}

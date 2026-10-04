@@ -45,7 +45,7 @@ const FLOOR = new Plane(new Vector3(0, 1, 0), 0);
 const EYE = 1.6;
 const GLIDE = 0.6; // s, the camera's move between angles
 const WALK_SPEED = 1.6; // m/s
-const DRAG_FROM = 0.03; // m, a press that travels less is a click
+const DRAG_FROM_M = 0.03; // m, a press that travels less is a click
 
 type WalkState = {
   x: number;
@@ -116,6 +116,7 @@ function Rig({
   const camera = useThree((s) => s.camera);
   const controls = useThree((s) => s.controls) as Controls;
   const invalidate = useThree((s) => s.invalidate);
+  const size = useThree((s) => s.size);
   const glide = useRef<{
     from: Vector3;
     fromAt: Vector3;
@@ -125,15 +126,21 @@ function Rig({
   } | null>(null);
   useEffect(() => {
     const { pos, at } = cameraFor(angle, w, d, h);
+    // a tall screen (a phone, a tablet upright) sees less across: the
+    // camera stands further back so the room still fits
+    const aspect = size.height ? size.width / size.height : 1.5;
+    const back = Math.max(1, Math.sqrt(1.45 / aspect));
+    const toAt = new Vector3(...at);
+    const to = new Vector3(...pos).sub(toAt).multiplyScalar(back).add(toAt);
     glide.current = {
       from: camera.position.clone(),
       fromAt: controls?.target.clone() ?? new Vector3(0, h / 2, 0),
-      to: new Vector3(...pos),
-      toAt: new Vector3(...at),
+      to,
+      toAt,
       t: reduced() ? 1 : 0,
     };
     invalidate();
-  }, [angle, w, d, h, camera, controls, invalidate]);
+  }, [angle, w, d, h, camera, controls, invalidate, size]);
   useFrame((_, dt) => {
     const g = glide.current;
     if (g) {
@@ -336,7 +343,7 @@ function Piece({
     const dx = hit.x - dr.hit.x;
     const dz = hit.z - dr.hit.z;
     if (!dr.moved) {
-      if (Math.hypot(dx, dz) < DRAG_FROM) return;
+      if (Math.hypot(dx, dz) < DRAG_FROM_M) return;
       dr.moved = true;
       moved.current = true;
       useScene.getState().dragStart();
@@ -569,7 +576,7 @@ export default function Scene3D() {
               onTurn={() => a.turn(n)}
               onDragging={setDragging}
               actions={
-                a.actionsFor === n.id && a.tool === "inspect" ? (
+                a.actionsFor === n.id ? (
                   <PieceActions
                     node={n}
                     label={label}

@@ -1,3 +1,5 @@
+import { hasWord } from "./text";
+
 /**
  * Eva's design knowledge, the twelve documents the production chatbot
  * reads, carried over word for word: six styles, colour, lighting,
@@ -113,11 +115,6 @@ const DESIGN_DOCS: readonly DesignDoc[] = [
   },
 ];
 
-const has = (text: string, word: string) =>
-  new RegExp(`\\b${word.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")}`, "i").test(
-    text,
-  );
-
 /** the documents a turn calls for: the kept styles' own, then whatever
     the message touches, at most `max` */
 export const pickDocs = (
@@ -128,8 +125,9 @@ export const pickDocs = (
   const scored = DESIGN_DOCS.map((d) => {
     let score = 0;
     for (const t of d.topics) {
-      if (styles.some((s) => has(s, t) || has(t, s))) score += 3;
-      if (has(message, t)) score += 2;
+      if (styles.some((s) => hasWord(s, t, false) || hasWord(t, s, false)))
+        score += 3;
+      if (hasWord(message, t, false)) score += 2;
     }
     return { d, score };
   })

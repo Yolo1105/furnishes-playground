@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CATEGORY_NAMES, sgd, type AssetCategory } from "./assets-data";
 import { products } from "./catalogue";
-import { startProductDrag } from "./dnd";
+import { endTileDrag, moveTileDrag, startTileDrag } from "./dnd";
 import { PlusIcon } from "./icons";
 import { useScene } from "./scene-store";
 
@@ -67,8 +67,10 @@ export function ProductsTab({
                 key={p.id}
                 className="product"
                 data-added={justAdded === p.id}
-                draggable
-                onDragStart={(e) => startProductDrag(e, p)}
+                onPointerDown={(e) => startTileDrag(e, p)}
+                onPointerMove={moveTileDrag}
+                onPointerUp={endTileDrag}
+                onPointerCancel={endTileDrag}
               >
                 <div className="product-pic" aria-hidden="true" />
                 <div className="product-row">

@@ -39,6 +39,35 @@ Notes:
 - `pnpm e2e` on a machine with its own Chromium: set
   `PLAYWRIGHT_CHROMIUM_PATH=/path/to/chromium`.
 
+## Devices and browsers
+
+The studio is driven by a mouse, a trackpad, a finger or a pen, and by
+the keyboard alone. Every drag runs on pointer events, so a tile, a
+piece, the sheet and the turn handle behave the same under each. A
+wheel on the plan is read by what sent it: a mouse notch zooms, a
+trackpad's two-finger scroll moves the sheet, a pinch zooms (as a wheel
+with Control, or Safari's own gesture), and Settings has "Scroll wheel
+on the plan" to settle it. Two fingers pinch and move the plan; a long
+press on a piece raises its actions; a tile is carried after a hold.
+Tooltips wait for a hover only where hover exists, and targets grow to
+a finger's size under a coarse pointer. On a tablet upright the panels
+become drawers; on a phone the plan fills the width and the Project and
+Eva tabs open the drawers.
+
+The browser floor is what the stylesheet's colour syntax needs: Chrome
+or Edge 119, Safari 16.4 (Mac, iPhone and iPad), Firefox 128, or newer;
+`browserslist` records it and an older browser is told so in one line.
+3D needs WebGL 2, which they all have; it draws at most two device
+pixels per CSS pixel, drops shadows under a finger, and renders a frame
+only when something moves.
+
+Playwright runs the desktop suite on Chromium with a mouse and the
+touch suite on Chromium emulating an iPad and an iPhone. With
+`PW_ENGINES=1` and `npx playwright install webkit firefox` the desktop
+suite also runs on WebKit and Firefox; those two engines cannot be
+downloaded in the cloud container, so they run on a machine of your
+own.
+
 ## Status
 
 A working studio on placeholder data. `/` is the square-cornered studio
