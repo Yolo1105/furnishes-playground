@@ -127,13 +127,11 @@ export const toReply = (m: ModelReply, c: Context): Reply => {
     m.ask === "room-size"
       ? [{ label: "Open the Room tab", act: "room-tab" }]
       : m.ask === "budget"
-        ? [1500, 3000, 5000].map(
-            (n): Chip => ({
-              label: `Under ${sgd(n)}`,
-              act: "budget",
-              budget: [BUDGET.min, n],
-            }),
-          )
+        ? [1500, 3000, 5000].map((n): Chip => ({
+            label: `Under ${sgd(n)}`,
+            act: "budget",
+            budget: [BUDGET.min, n],
+          }))
         : [];
   const chips: Chip[] = [
     ...gate,

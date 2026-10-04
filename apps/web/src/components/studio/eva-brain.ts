@@ -341,13 +341,11 @@ export const reply = (text: string, c: Context): Reply => {
       proposals,
       cards: [],
       chips: [
-        ...[1500, 3000, 5000].map(
-          (n): Chip => ({
-            label: `Under ${sgd(n)}`,
-            act: "budget",
-            budget: [BUDGET.min, n],
-          }),
-        ),
+        ...[1500, 3000, 5000].map((n): Chip => ({
+          label: `Under ${sgd(n)}`,
+          act: "budget",
+          budget: [BUDGET.min, n],
+        })),
         { label: "Flexible", act: "budget", budget: [BUDGET.min, BUDGET.max] },
       ],
     };

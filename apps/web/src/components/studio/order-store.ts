@@ -13,11 +13,7 @@ import type { AssetCategory } from "./assets-data";
 const KEY = "furnishes.orders";
 
 type OrderStatus =
-  | "pending_payment"
-  | "paid"
-  | "fulfilled"
-  | "cancelled"
-  | "refunded";
+  "pending_payment" | "paid" | "fulfilled" | "cancelled" | "refunded";
 
 export const STATUS_NAMES: Record<OrderStatus, string> = {
   pending_payment: "Awaiting payment",

@@ -114,11 +114,7 @@ export function timeLabel(at: number) {
 /* ---------- preferences: the five blocks ---------- */
 
 export type PreferenceCategory =
-  | "room"
-  | "budget"
-  | "style"
-  | "color"
-  | "furniture";
+  "room" | "budget" | "style" | "color" | "furniture";
 
 type Swatch = { id: string; name: string; hex: string };
 

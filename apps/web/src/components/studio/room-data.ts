@@ -8,12 +8,7 @@ export type FlatType = "3-room" | "4-room" | "5-room";
 export const FLAT_TYPES: FlatType[] = ["3-room", "4-room", "5-room"];
 
 export type RoomId =
-  | "living"
-  | "master"
-  | "bedroom-1"
-  | "bedroom-2"
-  | "kitchen"
-  | "study";
+  "living" | "master" | "bedroom-1" | "bedroom-2" | "kitchen" | "study";
 
 export const ROOM_NAMES: Record<RoomId, string> = {
   living: "Living & dining",

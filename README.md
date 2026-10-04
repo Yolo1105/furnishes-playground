@@ -32,6 +32,10 @@ Notes:
 
 - ESLint is pinned to the 9.x maintenance line: `eslint-config-next` bundles
   `eslint-plugin-react` 7.37, which does not run on ESLint 10 yet.
+- TypeScript is pinned to the latest 6.x: `typescript-eslint` 8.71 supports
+  TypeScript below 6.1 and refuses 7.0 outright (its issue #10940 tracks
+  support for 7.1 and later). The project typechecks under 7.0.2, so the
+  bump is one line in four package.json files once the linter allows it.
 - `pnpm e2e` on a machine with its own Chromium: set
   `PLAYWRIGHT_CHROMIUM_PATH=/path/to/chromium`.
 

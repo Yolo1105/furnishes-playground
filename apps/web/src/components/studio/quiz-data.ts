@@ -9,11 +9,7 @@ import { BUDGET } from "./eva-data";
  */
 export type Flow = "style" | "budget" | "room";
 export type StyleKey =
-  | "minimal"
-  | "maximalist"
-  | "organic"
-  | "industrial"
-  | "artisan";
+  "minimal" | "maximalist" | "organic" | "industrial" | "artisan";
 
 type Option = {
   id: string;
