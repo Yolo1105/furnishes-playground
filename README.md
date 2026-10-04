@@ -21,10 +21,13 @@ Use pnpm, not npm: `npm install` will refuse the workspace.
 ```sh
 nvm use                 # Node 24.21.0
 corepack enable         # or: npm i -g pnpm@10
-pnpm install
+pnpm install            # again after every pull: the dependencies move
 cp .env.example .env    # fill in keys as features land
 pnpm dev                # http://localhost:3000
 ```
+
+A "Module not found" at start, naming a package under `node_modules/.pnpm`,
+means the install is older than the checkout: run `pnpm install`.
 
 Checks: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm e2e`, `pnpm build`.
 
@@ -66,11 +69,12 @@ pixels per CSS pixel, drops shadows under a finger, and renders a frame
 only when something moves.
 
 Playwright runs the desktop suite on Chromium with a mouse and the
-touch suite on Chromium emulating an iPad and an iPhone. With
-`PW_ENGINES=1` and `npx playwright install webkit firefox` the desktop
-suite also runs on WebKit and Firefox; those two engines cannot be
-downloaded in the cloud container, so they run on a machine of your
-own.
+touch suite on Chromium emulating an iPad and an iPhone. On a machine
+of your own, `cd apps/web && npx playwright install` fetches the
+browsers once (Chromium, WebKit and Firefox); then `npx playwright
+test` runs the Chromium projects and `PW_ENGINES=1 npx playwright test`
+adds the desktop suite on WebKit and Firefox. The cloud container has
+Chromium only, so those two engines run on your machine.
 
 ## Status
 
