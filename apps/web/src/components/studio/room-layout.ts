@@ -31,7 +31,7 @@ type Spot = { x: number; y: number };
 export type Placed = Spot & { rotation: number };
 type Item = PieceProps & { name: string };
 type Size = { w: number; d: number };
-type Rect = Spot & Size;
+export type Rect = Spot & Size;
 
 /** how far apart a layout puts the pieces: the walkway, opened up */
 export const gapOf = (rules: Rules) => rules.walkway + rules.spacing;
@@ -333,13 +333,15 @@ export const MAGNET = 150;
  * side within MAGNET of a wall goes flush to it: inside the room
  * against the wall's face, outside against the band's far face. The
  * nearest wall wins on each axis; a wall only draws a piece that
- * stands along its span.
+ * stands along its span. The other pieces draw the same way: a side
+ * goes against a neighbour's side, or in line with it.
  */
 export const settle = (
   at: Spot,
   f: { w: number; d: number },
   room: Pick<Room, "outline">,
   magnet: boolean,
+  others: readonly Rect[] = [],
 ): Spot => {
   const grid = (v: number) => Math.round(v / PLACE_SNAP) * PLACE_SNAP;
   const spot = { x: grid(at.x), y: grid(at.y) };
@@ -347,6 +349,26 @@ export const settle = (
   const span = (p: number, q: number) => [Math.min(p, q), Math.max(p, q)];
   let nearX = MAGNET;
   let nearY = MAGNET;
+  const drawX = (x: number) => {
+    const gap = Math.abs(at.x - x);
+    if (gap < nearX) {
+      nearX = gap;
+      spot.x = x;
+    }
+  };
+  const drawY = (y: number) => {
+    const gap = Math.abs(at.y - y);
+    if (gap < nearY) {
+      nearY = gap;
+      spot.y = y;
+    }
+  };
+  for (const o of others) {
+    if (at.y < o.y + o.d && o.y < at.y + f.d)
+      [o.x - f.w, o.x + o.w, o.x, o.x + o.w - f.w].forEach(drawX);
+    if (at.x < o.x + o.w && o.x < at.x + f.w)
+      [o.y - f.d, o.y + o.d, o.y, o.y + o.d - f.d].forEach(drawY);
+  }
   for (const e of edgesOf(room.outline)) {
     if (e.a[1] === e.b[1]) {
       const [from, to] = span(e.a[0], e.b[0]);
@@ -357,13 +379,7 @@ export const settle = (
         e.wall === "north"
           ? [line, line - WALL_MM - f.d]
           : [line - f.d, line + WALL_MM];
-      for (const y of faces) {
-        const gap = Math.abs(at.y - y);
-        if (gap < nearY) {
-          nearY = gap;
-          spot.y = y;
-        }
-      }
+      faces.forEach(drawY);
     } else {
       const [from, to] = span(e.a[1], e.b[1]);
       if (!(at.y < to! && from! < at.y + f.d)) continue;
@@ -373,13 +389,7 @@ export const settle = (
         e.wall === "west"
           ? [line, line - WALL_MM - f.w]
           : [line - f.w, line + WALL_MM];
-      for (const x of faces) {
-        const gap = Math.abs(at.x - x);
-        if (gap < nearX) {
-          nearX = gap;
-          spot.x = x;
-        }
-      }
+      faces.forEach(drawX);
     }
   }
   return spot;

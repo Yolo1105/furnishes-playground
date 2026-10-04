@@ -1655,17 +1655,43 @@
 .plan-pieces {
   position: absolute;
 }
-/* on the plan a piece is a symbol: a thin outline, its name in capitals */
+/* on the plan a piece is a symbol: a thin outline with the furniture's
+   mark inside it, its name in capitals where it fits */
 .plan-pieces .stage-piece-body {
+  position: relative;
   border: 1.5px solid var(--plan-ink);
   border-radius: 0;
   background: rgba(255, 255, 255, 0.35);
   box-shadow: none;
 }
 .plan-pieces .stage-piece-name {
+  position: relative;
+  padding: 1px 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.78);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-size: 9px;
+}
+.stage-piece-symbol {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+.stage-piece-symbol * {
+  fill: none;
+  stroke: var(--plan-ink);
+  stroke-width: 1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+/* off the plan (a piece in focus) the symbol is drawn in the piece's ink */
+.stage-pieces[data-focus="true"] .stage-piece-symbol * {
+  stroke: rgb(from var(--color-ink) r g b / 0.55);
 }
 .plan-pieces .stage-piece[data-selected="true"] .stage-piece-body {
   background: rgb(from var(--color-accent) r g b / 0.12);

@@ -24,7 +24,7 @@ import {
   ROTATE_SNAP,
 } from "./piece-detail";
 import { FLOOR_TONES, WALL_TONES, type Floor } from "./room-data";
-import { settle } from "./room-layout";
+import { settle, type Rect } from "./room-layout";
 import { edgesOf, insideOutline } from "./room-geometry";
 import type { Point } from "./room-templates";
 import { footprintOf, useRoom } from "./room-store";
@@ -496,6 +496,7 @@ function Piece({
   label,
   canDrag,
   room,
+  others,
   actions,
   onPick,
   onTurn,
@@ -521,6 +522,8 @@ function Piece({
   /** Select is on, the piece is not locked, nothing is in focus */
   canDrag: boolean;
   room: { W: number; D: number; w: number; d: number; outline: Point[] };
+  /** the other pieces on the floor, in mm, which draw a dragged one too */
+  others: (Rect & { id: string })[];
   actions: React.ReactNode;
   onPick: () => void;
   onTurn: () => void;
@@ -616,6 +619,7 @@ function Piece({
       f,
       room,
       useStudio.getState().magnet,
+      others.filter((o) => o.id !== node.id),
     );
     useScene.getState().dragMove(node.id, to.x, to.y);
   };
@@ -751,6 +755,14 @@ export default function Scene3D() {
   const floor = FLOOR_TONES[room.floor as Floor] ?? FLOOR_TONES.Vinyl;
   const canDrag = a.tool === "select" && !a.focus;
   // the pieces on the floor for the tour: a rug is walked over
+  // the pieces on the floor in mm, for the magnet between them
+  const rects = a.shown
+    .filter((n) => !isRug(n))
+    .map((n) => ({
+      id: n.id,
+      ...a.spots.get(n.id)!,
+      ...footprint(a.props.get(n.id)!),
+    }));
   const blocks: Block[] = a.focus
     ? []
     : a.shown
@@ -902,6 +914,7 @@ export default function Scene3D() {
               label={label}
               canDrag={canDrag && !p.locked && !walk}
               room={{ W: a.room.W, D: a.room.D, w, d, outline }}
+              others={rects}
               onPick={() => a.onPick(n)}
               onTurn={() => a.turn(n)}
               onDragging={setDragging}

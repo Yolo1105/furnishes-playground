@@ -6,7 +6,14 @@ import { ArrowLeftIcon, LockIcon, RotateIcon } from "./icons";
 import { usePieceActions } from "./piece-actions";
 import { PieceActions } from "./PieceActions";
 import { DRAG_FROM, LONG_PRESS } from "./input";
-import { footprint, isSquare, normTurn, ROTATE_SNAP } from "./piece-detail";
+import {
+  footprint,
+  isRug,
+  isSquare,
+  normTurn,
+  ROTATE_SNAP,
+} from "./piece-detail";
+import { PlanSymbol } from "./plan-symbols";
 import { settle } from "./room-layout";
 import { useScene } from "./scene-store";
 import { useStudio } from "./studio-store";
@@ -159,7 +166,20 @@ export function StagePieces() {
       useScene.getState().dragStart();
     }
     const f = footprint(a.props.get(n.id)!);
-    const to = settle({ x: d.x0 + dx, y: d.y0 + dy }, f, a.room, magnet);
+    // the other pieces on the floor draw it too; a rug is walked on
+    const others = a.shown
+      .filter((o) => o.id !== n.id && !isRug(o))
+      .map((o) => ({
+        ...a.spots.get(o.id)!,
+        ...footprint(a.props.get(o.id)!),
+      }));
+    const to = settle(
+      { x: d.x0 + dx, y: d.y0 + dy },
+      f,
+      a.room,
+      magnet,
+      others,
+    );
     useScene.getState().dragMove(n.id, to.x, to.y);
   };
   const onUp = (n: AssetNode) => {
@@ -196,6 +216,8 @@ export function StagePieces() {
         // square to the walls, the piece is its box; on the slant it is
         // its own size, turned about the box's middle
         const slant = !isSquare(p.rotation);
+        // a rug lies under the rest
+        const zIndex = isRug(n) ? 0 : 1;
         const style = a.focus
           ? undefined
           : slant
@@ -205,12 +227,14 @@ export function StagePieces() {
                 width: `${(p.width / W) * 100}%`,
                 height: `${(p.depth / D) * 100}%`,
                 transform: `rotate(${p.rotation}deg)`,
+                zIndex,
               }
             : {
                 left: `${(at.x / W) * 100}%`,
                 top: `${(at.y / D) * 100}%`,
                 width: `${(f.w / W) * 100}%`,
                 height: `${(f.d / D) * 100}%`,
+                zIndex,
               };
         return (
           <div
@@ -236,6 +260,7 @@ export function StagePieces() {
               onPointerCancel={() => onUp(n)}
               onClick={() => onClick(n)}
             >
+              <PlanSymbol node={n} props={p} turn={slant ? 0 : p.rotation} />
               {(a.focus || nameFits(n.name, f.w, f.d)) && (
                 <span
                   className="stage-piece-name"
