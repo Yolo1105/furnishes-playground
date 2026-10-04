@@ -1770,3 +1770,64 @@ test("in 3D a piece is dragged over the floor, the camera glides between angles,
   await page.keyboard.press("Escape");
   await expect(stage).toHaveAttribute("data-walk", "false");
 });
+
+test("the quizzes work a result out and hand it to Eva as proposals", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  await page.getByRole("tab", { name: "Preference" }).click();
+  const quizzes = page.getByRole("group", { name: "Quizzes" });
+  await expect(quizzes.getByRole("button")).toHaveCount(3);
+  // the style quiz: five questions, a profile at the end
+  await quizzes.getByRole("button", { name: "Style" }).click();
+  const dialog = page.getByRole("dialog", { name: "Style quiz" });
+  await expect(dialog.getByText("1 of 5")).toBeVisible();
+  await dialog.getByRole("checkbox", { name: "Sunny balcony" }).click();
+  await dialog.getByRole("checkbox", { name: "Cosy nook" }).click();
+  await expect(dialog.getByRole("button", { name: "Next" })).toBeEnabled();
+  await dialog.getByRole("button", { name: "Next" }).click();
+  for (const w of ["Natural", "Warm", "Cosy"])
+    await dialog.getByRole("checkbox", { name: w }).click();
+  await dialog.getByRole("button", { name: "Next" }).click();
+  await dialog.getByRole("radio", { name: /The green retreat/ }).click();
+  for (const w of ["Linen", "Rattan", "Bouclé"])
+    await dialog.getByRole("checkbox", { name: w }).click();
+  await dialog.getByRole("button", { name: "Next" }).click();
+  await dialog.getByRole("radio", { name: /Light and airy/ }).click();
+  await expect(dialog.getByText("The Naturalist")).toBeVisible();
+  await expect(dialog.locator(".quiz-palette span")).toHaveCount(3);
+  await dialog.getByRole("button", { name: "Hand to Eva" }).click();
+  // Eva proposes the style and the colours; Keep sets the chips
+  const agent = page.locator(".agent");
+  await expect(
+    agent.locator(".agent-bubble[data-who='eva']").last(),
+  ).toContainText("From your style quiz: The Naturalist");
+  const style = agent.getByRole("group", { name: "Design style heard" });
+  await expect(style).toContainText("Scandinavian");
+  await style.getByRole("button", { name: "Keep" }).click();
+  await page.getByRole("tab", { name: "Preference" }).click();
+  await expect(
+    page.getByRole("checkbox", { name: "Scandinavian" }).first(),
+  ).toHaveAttribute("aria-checked", "true");
+  // the budget quiz is seven single choices and ends in a range
+  await quizzes.getByRole("button", { name: "Budget" }).click();
+  const budget = page.getByRole("dialog", { name: "Budget quiz" });
+  for (const o of [
+    "Flexible",
+    "Living room",
+    "Medium",
+    "An empty room",
+    "3 to 5 years",
+    "Mid range",
+    "Balanced",
+  ])
+    await budget.getByRole("radio", { name: new RegExp(`^${o}`) }).click();
+  await expect(budget.locator(".quiz-q")).toHaveText(
+    /^S\$[\d,]+ to S\$[\d,]+$/,
+  );
+  await budget.getByRole("button", { name: "Hand to Eva" }).click();
+  await expect(
+    page.locator(".agent").getByRole("group", { name: "Budget range heard" }),
+  ).toBeVisible();
+});

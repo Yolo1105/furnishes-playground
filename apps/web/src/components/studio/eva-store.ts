@@ -14,6 +14,8 @@ import {
   type Reply,
 } from "./eva-brain";
 import { CUSTOM_OPTIONS } from "./eva-data";
+import { FLOW_NAMES, type Flow } from "./quiz-data";
+import type { QuizResult } from "./quiz-engine";
 import { useRoom } from "./room-store";
 import { useScene } from "./scene-store";
 import { useStudio } from "./studio-store";
@@ -64,6 +66,8 @@ type EvaState = {
   send: (text: string, image?: string) => Promise<void>;
   /** a thumb on one of Eva's answers; the same thumb again takes it off */
   rate: (msgId: string, rating: "up" | "down") => void;
+  /** a finished quiz: Eva says what it found and proposes its preferences */
+  fromQuiz: (flow: Flow, result: QuizResult) => void;
   /** take up, or set aside, a preference Eva heard */
   settleProposal: (msgId: string, i: number, take: boolean) => void;
   /** a chip under one of Eva's messages: say it, or do it */
@@ -185,6 +189,20 @@ export const useEva = create<EvaState>((set, get) => ({
     };
     set((s) => ({
       thinking: false,
+      messages: { ...s.messages, [id]: [...(s.messages[id] ?? []), eva] },
+    }));
+  },
+  fromQuiz: (flow, result) => {
+    const id = get().activeId ?? get().newConversation();
+    const eva: Message = {
+      id: nextId("m"),
+      who: "eva",
+      text: `From your ${FLOW_NAMES[flow].toLowerCase()}: ${result.title}. ${result.lead} Keep what fits and I'll plan to it.`,
+      at: Date.now(),
+      source: "rules",
+      proposals: result.proposals,
+    };
+    set((s) => ({
       messages: { ...s.messages, [id]: [...(s.messages[id] ?? []), eva] },
     }));
   },

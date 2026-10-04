@@ -12,7 +12,9 @@ import {
 } from "./eva-data";
 import { useState } from "react";
 import { CUSTOM_MAX, useEva } from "./eva-store";
-import { CompassIcon } from "./icons";
+import { CompassIcon, LightbulbIcon } from "./icons";
+import { QuizDialog } from "./QuizDialog";
+import { FLOW_NAMES, type Flow } from "./quiz-data";
 
 /**
  * The five preference blocks of the playground's design, as controls:
@@ -36,6 +38,7 @@ export function PreferenceTab() {
     cat: PreferenceCategory;
     draft: string;
   } | null>(null);
+  const [quiz, setQuiz] = useState<Flow | null>(null);
 
   const chips = (
     cat: PreferenceCategory,
@@ -139,6 +142,26 @@ export function PreferenceTab() {
           <span className="eva-switch-knob" aria-hidden="true" />
         </button>
       </div>
+      {/* not sure what to pick: a short quiz works it out and hands it to Eva */}
+      <div className="eva-quizzes">
+        <span className="eva-quizzes-lead">
+          <LightbulbIcon size={14} />
+          Not sure? Take a short quiz
+        </span>
+        <div className="eva-chips" role="group" aria-label="Quizzes">
+          {(Object.keys(FLOW_NAMES) as Flow[]).map((f) => (
+            <button
+              key={f}
+              type="button"
+              className="assets-chip"
+              onClick={() => setQuiz(f)}
+            >
+              {FLOW_NAMES[f].replace(" quiz", "")}
+            </button>
+          ))}
+        </div>
+      </div>
+      {quiz && <QuizDialog flow={quiz} onClose={() => setQuiz(null)} />}
       {PREFERENCE_BLOCKS.map((b) => {
         const p = prefs[b.id];
         const set = p !== undefined;
