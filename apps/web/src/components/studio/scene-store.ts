@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { newId } from "./ids";
 import {
   assetGroups as seed,
   CATEGORY_NAMES,
@@ -143,7 +144,7 @@ export const useScene = create<SceneState>((set, get) => {
         .groups.flatMap((g) => g.items)
         .filter((a) => a.name === item.name).length;
       const node: AssetNode = {
-        id: `item-${Date.now().toString(36)}`,
+        id: newId("item"),
         name: n === 0 ? item.name : `${item.name} ${n + 1}`,
         kind: "decor",
         category: item.category,

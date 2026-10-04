@@ -4,7 +4,7 @@
  * the Design style block and read by the rule brain. Styles the documents
  * do not cover carry no tip rather than an invented one.
  */
-export type Tip = { do: string; dont: string; budget: string };
+type Tip = { do: string; dont: string; budget: string };
 
 export const DESIGN_TIPS: Partial<Record<string, Tip>> = {
   Japandi: {

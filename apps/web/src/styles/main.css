@@ -1458,6 +1458,7 @@
 .plan {
   position: relative;
   width: 100%;
+  transform-origin: 50% 50%;
 }
 .plan-svg {
   display: block;
@@ -1655,9 +1656,6 @@
 }
 
 /* ---- the plan's tools: measuring, zooming, panning ---- */
-.plan {
-  transform-origin: 50% 50%;
-}
 .plan-svg[data-measuring="true"] {
   cursor: crosshair;
 }

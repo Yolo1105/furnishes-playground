@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { create } from "zustand";
 import { useEva } from "./eva-store";
+import { newId } from "./ids";
 import { useRoom } from "./room-store";
 import { useScene } from "./scene-store";
 
@@ -124,7 +125,6 @@ const load = (data: Snapshot) => {
   useEva.setState({ ...data.eva, draft: "" });
 };
 
-const nextId = () => `p-${Date.now().toString(36)}`;
 const FIRST: Project = {
   id: "p-first",
   name: "First project",
@@ -145,7 +145,7 @@ export const useProjects = create<ProjectState>((set, get) => ({
     get().save();
     const n = get().projects.length + 1;
     const p: Project = {
-      id: nextId(),
+      id: newId("p"),
       name: `Project ${n}`,
       at: Date.now(),
       data: fresh(),

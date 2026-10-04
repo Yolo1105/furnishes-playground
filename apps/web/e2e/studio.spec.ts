@@ -2359,13 +2359,14 @@ test("the plan's tools: the wheel and the keys zoom it, a drag pans it, Fit brin
   const b = at(4000, 1000);
   await page.mouse.click(a.x, a.y);
   await page.mouse.move(b.x, b.y);
-  // a pixel is some 20 mm here and the reading snaps to 50, so within 50
+  // a pixel is some 20 mm here and the reading snaps to 50 on each axis,
+  // so a reading is within 75 (both axes short, on the slant)
   const read = svg.locator(".plan-measure text");
   const near = async (want: number[]) => {
     const got = ((await read.textContent()) ?? "").match(/\d+/g)!.map(Number);
     expect(got.length).toBe(want.length);
     got.forEach((g, i) =>
-      expect(Math.abs(g - want[i]!)).toBeLessThanOrEqual(50),
+      expect(Math.abs(g - want[i]!)).toBeLessThanOrEqual(75),
     );
   };
   await expect(read).toContainText("mm");

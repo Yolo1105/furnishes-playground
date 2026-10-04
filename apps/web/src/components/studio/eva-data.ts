@@ -217,13 +217,19 @@ export const CUSTOM_OPTIONS: Partial<
 
 /** budget slider: S$, in steps */
 export const BUDGET = { min: 500, max: 10000, step: 250 } as const;
+/** a sum kept to the budget's steps and range */
+export const snapBudget = (n: number) =>
+  Math.min(
+    BUDGET.max,
+    Math.max(BUDGET.min, Math.round(n / BUDGET.step) * BUDGET.step),
+  );
 
 /* ---------- who Eva is this turn ---------- */
 
 /** The chatbot's four Evas: the same assistant leaning one way. Each
     has what the chatbot told the model about her, verbatim. */
 export type PersonaId = "eva" | "style" | "plan" | "budget";
-export type Persona = {
+type Persona = {
   id: PersonaId;
   name: string;
   tagline: string;

@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { newId } from "./ids";
 import { create } from "zustand";
 import type { AssetCategory } from "./assets-data";
 
@@ -38,7 +39,7 @@ export const useGenerations = create<GenerationState>((set) => ({
   add: (g) => {
     const gen: Generation = {
       ...g,
-      id: `gen-${Date.now().toString(36)}`,
+      id: newId("gen"),
       at: Date.now(),
       starred: false,
     };

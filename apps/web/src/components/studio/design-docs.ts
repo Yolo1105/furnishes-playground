@@ -5,7 +5,7 @@
  * only on the server, where the model's prompt is built; the relevant
  * two or three go in with each turn.
  */
-export type DesignDoc = {
+type DesignDoc = {
   id: string;
   title: string;
   /** words in a message or a kept style that call for this document */
@@ -13,7 +13,7 @@ export type DesignDoc = {
   text: string;
 };
 
-export const DESIGN_DOCS: readonly DesignDoc[] = [
+const DESIGN_DOCS: readonly DesignDoc[] = [
   {
     id: "coastal",
     title: "Coastal",

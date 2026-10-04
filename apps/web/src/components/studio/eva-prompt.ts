@@ -9,6 +9,7 @@ import {
   SWATCHES,
   personaOf,
   type PersonaId,
+  snapBudget,
 } from "./eva-data";
 import {
   fitLines,
@@ -112,12 +113,6 @@ export const ReplySchema = z.object({
 });
 type ModelReply = z.infer<typeof ReplySchema>;
 
-const snap = (n: number) =>
-  Math.min(
-    BUDGET.max,
-    Math.max(BUDGET.min, Math.round(n / BUDGET.step) * BUDGET.step),
-  );
-
 /** the model's answer as the studio shows it: unknown ids and pieces
     already in the room are dropped, a gate becomes its chips */
 export const toReply = (m: ModelReply, c: Context): Reply => {
@@ -132,8 +127,8 @@ export const toReply = (m: ModelReply, c: Context): Reply => {
   const proposals = m.proposals.flatMap((p): Reply["proposals"] => {
     if (p.cat === "budget") {
       if (p.budgetTo === null) return [];
-      const from = snap(p.budgetFrom ?? BUDGET.min);
-      const to = snap(p.budgetTo);
+      const from = snapBudget(p.budgetFrom ?? BUDGET.min);
+      const to = snapBudget(p.budgetTo);
       return [
         {
           cat: "budget" as const,

@@ -16,6 +16,7 @@ import {
   personaOf,
   type PersonaId,
   BRAINSTORM,
+  snapBudget,
 } from "./eva-data";
 import { DESIGN_TIPS } from "./design-tips";
 import {
@@ -90,7 +91,7 @@ const SECONDARY: AssetCategory[] = ["lighting", "decor"];
 /** where a room's budget should go, by category, as the chatbot's bands
     have it (the bedroom's bed and the dining table are not Furnishes
     pieces, so their shares are named but not counted) */
-export type Band = {
+type Band = {
   category: AssetCategory;
   label: string;
   lo: number;
@@ -230,12 +231,6 @@ const has = (text: string, word: string) =>
     `\\b${word.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")}\\b`,
     "i",
   ).test(text);
-
-const snapBudget = (n: number) =>
-  Math.min(
-    BUDGET.max,
-    Math.max(BUDGET.min, Math.round(n / BUDGET.step) * BUDGET.step),
-  );
 
 /** "under S$1,500", "around S$3k", "S$2,000 to S$4,000" */
 const hearBudget = (text: string): [number, number] | null => {

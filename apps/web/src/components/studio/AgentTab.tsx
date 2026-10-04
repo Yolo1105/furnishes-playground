@@ -47,7 +47,6 @@ export function AgentTab() {
   const room = useRoom();
   const items = useTopLevel();
   const labels = useScene((s) => s.labels);
-  const cart = useScene((s) => s.cart);
   const setDraft = useEva((s) => s.setDraft);
   const exploration = useEva((s) => s.exploration);
   const prefs = useEva((s) => s.preferences);
@@ -59,7 +58,7 @@ export function AgentTab() {
   const thinking = useEva((s) => s.thinking);
   const offline = useEva((s) => s.offline);
   const persona = personaOf(useEva((s) => s.persona));
-  const { send, settleProposal, pickChip, rate, pin, brainstorm } =
+  const { send, settleProposal, pickChip, rate, pin, brainstorm, context } =
     useEva.getState();
   const [refining, setRefining] = useState<string | null>(null);
   const { addProduct, select } = useScene.getState();
@@ -69,22 +68,8 @@ export function AgentTab() {
   const labelled = labels
     .map((id) => items.find((n) => n.id === id))
     .filter((n) => n !== undefined);
-  const ctx = {
-    room: {
-      id: room.room,
-      flat: room.flat,
-      width: room.width,
-      depth: room.depth,
-      height: room.height,
-      sized: room.start !== null,
-    },
-    pieces: items.filter((n) => n.kind !== "fixed"),
-    cart,
-    prefs,
-    exploration,
-    rules: room.rules,
-    persona: persona.id,
-  };
+  // the same facts the store sends Eva, read fresh on each render
+  const ctx = context();
   const plan = planOf(ctx);
   const at = stageOf(ctx);
   const inRoom = new Set(items.map((n) => n.name));

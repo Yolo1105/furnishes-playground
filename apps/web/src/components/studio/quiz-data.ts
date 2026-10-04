@@ -1,4 +1,4 @@
-import { BUDGET } from "./eva-data";
+import { BUDGET, snapBudget } from "./eva-data";
 
 /**
  * The three short quizzes, ported from the chatbot's: style (five
@@ -336,11 +336,6 @@ const MULT: Record<string, number> = {
   "b2f-bal": 0.85,
   "b2f-conv": 1,
 };
-const snap = (n: number) =>
-  Math.min(
-    BUDGET.max,
-    Math.max(BUDGET.min, Math.round(n / BUDGET.step) * BUDGET.step),
-  );
 
 export const budgetOf = (
   answers: Record<string, string[]>,
@@ -356,7 +351,10 @@ export const budgetOf = (
   const approach = pick("b1");
   if (approach === "hard") hi = lo + (hi - lo) * 0.5;
   if (approach === "flexible") hi *= 1.15;
-  return [snap(lo), Math.max(snap(lo) + BUDGET.step, snap(hi))];
+  return [
+    snapBudget(lo),
+    Math.max(snapBudget(lo) + BUDGET.step, snapBudget(hi)),
+  ];
 };
 
 export const ROOM_QUIZ: Question[] = [

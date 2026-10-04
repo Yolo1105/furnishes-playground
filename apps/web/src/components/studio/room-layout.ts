@@ -26,7 +26,7 @@ import type { Rules, Wall } from "./room-data";
 const MARGIN = 250;
 const GRID = 100;
 
-export type Spot = { x: number; y: number };
+type Spot = { x: number; y: number };
 export type Placed = Spot & { rotation: Turn };
 type Item = PieceProps & { name: string };
 type Size = { w: number; d: number };
@@ -137,8 +137,8 @@ export const layoutRoom = (
 
 /* ---------- the three layouts ---------- */
 
-export type PlanId = "rows" | "across" | "walls";
-export type LayoutPlan = {
+type PlanId = "rows" | "across" | "walls";
+type LayoutPlan = {
   id: PlanId;
   label: string;
   note: string;

@@ -48,7 +48,7 @@ export type Issue = {
   /** what the room is missing, by its must-have key */
   add?: string | undefined;
 };
-export type Opening = {
+type Opening = {
   W: number;
   D: number;
   door: Wall;
@@ -100,7 +100,7 @@ export const meets = (a: Zone, b: Zone) =>
 const flat = (b: Box) => isRug(b);
 const minor = (b: Box) => flat(b) || isSmall({ width: b.w, depth: b.d });
 const BED = MUST_HAVE_CHOICES.find((c) => c.key === "bed")!.match;
-export const isBed = (b: Pick<Box, "name">) => BED.test(b.name);
+const isBed = (b: Pick<Box, "name">) => BED.test(b.name);
 /** how far a box stands from the nearest wall */
 const wallGap = (b: Box, r: Opening) =>
   Math.min(b.x, b.y, r.W - (b.x + b.w), r.D - (b.y + b.d));

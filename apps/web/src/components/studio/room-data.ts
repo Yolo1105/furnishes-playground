@@ -88,7 +88,7 @@ export const metres = (mm: number) => `${(mm / 1000).toFixed(1)} m`;
  * before suggesting anything, and the Room tab shows the lines for the
  * room in hand.
  */
-export type FitKey = "master" | "common" | "living" | "dining";
+type FitKey = "master" | "common" | "living" | "dining";
 export const FIT_GUIDANCE: Record<FlatType, Record<FitKey, string>> = {
   "3-room": {
     master:
@@ -226,7 +226,7 @@ export const MUST_HAVE_CHOICES: { key: string; match: RegExp }[] = [
   { key: "lamp", match: /lamp|pendant/i },
   { key: "plant", match: /plant|fig|palm|fern/i },
 ];
-export const MUST_HAVE_FOR_ROOM: Record<RoomId, string[]> = {
+const MUST_HAVE_FOR_ROOM: Record<RoomId, string[]> = {
   living: ["sofa", "coffee table", "storage"],
   master: ["bed", "wardrobe"],
   "bedroom-1": ["bed", "wardrobe"],

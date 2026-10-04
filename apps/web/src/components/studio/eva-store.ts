@@ -24,6 +24,7 @@ import { FLOW_NAMES, type Flow } from "./quiz-data";
 import type { QuizResult } from "./quiz-engine";
 import { useRoom } from "./room-store";
 import { useScene } from "./scene-store";
+import { newId } from "./ids";
 import { useStudio } from "./studio-store";
 
 type PreferenceValue = {
@@ -92,10 +93,6 @@ type EvaState = {
   /** what Eva knows right now, for the room plan */
   context: () => Context;
 };
-
-let seq = 0;
-const nextId = (prefix: string) =>
-  `${prefix}-${Date.now().toString(36)}-${++seq}`;
 
 /** what Eva knows at this moment, from the room and the scene */
 const contextOf = (
@@ -180,7 +177,7 @@ export const useEva = create<EvaState>((set, get) => ({
   setDraft: (draft) => set({ draft }),
   newConversation: () => {
     const c: Conversation = {
-      id: nextId("c"),
+      id: newId("c"),
       title: "New conversation",
       snippet: "",
       at: Date.now(),
@@ -194,7 +191,7 @@ export const useEva = create<EvaState>((set, get) => ({
     if (!body && !image) return;
     const id = get().activeId ?? get().newConversation();
     const now = Date.now();
-    const you: Message = { id: nextId("m"), who: "you", text: body, at: now };
+    const you: Message = { id: newId("m"), who: "you", text: body, at: now };
     if (image) you.image = image;
     const asked = body || `the picture ${image}`;
     set((s) => ({
@@ -251,7 +248,7 @@ export const useEva = create<EvaState>((set, get) => ({
       ? r.chips
       : followupsFor(r.text).map((label) => ({ label, send: label }));
     const eva: Message = {
-      id: nextId("m"),
+      id: newId("m"),
       who: "eva",
       text: r.text,
       at: Date.now(),
@@ -287,7 +284,7 @@ export const useEva = create<EvaState>((set, get) => ({
   fromQuiz: (flow, result) => {
     const id = get().activeId ?? get().newConversation();
     const eva: Message = {
-      id: nextId("m"),
+      id: newId("m"),
       who: "eva",
       text: `From your ${FLOW_NAMES[flow].toLowerCase()}: ${result.title}. ${result.lead} Keep what fits and I'll plan to it.`,
       at: Date.now(),
@@ -372,7 +369,7 @@ export const useEva = create<EvaState>((set, get) => ({
       cheaper: chip.act === "cheaper",
     });
     const eva: Message = {
-      id: nextId("m"),
+      id: newId("m"),
       who: "eva",
       text: cards.length
         ? chip.act === "cheaper"
