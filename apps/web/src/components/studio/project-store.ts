@@ -287,14 +287,22 @@ export function useProjectSync(wanted: string | null = null) {
     }
     if (wanted) useProjects.getState().open(wanted);
     let timer: ReturnType<typeof setTimeout> | undefined;
+    const now = () => {
+      clearTimeout(timer);
+      timer = undefined;
+      useProjects.getState().save();
+      const { projects, activeId, gone } = useProjects.getState();
+      writeKept({ projects, activeId, gone });
+    };
     const soon = () => {
       clearTimeout(timer);
-      timer = setTimeout(() => {
-        useProjects.getState().save();
-        const { projects, activeId, gone } = useProjects.getState();
-        writeKept({ projects, activeId, gone });
-      }, SAVE_AFTER);
+      timer = setTimeout(now, SAVE_AFTER);
     };
+    // a change still waiting its moment is saved before the page goes
+    const flush = () => {
+      if (timer !== undefined) now();
+    };
+    window.addEventListener("pagehide", flush);
     const unsubs = [
       useRoom.subscribe(soon),
       useScene.subscribe((s, prev) => {
@@ -319,7 +327,8 @@ export function useProjectSync(wanted: string | null = null) {
       }),
     ];
     return () => {
-      clearTimeout(timer);
+      flush();
+      window.removeEventListener("pagehide", flush);
       unsubs.forEach((u) => u());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the link is read with what was kept, once

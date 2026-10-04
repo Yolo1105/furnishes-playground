@@ -84,6 +84,7 @@ for (const [path, corners] of [
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(path);
+    await arrived(page);
     const shell = page.locator(".shell");
     await expect(shell).toHaveAttribute("data-corners", corners);
     const [l, m, r] = await Promise.all([
@@ -110,6 +111,7 @@ for (const [path, corners] of [
   test(`${path} turns the panels into drawers on a phone`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(path);
+    await arrived(page);
     const left = page.locator(".shell-rail-left");
     const before = await left.boundingBox();
     expect(before!.x + before!.width).toBeLessThanOrEqual(1);
@@ -152,6 +154,7 @@ test("/rounded has a toolbar on top and a sideways-scrolling shelf below", async
 test("rails collapse into the toolbar and come back", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
+  await arrived(page);
   const shell = page.locator(".shell");
   const main = page.locator(".shell-main");
   const wide = (await main.boundingBox())!.width;
@@ -324,6 +327,7 @@ test("the right rail holds the other view, and the swap trades them", async ({
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
+  await arrived(page);
   const view = page.locator(".shell-panel-view");
   const eva = page.locator(".shell-panel-eva");
   const v = (await view.boundingBox())!;
@@ -523,6 +527,7 @@ test("the view panel drags down to give Eva more, and no higher than its third",
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
+  await arrived(page);
   const view = page.locator(".shell-panel-view");
   const eva = page.locator(".shell-panel-eva");
   const handle = page.getByRole("separator", { name: "Resize the view panel" });
