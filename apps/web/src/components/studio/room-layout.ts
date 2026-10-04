@@ -325,7 +325,7 @@ export const layoutPlans = (
 };
 
 /** within this of a wall a moved piece goes flush to it, mm */
-export const MAGNET = 150;
+const MAGNET = 150;
 
 /**
  * Where a moved or dropped piece comes to rest: on the placing grid,

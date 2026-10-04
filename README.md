@@ -135,9 +135,23 @@ on the longest real edge of its side. The 2D plan is a CAD sheet with
 four interior elevations and the planner's zones, zoomed with the wheel or the keys about the pointer,
 panned by dragging the sheet, fitted again in one click, and measured
 with the Measure tool (two clicks, the distance in millimetres, the run
-and rise on a slant); the 3D room is three.js with furniture built from what
-each piece is (18 mm panel carcasses for Furnishes pieces), dragging with
-wall snap and clash outlines, a view cube that glides the camera, and a
+and rise on a slant). On the plan each piece is drawn as its symbol, as
+a drawing has it (a sofa with its back, arms and cushions, storage in
+its bays, a table on its legs, a lamp as a circle with a cross, a plant,
+a rug laid under the rest), turned with the piece, its name written
+where it fits. The 3D room is three.js: the floor in its finish painted
+on a canvas, skirting, the window with its frame and glass, the door, a
+ceiling once you walk in, and light from soft panels baked into the
+surroundings; the furniture is built from what each piece is (18 mm
+panel carcasses on a plinth for Furnishes pieces, with doors and
+handles, books on a bookwall, hooks on an organiser; a sofa with its
+cushions and legs in cloth, a table on turned legs, a lamp with a lit
+shade, a plant in its pot, a vase on a lathe), with wood grain painted
+on when that finish is chosen. A move in either view is the move in the
+other. A piece may stand anywhere, past the walls too; with the magnet
+on (Settings), a side within 150 mm of a wall or of another piece goes
+flush to it, inside or out, and the room's rules say when a piece
+stands past a wall. Clashes are outlined, a view cube glides the camera, and there is a
 walk mode, a tour (stops set on the plan, numbered and joined; Play
 walks the camera through them at a slow pace with its eye on the
 pieces, a progress bar and Stop; a round of the room clear of the

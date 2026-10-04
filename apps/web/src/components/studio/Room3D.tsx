@@ -48,7 +48,7 @@ export type RoomShape = {
 
 /** the floor as a shape in metres about the room's middle; the plane is
     laid flat by a quarter turn, so the shape's y runs the other way */
-export const floorShape = (
+const floorShape = (
   outline: readonly (readonly [number, number])[],
   w: number,
   d: number,
