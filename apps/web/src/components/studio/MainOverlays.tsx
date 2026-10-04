@@ -30,6 +30,7 @@ import {
   PlusIcon,
   RedoIcon,
   RulerIcon,
+  SlidersIcon,
   UndoIcon,
   ZoomInIcon,
   ZoomOutIcon,
@@ -80,6 +81,10 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
   const { wrap: prefsWrap, menu: prefsMenu } = prefs;
   const { wrap: exportWrap, menu: exportMenu } = exporting;
   const view = useStudio((s) => s.view);
+  const scene = useStudio((s) => s.scene);
+  const { setScene } = useStudio.getState();
+  const looking = useFixedMenu();
+  const { wrap: lookWrap, menu: lookMenu } = looking;
   const planZoom = useStudio((s) => s.planZoom);
   const planPan = useStudio((s) => s.planPan);
   const planFitted = planZoom === 1 && planPan.x === 0 && planPan.y === 0;
@@ -165,6 +170,99 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
               </button>
             </div>
           </div>
+          {view === "3d" && (
+            <>
+              <span className="main-sep" aria-hidden="true" />
+              <div ref={lookWrap} className="main-prefs">
+                <button
+                  type="button"
+                  className="main-icon shell-tip"
+                  data-tooltip="View settings"
+                  aria-label="View settings"
+                  aria-haspopup="menu"
+                  aria-expanded={looking.open}
+                  disabled={resting}
+                  onClick={(e) => looking.toggle(e.currentTarget)}
+                >
+                  <SlidersIcon />
+                </button>
+                {looking.open && (
+                  <Floating>
+                    <div
+                      ref={lookMenu}
+                      className="shell-menu main-prefs-menu"
+                      role="menu"
+                      aria-label="View settings"
+                      style={looking.style}
+                    >
+                      <p className="main-prefs-title">View settings</p>
+                      {(
+                        [
+                          ["edges", "Edges on every piece"],
+                          ["labels", "Names under the pieces"],
+                          ["grid", "Floor grid, 500 mm"],
+                        ] as const
+                      ).map(([key, label]) => (
+                        <button
+                          key={key}
+                          type="button"
+                          role="menuitemcheckbox"
+                          aria-checked={scene[key]}
+                          className="shell-menu-row"
+                          onClick={() => setScene({ [key]: !scene[key] })}
+                        >
+                          <span
+                            className="main-prefs-check"
+                            aria-hidden="true"
+                          />
+                          {label}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        role="menuitemcheckbox"
+                        aria-checked={scene.shadows !== "off"}
+                        className="shell-menu-row"
+                        onClick={() =>
+                          setScene({
+                            shadows: scene.shadows === "off" ? "on" : "off",
+                          })
+                        }
+                      >
+                        <span className="main-prefs-check" aria-hidden="true" />
+                        Shadows
+                        <span className="main-prefs-sub">
+                          {scene.shadows === "auto" ? "auto" : scene.shadows}
+                        </span>
+                      </button>
+                      <div className="shell-menu-sep" role="separator" />
+                      {(
+                        [
+                          ["day", "Daylight"],
+                          ["evening", "Evening"],
+                        ] as const
+                      ).map(([id, label]) => (
+                        <button
+                          key={id}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={scene.light === id}
+                          className="shell-menu-row"
+                          onClick={() => setScene({ light: id })}
+                        >
+                          <span
+                            className="main-prefs-check"
+                            aria-hidden="true"
+                          />
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </Floating>
+                )}
+              </div>
+            </>
+          )}
           {view === "2d" && (
             <>
               <span className="main-sep" aria-hidden="true" />

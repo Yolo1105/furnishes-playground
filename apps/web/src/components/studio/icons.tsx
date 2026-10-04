@@ -510,3 +510,14 @@ export function RefineIcon({ size = 16 }: IconProps) {
     </svg>
   );
 }
+
+export function SlidersIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <path d="M4 6h10M18 6h2M4 12h3M11 12h9M4 18h12M20 18h0" />
+      <circle cx="15" cy="6" r="2" />
+      <circle cx="9" cy="12" r="2" />
+      <circle cx="17" cy="18" r="2" />
+    </svg>
+  );
+}

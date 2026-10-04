@@ -244,7 +244,7 @@ test("Eva's input box and the user bar", async ({ page }) => {
   ).toBeVisible();
 
   await expect(page.locator(".user-name")).toHaveText("Studio User");
-  await page.getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
   await expect(page.getByRole("menuitem", { name: "Settings" })).toBeVisible();
 });
 
@@ -1307,7 +1307,7 @@ test("the gear opens Settings, the shortcuts and Help; keys drive the tools", as
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
-  await page.getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
   const menu = page.getByRole("menu");
   await expect(menu.getByRole("menuitem")).toHaveCount(4);
   await expect(menu.getByRole("menuitem", { name: /Sign out/ })).toHaveCount(0);
@@ -1342,7 +1342,7 @@ test("the gear opens Settings, the shortcuts and Help; keys drive the tools", as
   await expect(sheet).toHaveCSS("transform", /matrix\(2\.7/);
   await page.keyboard.press("0");
   await page.reload();
-  await page.getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
   await menu.getByRole("menuitem", { name: "Settings" }).click();
   await expect(wheel.getByRole("radio", { name: "Scroll" })).toHaveAttribute(
     "aria-checked",
@@ -1350,7 +1350,7 @@ test("the gear opens Settings, the shortcuts and Help; keys drive the tools", as
   );
   await wheel.getByRole("radio", { name: "Auto" }).click();
   await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
   await menu.getByRole("menuitem", { name: "Keyboard shortcuts" }).click();
   const keys = page.getByRole("dialog", { name: "Keyboard shortcuts" });
   await expect(keys.locator("kbd").first()).toBeVisible();
@@ -1371,7 +1371,7 @@ test("the gear opens Settings, the shortcuts and Help; keys drive the tools", as
   await expect(keys).toBeVisible();
   await page.keyboard.press("Escape");
   // Help runs the tour again
-  await page.getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
   await menu.getByRole("menuitem", { name: "Help" }).click();
   await expect(page.locator(".tour-card[data-welcome='true']")).toBeVisible();
 });
@@ -1917,14 +1917,14 @@ test("an order is placed with a delivery address, waits for payment, is listed a
   });
   expect((await res.json()).mode).toBe("offline");
   // under the gear: Orders lists it; Cancel takes it back; it survives a reload
-  await page.getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByRole("menuitem", { name: "Orders" }).click();
   const orders = page.getByRole("dialog", { name: "Orders" });
   await expect(orders.locator(".order")).toHaveCount(1);
   await expect(orders.locator(".order")).toContainText(first.name);
   await page.keyboard.press("Escape");
   await page.reload();
-  await page.getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByRole("menuitem", { name: "Orders" }).click();
   await orders.getByRole("button", { name: "Cancel order" }).click();
   await expect(orders.locator(".order-status")).toHaveText("Cancelled");
@@ -2709,4 +2709,44 @@ test("the room is its outline: a notch is a wall, the layouts keep out of it, th
     .trim()
     .split(" ");
   expect(tapped.length).toBeGreaterThanOrEqual(6);
+});
+
+test("View settings: edges, names, a floor grid, shadows and the light, kept for next time", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  const stage = page.locator(".shell-stage .stage-3d");
+  await expect(stage).toHaveAttribute("data-labels", "true");
+  await expect(stage).toHaveAttribute("data-edges", "false");
+  await expect(stage).toHaveAttribute("data-light", "day");
+  await expect(stage.locator(".stage-3d-name")).not.toHaveCount(0);
+  await page.getByRole("button", { name: "View settings" }).click();
+  const menu = page.getByRole("menu", { name: "View settings" });
+  await menu
+    .getByRole("menuitemcheckbox", { name: "Names under the pieces" })
+    .click();
+  await expect(stage).toHaveAttribute("data-labels", "false");
+  await expect(stage.locator(".stage-3d-name")).toHaveCount(0);
+  await menu
+    .getByRole("menuitemcheckbox", { name: "Edges on every piece" })
+    .click();
+  await expect(stage).toHaveAttribute("data-edges", "true");
+  await menu.getByRole("menuitemcheckbox", { name: /Floor grid/ }).click();
+  await expect(stage).toHaveAttribute("data-grid", "true");
+  await menu.getByRole("menuitemcheckbox", { name: /^Shadows/ }).click();
+  await expect(stage).toHaveAttribute("data-shadows", "false");
+  await menu.getByRole("menuitemradio", { name: "Evening" }).click();
+  await expect(stage).toHaveAttribute("data-light", "evening");
+  // none of it shows on the plan, all of it comes back next time
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("2");
+  await expect(page.getByRole("button", { name: "View settings" })).toHaveCount(
+    0,
+  );
+  await page.reload();
+  await page.keyboard.press("3");
+  await expect(stage).toHaveAttribute("data-light", "evening");
+  await expect(stage).toHaveAttribute("data-grid", "true");
+  await expect(stage).toHaveAttribute("data-labels", "false");
 });

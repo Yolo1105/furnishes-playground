@@ -29,6 +29,8 @@ type Props = {
   texture: string;
   selected: boolean;
   clash: boolean;
+  /** the View settings ask for edges on every piece */
+  edges: boolean;
   onPick: () => void;
 };
 
@@ -185,7 +187,7 @@ function Shape(p: Props) {
   const look: Look = {
     colour: p.colour,
     rough: roughnessOf(p.texture),
-    outline: p.clash || p.selected,
+    outline: p.clash || p.selected || p.edges,
     clash: p.clash,
     onPick: p.onPick,
   };

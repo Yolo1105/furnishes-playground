@@ -45,6 +45,24 @@ import { useStudio, type Angle } from "./studio-store";
  */
 const m = (mm: number) => mm / 1000;
 
+/** the light in the room: the day's, or an evening's, warmer and lower */
+const LIGHTS = {
+  day: {
+    ambient: 0.9,
+    sun: 1.4,
+    colour: "#ffffff",
+    from: [3, 6, 4] as Vector3Tuple,
+  },
+  evening: {
+    ambient: 0.7,
+    sun: 1,
+    colour: "#ffe3c8",
+    from: [-4, 2.5, 3] as Vector3Tuple,
+  },
+} as const;
+/** the floor grid's lines */
+const GRID_HEX = "#b9a797";
+
 /** the floor as a shape in metres about the room's middle; the plane is
     laid flat by a quarter turn, so the shape's y runs the other way */
 const floorShape = (
@@ -319,6 +337,8 @@ function Piece({
   onPick,
   onTurn,
   onDragging,
+  labels,
+  edges,
 }: {
   /* every overlay goes into the scene's own layer: drei's default target,
      the canvas's parent, is not there yet for the first piece's labels */
@@ -342,6 +362,9 @@ function Piece({
   onPick: () => void;
   onTurn: () => void;
   onDragging: (on: boolean) => void;
+  /** the View settings: the name under the piece, edges on it */
+  labels: boolean;
+  edges: boolean;
 }) {
   // the handle: a click turns a quarter; a sideways drag turns freely,
   // a degree a pixel, snapped unless Shift is held
@@ -452,6 +475,7 @@ function Piece({
       onPointerCancel={onUp}
     >
       <Furniture3D
+        edges={edges}
         node={node}
         size={size}
         colour={colour}
@@ -530,17 +554,19 @@ function Piece({
           {actions}
         </Html>
       )}
-      <Html
-        portal={portal}
-        position={[0, -0.02, size[2] / 2 + 0.05]}
-        center
-        zIndexRange={[20, 10]}
-        style={{ pointerEvents: "none" }}
-      >
-        <span className="stage-3d-name" aria-hidden="true">
-          {node.name}
-        </span>
-      </Html>
+      {labels && (
+        <Html
+          portal={portal}
+          position={[0, -0.02, size[2] / 2 + 0.05]}
+          center
+          zIndexRange={[20, 10]}
+          style={{ pointerEvents: "none" }}
+        >
+          <span className="stage-3d-name" aria-hidden="true">
+            {node.name}
+          </span>
+        </Html>
+      )}
     </group>
   );
 }
@@ -561,8 +587,12 @@ export default function Scene3D() {
     WALL_TONES.find((t) => t.id === room.wallTone)?.hex ?? WALL_TONES[0].hex;
   const floor = FLOOR_TONES[room.floor as Floor] ?? FLOOR_TONES.Vinyl;
   const canDrag = a.tool === "select" && !a.focus;
-  // a finger means a phone or a tablet: fewer pixels, no shadows
+  // a finger means a phone or a tablet: fewer pixels, no shadows unless
+  // the View settings ask for them
   const coarse = useCoarse();
+  const scene = useStudio((s) => s.scene);
+  const shadows = scene.shadows === "auto" ? !coarse : scene.shadows === "on";
+  const light = LIGHTS[scene.light];
   return (
     <div
       ref={stage}
@@ -570,12 +600,17 @@ export default function Scene3D() {
       data-focus={a.focus !== null}
       data-walk={walk}
       data-dragging={dragging}
+      data-edges={scene.edges}
+      data-shadows={shadows}
+      data-labels={scene.labels}
+      data-grid={scene.grid}
+      data-light={scene.light}
     >
       <Canvas
         // a frame only when something moves: the orbit, a glide, a walk, a
         // drag or a change in the room; the rest of the time the GPU rests
         frameloop="demand"
-        shadows={!coarse}
+        shadows={shadows}
         // at most two device pixels per CSS pixel: a phone's screen draws
         // less than half of what it would, with nothing to see for it;
         // the buffer is kept so Export can read the canvas as a picture
@@ -594,13 +629,25 @@ export default function Scene3D() {
         ) : (
           <Rig angle={angle} w={w} d={d} h={h} stage={stage} />
         )}
-        <ambientLight intensity={0.9} />
+        <ambientLight intensity={light.ambient} color={light.colour} />
         <directionalLight
-          position={[3, 6, 4]}
-          intensity={1.4}
+          position={light.from}
+          intensity={light.sun}
+          color={light.colour}
           castShadow
           shadow-mapSize={[1024, 1024]}
         />
+        {scene.grid && !a.focus && (
+          <gridHelper
+            args={[
+              Math.ceil(Math.max(w, d) * 1.2),
+              Math.ceil(Math.max(w, d) * 1.2) * 2,
+              GRID_HEX,
+              GRID_HEX,
+            ]}
+            position={[0, 0.003, 0]}
+          />
+        )}
         {!a.focus && (
           <group>
             {/* the floor, the room's own outline (a click on it, walking,
@@ -678,6 +725,8 @@ export default function Scene3D() {
               onPick={() => a.onPick(n)}
               onTurn={() => a.turn(n)}
               onDragging={setDragging}
+              labels={scene.labels}
+              edges={scene.edges}
               actions={
                 a.actionsFor === n.id ? (
                   <PieceActions

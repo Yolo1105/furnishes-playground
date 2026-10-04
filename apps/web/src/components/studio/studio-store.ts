@@ -18,6 +18,23 @@ import type { WheelMode } from "./input";
  */
 export type Mode = "edit" | "preview";
 export type Tool = "select" | "inspect" | "wall" | "measure";
+/** how the 3D room is looked at: edges on every piece, shadows (auto
+    follows the pointer: off under a finger), names, a floor grid, and
+    the light */
+export type SceneLook = {
+  edges: boolean;
+  shadows: "auto" | "on" | "off";
+  labels: boolean;
+  grid: boolean;
+  light: "day" | "evening";
+};
+export const SCENE_DEFAULT: SceneLook = {
+  edges: false,
+  shadows: "auto",
+  labels: true,
+  grid: false,
+  light: "day",
+};
 /** how far the plan can be zoomed, and by how much a step zooms */
 export const ZOOM = { min: 0.5, max: 4, step: 1.15 };
 /** the project panel's tabs */
@@ -68,6 +85,7 @@ type StudioState = {
   planPan: { x: number; y: number };
   /** what a plain wheel does on the plan: see input.ts */
   wheelMode: WheelMode;
+  scene: SceneLook;
   /** a product being dragged towards the room, from a tile or a card */
   carrying: Product | null;
   setMode: (mode: Mode) => void;
@@ -94,6 +112,7 @@ type StudioState = {
   /** the sheet fitted again */
   fitPlan: () => void;
   setWheelMode: (wheelMode: WheelMode) => void;
+  setScene: (patch: Partial<SceneLook>) => void;
   setCarrying: (carrying: Product | null) => void;
 };
 
@@ -121,6 +140,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   planZoom: 1,
   planPan: { x: 0, y: 0 },
   wheelMode: "auto",
+  scene: SCENE_DEFAULT,
   carrying: null,
   setMode: (mode) =>
     set((s) =>
@@ -216,5 +236,6 @@ export const useStudio = create<StudioState>((set, get) => ({
     set((s) => ({ planPan: { x: s.planPan.x + dx, y: s.planPan.y + dy } })),
   fitPlan: () => set({ planZoom: 1, planPan: { x: 0, y: 0 } }),
   setWheelMode: (wheelMode) => set({ wheelMode }),
+  setScene: (patch) => set((s) => ({ scene: { ...s.scene, ...patch } })),
   setCarrying: (carrying) => set({ carrying }),
 }));

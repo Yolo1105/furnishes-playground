@@ -1,6 +1,13 @@
 import { useEffect } from "react";
 import { WHEEL_MODES, type WheelMode } from "./input";
-import { ANGLES, useStudio, type Angle, type View } from "./studio-store";
+import {
+  ANGLES,
+  SCENE_DEFAULT,
+  useStudio,
+  type Angle,
+  type SceneLook,
+  type View,
+} from "./studio-store";
 
 const KEY = "furnishes.view";
 
@@ -20,6 +27,7 @@ export function useArrival() {
           view?: View;
           angle?: Angle;
           wheelMode?: WheelMode;
+          scene?: Partial<SceneLook>;
         };
         const view = saved.view === "2d" ? "2d" : "3d";
         const angle =
@@ -29,7 +37,17 @@ export function useArrival() {
         const wheelMode = WHEEL_MODES.some((m) => m.id === saved.wheelMode)
           ? saved.wheelMode!
           : "auto";
-        useStudio.setState({ view, angle, wheelMode });
+        const scene: SceneLook = {
+          ...SCENE_DEFAULT,
+          ...Object.fromEntries(
+            Object.entries(saved.scene ?? {}).filter(
+              ([k, v]) =>
+                k in SCENE_DEFAULT &&
+                typeof v === typeof SCENE_DEFAULT[k as keyof SceneLook],
+            ),
+          ),
+        };
+        useStudio.setState({ view, angle, wheelMode, scene });
       }
     } catch {
       /* nothing remembered, or storage blocked: the defaults stand */
@@ -41,7 +59,8 @@ export function useArrival() {
       if (
         s.view === prev.view &&
         s.angle === prev.angle &&
-        s.wheelMode === prev.wheelMode
+        s.wheelMode === prev.wheelMode &&
+        s.scene === prev.scene
       )
         return;
       try {
@@ -51,6 +70,7 @@ export function useArrival() {
             view: s.view,
             angle: s.angle,
             wheelMode: s.wheelMode,
+            scene: s.scene,
           }),
         );
       } catch {

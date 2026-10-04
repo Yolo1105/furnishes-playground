@@ -102,7 +102,9 @@ with the Measure tool (two clicks, the distance in millimetres, the run
 and rise on a slant); the 3D room is three.js with furniture built from what
 each piece is (18 mm panel carcasses for Furnishes pieces), dragging with
 wall snap and clash outlines, a view cube that glides the camera, and a
-walk mode. Preview runs a stand-in render with a before/after divider.
+walk mode, and View settings (edges on every piece, the names, a floor
+grid, shadows, daylight or evening light), kept with the view. Preview
+runs a stand-in render with a before/after divider.
 
 Add also makes room items: things that set the scene and are not for
 sale (an armchair, a plant, a pendant) from a few words. With `FAL_KEY`
