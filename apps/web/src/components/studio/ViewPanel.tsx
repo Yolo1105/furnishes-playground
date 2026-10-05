@@ -3,7 +3,6 @@ import dynamic from "next/dynamic";
 import { Elevation2D } from "./Elevation2D";
 import { MiniIso } from "./MiniViews";
 import { Plan2D } from "./Plan2D";
-import { StagePieces } from "./StagePieces";
 import { other, useStudio, viewName, type View } from "./studio-store";
 
 /* the 3D scene needs the browser's WebGL: it is never rendered on the server */
@@ -43,9 +42,7 @@ export function ViewPanel({
       <div className="view-stub" data-view={here} aria-label={viewName(here)}>
         {here === "2d" ? (
           <div className="view-plan view-mini">
-            <Plan2D interactive={false}>
-              <StagePieces compact />
-            </Plan2D>
+            <Plan2D interactive={false} />
           </div>
         ) : (
           <div className="view-iso view-mini" aria-hidden="true">
@@ -76,13 +73,7 @@ export function MainView({ view }: { view: View }) {
         </div>
         {view === "2d" && (
           <div className="stage-room-box stage-room-pieces">
-            {angle === "Plan" ? (
-              <Plan2D>
-                <StagePieces />
-              </Plan2D>
-            ) : (
-              <Elevation2D angle={angle} />
-            )}
+            {angle === "Plan" ? <Plan2D /> : <Elevation2D angle={angle} />}
           </div>
         )}
       </div>

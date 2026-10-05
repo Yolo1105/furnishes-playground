@@ -1,5 +1,5 @@
 import { propsOf, useScene } from "./scene-store";
-import { footprintOf, useRoom } from "./room-store";
+import { activeOf, footprintOf, useRoom } from "./room-store";
 import { ROOM_NAMES } from "./room-data";
 import { sgd } from "./assets-data";
 
@@ -10,8 +10,9 @@ import { sgd } from "./assets-data";
  * file is named after the room.
  */
 const stem = () => {
-  const r = useRoom.getState();
-  return `${ROOM_NAMES[r.room].toLowerCase().replace(/\s+/g, "-")}-${r.flat}`;
+  const st = useRoom.getState();
+  const r = activeOf(st);
+  return `${ROOM_NAMES[r.room].toLowerCase().replace(/\s+/g, "-")}-${st.flat}`;
 };
 
 const download = (name: string, blob: Blob) => {
@@ -67,11 +68,12 @@ export const exportScenePng = () => {
 
 /** the room and every piece, with the Detail tab's changes, as .json */
 export const exportRoomJson = () => {
-  const r = useRoom.getState();
+  const st = useRoom.getState();
+  const r = activeOf(st);
   const s = useScene.getState();
   const data = {
     room: {
-      flat: r.flat,
+      flat: st.flat,
       room: r.room,
       name: ROOM_NAMES[r.room],
       width: r.width,

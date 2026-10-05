@@ -149,7 +149,15 @@ cancelled, refunded) listed under the gear; no payment provider is wired,
 and `/api/checkout` says so rather than pretend. The right rail shows the
 other view small over Eva's Agent, History and Preference tabs.
 
-The room is its outline, not the box round it: a template (square,
+A project is a flat of rooms on one sheet: the Room tab's Rooms row
+adds another (the flat's next kind, stood a wall's thickness east of
+the active room), picks the active one or removes it with what stood
+in it; a click on another room's floor, or on a piece in it, makes it
+active; the plan draws every room, the active one with its dimensions
+and handles, the others faint with their names; the 3D view frames the
+whole flat; a piece added or dropped goes into the active room, and the
+panels, the health check and Eva read the active room. Each room is
+its outline, not the box round it: a template (square,
 rectangle, long, L, mirrored L, alcove, T, U, or a shape tapped out of
 squares) or drawn walls, and either kind is reshaped on the plan with
 the Wall tool: a bar on each wall pushes it in or out (the walls either

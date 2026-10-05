@@ -2,7 +2,7 @@
 
 import { isWindow, OPENINGS, ROOM_NAMES, type Wall } from "./room-data";
 import { openingCentre } from "./room-health";
-import { footprintOf, useRoom } from "./room-store";
+import { footprintOf, useActiveRoom } from "./room-store";
 import { usePieceActions } from "./piece-actions";
 import { footprint } from "./piece-detail";
 import type { Angle } from "./studio-store";
@@ -26,7 +26,7 @@ const ELEVATION_OF: Record<string, Wall> = {
 };
 
 export function Elevation2D({ angle }: { angle: Angle }) {
-  const r = useRoom();
+  const r = useActiveRoom();
   const a = usePieceActions();
   const select = (id: string) => a.onPick(a.pieces.find((n) => n.id === id)!);
   const wall = ELEVATION_OF[angle] ?? "north";

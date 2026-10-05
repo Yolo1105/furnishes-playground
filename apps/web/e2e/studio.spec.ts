@@ -2368,6 +2368,76 @@ test("the Wall tool reshapes the room: a wall pushed, a corner moved, a wall spl
   ).toHaveValue(String(cornered.w));
 });
 
+test("the flat has rooms: one added stands beside the active room, a click on its floor makes it active, a piece goes into the active room, Remove takes it out", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  await page.getByRole("button", { name: "Show 2D plan in main" }).click();
+  const svg = page.locator(".shell-stage .plan-svg");
+  const rooms = page.getByRole("radiogroup", { name: "Rooms" });
+  await page.getByRole("tab", { name: "Room", exact: true }).click();
+  await expect(rooms.getByRole("radio")).toHaveCount(1);
+  await expect(
+    page.getByRole("button", { name: "Remove", exact: true }),
+  ).toHaveCount(0);
+  // a second room: the flat's next kind, east of the first, now active
+  await page.getByRole("button", { name: "Add a room" }).click();
+  await expect(rooms.getByRole("radio")).toHaveText([
+    "Living & dining",
+    "Master bedroom",
+  ]);
+  await expect(
+    rooms.getByRole("radio", { name: "Master bedroom" }),
+  ).toHaveAttribute("aria-checked", "true");
+  await expect(svg.locator(".plan-room")).toHaveCount(2);
+  await expect(svg).toHaveAttribute(
+    "aria-label",
+    /Plan of the Master bedroom, \d+ by \d+ millimetres/,
+  );
+  const living = svg.locator('.plan-room[data-active="false"]');
+  const bedroom = svg.locator('.plan-room[data-active="true"]');
+  const [lb, bb] = await Promise.all([
+    living.locator(".plan-floor").boundingBox(),
+    bedroom.locator(".plan-floor").boundingBox(),
+  ]);
+  expect(bb!.x).toBeGreaterThan(lb!.x + lb!.width);
+  await expect(living.locator(".plan-room-name")).toHaveText("LIVING & DINING");
+  // a piece added goes into the active room's sheet
+  const sheets = page.locator(".shell-stage .plan-pieces");
+  await expect(sheets).toHaveCount(2);
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await page
+    .getByRole("dialog", { name: "Add to the room" })
+    .getByRole("button", { name: /^Add Shelf,/ })
+    .click();
+  await expect(
+    sheets.filter({ has: page.locator('[aria-label="Shelf"]') }).first(),
+  ).toHaveAttribute("data-active", "true");
+  // the living room's floor, clicked where nothing stands, is the active
+  // room again (a piece picked there would do the same)
+  const floor = svg.getByRole("button", {
+    name: "Work on the Living & dining",
+  });
+  const fb = (await floor.boundingBox())!;
+  await floor.click({ position: { x: 10, y: fb.height - 10 } });
+  await expect(
+    rooms.getByRole("radio", { name: "Living & dining" }),
+  ).toHaveAttribute("aria-checked", "true");
+  await expect(svg).toHaveAttribute(
+    "aria-label",
+    /Plan of the Living & dining/,
+  );
+  // Remove takes the active room and what stood in it
+  await rooms.getByRole("radio", { name: "Master bedroom" }).click();
+  await page.getByRole("button", { name: "Remove", exact: true }).click();
+  await expect(rooms.getByRole("radio")).toHaveCount(1);
+  await expect(svg.locator(".plan-room")).toHaveCount(1);
+  await expect(
+    page.getByRole("treeitem", { name: "Shelf", exact: true }),
+  ).toHaveCount(0);
+});
+
 test("Generate makes a room item from a few words; it stands as a shape without a provider", async ({
   page,
 }) => {

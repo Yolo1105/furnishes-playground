@@ -7,7 +7,7 @@ import {
   useThree,
   type ThreeEvent,
 } from "@react-three/fiber";
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject, useMemo } from "react";
 import { Plane, Vector3, type Vector3Tuple } from "three";
 import { CATEGORY_NAMES, type AssetNode } from "./assets-data";
 import { Furniture3D } from "./Furniture3D";
@@ -27,7 +27,13 @@ import { FLOOR_TONES, WALL_TONES, type Floor } from "./room-data";
 import { settle, type Rect } from "./room-layout";
 import { insideOutline } from "./room-geometry";
 import type { Point } from "./room-templates";
-import { footprintOf, useRoom } from "./room-store";
+import {
+  footprintOf,
+  type RoomSpec,
+  sheetBox,
+  useActiveRoom,
+  useRoom,
+} from "./room-store";
 import { RoomLight, RoomShell } from "./Room3D";
 import { propsOf, useScene } from "./scene-store";
 import { useCoarse } from "./input";
@@ -136,18 +142,26 @@ const report = (stage: RefObject<HTMLDivElement | null>, p: Vector3) => {
   if (el.dataset.cam !== v) el.dataset.cam = v;
 };
 
-/** where the camera stands for each angle, scaled to the room */
-const cameraFor = (angle: Angle, w: number, d: number, h: number) => {
+/** where the camera stands for each angle, scaled to the flat's box
+    and looking at its middle */
+const cameraFor = (
+  angle: Angle,
+  w: number,
+  d: number,
+  h: number,
+  centre: readonly [number, number],
+) => {
   const r = Math.max(w, d);
   const eye = h / 2;
-  const at: Vector3Tuple = [0, eye, 0];
+  const [cx, cz] = centre;
+  const at: Vector3Tuple = [cx, eye, cz];
   const pos: Record<string, Vector3Tuple> = {
-    Perspective: [r * 0.9, r * 0.75, r * 1.1],
-    Front: [0, eye, r * 1.4],
-    Back: [0, eye, -r * 1.4],
-    Left: [-r * 1.4, eye, 0],
-    Right: [r * 1.4, eye, 0],
-    Top: [0, r * 1.8, 0.01],
+    Perspective: [cx + r * 0.9, r * 0.75, cz + r * 1.1],
+    Front: [cx, eye, cz + r * 1.4],
+    Back: [cx, eye, cz - r * 1.4],
+    Left: [cx - r * 1.4, eye, cz],
+    Right: [cx + r * 1.4, eye, cz],
+    Top: [cx, r * 1.8, cz + 0.01],
   };
   return { pos: pos[angle] ?? pos.Perspective!, at };
 };
@@ -160,12 +174,15 @@ function Rig({
   w,
   d,
   h,
+  centre,
   stage,
 }: {
   angle: Angle;
+  /** the flat's box, m, and its middle from the active room's */
   w: number;
   d: number;
   h: number;
+  centre: readonly [number, number];
   stage: RefObject<HTMLDivElement | null>;
 }) {
   const camera = useThree((s) => s.camera);
@@ -180,7 +197,7 @@ function Rig({
     t: number;
   } | null>(null);
   useEffect(() => {
-    const { pos, at } = cameraFor(angle, w, d, h);
+    const { pos, at } = cameraFor(angle, w, d, h, centre);
     // a tall screen (a phone, a tablet upright) sees less across: the
     // camera stands further back so the room still fits
     const aspect = size.height ? size.width / size.height : 1.5;
@@ -195,7 +212,7 @@ function Rig({
       t: reduced() ? 1 : 0,
     };
     invalidate();
-  }, [angle, w, d, h, camera, controls, invalidate, size]);
+  }, [angle, w, d, h, centre, camera, controls, invalidate, size]);
   useFrame((_, raw) => {
     // the clock runs while the scene rests: a frame after a pause steps
     // no further than a tenth of a second
@@ -736,14 +753,114 @@ function Piece({
   );
 }
 
+/** another room of the flat, standing where it does on the sheet with
+    the active room at the origin: its shell and its pieces, to look at
+    and to pick, not to drag */
+function OtherRoom({
+  rm,
+  from,
+  portal,
+  labels,
+  edges,
+  rendering,
+}: {
+  rm: RoomSpec;
+  from: RoomSpec;
+  portal: RefObject<HTMLDivElement>;
+  labels: boolean;
+  edges: boolean;
+  rendering: boolean;
+}) {
+  const a = usePieceActions(rm.id);
+  const outline = footprintOf(rm);
+  const w = m(rm.width);
+  const d = m(rm.depth);
+  const wall =
+    WALL_TONES.find((t) => t.id === rm.wallTone)?.hex ?? WALL_TONES[0].hex;
+  const floor = FLOOR_TONES[rm.floor as Floor] ?? FLOOR_TONES.Vinyl;
+  // from the active room's centre to this room's centre
+  const dx = m(rm.pos[0] - from.pos[0]) + w / 2 - m(from.width) / 2;
+  const dz = m(rm.pos[1] - from.pos[1]) + d / 2 - m(from.depth) / 2;
+  const rects = a.shown
+    .filter((n) => !isRug(n))
+    .map((n) => ({
+      id: n.id,
+      ...a.spots.get(n.id)!,
+      ...footprint(a.props.get(n.id)!),
+    }));
+  return (
+    <group position={[dx, 0, dz]}>
+      <RoomShell
+        r={{
+          W: rm.width,
+          D: rm.depth,
+          outline,
+          openings: rm.openings,
+          height: rm.height,
+          floor: rm.floor as Floor,
+          floorHex: floor,
+          wallHex: wall,
+        }}
+        walk={false}
+        onWalkTo={() => undefined}
+      />
+      {a.shown.map((n) => {
+        const p = a.props.get(n.id)!;
+        const at = a.spots.get(n.id)!;
+        const f = footprint(p);
+        return (
+          <Piece
+            key={n.id}
+            portal={portal}
+            node={n}
+            props={p}
+            at={[-w / 2 + m(at.x + f.w / 2), 0, -d / 2 + m(at.y + f.d / 2)]}
+            turn={-(p.rotation * Math.PI) / 180}
+            size={[m(p.width), m(p.height), m(p.depth)]}
+            colour={n.kind === "piece" ? colourHex(p.colour) : ROOM_ITEM_HEX}
+            parts={(n.children ?? []).map((c) =>
+              colourHex(propsOf(c, a.overrides).colour),
+            )}
+            selected={a.selectedId === n.id && !rendering}
+            clash={a.clashes.has(n.id)}
+            label={a.labelOf(n)}
+            canDrag={false}
+            room={{ W: rm.width, D: rm.depth, w, d, outline }}
+            others={rects}
+            onPick={() => a.onPick(n)}
+            onTurn={() => a.turn(n)}
+            onDragging={() => undefined}
+            hovered={false}
+            onHover={() => undefined}
+            labels={labels}
+            edges={edges}
+            actions={null}
+          />
+        );
+      })}
+    </group>
+  );
+}
+
 export default function Scene3D() {
   const a = usePieceActions();
   const portal = useRef<HTMLDivElement>(null!);
   const stage = useRef<HTMLDivElement>(null);
   const angle = useStudio((s) => s.angle);
   const walk = useStudio((s) => s.walk);
-  const room = useRoom();
+  const room = useActiveRoom();
+  const rooms = useRoom((s) => s.rooms);
   const outline = footprintOf(room);
+  // the flat's box on the sheet, and its middle from the active room's
+  // centre (the origin), so the camera frames every room
+  const box = sheetBox(rooms);
+  const centre = useMemo(
+    (): readonly [number, number] => [
+      m(box.x + box.w / 2 - room.pos[0] - room.width / 2),
+      m(box.y + box.h / 2 - room.pos[1] - room.depth / 2),
+    ],
+    [box.x, box.y, box.w, box.h, room.pos, room.width, room.depth],
+  );
   const [dragging, setDragging] = useState(false);
   // the piece under the pointer: the canvas shows a hand over one that
   // can be dragged, a finger over one that can only be picked
@@ -842,7 +959,14 @@ export default function Scene3D() {
         {walk ? (
           <Walker w={w} d={d} outline={outline} blocks={blocks} stage={stage} />
         ) : (
-          <Rig angle={angle} w={w} d={d} h={h} stage={stage} />
+          <Rig
+            angle={angle}
+            w={m(box.w)}
+            d={m(box.h)}
+            h={h}
+            centre={centre}
+            stage={stage}
+          />
         )}
         <ambientLight intensity={light.ambient} color={light.colour} />
         <directionalLight
@@ -885,6 +1009,20 @@ export default function Scene3D() {
             }}
           />
         )}
+        {!a.focus &&
+          rooms
+            .filter((rm) => rm.id !== room.id)
+            .map((rm) => (
+              <OtherRoom
+                key={rm.id}
+                rm={rm}
+                from={room}
+                portal={portal}
+                labels={labels}
+                edges={edges}
+                rendering={rendering}
+              />
+            ))}
         {a.shown.map((n) => {
           const p = a.props.get(n.id)!;
           const size: Vector3Tuple = [m(p.width), m(p.height), m(p.depth)];

@@ -1549,6 +1549,40 @@
 .plan-grip-end:hover {
   fill: var(--color-accent);
 }
+/* the other rooms of the flat: faint, a click makes one the active room */
+.plan-room[data-active="false"] {
+  opacity: 0.55;
+}
+.plan-room[data-active="false"] .plan-floor {
+  pointer-events: all;
+  cursor: pointer;
+}
+.plan-room[data-active="false"] .plan-face,
+.plan-room[data-active="false"] .plan-wall,
+.plan-room[data-active="false"] .plan-opening-group {
+  pointer-events: none;
+}
+.plan-room[data-active="false"] .plan-floor:hover {
+  fill: rgb(from var(--color-accent) r g b / 0.08);
+}
+.plan-room-name {
+  font-size: 200px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  fill: rgb(from var(--color-ink) r g b / 0.5);
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
+/* another room's pieces can be picked, and its floor clicked through
+   the layer */
+.plan-pieces[data-active="false"] {
+  opacity: 0.7;
+  pointer-events: none;
+}
+.plan-pieces[data-active="false"] .stage-piece {
+  pointer-events: auto;
+}
 /* the room's own handles: a bar on each wall, a square on each corner */
 .plan-shape-edge {
   fill: rgb(from var(--color-accent) r g b / 0.1);

@@ -50,6 +50,10 @@ export const HELP_TABS: readonly HelpTab[] = [
             how: "W, then click corner to corner. With the tool on, drag a wall or a corner of the room to resize it, double-click a wall to split it, and drag a door or window along its wall or pull either end to size it.",
           },
           {
+            does: "Work in another room",
+            how: "Click its floor, or a piece in it; the Room tab's Rooms row adds one, picks one or removes one.",
+          },
+          {
             does: "Set the tour's stops",
             how: "T, then click the plan; a click on a stop takes it away. Play walks the room.",
           },

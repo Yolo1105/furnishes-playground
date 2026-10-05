@@ -12,6 +12,7 @@ import { endTileDrag, moveTileDrag, startTileDrag } from "./dnd";
 import { PlusIcon } from "./icons";
 import { defaultProps } from "./piece-detail";
 import { PlanSymbol } from "./plan-symbols";
+import { useRoom } from "./room-store";
 import { useScene } from "./scene-store";
 
 /**
@@ -28,6 +29,7 @@ export function ProductsTab({
   category: AssetCategory | null;
 }) {
   const add = useScene((s) => s.addProduct);
+  const activeId = useRoom((s) => s.activeId);
   const select = useScene((s) => s.select);
   const [justAdded, setJustAdded] = useState<string | null>(null);
   const flash = useRef(0);
@@ -41,7 +43,7 @@ export function ProductsTab({
   const onAdd = (id: string) => {
     const p = products.find((x) => x.id === id);
     if (!p) return;
-    select(add(p), false);
+    select(add(p, activeId), false);
     setJustAdded(id);
     window.clearTimeout(flash.current);
     flash.current = window.setTimeout(() => setJustAdded(null), 1200);

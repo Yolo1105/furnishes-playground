@@ -2,7 +2,7 @@
 
 import { usePieceActions } from "./piece-actions";
 import { colourHex, footprint, ROOM_ITEM_HEX } from "./piece-detail";
-import { footprintOf, useRoom } from "./room-store";
+import { footprintOf, useActiveRoom } from "./room-store";
 import { isoBoxes, isoFaces, isoProjector } from "./room-templates";
 
 /**
@@ -14,7 +14,7 @@ import { isoBoxes, isoFaces, isoProjector } from "./room-templates";
 const BOX = { w: 160, h: 120 };
 
 export function MiniIso() {
-  const r = useRoom();
+  const r = useActiveRoom();
   const a = usePieceActions();
   const outline = footprintOf(r);
   const { P } = isoProjector(outline, BOX, r.height);

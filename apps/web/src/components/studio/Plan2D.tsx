@@ -6,7 +6,6 @@ import {
   useState,
   type MouseEvent,
   type PointerEvent,
-  type ReactNode,
 } from "react";
 import {
   OPENING_WIDTH,
@@ -26,7 +25,16 @@ import {
 } from "./room-geometry";
 import { usePieceActions } from "./piece-actions";
 import { openingCentre, zonesOf } from "./room-health";
-import { CLOSE_WITHIN, footprintOf, useRoom } from "./room-store";
+import {
+  activeOf,
+  CLOSE_WITHIN,
+  footprintOf,
+  roomLabel,
+  type RoomSpec,
+  sheetBox,
+  useRoom,
+} from "./room-store";
+import { StagePieces } from "./StagePieces";
 import type { Point } from "./room-templates";
 import { useStudio } from "./studio-store";
 import { PLACE_SNAP } from "./piece-detail";
@@ -107,14 +115,16 @@ const alongRect = (e: Edge, len: number, thick: number) => {
 };
 
 export function Plan2D({
-  children,
   interactive = true,
 }: {
-  children?: ReactNode;
   /** false for the small copy in the view panel: no drawing, no sheet */
   interactive?: boolean;
 }) {
-  const r = useRoom();
+  const st = useRoom();
+  const rooms = st.rooms;
+  const active = activeOf(st);
+  /** the active room's fields with the actions, as one */
+  const r = { ...st, ...active };
   const tool = useStudio((s) => s.tool);
   const planZoom = useStudio((s) => s.planZoom);
   const planPan = useStudio((s) => s.planPan);
@@ -139,9 +149,21 @@ export function Plan2D({
   );
   const W = r.width;
   const D = r.depth;
-  const vw = W + 2 * MARGIN;
-  const vh = D + 2 * MARGIN;
+  // the sheet holds every room: its box, with a margin round it
+  const box = sheetBox(rooms);
+  const vw = box.w + 2 * MARGIN;
+  const vh = box.h + 2 * MARGIN;
   const outline = footprintOf(r);
+  const pos = active.pos;
+  /** a point of the sheet in the active room's own frame */
+  const local = (p: Point): Point => [p[0] - pos[0], p[1] - pos[1]];
+  /** a room's shell, for its openings and zones */
+  const shellOf = (rm: RoomSpec) => ({
+    W: rm.width,
+    D: rm.depth,
+    outline: footprintOf(rm),
+    openings: rm.openings,
+  });
   const edges = edgesOf(outline);
   const poly = outline.map((p) => p.join(",")).join(" ");
   const drawingOn = interactive && tool === "wall";
@@ -172,12 +194,7 @@ export function Plan2D({
   const stops = useRoom((s) => s.stops);
   // the planner's zones show on the sheet while something stands in them
   const { issues } = usePieceActions();
-  const opening = {
-    W,
-    D,
-    outline,
-    openings: r.openings,
-  };
+  const opening = shellOf(active);
   const zones = zonesOf(opening);
   const doorBlocked = issues.some((i) => i.kind === "door");
   const windowBlocked = issues.some((i) => i.kind === "window");
@@ -333,9 +350,9 @@ export function Plan2D({
 
   // each opening on its wall: its centre and the edge's run, so it is
   // drawn along the wall whichever way the wall faces
-  const onEdge = (o: Opening): Edge => {
-    const e = edgeOf(o.wall, W, D);
-    const { centre, at } = openingCentre(opening, o);
+  const onEdge = (shell: ReturnType<typeof shellOf>, o: Opening): Edge => {
+    const e = edgeOf(o.wall, shell.W, shell.D);
+    const { centre, at } = openingCentre(shell, o);
     const horizontal = o.wall === "north" || o.wall === "south";
     return {
       ...e,
@@ -345,8 +362,9 @@ export function Plan2D({
   };
   /** where the pointer is along an opening's wall, mm, snapped */
   const alongWall = (o: Opening, e: { clientX: number; clientY: number }) => {
-    const pt = mmOf(e);
-    if (!pt) return null;
+    const at = mmOf(e);
+    if (!at) return null;
+    const pt = local(at);
     const horizontal = o.wall === "north" || o.wall === "south";
     return Math.round((horizontal ? pt[0] : pt[1]) / snap) * snap;
   };
@@ -415,9 +433,15 @@ export function Plan2D({
   ) => {
     if (!handles || e.button !== 0) return;
     e.stopPropagation();
-    const pt = mmOf(e);
-    if (!pt) return;
-    shape.current = { kind, i, from: outline, at: pt, acc: { x: 0, y: 0 } };
+    const at = mmOf(e);
+    if (!at) return;
+    shape.current = {
+      kind,
+      i,
+      from: outline,
+      at: local(at),
+      acc: { x: 0, y: 0 },
+    };
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
     } catch {
@@ -427,9 +451,10 @@ export function Plan2D({
   const onShapeMove = (e: PointerEvent<SVGElement>) => {
     const g = shape.current;
     if (!g) return;
-    const here = mmOf(e);
-    if (!here) return;
+    const at = mmOf(e);
+    if (!at) return;
     // the pointer, in the frame the drag began in
+    const here = local(at);
     const pt: Point = [here[0] + g.acc.x, here[1] + g.acc.y];
     if (g.kind === "edge") {
       const f = edgeFrame(g.from, g.i);
@@ -445,8 +470,8 @@ export function Plan2D({
   };
   const onEdgeSplit = (e: MouseEvent<SVGElement>, i: number) => {
     e.stopPropagation();
-    const pt = mmOf(e);
-    if (pt) r.setOutline(splitEdge(outline, i, snapped(pt)));
+    const at = mmOf(e);
+    if (at) r.setOutline(splitEdge(outline, i, snapped(local(at))));
   };
   /** a hinged leaf: the hinge at one jamb, the leaf standing into the
       room, the swing from its tip to the other jamb; a double door is
@@ -510,6 +535,112 @@ export function Plan2D({
     );
   };
 
+  /** a room's openings drawn on its walls: a window as the gap and its
+      three lines; a door as the gap, its leaf and its swing (two for a
+      double door); a sliding door as two panels past each other; a
+      passage as the gap alone. With `grips`, each has its handles */
+  const openingsOf = (shell: ReturnType<typeof shellOf>, grips: boolean) =>
+    shell.openings.map((o) => {
+      const e = onEdge(shell, o);
+      const half = o.width / 2;
+      return (
+        <g
+          key={o.id}
+          className="plan-opening-group"
+          data-kind={o.kind}
+          data-wall={o.wall}
+        >
+          <polygon
+            points={alongRect(e, o.width, WALL * 2 + 30)}
+            className="plan-opening"
+          />
+          {o.kind === "window" &&
+            [-WALL, 0, WALL].map((k) => (
+              <line
+                key={k}
+                x1={e.x - e.dx * half + e.nx * k}
+                y1={e.y - e.dy * half + e.ny * k}
+                x2={e.x + e.dx * half + e.nx * k}
+                y2={e.y + e.dy * half + e.ny * k}
+                className="plan-line"
+              />
+            ))}
+          {(o.kind === "door"
+            ? [leafOf(e, -half, o.width, 1)]
+            : o.kind === "double"
+              ? [leafOf(e, -half, half, 1), leafOf(e, half, half, -1)]
+              : []
+          ).map((l, i) => (
+            <g key={i}>
+              <line
+                x1={l.hinge.x}
+                y1={l.hinge.y}
+                x2={l.tip.x}
+                y2={l.tip.y}
+                className="plan-leaf"
+              />
+              <path
+                d={`M ${l.tip.x} ${l.tip.y} A ${l.leaf} ${l.leaf} 0 0 ${l.sweep} ${l.jamb.x} ${l.jamb.y}`}
+                className="plan-swing"
+              />
+            </g>
+          ))}
+          {o.kind === "sliding" &&
+            [-1, 1].map((k) => (
+              <line
+                key={k}
+                x1={e.x + e.dx * (k === -1 ? -half : 0) + e.nx * k * 40}
+                y1={e.y + e.dy * (k === -1 ? -half : 0) + e.ny * k * 40}
+                x2={e.x + e.dx * (k === -1 ? 0 : half) + e.nx * k * 40}
+                y2={e.y + e.dy * (k === -1 ? 0 : half) + e.ny * k * 40}
+                className="plan-leaf"
+              />
+            ))}
+          {grips && (
+            <g className="plan-grips">
+              <polygon
+                points={alongRect(e, o.width, WALL * 2 + 120)}
+                className="plan-grip"
+                role="button"
+                aria-label={`Move the ${o.kind} along its wall`}
+                onPointerDown={(ev) => onGripDown(ev, o, "move")}
+                onPointerMove={(ev) => onGripMove(ev, o)}
+                onPointerUp={() => onGripUp(o)}
+                onPointerCancel={() => onGripUp(o)}
+                onClick={(ev) => ev.stopPropagation()}
+              />
+              {(["a", "b"] as const).map((end) => {
+                const k = end === "a" ? -1 : 1;
+                return (
+                  <circle
+                    key={end}
+                    cx={e.x + e.dx * k * half}
+                    cy={e.y + e.dy * k * half}
+                    r={110}
+                    className="plan-grip-end"
+                    role="button"
+                    aria-label={`Pull the ${o.kind}'s ${end === "a" ? "first" : "second"} end`}
+                    onPointerDown={(ev) => onGripDown(ev, o, end)}
+                    onPointerMove={(ev) => onGripMove(ev, o)}
+                    onPointerUp={() => onGripUp(o)}
+                    onPointerCancel={() => onGripUp(o)}
+                    onClick={(ev) => ev.stopPropagation()}
+                  />
+                );
+              })}
+              <text
+                x={e.x + e.nx * (WALL + 260)}
+                y={e.y + e.ny * (WALL + 260)}
+                className="plan-grip-label f-num"
+              >
+                {o.width}
+              </text>
+            </g>
+          )}
+        </g>
+      );
+    });
+
   return (
     <div
       ref={sheetRef}
@@ -536,7 +667,7 @@ export function Plan2D({
         data-drawing={drawingOn}
         data-measuring={measuring}
         data-touring={touring}
-        viewBox={`${-MARGIN} ${-MARGIN} ${vw} ${vh}`}
+        viewBox={`${box.x - MARGIN} ${box.y - MARGIN} ${vw} ${vh}`}
         aria-label={`Plan of the ${ROOM_NAMES[r.room]}, ${W} by ${D} millimetres`}
         onClick={onPlanClick}
         onMouseMove={onPlanMove}
@@ -553,265 +684,221 @@ export function Plan2D({
           </pattern>
         </defs>
 
-        {/* the floor; then the band along the outline: its faces as a wide
+        {/* the other rooms of the flat, faint, each a click away from
+            being the active one; its name sits on its floor */}
+        {rooms
+          .filter((rm) => rm.id !== active.id)
+          .map((rm) => {
+            const shell = shellOf(rm);
+            const pts = shell.outline.map((p) => p.join(",")).join(" ");
+            return (
+              <g
+                key={rm.id}
+                className="plan-room"
+                data-active="false"
+                data-room={rm.id}
+                transform={`translate(${rm.pos[0]} ${rm.pos[1]})`}
+              >
+                <polygon
+                  points={pts}
+                  className="plan-floor"
+                  role={interactive ? "button" : undefined}
+                  aria-label={
+                    interactive
+                      ? `Work on the ${roomLabel(rooms, rm)}`
+                      : undefined
+                  }
+                  onClick={(ev) => {
+                    if (!interactive || drawingOn || measuring || touring)
+                      return;
+                    ev.stopPropagation();
+                    st.setActive(rm.id);
+                  }}
+                />
+                <polygon
+                  points={pts}
+                  className="plan-face"
+                  strokeWidth={WALL * 2 + FACE * 2}
+                />
+                <polygon
+                  points={pts}
+                  className="plan-wall"
+                  strokeWidth={WALL * 2}
+                />
+                {openingsOf(shell, false)}
+                <text
+                  className="plan-room-name"
+                  x={rm.width / 2}
+                  y={rm.depth / 2}
+                >
+                  {roomLabel(rooms, rm).toUpperCase()}
+                </text>
+              </g>
+            );
+          })}
+        <g
+          className="plan-room"
+          data-active="true"
+          data-room={active.id}
+          transform={`translate(${pos[0]} ${pos[1]})`}
+        >
+          {/* the floor; then the band along the outline: its faces as a wide
             heavy stroke, the hatch over all but the face lines */}
-        <polygon points={poly} className="plan-floor" />
-        <polygon
-          points={poly}
-          className="plan-face"
-          strokeWidth={WALL * 2 + FACE * 2}
-        />
-        <polygon points={poly} className="plan-wall" strokeWidth={WALL * 2} />
+          <polygon points={poly} className="plan-floor" />
+          <polygon
+            points={poly}
+            className="plan-face"
+            strokeWidth={WALL * 2 + FACE * 2}
+          />
+          <polygon points={poly} className="plan-wall" strokeWidth={WALL * 2} />
 
-        {/* the room's own handles, with the Wall tool, under the openings so
+          {/* the room's own handles, with the Wall tool, under the openings so
             their grips stay in reach: a bar on each wall
             and a square on each corner, the wall's length beside it */}
-        {handles && (
-          <g className="plan-shape">
-            {outline.map((_, i) => {
-              const f = edgeFrame(outline, i);
-              const wall = edges[i]!.wall;
-              const horizontal = wall === "north" || wall === "south";
-              // the bar sits in the longest run of the wall with no
-              // opening in it, so the openings' own grips stay in reach
-              const lo = Math.min(
-                horizontal ? f.a[0] : f.a[1],
-                horizontal ? f.b[0] : f.b[1],
-              );
-              const hi = lo + f.len;
-              const across = horizontal ? f.a[1] : f.a[0];
-              const taken = r.openings
-                .map((o) => ({ o, c: openingCentre(opening, o) }))
-                .filter(({ c }) => c.at === across)
-                .map(
-                  ({ o, c }) =>
-                    [c.centre - o.width / 2, c.centre + o.width / 2] as const,
-                )
-                .sort((p, q) => p[0] - q[0]);
-              let run: readonly [number, number] = [lo, lo];
-              let from = lo;
-              for (const [p, q] of [...taken, [hi, hi] as const]) {
-                if (p - from > run[1] - run[0]) run = [from, p];
-                from = Math.max(from, q);
-              }
-              const len = Math.max(
-                BAR.min,
-                Math.min(BAR.max, (run[1] - run[0]) * BAR.share),
-              );
-              const mid = (run[0] + run[1]) / 2;
-              const mx = horizontal ? mid : across;
-              const my = horizontal ? across : mid;
-              const angle = (Math.atan2(f.uy, f.ux) * 180) / Math.PI;
-              return (
-                <g
-                  key={`e${i}`}
-                  transform={`translate(${mx} ${my}) rotate(${angle})`}
-                >
-                  <rect
-                    x={-len / 2}
-                    y={-WALL}
-                    width={len}
-                    height={WALL * 2}
-                    rx={60}
-                    className="plan-shape-edge"
-                    data-across={horizontal ? "ns" : "ew"}
-                    role="button"
-                    aria-label={`Move wall ${i + 1}`}
-                    onPointerDown={(ev) => onShapeDown(ev, "edge", i)}
-                    onPointerMove={onShapeMove}
-                    onPointerUp={onShapeUp}
-                    onPointerCancel={onShapeUp}
-                    onClick={(ev) => ev.stopPropagation()}
-                    onDoubleClick={(ev) => onEdgeSplit(ev, i)}
-                  />
-                  {len >= BAR.labelled && (
-                    <text
-                      className="plan-shape-len f-num"
-                      // read from below or from the right, as a drawing has it
-                      transform={
-                        angle >= 90 || angle < -90 ? "rotate(180)" : undefined
-                      }
-                    >
-                      {Math.round(f.len)}
-                    </text>
-                  )}
-                </g>
-              );
-            })}
-            {outline.map(([x, y], i) => (
+          {handles && (
+            <g className="plan-shape">
+              {outline.map((_, i) => {
+                const f = edgeFrame(outline, i);
+                const wall = edges[i]!.wall;
+                const horizontal = wall === "north" || wall === "south";
+                // the bar sits in the longest run of the wall with no
+                // opening in it, so the openings' own grips stay in reach
+                const lo = Math.min(
+                  horizontal ? f.a[0] : f.a[1],
+                  horizontal ? f.b[0] : f.b[1],
+                );
+                const hi = lo + f.len;
+                const across = horizontal ? f.a[1] : f.a[0];
+                const taken = r.openings
+                  .map((o) => ({ o, c: openingCentre(opening, o) }))
+                  .filter(({ c }) => c.at === across)
+                  .map(
+                    ({ o, c }) =>
+                      [c.centre - o.width / 2, c.centre + o.width / 2] as const,
+                  )
+                  .sort((p, q) => p[0] - q[0]);
+                let run: readonly [number, number] = [lo, lo];
+                let from = lo;
+                for (const [p, q] of [...taken, [hi, hi] as const]) {
+                  if (p - from > run[1] - run[0]) run = [from, p];
+                  from = Math.max(from, q);
+                }
+                const len = Math.max(
+                  BAR.min,
+                  Math.min(BAR.max, (run[1] - run[0]) * BAR.share),
+                );
+                const mid = (run[0] + run[1]) / 2;
+                const mx = horizontal ? mid : across;
+                const my = horizontal ? across : mid;
+                const angle = (Math.atan2(f.uy, f.ux) * 180) / Math.PI;
+                return (
+                  <g
+                    key={`e${i}`}
+                    transform={`translate(${mx} ${my}) rotate(${angle})`}
+                  >
+                    <rect
+                      x={-len / 2}
+                      y={-WALL}
+                      width={len}
+                      height={WALL * 2}
+                      rx={60}
+                      className="plan-shape-edge"
+                      data-across={horizontal ? "ns" : "ew"}
+                      role="button"
+                      aria-label={`Move wall ${i + 1}`}
+                      onPointerDown={(ev) => onShapeDown(ev, "edge", i)}
+                      onPointerMove={onShapeMove}
+                      onPointerUp={onShapeUp}
+                      onPointerCancel={onShapeUp}
+                      onClick={(ev) => ev.stopPropagation()}
+                      onDoubleClick={(ev) => onEdgeSplit(ev, i)}
+                    />
+                    {len >= BAR.labelled && (
+                      <text
+                        className="plan-shape-len f-num"
+                        // read from below or from the right, as a drawing has it
+                        transform={
+                          angle >= 90 || angle < -90 ? "rotate(180)" : undefined
+                        }
+                      >
+                        {Math.round(f.len)}
+                      </text>
+                    )}
+                  </g>
+                );
+              })}
+              {outline.map(([x, y], i) => (
+                <rect
+                  key={`c${i}`}
+                  x={x - CORNER / 2}
+                  y={y - CORNER / 2}
+                  width={CORNER}
+                  height={CORNER}
+                  className="plan-shape-corner"
+                  role="button"
+                  aria-label={`Move corner ${i + 1}`}
+                  onPointerDown={(ev) => onShapeDown(ev, "corner", i)}
+                  onPointerMove={onShapeMove}
+                  onPointerUp={onShapeUp}
+                  onPointerCancel={onShapeUp}
+                  onClick={(ev) => ev.stopPropagation()}
+                />
+              ))}
+            </g>
+          )}
+          {openingsOf(opening, grips)}
+
+          {dim([0, 0], [W, 0], `${W}`, [0, -1])}
+          {dim([0, D], [0, 0], `${D}`, [-1, 0])}
+
+          {/* the north arrow, top right of the sheet */}
+          <g
+            className="plan-north"
+            transform={`translate(${box.x + box.w - pos[0] + MARGIN * 0.55} ${box.y - pos[1] - MARGIN * 0.6})`}
+          >
+            <circle r={180} />
+            <path d="M0 -150 L75 70 L0 25 L-75 70 Z" />
+            <text y={300}>N</text>
+          </g>
+
+          {/* the title block, bottom left of the sheet, as a drawing has it */}
+          <g
+            className="plan-title"
+            transform={`translate(${box.x - pos[0] - MARGIN * 0.9} ${box.y + box.h - pos[1] + MARGIN * 0.4})`}
+          >
+            <rect x="0" y="0" width={Math.min(W * 0.62, 3600)} height={420} />
+            <text x={110} y={165}>
+              {ROOM_NAMES[r.room].toUpperCase()} · {r.flat.toUpperCase()} HDB
+            </text>
+            <text x={110} y={335} className="plan-title-sub">
+              PLAN · 1:50 · MM · CEILING {r.height} · {r.floor.toUpperCase()}
+            </text>
+          </g>
+
+          {/* the door's swing and the window's light, while something stands in them */}
+          {doorBlocked &&
+            zones.doors.map((d, i) => (
               <rect
-                key={`c${i}`}
-                x={x - CORNER / 2}
-                y={y - CORNER / 2}
-                width={CORNER}
-                height={CORNER}
-                className="plan-shape-corner"
-                role="button"
-                aria-label={`Move corner ${i + 1}`}
-                onPointerDown={(ev) => onShapeDown(ev, "corner", i)}
-                onPointerMove={onShapeMove}
-                onPointerUp={onShapeUp}
-                onPointerCancel={onShapeUp}
-                onClick={(ev) => ev.stopPropagation()}
+                key={`d${i}`}
+                className="plan-zone"
+                x={d.zone.x}
+                y={d.zone.y}
+                width={d.zone.w}
+                height={d.zone.d}
               />
             ))}
-          </g>
-        )}
-        {/* the openings: a window as the gap and its three lines; a door
-            as the gap, its leaf and its swing (two for a double door);
-            a sliding door as two panels past each other; a passage as
-            the gap alone */}
-        {r.openings.map((o) => {
-          const e = onEdge(o);
-          const half = o.width / 2;
-          return (
-            <g
-              key={o.id}
-              className="plan-opening-group"
-              data-kind={o.kind}
-              data-wall={o.wall}
-            >
-              <polygon
-                points={alongRect(e, o.width, WALL * 2 + 30)}
-                className="plan-opening"
+          {windowBlocked &&
+            zones.windows.map((w, i) => (
+              <rect
+                key={`w${i}`}
+                className="plan-zone"
+                x={w.zone.x}
+                y={w.zone.y}
+                width={w.zone.w}
+                height={w.zone.d}
               />
-              {o.kind === "window" &&
-                [-WALL, 0, WALL].map((k) => (
-                  <line
-                    key={k}
-                    x1={e.x - e.dx * half + e.nx * k}
-                    y1={e.y - e.dy * half + e.ny * k}
-                    x2={e.x + e.dx * half + e.nx * k}
-                    y2={e.y + e.dy * half + e.ny * k}
-                    className="plan-line"
-                  />
-                ))}
-              {(o.kind === "door"
-                ? [leafOf(e, -half, o.width, 1)]
-                : o.kind === "double"
-                  ? [leafOf(e, -half, half, 1), leafOf(e, half, half, -1)]
-                  : []
-              ).map((l, i) => (
-                <g key={i}>
-                  <line
-                    x1={l.hinge.x}
-                    y1={l.hinge.y}
-                    x2={l.tip.x}
-                    y2={l.tip.y}
-                    className="plan-leaf"
-                  />
-                  <path
-                    d={`M ${l.tip.x} ${l.tip.y} A ${l.leaf} ${l.leaf} 0 0 ${l.sweep} ${l.jamb.x} ${l.jamb.y}`}
-                    className="plan-swing"
-                  />
-                </g>
-              ))}
-              {o.kind === "sliding" &&
-                [-1, 1].map((k) => (
-                  <line
-                    key={k}
-                    x1={e.x + e.dx * (k === -1 ? -half : 0) + e.nx * k * 40}
-                    y1={e.y + e.dy * (k === -1 ? -half : 0) + e.ny * k * 40}
-                    x2={e.x + e.dx * (k === -1 ? 0 : half) + e.nx * k * 40}
-                    y2={e.y + e.dy * (k === -1 ? 0 : half) + e.ny * k * 40}
-                    className="plan-leaf"
-                  />
-                ))}
-              {grips && (
-                <g className="plan-grips">
-                  <polygon
-                    points={alongRect(e, o.width, WALL * 2 + 120)}
-                    className="plan-grip"
-                    role="button"
-                    aria-label={`Move the ${o.kind} along its wall`}
-                    onPointerDown={(ev) => onGripDown(ev, o, "move")}
-                    onPointerMove={(ev) => onGripMove(ev, o)}
-                    onPointerUp={() => onGripUp(o)}
-                    onPointerCancel={() => onGripUp(o)}
-                    onClick={(ev) => ev.stopPropagation()}
-                  />
-                  {(["a", "b"] as const).map((end) => {
-                    const k = end === "a" ? -1 : 1;
-                    return (
-                      <circle
-                        key={end}
-                        cx={e.x + e.dx * k * half}
-                        cy={e.y + e.dy * k * half}
-                        r={110}
-                        className="plan-grip-end"
-                        role="button"
-                        aria-label={`Pull the ${o.kind}'s ${end === "a" ? "first" : "second"} end`}
-                        onPointerDown={(ev) => onGripDown(ev, o, end)}
-                        onPointerMove={(ev) => onGripMove(ev, o)}
-                        onPointerUp={() => onGripUp(o)}
-                        onPointerCancel={() => onGripUp(o)}
-                        onClick={(ev) => ev.stopPropagation()}
-                      />
-                    );
-                  })}
-                  <text
-                    x={e.x + e.nx * (WALL + 260)}
-                    y={e.y + e.ny * (WALL + 260)}
-                    className="plan-grip-label f-num"
-                  >
-                    {o.width}
-                  </text>
-                </g>
-              )}
-            </g>
-          );
-        })}
-
-        {dim([0, 0], [W, 0], `${W}`, [0, -1])}
-        {dim([0, D], [0, 0], `${D}`, [-1, 0])}
-
-        {/* the north arrow, top right of the sheet */}
-        <g
-          className="plan-north"
-          transform={`translate(${W + MARGIN * 0.55} ${-MARGIN * 0.6})`}
-        >
-          <circle r={180} />
-          <path d="M0 -150 L75 70 L0 25 L-75 70 Z" />
-          <text y={300}>N</text>
+            ))}
         </g>
-
-        {/* the title block, bottom left of the sheet, as a drawing has it */}
-        <g
-          className="plan-title"
-          transform={`translate(${-MARGIN * 0.9} ${D + MARGIN * 0.4})`}
-        >
-          <rect x="0" y="0" width={Math.min(W * 0.62, 3600)} height={420} />
-          <text x={110} y={165}>
-            {ROOM_NAMES[r.room].toUpperCase()} · {r.flat.toUpperCase()} HDB
-          </text>
-          <text x={110} y={335} className="plan-title-sub">
-            PLAN · 1:50 · MM · CEILING {r.height} · {r.floor.toUpperCase()}
-          </text>
-        </g>
-
-        {/* the door's swing and the window's light, while something stands in them */}
-        {doorBlocked &&
-          zones.doors.map((d, i) => (
-            <rect
-              key={`d${i}`}
-              className="plan-zone"
-              x={d.zone.x}
-              y={d.zone.y}
-              width={d.zone.w}
-              height={d.zone.d}
-            />
-          ))}
-        {windowBlocked &&
-          zones.windows.map((w, i) => (
-            <rect
-              key={`w${i}`}
-              className="plan-zone"
-              x={w.zone.x}
-              y={w.zone.y}
-              width={w.zone.w}
-              height={w.zone.d}
-            />
-          ))}
         {/* the corners set so far, and the line between them */}
         {r.drawing.length > 0 && (
           <g className="plan-drawing">
@@ -883,18 +970,23 @@ export function Plan2D({
           </g>
         )}
       </svg>
-      {/* the pieces, laid over the room's own box */}
-      <div
-        className="plan-pieces"
-        style={{
-          left: `${(MARGIN / vw) * 100}%`,
-          top: `${(MARGIN / vh) * 100}%`,
-          width: `${(W / vw) * 100}%`,
-          height: `${(D / vh) * 100}%`,
-        }}
-      >
-        {children}
-      </div>
+      {/* the pieces of each room, laid over the room's own box */}
+      {rooms.map((rm) => (
+        <div
+          key={rm.id}
+          className="plan-pieces"
+          data-room={rm.id}
+          data-active={rm.id === active.id}
+          style={{
+            left: `${((rm.pos[0] - box.x + MARGIN) / vw) * 100}%`,
+            top: `${((rm.pos[1] - box.y + MARGIN) / vh) * 100}%`,
+            width: `${(rm.width / vw) * 100}%`,
+            height: `${(rm.depth / vh) * 100}%`,
+          }}
+        >
+          <StagePieces roomId={rm.id} compact={!interactive} />
+        </div>
+      ))}
     </div>
   );
 }

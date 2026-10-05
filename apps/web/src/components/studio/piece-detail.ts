@@ -17,6 +17,8 @@ export type PieceProps = {
   /** mm from the room's north-west corner, once placed by hand */
   x?: number;
   y?: number;
+  /** the room it stands in; the flat's first room when unset */
+  roomId?: string;
   /** degrees clockwise on the plan, 0 to 359; a handle drag snaps to
       ROTATE_SNAP, the R key and Turn go a quarter at a time */
   rotation: number;

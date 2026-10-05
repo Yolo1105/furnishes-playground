@@ -2,8 +2,14 @@ import { useEffect } from "react";
 import { create } from "zustand";
 import { useEva } from "./eva-store";
 import { newId } from "./ids";
-import { fromLegacyOpenings, rulesFor } from "./room-data";
-import { useRoom } from "./room-store";
+import {
+  type FlatType,
+  fromLegacyOpenings,
+  openingsFor,
+  rulesFor,
+} from "./room-data";
+import type { Point } from "./room-templates";
+import { type RoomSpec, useRoom } from "./room-store";
 import { useScene } from "./scene-store";
 
 /**
@@ -127,21 +133,57 @@ const fresh = (): Snapshot => {
   };
 };
 
+/** a project's rooms as saved, or the one room a project saved before
+    the flat had several: it stands at the sheet's corner. A room saved
+    before openings were a list brings its door and window; one saved
+    before a rule existed takes that rule's typical value */
+const roomsOf = (data: Snapshot["room"]): Snapshot["room"] => {
+  const base = dataOnly(useRoom.getInitialState());
+  const { id: _id, pos: _pos, ...defaults } = base.rooms[0]!;
+  const fill = (r: Partial<RoomSpec>): RoomSpec => {
+    const room = r.room ?? defaults.room;
+    const legacy = fromLegacyOpenings(
+      r as Parameters<typeof fromLegacyOpenings>[0],
+      r.width ?? defaults.width,
+      r.depth ?? defaults.depth,
+    );
+    return {
+      ...defaults,
+      id: newId("room"),
+      pos: [0, 0],
+      ...r,
+      openings:
+        r.openings ??
+        legacy ??
+        openingsFor(room, defaults.width, defaults.depth),
+      rules: { ...rulesFor(room), ...r.rules },
+    };
+  };
+  if (Array.isArray(data.rooms) && data.rooms.length > 0) {
+    const rooms = data.rooms.map(fill);
+    return {
+      ...base,
+      ...data,
+      rooms,
+      activeId: rooms.some((r) => r.id === data.activeId)
+        ? data.activeId
+        : rooms[0]!.id,
+    };
+  }
+  const one = fill(data as unknown as Partial<RoomSpec>);
+  const old = data as unknown as { flat?: FlatType; stops?: Point[] };
+  return {
+    ...base,
+    flat: old.flat ?? base.flat,
+    stops: old.stops ?? [],
+    rooms: [one],
+    activeId: one.id,
+  };
+};
+
 /** put a project's contents into the stores */
 const load = (data: Snapshot) => {
-  // a room saved before openings were a list brings its door and window;
-  // one saved before a rule existed takes that rule's typical value
-  const legacy = fromLegacyOpenings(
-    data.room as Parameters<typeof fromLegacyOpenings>[0],
-    data.room.width,
-    data.room.depth,
-  );
-  useRoom.setState({
-    ...dataOnly(useRoom.getInitialState()),
-    ...data.room,
-    ...(data.room.openings ? {} : legacy ? { openings: legacy } : {}),
-    rules: { ...rulesFor(data.room.room), ...data.room.rules },
-  });
+  useRoom.setState(roomsOf(data.room));
   useScene.setState({
     ...data.scene,
     selectedId: null,

@@ -52,6 +52,7 @@ export function AddStrip({ onAdded }: { onAdded: (id: string) => void }) {
   const addItem = useScene((s) => s.addItem);
   const select = useScene((s) => s.select);
   const addOpening = useRoom((s) => s.addOpening);
+  const activeId = useRoom((s) => s.activeId);
   const [category, setCategory] = useState<Chip>("all");
   const shown = useMemo(
     () =>
@@ -64,12 +65,15 @@ export function AddStrip({ onAdded }: { onAdded: (id: string) => void }) {
   /** a generated item goes into the room; a fresh one keeps the strip
       open so its note and tile can be read, a tile click closes it */
   const place = (g: Generation, close: boolean) => {
-    const id = addItem({
-      name: g.name,
-      category: g.category,
-      ...(g.imageUrl ? { image: g.imageUrl } : {}),
-      ...(g.modelUrl ? { model: g.modelUrl } : {}),
-    });
+    const id = addItem(
+      {
+        name: g.name,
+        category: g.category,
+        ...(g.imageUrl ? { image: g.imageUrl } : {}),
+        ...(g.modelUrl ? { model: g.modelUrl } : {}),
+      },
+      activeId,
+    );
     select(id, false);
     if (close) onAdded(id);
   };
@@ -119,7 +123,7 @@ export function AddStrip({ onAdded }: { onAdded: (id: string) => void }) {
               onPointerCancel={endTileDrag}
               onClick={() => {
                 if (droppedJustNow()) return;
-                const id = add(p);
+                const id = add(p, activeId);
                 select(id, false);
                 onAdded(id);
               }}

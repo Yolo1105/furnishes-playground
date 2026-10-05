@@ -22,7 +22,7 @@ import {
 import { CUSTOM_OPTIONS } from "./eva-data";
 import { FLOW_NAMES, type Flow } from "./quiz-data";
 import type { QuizResult } from "./quiz-engine";
-import { useRoom } from "./room-store";
+import { activeOf, useRoom } from "./room-store";
 import { useScene } from "./scene-store";
 import { newId } from "./ids";
 import { useStudio } from "./studio-store";
@@ -98,12 +98,13 @@ type EvaState = {
 const contextOf = (
   s: Pick<EvaState, "preferences" | "exploration" | "persona">,
 ): Context => {
-  const r = useRoom.getState();
+  const st = useRoom.getState();
+  const r = activeOf(st);
   const sc = useScene.getState();
   return {
     room: {
       id: r.room,
-      flat: r.flat,
+      flat: st.flat,
       width: r.width,
       depth: r.depth,
       height: r.height,

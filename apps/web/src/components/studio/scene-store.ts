@@ -19,9 +19,20 @@ type Spot = { x: number; y: number };
 /** where the pieces the room laid out stand right now, as the stage last
     drew them (the layout hook notes it after each render) */
 let standing: ReadonlyMap<string, Spot> = new Map();
-export const noteStanding = (spots: ReadonlyMap<string, Spot>) => {
-  standing = spots;
+const standingByRoom = new Map<string, ReadonlyMap<string, Spot>>();
+export const noteStanding = (
+  room: string,
+  spots: ReadonlyMap<string, Spot>,
+) => {
+  standingByRoom.set(room, spots);
+  standing = new Map([...standingByRoom.values()].flatMap((m) => [...m]));
 };
+/** whether a piece stands in a room: an unplaced piece is in the first */
+export const inRoom = (
+  p: { roomId?: string },
+  roomId: string,
+  firstId: string,
+) => (p.roomId ?? firstId) === roomId;
 
 type SceneState = {
   groups: AssetGroup[];
@@ -45,16 +56,19 @@ type SceneState = {
   dragFrom: Snapshot | null;
   undo: () => void;
   redo: () => void;
-  /** put a catalogue product into the room; returns the new node's id */
-  addProduct: (p: Product) => string;
-  /** put a room item into the room: something that sets the scene and is
+  /** put a catalogue product into a room; returns the new node's id */
+  addProduct: (p: Product, roomId: string) => string;
+  /** put a room item into a room: something that sets the scene and is
       not for sale; returns the new node's id */
-  addItem: (item: {
-    name: string;
-    category: AssetCategory;
-    image?: string;
-    model?: string;
-  }) => string;
+  addItem: (
+    item: {
+      name: string;
+      category: AssetCategory;
+      image?: string;
+      model?: string;
+    },
+    roomId: string,
+  ) => string;
   select: (id: string | null, reveal?: boolean) => void;
   toggleCart: (id: string) => void;
   /** the cart after an order: empty (not a step to undo) */
@@ -74,11 +88,13 @@ type SceneState = {
   /** the turn handle's drag, between dragStart and dragEnd */
   turnMove: (id: string, rotation: number) => void;
   dragEnd: () => void;
-  /** the room's shape changed: every piece is held where it stands (a
-      laid-out one is not laid out afresh) and, when the room's corner
+  /** a room's shape changed: every piece in it is held where it stands
+      (a laid-out one is not laid out afresh) and, when the room's corner
       moved, all move by the same amount, so they keep to the walls that
       stayed. Not a step to undo, since the room's shape is not one either */
-  nudgeAll: (dx: number, dy: number) => void;
+  nudgeAll: (dx: number, dy: number, roomId: string, firstId: string) => void;
+  /** a room left the flat: what stood in it goes too */
+  removeRoomPieces: (roomId: string, firstId: string) => void;
 };
 
 /** What stands in the room right now: the outliner, the shelf and the
@@ -144,7 +160,7 @@ export const useScene = create<SceneState>((set, get) => {
           future: s.future.slice(0, -1),
         };
       }),
-    addProduct: (p) => {
+    addProduct: (p, roomId) => {
       const n = get()
         .groups.flatMap((g) => g.items)
         .filter((a) => a.name === p.name).length;
@@ -169,11 +185,15 @@ export const useScene = create<SceneState>((set, get) => {
               },
               ...s.groups,
             ];
-        return { groups, overrides: held(s), ...remember(s) };
+        return {
+          groups,
+          overrides: { ...held(s), [node.id]: { roomId } },
+          ...remember(s),
+        };
       });
       return node.id;
     },
-    addItem: (item) => {
+    addItem: (item, roomId) => {
       const n = get()
         .groups.flatMap((g) => g.items)
         .filter((a) => a.name === item.name).length;
@@ -199,7 +219,11 @@ export const useScene = create<SceneState>((set, get) => {
               },
               ...s.groups,
             ];
-        return { groups, overrides: held(s), ...remember(s) };
+        return {
+          groups,
+          overrides: { ...held(s), [node.id]: { roomId } },
+          ...remember(s),
+        };
       });
       return node.id;
     },
@@ -263,18 +287,53 @@ export const useScene = create<SceneState>((set, get) => {
       set((s) => ({
         overrides: { ...s.overrides, [id]: { ...s.overrides[id], rotation } },
       })),
-    nudgeAll: (dx, dy) =>
+    nudgeAll: (dx, dy, roomId, firstId) =>
       set((s) => {
         const overrides = { ...held(s) };
         if (!dx && !dy) return { overrides };
         for (const g of s.groups)
           for (const n of g.items) {
             const o = overrides[n.id];
-            if (n.kind === "fixed" || o?.x === undefined || o?.y === undefined)
+            if (
+              n.kind === "fixed" ||
+              o?.x === undefined ||
+              o?.y === undefined ||
+              !inRoom(o, roomId, firstId)
+            )
               continue;
             overrides[n.id] = { ...o, x: o.x + dx, y: o.y + dy };
           }
         return { overrides };
+      }),
+    removeRoomPieces: (roomId, firstId) =>
+      set((s) => {
+        const gone = new Set(
+          s.groups
+            .flatMap((g) => g.items)
+            .filter(
+              (n) =>
+                n.kind !== "fixed" &&
+                inRoom(s.overrides[n.id] ?? {}, roomId, firstId),
+            )
+            .map((n) => n.id),
+        );
+        if (gone.size === 0) return {};
+        const overrides = { ...s.overrides };
+        for (const id of gone) delete overrides[id];
+        return {
+          groups: s.groups
+            .map((g) => ({
+              ...g,
+              items: g.items.filter((n) => !gone.has(n.id)),
+            }))
+            .filter((g) => g.items.length > 0),
+          cart: s.cart.filter((x) => !gone.has(x)),
+          labels: s.labels.filter((x) => !gone.has(x)),
+          overrides,
+          selectedId:
+            s.selectedId && gone.has(s.selectedId) ? null : s.selectedId,
+          ...remember(s),
+        };
       }),
     dragEnd: () =>
       set((s) => {

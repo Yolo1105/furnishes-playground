@@ -35,8 +35,15 @@ import { useStudio } from "./studio-store";
 /** a plan name's letters, about, in CSS pixels at the plan's own scale */
 const NAME_CHAR_PX = 6.4;
 
-export function StagePieces({ compact = false }: { compact?: boolean }) {
-  const a = usePieceActions();
+export function StagePieces({
+  roomId,
+  compact = false,
+}: {
+  /** the room whose pieces these are; the active one when unset */
+  roomId?: string;
+  compact?: boolean;
+}) {
+  const a = usePieceActions(roomId);
   const { W, D } = a.room;
   const magnet = useStudio((s) => s.magnet);
   // a render is for looking: nothing is dragged while it is up

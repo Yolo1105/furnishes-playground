@@ -39,7 +39,14 @@ import {
 import { CloseIcon, PlusIcon } from "./icons";
 import { RoomStart } from "./RoomStart";
 import { openingCentre, wallSpan } from "./room-health";
-import { footprintOf, useRoom, wallsOf } from "./room-store";
+import {
+  activeOf,
+  footprintOf,
+  nextRoomKind,
+  roomLabel,
+  useRoom,
+  wallsOf,
+} from "./room-store";
 
 /**
  * The room: which flat, which room in it, how big, where the door and
@@ -67,7 +74,9 @@ const BED_WALL: { id: BedWall; label: string }[] = [
   { id: "off", label: "Off" },
 ];
 export function RoomTab() {
-  const s = useRoom();
+  const st = useRoom();
+  /** the active room's fields with the flat's and the actions, as one */
+  const s = { ...st, ...activeOf(st) };
   const start = s.start;
   const walls = wallsOf(s);
   let n = 0;
@@ -311,6 +320,42 @@ export function RoomTab() {
         <div className="eva-pref-head">
           <span className="eva-pref-index f-num">{index()}</span>
           <span className="eva-pref-title">Start</span>
+        </div>
+        <div className="room-field">
+          <span className="room-field-label room-field-head">
+            Rooms
+            {st.rooms.length > 1 && (
+              <button
+                type="button"
+                className="eva-pref-clear"
+                onClick={() => st.removeRoom(st.activeId)}
+              >
+                Remove
+              </button>
+            )}
+          </span>
+          <div className="eva-chips" role="radiogroup" aria-label="Rooms">
+            {st.rooms.map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                role="radio"
+                className="assets-chip"
+                aria-checked={r.id === st.activeId}
+                onClick={() => st.setActive(r.id)}
+              >
+                {roomLabel(st.rooms, r)}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="assets-chip"
+              aria-label="Add a room"
+              onClick={() => st.addRoom(nextRoomKind(st.flat, st.rooms))}
+            >
+              <PlusIcon size={11} /> Room
+            </button>
+          </div>
         </div>
         <RoomStart />
         {start === null && (

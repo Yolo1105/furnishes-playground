@@ -4,7 +4,7 @@ import { openingLabel, type OpeningKind } from "./room-data";
 import { DRAG_FROM, LONG_PRESS } from "./input";
 import { defaultProps, footprint } from "./piece-detail";
 import { settle } from "./room-layout";
-import { footprintOf, useRoom } from "./room-store";
+import { activeOf, footprintOf, useRoom } from "./room-store";
 import { useScene } from "./scene-store";
 import { useStudio } from "./studio-store";
 
@@ -58,11 +58,17 @@ const begin = (c: Carry, x: number, y: number) => {
   useStudio.getState().setCarrying(c.item);
 };
 
-/** where the pointer let go: the stage, the plan's sheet, or neither */
+/** where the pointer let go: the stage, a room's sheet on the plan (its
+    pieces layer, or its floor drawn under the layer), or neither */
 const landing = (x: number, y: number) => {
   const el = document.elementFromPoint(x, y);
-  const sheet = el?.closest<HTMLElement>(".plan-pieces") ?? null;
   const stage = el?.closest(".shell-stage") ?? null;
+  const room =
+    el?.closest<HTMLElement>(".plan-pieces")?.dataset.room ??
+    el?.closest<SVGElement>(".plan-room")?.dataset.room;
+  const sheet = room
+    ? document.querySelector<HTMLElement>(`.plan-pieces[data-room="${room}"]`)
+    : null;
   return { sheet, stage };
 };
 
@@ -134,10 +140,15 @@ export const endTileDrag = (e: ReactPointerEvent) => {
   }, 0);
   const { sheet, stage } = landing(e.clientX, e.clientY);
   if (!stage) return;
+  // a drop on a room's sheet goes into that room, which becomes the
+  // active one; elsewhere over the stage, into the active room
+  const st = useRoom.getState();
+  if (sheet?.dataset.room && sheet.dataset.room !== st.activeId)
+    st.setActive(sheet.dataset.room);
+  const room = activeOf(useRoom.getState());
   if (c.item.kind === "opening") {
-    const room = useRoom.getState();
     if (!sheet) {
-      room.addOpening(c.item.opening);
+      st.addOpening(c.item.opening);
       return;
     }
     // into the wall nearest the pointer, where the pointer is along it
@@ -151,16 +162,15 @@ export const endTileDrag = (e: ReactPointerEvent) => {
       { wall: "east" as const, gap: room.width - x, at: y },
     ];
     const near = walls.reduce((a, b) => (b.gap < a.gap ? b : a));
-    room.addOpening(c.item.opening, near.wall, Math.round(near.at / 50) * 50);
+    st.addOpening(c.item.opening, near.wall, Math.round(near.at / 50) * 50);
     return;
   }
   const product = c.item.product;
   const { addProduct, select, setProps } = useScene.getState();
-  const id = addProduct(product);
+  const id = addProduct(product, room.id);
   if (sheet) {
     // stood where the pointer let go, its middle under the pointer
     const r = sheet.getBoundingClientRect();
-    const room = useRoom.getState();
     const f = footprint(defaultProps({ ...product, kind: "piece" }));
     const x = ((e.clientX - r.left) / r.width) * room.width - f.w / 2;
     const y = ((e.clientY - r.top) / r.height) * room.depth - f.d / 2;

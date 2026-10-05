@@ -27,7 +27,7 @@ import { usePieceActions } from "./piece-actions";
 import { metresOf, whyLines } from "./plan-explain";
 import { LABEL_MAX } from "./piece-detail";
 import { metres, ROOM_NAMES } from "./room-data";
-import { useRoom } from "./room-store";
+import { useActiveRoom } from "./room-store";
 import { useScene, useTopLevel } from "./scene-store";
 import { useStudio } from "./studio-store";
 
@@ -45,7 +45,7 @@ import { useStudio } from "./studio-store";
  * review, an open one asked about.
  */
 export function AgentTab() {
-  const room = useRoom();
+  const room = useActiveRoom();
   const items = useTopLevel();
   const labels = useScene((s) => s.labels);
   const setDraft = useEva((s) => s.setDraft);
@@ -613,7 +613,9 @@ export function AgentTab() {
                           className="main-btn agent-card-add"
                           aria-pressed={added}
                           disabled={added}
-                          onClick={() => select(addProduct(product), false)}
+                          onClick={() =>
+                            select(addProduct(product, room.id), false)
+                          }
                         >
                           {added ? (
                             <CheckIcon size={13} />

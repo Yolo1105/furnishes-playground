@@ -10,7 +10,13 @@ import { healthOf, type Issue, type Room } from "./room-health";
 import { gapOf, layoutPlans, layoutRoom, type Placed } from "./room-layout";
 import { MUST_HAVE_CHOICES } from "./room-data";
 import { footprintOf, useRoom } from "./room-store";
-import { noteStanding, propsOf, useScene, useTopLevel } from "./scene-store";
+import {
+  inRoom,
+  noteStanding,
+  propsOf,
+  useScene,
+  useTopLevel,
+} from "./scene-store";
 import { useStudio } from "./studio-store";
 
 /**
@@ -21,7 +27,7 @@ import { useStudio } from "./studio-store";
  * stands alone. The same hook reads the room's health against its rules
  * and lays the room out three ways for the plan's Layouts.
  */
-export function usePieceActions() {
+export function usePieceActions(roomId?: string) {
   const items = useTopLevel();
   const overrides = useScene((s) => s.overrides);
   const labels = useScene((s) => s.labels);
@@ -34,25 +40,21 @@ export function usePieceActions() {
   const focusId = useStudio((s) => s.focusId);
   const { setFocus, setPanelTab } = useStudio.getState();
   const [actionsFor, setActionsFor] = useState<string | null>(null);
-  const W = useRoom((s) => s.width);
-  const D = useRoom((s) => s.depth);
-  const openings = useRoom((s) => s.openings);
-  const rules = useRoom((s) => s.rules);
-  const drawn = useRoom((s) => s.drawn);
-  const template = useRoom((s) => s.template);
-  const cells = useRoom((s) => s.cells);
-  const room: Room = {
-    W,
-    D,
-    outline: footprintOf({ drawn, template, cells, width: W, depth: D }),
-    openings,
-    rules,
-  };
+  // the room asked for, else the active one
+  const rooms = useRoom((s) => s.rooms);
+  const activeId = useRoom((s) => s.activeId);
+  const spec = rooms.find((r) => r.id === (roomId ?? activeId)) ?? rooms[0]!;
+  const firstId = rooms[0]!.id;
+  const { width: W, depth: D, openings, rules } = spec;
+  const room: Room = { W, D, outline: footprintOf(spec), openings, rules };
 
-  // what stands on the stage: the pieces and the room items, never the
+  // what stands in this room: the pieces and the room items, never the
   // architecture (that is the room itself); a hidden piece keeps its
   // place in the rows but is not drawn
-  const pieces = items.filter((n) => n.kind !== "fixed");
+  const pieces = items.filter(
+    (n) =>
+      n.kind !== "fixed" && inRoom(overrides[n.id] ?? {}, spec.id, firstId),
+  );
   const props = new Map(pieces.map((n) => [n.id, propsOf(n, overrides)]));
   const named = pieces.map((n) => ({ ...props.get(n.id)!, name: n.name }));
   const laid = layoutRoom(named, room, gapOf(rules));
@@ -60,7 +62,7 @@ export function usePieceActions() {
   // the store holds the laid-out pieces here before any one of them is
   // changed, so a move never shifts the rest
   useEffect(() => {
-    if (!readOnly) noteStanding(spots);
+    if (!readOnly) noteStanding(spec.id, spots);
   });
   const focus = pieces.find((n) => n.id === focusId) ?? null;
   const shown = focus
@@ -132,6 +134,8 @@ export function usePieceActions() {
   const tied = plans.filter((p) => p.score === plans[pick]!.score).length > 1;
 
   const onPick = (n: AssetNode) => {
+    // a piece picked in another room brings that room to the front
+    if (spec.id !== activeId) useRoom.getState().setActive(spec.id);
     if (readOnly) select(n.id, false);
     else if (tool === "inspect") {
       select(n.id, false);
@@ -165,8 +169,11 @@ export function usePieceActions() {
     const c = MUST_HAVE_CHOICES.find((x) => x.key === key);
     const product = c && products.find((p) => c.match.test(p.name));
     const id = product
-      ? addProduct(product)
-      : addItem(describeItem(key.replace(/^\w/, (ch) => ch.toUpperCase())));
+      ? addProduct(product, spec.id)
+      : addItem(
+          describeItem(key.replace(/^\w/, (ch) => ch.toUpperCase())),
+          spec.id,
+        );
     select(id);
   };
 
@@ -204,6 +211,8 @@ export function usePieceActions() {
         ),
       ),
     room,
+    /** the room these pieces stand in */
+    roomId: spec.id,
     selectedId,
     tool,
     turn,

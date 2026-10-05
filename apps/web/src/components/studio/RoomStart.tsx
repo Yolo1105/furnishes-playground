@@ -2,7 +2,7 @@
 
 import { CubeIcon, WallIcon } from "./icons";
 import { useGuide } from "./guide-store";
-import { useRoom } from "./room-store";
+import { activeOf, useRoom } from "./room-store";
 import { ROOM_TEMPLATES, isoFaces, GRID } from "./room-templates";
 import { useStudio } from "./studio-store";
 
@@ -13,10 +13,10 @@ import { useStudio } from "./studio-store";
  * shows pieces.
  */
 export function RoomStart() {
-  const start = useRoom((s) => s.start);
-  const template = useRoom((s) => s.template);
-  const drawn = useRoom((s) => s.drawn);
-  const cells = useRoom((s) => s.cells);
+  const start = useRoom((s) => activeOf(s).start);
+  const template = useRoom((s) => activeOf(s).template);
+  const drawn = useRoom((s) => activeOf(s).drawn);
+  const cells = useRoom((s) => activeOf(s).cells);
   const { toggleCell } = useRoom.getState();
   const { setStart, setTemplate } = useRoom.getState();
   const { setTool, setView } = useStudio.getState();
