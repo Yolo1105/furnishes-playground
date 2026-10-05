@@ -229,10 +229,19 @@ const stretched = (
 
 /** a room of a kind at its typical size for the flat, before any choice
     of how it begins */
-const roomOf = (flat: FlatType, room: RoomId, pos: Point): RoomSpec => {
+/** the first room's id: the same on the server and in the browser, so
+    the page hydrates as it was rendered; later rooms get ids of their own */
+const FIRST_ROOM_ID = "room-1";
+
+const roomOf = (
+  flat: FlatType,
+  room: RoomId,
+  pos: Point,
+  id = newId("room"),
+): RoomSpec => {
   const size = sized(flat, room);
   return {
-    id: newId("room"),
+    id,
     pos,
     start: null,
     template: ROOM_TEMPLATES[0]!.id,
@@ -313,19 +322,29 @@ export const openingsOf = (
     }),
 ];
 
-/** the stretches of a room's walls that an earlier room draws: where
-    the two stand wall to wall, the 3D view builds the wall once */
+/** the stretches of a room's walls shared with another room: where the
+    two stand wall to wall the 3D view builds the wall once, by the
+    earlier room, and that wall shows from both sides */
 export const sharedOf = (
   s: Pick<RoomConfig, "rooms">,
   r: RoomSpec,
-): { wall: Wall; from: number; to: number }[] => {
+): { wall: Wall; from: number; to: number; both: boolean }[] => {
   const i = s.rooms.findIndex((x) => x.id === r.id);
   const mine = sheetOutline(r);
-  return s.rooms.slice(0, Math.max(0, i)).flatMap((other) =>
-    sharedRuns(mine, sheetOutline(other)).map((run) => {
-      const along = run.horizontal ? r.pos[0] : r.pos[1];
-      return { wall: run.wallA, from: run.from - along, to: run.to - along };
-    }),
+  return s.rooms.flatMap((other, k) =>
+    k === i
+      ? []
+      : sharedRuns(mine, sheetOutline(other)).map((run) => {
+          const along = run.horizontal ? r.pos[0] : r.pos[1];
+          // with a later room this room builds the wall, seen from both
+          // sides; with an earlier one, that room does
+          return {
+            wall: run.wallA,
+            from: run.from - along,
+            to: run.to - along,
+            both: k > i,
+          };
+        }),
   );
 };
 
@@ -393,7 +412,7 @@ export const useRoom = create<RoomState>((set, get) => {
           : r,
       ),
     }));
-  const first = roomOf("4-room", "living", [0, 0]);
+  const first = roomOf("4-room", "living", [0, 0], FIRST_ROOM_ID);
   return {
     flat: "4-room",
     rooms: [first],

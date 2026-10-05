@@ -1,8 +1,9 @@
 "use client";
 
 import { Environment, Lightformer } from "@react-three/drei";
-import { useMemo } from "react";
-import { DoubleSide, FrontSide, Path, Shape } from "three";
+import { useFrame } from "@react-three/fiber";
+import { useMemo, useRef } from "react";
+import { DoubleSide, FrontSide, type Group, Path, Shape, Vector3 } from "three";
 import {
   type Floor,
   isWindow,
@@ -47,41 +48,79 @@ export type RoomShape = {
   floor: Floor;
   floorHex: string;
   wallHex: string;
-  /** stretches of its walls another room builds, mm along the wall's
-      axis: where two rooms stand wall to wall the wall is built once */
-  shared?: readonly { wall: Wall; from: number; to: number }[];
+  /** stretches of its walls shared with another room, mm along the
+      wall's axis: where two rooms stand wall to wall the wall is built
+      once, by the earlier room (`both`: this room builds it and it shows
+      from both sides; else the other room does and this one skips it) */
+  shared?: readonly Stretch[];
 };
+type Stretch = { wall: Wall; from: number; to: number; both: boolean };
+
+/** a wall, a leaf or a pane shows only from inside its room, so a near
+    wall never hides the room from the camera; one shared with the room
+    beyond shows from both sides. Read each frame from where the camera
+    stands against the thing's inward normal */
+function Inside({
+  normal,
+  always = false,
+  children,
+}: {
+  normal: readonly [number, number];
+  always?: boolean;
+  children: React.ReactNode;
+}) {
+  const group = useRef<Group>(null);
+  const at = useMemo(() => new Vector3(), []);
+  useFrame(({ camera }) => {
+    const g = group.current;
+    if (!g) return;
+    if (always) {
+      g.visible = true;
+      return;
+    }
+    g.getWorldPosition(at);
+    const dot =
+      (camera.position.x - at.x) * normal[0] +
+      (camera.position.z - at.z) * normal[1];
+    g.visible = dot > 0;
+  });
+  return <group ref={group}>{children}</group>;
+}
 
 /** an edge's wall as the runs this room builds: the whole edge, less
-    the stretches shared with a room that builds them */
+    the stretches another room builds, and split where a stretch is
+    shared with a later room, since that run shows from both sides */
 const runsOf = (
   e: Edge,
-  shared: readonly { wall: Wall; from: number; to: number }[],
-): Edge[] => {
+  shared: readonly Stretch[],
+): { e: Edge; both: boolean }[] => {
   const horizontal = e.wall === "north" || e.wall === "south";
   const k = horizontal ? 0 : 1;
   const lo = Math.min(e.a[k], e.b[k]);
   const hi = Math.max(e.a[k], e.b[k]);
-  const cuts = shared
+  const on = shared
     .filter((c) => c.wall === e.wall && c.to > lo && c.from < hi)
-    .map((c) => [Math.max(lo, c.from), Math.min(hi, c.to)] as const)
-    .sort((p, q) => p[0] - q[0]);
-  if (cuts.length === 0) return [e];
-  const runs: [number, number][] = [];
-  let from = lo;
-  for (const [c0, c1] of cuts) {
-    if (c0 - from > 1) runs.push([from, c0]);
-    from = Math.max(from, c1);
-  }
-  if (hi - from > 1) runs.push([from, hi]);
-  // the runs keep the edge's direction
+    .map((c) => ({ ...c, from: Math.max(lo, c.from), to: Math.min(hi, c.to) }));
+  // every boundary splits the edge; each piece is skipped, shared or plain
+  const marks = [
+    ...new Set([lo, hi, ...on.flatMap((c) => [c.from, c.to])]),
+  ].sort((p, q) => p - q);
   const forward = e.a[k] <= e.b[k];
   const at = (v: number): Point => (horizontal ? [v, e.a[1]] : [e.a[0], v]);
-  return runs.map(([p, q]) => ({
-    a: at(forward ? p : q),
-    b: at(forward ? q : p),
-    wall: e.wall,
-  }));
+  const out: { e: Edge; both: boolean }[] = [];
+  for (let i = 0; i + 1 < marks.length; i++) {
+    const p = marks[i]!;
+    const q = marks[i + 1]!;
+    if (q - p <= 1) continue;
+    const mid = (p + q) / 2;
+    const in_ = on.filter((c) => c.from <= mid && mid <= c.to);
+    if (in_.some((c) => !c.both)) continue;
+    out.push({
+      e: { a: at(forward ? p : q), b: at(forward ? q : p), wall: e.wall },
+      both: in_.length > 0,
+    });
+  }
+  return out;
 };
 
 /** the floor as a shape in metres about the room's middle; the plane is
@@ -165,6 +204,7 @@ function WallRun({
   h,
   wallHex,
   holes,
+  both = false,
 }: {
   e: Edge;
   w: number;
@@ -172,6 +212,8 @@ function WallRun({
   h: number;
   wallHex: string;
   holes: ReturnType<typeof holesOf>;
+  /** shared with the room beyond: seen from both sides */
+  both?: boolean;
 }) {
   const ax = m(e.a[0]) - w / 2;
   const az = m(e.a[1]) - d / 2;
@@ -204,24 +246,29 @@ function WallRun({
     return sh;
   }, [len, h, holes]);
   return (
-    <group position={[(ax + bx) / 2, 0, (az + bz) / 2]} rotation={[0, yaw, 0]}>
-      <mesh receiveShadow>
-        <shapeGeometry args={[shape]} />
-        <meshStandardMaterial
-          color={wallHex}
-          roughness={0.95}
-          side={DoubleSide}
-        />
-      </mesh>
-      {/* the skirting stands just inside the wall's face */}
-      <mesh
-        position={[0, SKIRTING / 2, 0.008 * (nx || nz ? 1 : 1)]}
-        receiveShadow
+    <Inside normal={[nx, nz]} always={both}>
+      <group
+        position={[(ax + bx) / 2, 0, (az + bz) / 2]}
+        rotation={[0, yaw, 0]}
       >
-        <boxGeometry args={[len, SKIRTING, 0.016]} />
-        <meshStandardMaterial color={shade(wallHex, -0.06)} roughness={0.7} />
-      </mesh>
-    </group>
+        <mesh receiveShadow>
+          <shapeGeometry args={[shape]} />
+          <meshStandardMaterial
+            color={wallHex}
+            roughness={0.95}
+            side={DoubleSide}
+          />
+        </mesh>
+        {/* the skirting stands just inside the wall's face */}
+        <mesh
+          position={[0, SKIRTING / 2, 0.008 * (nx || nz ? 1 : 1)]}
+          receiveShadow
+        >
+          <boxGeometry args={[len, SKIRTING, 0.016]} />
+          <meshStandardMaterial color={shade(wallHex, -0.06)} roughness={0.7} />
+        </mesh>
+      </group>
+    </Inside>
   );
 }
 
@@ -266,38 +313,40 @@ function Window({ r, o }: { r: RoomShape; o: Opening }) {
   const [x, z] = placeOf(r, o);
   const yaw = yawOf(o.wall);
   return (
-    <group position={[x, 0, z]} rotation={[0, yaw, 0]}>
-      {/* the glass, reading as daylight; the frame, a transom, the sill */}
-      <Face
-        at={[0, mid, 0.01]}
-        size={[width, tall]}
-        colour="#dfeaf2"
-        rough={0.15}
-        emissive="#eef5fa"
-        both
-      />
-      {[-1, 1].map((s) => (
+    <Inside normal={inward(o.wall)} always={o.join !== undefined}>
+      <group position={[x, 0, z]} rotation={[0, yaw, 0]}>
+        {/* the glass, reading as daylight; the frame, a transom, the sill */}
         <Face
-          key={s}
-          at={[(s * (width + FRAME)) / 2, mid, 0.02]}
-          size={[FRAME, tall + 2 * FRAME]}
+          at={[0, mid, 0.01]}
+          size={[width, tall]}
+          colour="#dfeaf2"
+          rough={0.15}
+          emissive="#eef5fa"
+          both
+        />
+        {[-1, 1].map((s) => (
+          <Face
+            key={s}
+            at={[(s * (width + FRAME)) / 2, mid, 0.02]}
+            size={[FRAME, tall + 2 * FRAME]}
+            colour={FRAME_HEX}
+          />
+        ))}
+        <Face
+          at={[0, head + FRAME / 2, 0.02]}
+          size={[width + 2 * FRAME, FRAME]}
           colour={FRAME_HEX}
         />
-      ))}
-      <Face
-        at={[0, head + FRAME / 2, 0.02]}
-        size={[width + 2 * FRAME, FRAME]}
-        colour={FRAME_HEX}
-      />
-      <Face at={[0, mid, 0.02]} size={[width, 0.04]} colour={FRAME_HEX} />
-      <Face at={[0, mid, 0.02]} size={[0.04, tall]} colour={FRAME_HEX} />
-      <Face
-        at={[0, sill - FRAME / 2, 0.02]}
-        size={[width + 2 * FRAME + 0.08, FRAME]}
-        colour={FRAME_HEX}
-        rough={0.5}
-      />
-    </group>
+        <Face at={[0, mid, 0.02]} size={[width, 0.04]} colour={FRAME_HEX} />
+        <Face at={[0, mid, 0.02]} size={[0.04, tall]} colour={FRAME_HEX} />
+        <Face
+          at={[0, sill - FRAME / 2, 0.02]}
+          size={[width + 2 * FRAME + 0.08, FRAME]}
+          colour={FRAME_HEX}
+          rough={0.5}
+        />
+      </group>
+    </Inside>
   );
 }
 
@@ -328,45 +377,51 @@ function Door({ r, o }: { r: RoomShape; o: Opening }) {
             ]
           : [];
   return (
-    <group position={[x, 0, z]} rotation={[0, yaw, 0]}>
-      {leaves.map((l, i) => (
-        <group key={i}>
+    <Inside normal={inward(o.wall)} always={o.join !== undefined}>
+      <group position={[x, 0, z]} rotation={[0, yaw, 0]}>
+        {leaves.map((l, i) => (
+          <group key={i}>
+            <Face
+              at={[
+                l.x,
+                tall / 2,
+                o.kind === "sliding" ? 0.01 + i * 0.03 : 0.01,
+              ]}
+              size={[l.w, tall]}
+              colour={DOOR_HEX}
+              rough={0.55}
+              both
+            />
+            {/* the handle, at hand height on the opening side */}
+            <Face
+              at={[
+                l.x + l.handle,
+                1.0,
+                o.kind === "sliding" ? 0.02 + i * 0.03 : 0.02,
+              ]}
+              size={[0.12, 0.02]}
+              colour="#9a948b"
+              rough={0.3}
+            />
+          </group>
+        ))}
+        {[-1, 1].map((s) => (
           <Face
-            at={[l.x, tall / 2, o.kind === "sliding" ? 0.01 + i * 0.03 : 0.01]}
-            size={[l.w, tall]}
-            colour={DOOR_HEX}
-            rough={0.55}
+            key={s}
+            at={[(s * (width + FRAME)) / 2, tall / 2, 0.02]}
+            size={[FRAME, tall + FRAME]}
+            colour={FRAME_HEX}
             both
           />
-          {/* the handle, at hand height on the opening side */}
-          <Face
-            at={[
-              l.x + l.handle,
-              1.0,
-              o.kind === "sliding" ? 0.02 + i * 0.03 : 0.02,
-            ]}
-            size={[0.12, 0.02]}
-            colour="#9a948b"
-            rough={0.3}
-          />
-        </group>
-      ))}
-      {[-1, 1].map((s) => (
+        ))}
         <Face
-          key={s}
-          at={[(s * (width + FRAME)) / 2, tall / 2, 0.02]}
-          size={[FRAME, tall + FRAME]}
+          at={[0, tall + FRAME / 2, 0.02]}
+          size={[width + 2 * FRAME, FRAME]}
           colour={FRAME_HEX}
           both
         />
-      ))}
-      <Face
-        at={[0, tall + FRAME / 2, 0.02]}
-        size={[width + 2 * FRAME, FRAME]}
-        colour={FRAME_HEX}
-        both
-      />
-    </group>
+      </group>
+    </Inside>
   );
 }
 
@@ -405,7 +460,7 @@ export function RoomShell({
         <meshStandardMaterial map={map} roughness={ROUGHNESS[r.floor]} />
       </mesh>
       {edgesOf(r.outline).flatMap((e, i) =>
-        runsOf(e, r.shared ?? []).map((run, k) => (
+        runsOf(e, r.shared ?? []).map(({ e: run, both }, k) => (
           <WallRun
             key={`${i}-${k}`}
             e={run}
@@ -414,6 +469,7 @@ export function RoomShell({
             h={h}
             wallHex={r.wallHex}
             holes={holesOf(r, run, h)}
+            both={both}
           />
         )),
       )}

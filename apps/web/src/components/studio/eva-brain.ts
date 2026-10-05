@@ -439,10 +439,14 @@ export const reply = (
 ): Reply => {
   if (text.trim() === BRAINSTORM) return brainstorm(c);
   const proposals = hear(text, c.prefs);
+  // the lens steers what is asked for, not small talk: a greeting gets
+  // an answer, not a layout
+  const smallTalk =
+    text.trim().split(/\s+/).length <= 3 && intentOf(text) === "talk";
   const intent: Intent =
-    mode === "furniture"
+    mode === "furniture" && !smallTalk
       ? "furniture"
-      : mode === "layout"
+      : mode === "layout" && !smallTalk
         ? "layout"
         : intentOf(text);
   const stance = c.exploration

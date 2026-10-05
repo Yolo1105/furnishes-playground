@@ -675,35 +675,6 @@ body > .shell-menu {
 .chat-mode {
   position: relative;
 }
-.chat-mode-btn {
-  appearance: none;
-  border: 0;
-  background: transparent;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
-  border-radius: var(--r-control);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-  letter-spacing: -0.005em;
-  color: rgb(from var(--color-ink) r g b / 0.85);
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-.chat-mode-btn:hover {
-  background: rgb(from var(--color-ink) r g b / 0.05);
-}
-.chat-mode-sub {
-  font-weight: 500;
-  color: rgb(from var(--color-ink) r g b / 0.45);
-}
-.chat-mode-caret {
-  display: inline-flex;
-  color: rgb(from var(--color-ink) r g b / 0.5);
-}
 .chat-mode-menu {
   top: auto;
   bottom: calc(100% + 8px);
@@ -1463,7 +1434,6 @@ body > .shell-menu {
   }
   .assets-chip,
   .main-btn,
-  .chat-mode-btn,
   .chat-eva,
   .main-seg-btn {
     min-height: 36px;

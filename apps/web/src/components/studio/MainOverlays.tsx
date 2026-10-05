@@ -16,7 +16,6 @@ import { useSession } from "@/lib/auth-client";
 import { Floating } from "./Floating";
 import { ProgressLine } from "./ProgressLine";
 import { pieceTotals, sgd, type AssetNode } from "./assets-data";
-import { useEva } from "./eva-store";
 import { exportPlanSvg, exportRoomJson, exportScenePng } from "./export";
 import { useGuide } from "./guide-store";
 import {
@@ -26,7 +25,6 @@ import {
   CloseIcon,
   CursorIcon,
   ExportIcon,
-  CompassIcon,
   EyeIcon,
   FitIcon,
   HelpIcon,
@@ -114,13 +112,9 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
     if (t === "tour") setAdding(false);
     setTool(t);
   };
-  const exploration = useEva((s) => s.exploration);
-  const setExploration = useEva((s) => s.setExploration);
   // the toolbar's menus are placed on screen, clear of the bar's box
   // from their buttons, like the project panel's filter
-  const prefs = useFixedMenu();
   const exporting = useFixedMenu();
-  const { wrap: prefsWrap, menu: prefsMenu } = prefs;
   const { wrap: exportWrap, menu: exportMenu } = exporting;
   const view = useStudio((s) => s.view);
   const touring = useStudio((s) => s.touring);
@@ -141,7 +135,6 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
   const canUndo = useScene((s) => s.past.length > 0);
   const canRedo = useScene((s) => s.future.length > 0);
   const { undo, redo } = useScene.getState();
-  const { setEvaTab } = useStudio.getState();
   const resting = mode === "preview";
   const pick = (go: () => unknown) => {
     exporting.close();
@@ -410,57 +403,6 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
             </button>
           </div>
           <span className="main-sep" aria-hidden="true" />
-          <div ref={prefsWrap} className="main-prefs">
-            <button
-              type="button"
-              className="main-icon shell-tip"
-              data-tooltip="Eva's preferences"
-              aria-label="Eva's preferences"
-              aria-haspopup="menu"
-              aria-expanded={prefs.open}
-              onClick={(e) => prefs.toggle(e.currentTarget)}
-            >
-              <CompassIcon />
-            </button>
-            {prefs.open && (
-              <Floating>
-                <div
-                  ref={prefsMenu}
-                  className="shell-menu main-prefs-menu"
-                  role="menu"
-                  aria-label="Eva's preferences"
-                  style={prefs.style}
-                >
-                  <p className="main-prefs-title">Eva&apos;s preferences</p>
-                  <button
-                    type="button"
-                    role="menuitemcheckbox"
-                    aria-checked={exploration}
-                    className="shell-menu-row"
-                    onClick={() => setExploration(!exploration)}
-                  >
-                    <span className="main-prefs-check" aria-hidden="true" />
-                    Exploration
-                    <span className="main-prefs-sub">
-                      {exploration ? "on" : "off"}
-                    </span>
-                  </button>
-                  <div className="shell-menu-sep" role="separator" />
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="shell-menu-row"
-                    onClick={() => {
-                      setEvaTab("preference");
-                      prefs.close();
-                    }}
-                  >
-                    Set preferences by hand
-                  </button>
-                </div>
-              </Floating>
-            )}
-          </div>
           <button
             type="button"
             className="main-icon main-guide shell-tip"

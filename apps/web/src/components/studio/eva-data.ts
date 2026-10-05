@@ -1,5 +1,5 @@
 import type { Product } from "./catalogue";
-import type { Chip } from "./eva-brain";
+import type { ChatMode, Chip } from "./eva-brain";
 
 /**
  * What Eva's History and Preference tabs show. Placeholder conversations
@@ -235,6 +235,11 @@ type Persona = {
   id: PersonaId;
   name: string;
   tagline: string;
+  /** how the box asks when this Eva answers: the words decide, pieces
+      are picked, or the room is laid out */
+  mode: ChatMode;
+  /** what she leads with, under her name in the chooser */
+  leads: string;
   description: string;
   replyStyle: string;
   rules: string[];
@@ -248,6 +253,8 @@ export const PERSONAS: Persona[] = [
     id: "eva",
     name: "Eva",
     tagline: "Balanced design partner",
+    mode: "ask",
+    leads: "Chat: the words decide what she does",
     description:
       "Your default Furnishes guide—warm, structured, and even across aesthetics, layout, and budget.",
     replyStyle:
@@ -266,6 +273,8 @@ export const PERSONAS: Persona[] = [
     id: "style",
     name: "Eva · Style",
     tagline: "Aesthetic & cohesion first",
+    mode: "furniture",
+    leads: "Picks pieces from the catalogue",
     description:
       "Prioritizes palette, materials, mood, and visual harmony—how the room feels and reads as a whole.",
     replyStyle:
@@ -287,6 +296,8 @@ export const PERSONAS: Persona[] = [
     id: "plan",
     name: "Eva · Plan",
     tagline: "Layout, flow & fit",
+    mode: "layout",
+    leads: "Lays the pieces out in the room",
     description:
       "Emphasizes circulation, furniture scale, zones, and real-world constraints so the room works day to day.",
     replyStyle:
@@ -305,6 +316,8 @@ export const PERSONAS: Persona[] = [
     id: "budget",
     name: "Eva · Budget",
     tagline: "Tradeoffs & priorities",
+    mode: "ask",
+    leads: "Weighs tradeoffs and priorities",
     description:
       "Centers spend discipline: where to splurge, where to save, and sequencing purchases for maximum impact.",
     replyStyle:

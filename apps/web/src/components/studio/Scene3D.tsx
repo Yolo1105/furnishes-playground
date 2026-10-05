@@ -156,18 +156,25 @@ const cameraFor = (
   centre: readonly [number, number],
 ) => {
   const r = Math.max(w, d);
-  const eye = h / 2;
   const [cx, cz] = centre;
-  const at: Vector3Tuple = [cx, eye, cz];
+  // the four sides look in over the near wall, which is open to the
+  // camera, from above the walls: the floor, the pieces and the far wall
+  // all in view, as a section through the room is drawn
+  const over = h * 1.3;
+  const side: Vector3Tuple = [cx, h / 3, cz];
+  const at: Record<string, Vector3Tuple> = {
+    Perspective: [cx, h / 2, cz],
+    Top: [cx, h / 2, cz],
+  };
   const pos: Record<string, Vector3Tuple> = {
     Perspective: [cx + r * 0.9, r * 0.75, cz + r * 1.1],
-    Front: [cx, eye, cz + r * 1.4],
-    Back: [cx, eye, cz - r * 1.4],
-    Left: [cx - r * 1.4, eye, cz],
-    Right: [cx + r * 1.4, eye, cz],
+    Front: [cx, over, cz + r * 1.3],
+    Back: [cx, over, cz - r * 1.3],
+    Left: [cx - r * 1.3, over, cz],
+    Right: [cx + r * 1.3, over, cz],
     Top: [cx, r * 1.8, cz + 0.01],
   };
-  return { pos: pos[angle] ?? pos.Perspective!, at };
+  return { pos: pos[angle] ?? pos.Perspective!, at: at[angle] ?? side };
 };
 
 type Controls = { target: Vector3; update: () => void } | null;

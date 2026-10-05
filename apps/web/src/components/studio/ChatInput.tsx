@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { PERSONAS, personaOf, PROMPTS } from "./eva-data";
 import {
-  ChevronDownIcon,
   ImageIcon,
   LightbulbIcon,
   MicIcon,
@@ -12,22 +11,13 @@ import {
 } from "./icons";
 import type { ChatMode } from "./eva-brain";
 import { useEva } from "./eva-store";
-import { RadioMenu } from "./RadioMenu";
 import { useDismiss } from "./useDismiss";
 
-/** The playground's modes, as the dropdown lists them: Ask lets the words
-    decide what Eva does; Furniture asks her for pieces; Room layout asks
-    her to place them. */
-const MODES = ["Ask", "Furniture", "Room layout"] as const;
-type Mode = (typeof MODES)[number];
-const MODE_KEYS: Record<Mode, ChatMode> = {
-  Ask: "ask",
-  Furniture: "furniture",
-  "Room layout": "layout",
-};
-const MODE_PLACEHOLDERS: Partial<Record<Mode, string>> = {
-  Furniture: "Which piece, for where? Eva picks from the catalogue.",
-  "Room layout": "How is the room used? Eva lays the pieces out.",
+/** what the box asks for when a lens of Eva's leads with it: Style
+    picks pieces, Plan lays the room out; the others let the words decide */
+const MODE_PLACEHOLDERS: Partial<Record<ChatMode, string>> = {
+  furniture: "Which piece, for where? Eva picks from the catalogue.",
+  layout: "How is the room used? Eva lays the pieces out.",
 };
 
 const PLACEHOLDERS = [
@@ -42,7 +32,8 @@ const PLACEHOLDERS = [
 /**
  * The frosted input box at the bottom of Eva's panel, the playground's
  * design: a growing textarea; below it image and suggestions buttons on
- * the left, the mode dropdown, the Eva chip and the send / mic button on
+ * the left, the Eva chip (which Eva answers, and so what the box asks
+ * for) and the send / mic button on
  * the right. The border lights orange while anything inside has focus.
  * Enter or the arrow sends; the bulb shows prompts to pick from; the
  * picture button attaches one; the mic dictates where the browser can.
@@ -75,8 +66,6 @@ const useRecognizer = () =>
 export function ChatInput() {
   const [message, setMessage] = useState("");
   const [focused, setFocused] = useState(false);
-  const [mode, setMode] = useState<Mode>("Ask");
-  const [menu, setMenu] = useState(false);
   const [who, setWho] = useState(false);
   const [suggestions, setSuggestions] = useState(false);
   const [placeholder, setPlaceholder] = useState(0);
@@ -84,7 +73,6 @@ export function ChatInput() {
   const [image, setImage] = useState<string | null>(null);
   const [listening, setListening] = useState(false);
   const area = useRef<HTMLTextAreaElement>(null);
-  const wrap = useRef<HTMLDivElement>(null);
   const whoWrap = useRef<HTMLDivElement>(null);
   const file = useRef<HTMLInputElement>(null);
   const recognizer = useRef<Recognizer | null>(null);
@@ -96,7 +84,7 @@ export function ChatInput() {
   const canSend = message.trim().length > 0 || image !== null;
   const submit = () => {
     if (!canSend) return;
-    send(message, image ?? undefined, MODE_KEYS[mode]);
+    send(message, image ?? undefined, personaOf(persona).mode);
     setMessage("");
     setImage(null);
     setSuggestions(false);
@@ -163,7 +151,6 @@ export function ChatInput() {
     };
   }, [focused, message.length]);
 
-  useDismiss(wrap, menu, () => setMenu(false));
   useDismiss(whoWrap, who, () => setWho(false));
 
   return (
@@ -173,7 +160,10 @@ export function ChatInput() {
         className="chat-textarea"
         rows={1}
         value={message}
-        placeholder={MODE_PLACEHOLDERS[mode] ?? PLACEHOLDERS[placeholder]}
+        placeholder={
+          MODE_PLACEHOLDERS[personaOf(persona).mode] ??
+          PLACEHOLDERS[placeholder]
+        }
         aria-label="Message Eva"
         onChange={(e) => setMessage(e.target.value)}
         onFocus={() => setFocused(true)}
@@ -253,32 +243,6 @@ export function ChatInput() {
           </button>
         </div>
         <div className="chat-input-right">
-          <div ref={wrap} className="chat-mode">
-            <button
-              type="button"
-              className="chat-mode-btn"
-              aria-haspopup="menu"
-              aria-expanded={menu}
-              onClick={() => setMenu((v) => !v)}
-            >
-              <span>{mode}</span>
-              <span className="chat-mode-sub">· Chat</span>
-              <span className="chat-mode-caret">
-                <ChevronDownIcon rotated={menu} />
-              </span>
-            </button>
-            {menu && (
-              <RadioMenu
-                className="chat-mode-menu"
-                options={MODES}
-                value={mode}
-                onChange={(m) => {
-                  setMode(m);
-                  setMenu(false);
-                }}
-              />
-            )}
-          </div>
           <div ref={whoWrap} className="chat-mode">
             <button
               type="button"
@@ -310,7 +274,9 @@ export function ChatInput() {
                     }}
                   >
                     <span className="chat-who-name">{p.name}</span>
-                    <span className="chat-who-tag">{p.tagline}</span>
+                    <span className="chat-who-tag">
+                      {p.tagline} · {p.leads}
+                    </span>
                   </button>
                 ))}
               </div>

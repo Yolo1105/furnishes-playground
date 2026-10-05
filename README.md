@@ -142,7 +142,7 @@ the R key, and freely with a drag round it, in steps of 15 degrees
 unless Shift is held; Square brings it back to the walls. On the slant
 a clash is read from the turned outline, not the box round it. The main column has a toolbar (Edit/Render, Select, which drags
 and turns pieces on the plan and in 3D, Inspect, Add, an eye that hides
-every panel, Undo/Redo, Eva's preferences, Guide, Export as SVG/PNG/JSON)
+every panel, Undo/Redo, Guide, Export as SVG/PNG/JSON)
 and a shelf with Saved and Cart. Checkout takes a delivery address and
 places an order in a ledger (awaiting payment, paid, delivered,
 cancelled, refunded) listed under the gear; no payment provider is wired,
@@ -246,8 +246,11 @@ budget, room) for you to keep or set aside, picks catalogue pieces with
 why each fits, and reads the room plan's readiness, budget and health
 (walkways, the door's swing, the window, clashes), each finding with a
 Fix. Eva comes four ways, as the chatbot had her (balanced, Style, Plan,
-Budget), chosen from the chip in the box and kept with the project; the
-model gets her lean, the rules end a plain answer in it. Her latest
+Budget), chosen from the one chip in the box and kept with the project;
+each says what she leads with, and the choice steers what the box asks
+for (Style picks pieces, Plan lays the room out, the others let the
+words decide; a greeting stays a greeting); the model gets her lean,
+the rules end a plain answer in it. Her latest
 answer can be refined (shorter, more options, cheaper), any answer
 pinned to the project, Brainstorm for me brings three directions to go
 with, follow-up chips are read from what she said, a kept preference

@@ -241,10 +241,13 @@ test("Eva's input box and the user bar", async ({ page }) => {
     .getByRole("textbox", { name: "Message Eva" })
     .fill("a calm bedroom");
   await expect(page.getByRole("button", { name: "Send" })).toBeVisible();
-  await page.getByRole("button", { name: "Ask · Chat" }).click();
-  await page.getByRole("menuitemradio", { name: "Room layout" }).click();
+  await page.getByRole("button", { name: /^Eva; choose Eva/ }).click();
+  await page
+    .getByRole("radiogroup", { name: "Choose Eva" })
+    .getByRole("radio", { name: /Eva · Plan/ })
+    .click();
   await expect(
-    page.getByRole("button", { name: /^Room layout/ }),
+    page.getByRole("button", { name: /^Eva · Plan; choose Eva/ }),
   ).toBeVisible();
 
   await expect(page.locator(".user-name")).toHaveText("Guest");
@@ -544,8 +547,7 @@ test("Eva's Preference blocks take a room, a budget, styles and colours", async 
   );
   await blocks.nth(0).getByRole("button", { name: "Remove" }).click();
   await expect(blocks.nth(0)).toHaveAttribute("data-set", "false");
-  // exploration: the preferences stand aside; Eva says so; the toolbar's
-  // gear holds the same switch and the way here
+  // exploration: the preferences stand aside; Eva says so
   const explore = page.getByRole("switch", { name: "Exploration" });
   await expect(explore).toHaveAttribute("aria-checked", "false");
   await explore.click();
@@ -556,17 +558,10 @@ test("Eva's Preference blocks take a room, a budget, styles and colours", async 
   await expect(blocks.nth(0)).toHaveCSS("pointer-events", "none");
   await page.getByRole("tab", { name: "Agent" }).click();
   await expect(page.locator(".agent-exploring")).toBeVisible();
-  await page.getByRole("button", { name: "Eva's preferences" }).click();
-  const check = page.getByRole("menuitemcheckbox", { name: /Exploration/ });
-  await expect(check).toHaveAttribute("aria-checked", "true");
-  await check.click();
-  await expect(check).toHaveAttribute("aria-checked", "false");
-  await page.getByRole("menuitem", { name: "Set preferences by hand" }).click();
-  await expect(page.getByRole("tab", { name: "Preference" })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
-  await expect(explore).toHaveAttribute("aria-checked", "false");
+  // the toolbar has no second switch: the Preference tab is the one place
+  await expect(
+    page.getByRole("button", { name: "Eva's preferences" }),
+  ).toHaveCount(0);
 });
 
 test("the view panel drags down to give Eva more, and no higher than its third", async ({
@@ -2107,23 +2102,29 @@ test("the planner's rules: the door's swing, the window, a walkway, each with a 
   await expect(health.locator("li", { hasText: pair })).toHaveCount(0);
 });
 
-test("the box's mode steers Eva: Furniture asks for pieces, Room layout for a layout", async ({
+test("the Eva chosen steers the box: Style asks for pieces, Plan for a layout", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   const box = page.getByRole("textbox", { name: "Message Eva" });
   const agent = page.locator(".agent");
-  // Furniture: words that name nothing still bring pieces
-  await page.getByRole("button", { name: "Ask · Chat" }).click();
-  await page.getByRole("menuitemradio", { name: "Furniture" }).click();
+  const choose = async (name: RegExp) => {
+    await page.getByRole("button", { name: /; choose Eva$/ }).click();
+    await page
+      .getByRole("radiogroup", { name: "Choose Eva" })
+      .getByRole("radio", { name })
+      .click();
+  };
+  // Style picks pieces: words that name nothing still bring them
+  await choose(/Eva · Style/);
   await expect(box).toHaveAttribute("placeholder", /Which piece/);
   await box.fill("something for the corner by the window");
   await box.press("Enter");
   await expect(agent.locator(".agent-card").first()).toBeVisible();
-  // Room layout: the room's size comes first, as the gate says
-  await page.getByRole("button", { name: /^Furniture/ }).click();
-  await page.getByRole("menuitemradio", { name: "Room layout" }).click();
+  // Plan lays the room out: the room's size comes first, as the gate says
+  await choose(/Eva · Plan/);
+  await expect(box).toHaveAttribute("placeholder", /How is the room used/);
   await box.fill("something for the corner by the window");
   await box.press("Enter");
   await expect(
@@ -2929,7 +2930,10 @@ test("Eva's extras: who answers, Brainstorm, a pinned answer, Refine, follow-ups
   const short = (await evaSaid.last().textContent())!;
   expect(short.length).toBeLessThan(long.length);
   expect(long.startsWith(short)).toBe(true);
-  // follow-ups read from the answer: a sofa brings sofa chips
+  // follow-ups read from the answer: a sofa brings sofa chips (asked of
+  // the balanced Eva; Plan would lay the room out instead)
+  await page.getByRole("button", { name: /; choose Eva$/ }).click();
+  await choice.getByRole("radio", { name: /^Eva Balanced/ }).click();
   await box.fill("Tell me about the sofa");
   await box.press("Enter");
   await expect(evaSaid).toHaveCount(4);
@@ -2975,6 +2979,8 @@ test("Eva's extras: who answers, Brainstorm, a pinned answer, Refine, follow-ups
   await page.waitForTimeout(4500);
   await expect(evaSaid).toHaveCount(4);
   // the persona travels with the project and reaches the route
+  await page.getByRole("button", { name: /; choose Eva$/ }).click();
+  await choice.getByRole("radio", { name: /Eva · Plan/ }).click();
   await page.unroute("**/api/chat");
   const res = await page.request.post("/api/chat", {
     data: { message: "hi", thread: [], context: { nope: true } },
