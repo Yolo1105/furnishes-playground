@@ -13,6 +13,7 @@ import { ProductsTab } from "./ProductsTab";
 import { DetailTab } from "./DetailTab";
 import { RoomTab } from "./RoomTab";
 import { useStudio } from "./studio-store";
+import { roomLabel, useRoom } from "./room-store";
 import { groupOf, useScene } from "./scene-store";
 import { useDismiss } from "./useDismiss";
 import {
@@ -340,6 +341,12 @@ function Node({
   onSelect: (id: string) => void;
 }) {
   const hidden = useScene((s) => s.overrides[n.id]?.hidden ?? false);
+  // a piece in another room than the active one says which
+  const rooms = useRoom((s) => s.rooms);
+  const activeId = useRoom((s) => s.activeId);
+  const roomId = useScene((s) => s.overrides[n.id]?.roomId);
+  const inRoom =
+    rooms.find((r) => r.id === (roomId ?? rooms[0]!.id)) ?? rooms[0]!;
   const kids = n.children?.filter((c) => !q || matches(c, q)) ?? [];
   const hasKids = (n.children?.length ?? 0) > 0;
   const open = !closed[n.id];
@@ -354,6 +361,9 @@ function Node({
         name={n.name}
         kind={n.kind}
         price={n.price}
+        room={
+          own && inRoom.id !== activeId ? roomLabel(rooms, inRoom) : undefined
+        }
         open={open}
         trail={trail}
         last={last}
@@ -394,6 +404,7 @@ function Row({
   name,
   kind,
   price,
+  room,
   count,
   open = false,
   trail = [],
@@ -410,6 +421,8 @@ function Row({
   name: string;
   kind: AssetKind | "group";
   price?: number | undefined;
+  /** the room the piece stands in, when the flat has more than one */
+  room?: string | undefined;
   count?: number;
   open?: boolean;
   trail?: boolean[];
@@ -483,6 +496,7 @@ function Row({
           </span>
         )}
         <span className="assets-name">{name}</span>
+        {room && <span className="assets-room">{room}</span>}
         {kind === "group" && count !== undefined && (
           <span className="assets-n f-num">{count}</span>
         )}

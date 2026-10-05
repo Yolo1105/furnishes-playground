@@ -183,8 +183,21 @@ export function isoFaces(
   box = { w: 120, h: 96 },
   wall = WALL,
 ): IsoFace[] {
+  return isoFacesIn(isoProjector(footprint, box, wall), footprint);
+}
+
+/** a footprint's faces in a projection already made, as when several
+    rooms share one drawing: the walls face away from this room's middle */
+export function isoFacesIn(
+  proj: ReturnType<typeof isoProjector>,
+  footprint: readonly Point[],
+): IsoFace[] {
   const pts = footprint;
-  const { P, cx, cy } = isoProjector(footprint, box, wall);
+  const { P, wall } = proj;
+  const xs = pts.map((p) => p[0]);
+  const ys = pts.map((p) => p[1]);
+  const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+  const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
   const WALL = wall;
   const faces: IsoFace[] = [
     { kind: "floor", points: pts.map((p) => P(p[0], p[1], 0)).join(" ") },

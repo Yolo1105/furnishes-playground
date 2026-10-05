@@ -1,6 +1,6 @@
 import type { PointerEvent as ReactPointerEvent } from "react";
 import type { Product } from "./catalogue";
-import { openingLabel, type OpeningKind } from "./room-data";
+import { OPENING_WIDTH, openingLabel, type OpeningKind } from "./room-data";
 import { DRAG_FROM, LONG_PRESS } from "./input";
 import { defaultProps, footprint } from "./piece-detail";
 import { settle } from "./room-layout";
@@ -162,7 +162,11 @@ export const endTileDrag = (e: ReactPointerEvent) => {
       { wall: "east" as const, gap: room.width - x, at: y },
     ];
     const near = walls.reduce((a, b) => (b.gap < a.gap ? b : a));
-    st.addOpening(c.item.opening, near.wall, Math.round(near.at / 50) * 50);
+    st.addOpening(
+      c.item.opening,
+      near.wall,
+      Math.round(near.at / OPENING_WIDTH.step) * OPENING_WIDTH.step,
+    );
     return;
   }
   const product = c.item.product;

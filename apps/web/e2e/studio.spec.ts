@@ -2461,6 +2461,16 @@ test("the flat has rooms: one added stands beside the active room, a click on it
   await expect(
     sheets.filter({ has: page.locator('[aria-label="Shelf"]') }).first(),
   ).toHaveAttribute("data-active", "true");
+  // the outliner says which room a piece stands in when it is not the
+  // active one
+  await page.getByRole("tab", { name: "Assets", exact: true }).click();
+  await expect(
+    page.getByRole("treeitem", { name: "Shelf", exact: true }),
+  ).not.toContainText("Master bedroom");
+  await expect(
+    page.getByRole("treeitem", { name: "Sofa", exact: true }),
+  ).toContainText("Living & dining");
+  await page.getByRole("tab", { name: "Room", exact: true }).click();
   // the living room's floor, clicked where nothing stands, is the active
   // room again (a piece picked there would do the same)
   const floor = svg.getByRole("button", {

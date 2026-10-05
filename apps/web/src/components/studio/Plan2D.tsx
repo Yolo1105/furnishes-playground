@@ -15,6 +15,7 @@ import {
   type Wall,
 } from "./room-data";
 import {
+  boxOf,
   edgeFrame,
   edgesOf,
   isSimple,
@@ -431,10 +432,7 @@ export function Plan2D({
       the drag began in; the frame's own move is kept to carry on from */
   const reshape = (g: NonNullable<typeof shape.current>, next: Point[]) => {
     if (!isSimple(next)) return;
-    const xs = next.map((p) => p[0]);
-    const ys = next.map((p) => p[1]);
-    const w = Math.max(...xs) - Math.min(...xs);
-    const d = Math.max(...ys) - Math.min(...ys);
+    const { w, h: d } = boxOf(next);
     if (
       w < ROOM_SIZE.min ||
       d < ROOM_SIZE.min ||

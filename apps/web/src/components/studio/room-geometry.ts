@@ -277,11 +277,24 @@ export const isSimple = (poly: readonly Point[]) => {
   return true;
 };
 
+/** the box round some points, mm */
+export const boxOf = (pts: readonly Point[]) => {
+  const xs = pts.map((p) => p[0]);
+  const ys = pts.map((p) => p[1]);
+  return {
+    x: Math.min(...xs),
+    y: Math.min(...ys),
+    w: Math.max(...xs) - Math.min(...xs),
+    h: Math.max(...ys) - Math.min(...ys),
+  };
+};
+
 /** the outline from its top-left corner, and how far it moved to get
     there (what stood in the old frame shifts by the same amount) */
 export const normalizeOutline = (poly: readonly Point[]) => {
-  const dx = -Math.min(...poly.map((p) => p[0]));
-  const dy = -Math.min(...poly.map((p) => p[1]));
+  const b = boxOf(poly);
+  const dx = -b.x;
+  const dy = -b.y;
   return {
     points: poly.map(([x, y]): Point => [x + dx, y + dy]),
     dx,
@@ -304,7 +317,8 @@ export type SharedRun = {
   at: number;
 };
 
-const FACING: Record<Wall, Wall> = {
+/** the wall that faces each wall across a room */
+export const FACING: Record<Wall, Wall> = {
   north: "south",
   south: "north",
   east: "west",
@@ -354,7 +368,7 @@ export const sharedRuns = (
 /** how far a room moved on the plan is drawn to a neighbour: within
     this of a wall's thickness from a facing wall, or of lining up its
     end with the neighbour's, mm */
-export const ROOM_REACH = 400;
+const ROOM_REACH = 400;
 
 /** the shift that stands a moving room against its neighbours: its
     facing walls a wall's thickness from theirs, and their ends in line,

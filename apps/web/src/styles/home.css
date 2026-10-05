@@ -44,6 +44,9 @@
   font-family: var(--mono);
   font-stretch: normal;
   text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0;
+  color: var(--terra);
 }
 
 /* ───────────────────────── the rail ───────────────────────── */
@@ -141,11 +144,7 @@
 .home-mode:hover > span:first-child::after {
   transform: scaleX(1);
 }
-.home-ix {
-  font-size: 10px;
-  letter-spacing: 0;
-  color: var(--terra);
-}
+
 .home-foot {
   flex: 0 0 auto;
   margin-top: auto;
@@ -330,10 +329,6 @@
   align-items: center;
   gap: 16px;
   flex-wrap: wrap;
-}
-.home-error {
-  margin: 14px var(--gut) 0;
-  font-size: 13.8px;
 }
 .home-error {
   margin: 14px var(--gut) 0;

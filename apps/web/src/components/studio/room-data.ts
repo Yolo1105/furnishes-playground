@@ -197,7 +197,7 @@ export const OPENING_KINDS: {
 export const openingLabel = (kind: OpeningKind) =>
   OPENING_KINDS.find((k) => k.id === kind)!.label;
 /** the width an opening of that kind starts at */
-export const kindWidth = (kind: OpeningKind) =>
+const kindWidth = (kind: OpeningKind) =>
   OPENING_KINDS.find((k) => k.id === kind)!.width;
 export const isWindow = (o: Pick<Opening, "kind">) => o.kind === "window";
 /** a leaf that swings into the room, and so needs its floor clear */

@@ -8,6 +8,7 @@ import {
   type Opening,
   type OpeningKind,
   openingsFor,
+  OPENING_WIDTH,
   OPENINGS,
   PRESETS,
   PRIVATE_ROOMS,
@@ -22,6 +23,8 @@ import {
 } from "./room-data";
 import {
   insideOutline,
+  boxOf,
+  FACING,
   normalizeOutline,
   outlineFromCells,
   sharedRuns,
@@ -148,19 +151,8 @@ type RoomState = RoomConfig & {
 
 /** how close to the first corner a click closes the room, mm */
 export const CLOSE_WITHIN = 350;
-/** the drawing snaps to this, mm */
+/** the drawing and the tour's stops snap to this, mm */
 const SNAP = 100;
-
-const bbox = (pts: readonly Point[]) => {
-  const xs = pts.map((p) => p[0]);
-  const ys = pts.map((p) => p[1]);
-  return {
-    x: Math.min(...xs),
-    y: Math.min(...ys),
-    w: Math.max(...xs) - Math.min(...xs),
-    h: Math.max(...ys) - Math.min(...ys),
-  };
-};
 
 /** the room's outline in mm, from the top-left corner: the drawn one, or
     the template scaled to the room's width and depth */
@@ -172,7 +164,7 @@ export const footprintOf = (s: {
   depth: number;
 }): Point[] => {
   if (s.drawn) {
-    const b = bbox(s.drawn);
+    const b = boxOf(s.drawn);
     return s.drawn.map(([x, y]) => [x - b.x, y - b.y]);
   }
   const tapped =
@@ -181,7 +173,7 @@ export const footprintOf = (s: {
     ? tapped
     : (ROOM_TEMPLATES.find((x) => x.id === s.template) ?? ROOM_TEMPLATES[0]!)
         .footprint;
-  const b = bbox(shape);
+  const b = boxOf(shape);
   return shape.map(([x, y]) => [
     ((x - b.x) / b.w) * s.width,
     ((y - b.y) / b.h) * s.depth,
@@ -202,14 +194,8 @@ const sized = (flat: FlatType, room: RoomId) => {
     first among equals, so a new door tends to face the old one */
 const freeWall = (openings: Opening[]): Wall => {
   const first = openings.find((o) => o.kind !== "window")?.wall;
-  const facing: Record<Wall, Wall> = {
-    north: "south",
-    south: "north",
-    east: "west",
-    west: "east",
-  };
   const order: Wall[] = first
-    ? [facing[first], ...WALLS.filter((w) => w !== facing[first])]
+    ? [FACING[first], ...WALLS.filter((w) => w !== FACING[first])]
     : WALLS;
   return order.reduce((best, w) =>
     openings.filter((o) => o.wall === w).length <
@@ -300,7 +286,7 @@ const joinKind = (a: RoomSpec, b: RoomSpec) =>
 
 /** the id an opening carries when it comes from a join */
 const JOIN_ID = "join:";
-export const joinOf = (openingId: string) =>
+const joinOf = (openingId: string) =>
   openingId.startsWith(JOIN_ID) ? openingId.slice(JOIN_ID.length) : null;
 
 /** a room's openings: its own, and the open doorways it shares, each
@@ -377,7 +363,9 @@ const settled = (
           b: b.id,
           wallA: run.wallA,
           wallB: run.wallB,
-          at: Math.round((run.from + run.to) / 2 / 50) * 50,
+          at:
+            Math.round((run.from + run.to) / 2 / OPENING_WIDTH.step) *
+            OPENING_WIDTH.step,
           width,
           ...kind,
           open: true,
@@ -389,7 +377,7 @@ const settled = (
 
 /** the box round every room on the sheet, mm */
 export const sheetBox = (rooms: readonly RoomSpec[]) =>
-  bbox(rooms.flatMap(sheetOutline));
+  boxOf(rooms.flatMap(sheetOutline));
 
 /** The rooms of the flat, one of them active. */
 export const useRoom = create<RoomState>((set, get) => {
@@ -522,7 +510,10 @@ export const useRoom = create<RoomState>((set, get) => {
     },
     addStop: ([x, y]) =>
       set((s) => {
-        const p: Point = [Math.round(x / 100) * 100, Math.round(y / 100) * 100];
+        const p: Point = [
+          Math.round(x / SNAP) * SNAP,
+          Math.round(y / SNAP) * SNAP,
+        ];
         return roomAt(s.rooms, p) ? { stops: [...s.stops, p] } : {};
       }),
     removeStop: (i) =>
@@ -555,7 +546,7 @@ export const useRoom = create<RoomState>((set, get) => {
       ) {
         // the drawing is on the sheet: the room takes its shape and
         // stands where it was drawn
-        const b = bbox(drawing);
+        const b = boxOf(drawing);
         set({ drawing: [] });
         active({
           drawn: drawing.map(([px, py]): Point => [px - b.x, py - b.y]),
@@ -578,7 +569,7 @@ export const useRoom = create<RoomState>((set, get) => {
     },
     setOutline: (points) => {
       const { points: drawn, dx, dy } = normalizeOutline(points);
-      const b = bbox(drawn);
+      const b = boxOf(drawn);
       const r = activeOf(get());
       // the frame moved: the room's corner on the sheet moves the other
       // way, so the walls that stayed stay put on the sheet

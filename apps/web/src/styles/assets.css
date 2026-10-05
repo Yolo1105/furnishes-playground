@@ -114,10 +114,9 @@
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-}
-.assets-active {
   padding: 0 12px 6px;
 }
+
 .assets-chip {
   appearance: none;
   display: inline-flex;
@@ -392,6 +391,9 @@
   flex-direction: column;
   gap: 6px;
   min-width: 0;
+  touch-action: pan-x pan-y;
+  user-select: none;
+  -webkit-user-select: none;
 }
 .product-pic {
   position: relative;
@@ -554,7 +556,6 @@
   min-width: 0;
   position: relative;
 }
-.room-dim-label,
 /* an opening's row: its name and a way to take it out, its wall, its
    named sizes, then its numbers */
 .room-opening {
@@ -580,6 +581,7 @@
   gap: 6px 10px;
   margin-top: 6px;
 }
+.room-dim-label,
 .room-field-label {
   font-size: 10.5px;
   font-weight: 600;
@@ -938,4 +940,18 @@
 .room-grid-cell[aria-pressed="true"] {
   background: rgb(from var(--color-accent) r g b / 0.22);
   border-color: rgb(from var(--color-accent) r g b / 0.14);
+}
+/* a piece in another room than the active one says which; the tag gives
+   way before the name does */
+.assets-room {
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: rgb(from var(--color-ink) r g b / 0.4);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 0 4 auto;
+  min-width: 24px;
 }

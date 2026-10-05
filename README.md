@@ -149,41 +149,43 @@ cancelled, refunded) listed under the gear; no payment provider is wired,
 and `/api/checkout` says so rather than pretend. The right rail shows the
 other view small over Eva's Agent, History and Preference tabs.
 
-A project is a flat of rooms on one sheet: the Room tab's Rooms row
-adds another (the flat's next kind, stood a wall's thickness east of
-the active room), picks the active one or removes it with what stood
-in it; a click on another room's floor, or on a piece in it, makes it
-active; the plan draws every room, the active one with its dimensions
-and handles, the others faint with their names; the 3D view frames the
-whole flat; a piece added or dropped goes into the active room, and the
-panels, the health check and Eva read the active room. With the Wall
-tool a room's floor drags the room about the sheet, and the magnet
-stands it against a neighbour a wall's thickness apart, ends in line;
-where two rooms stand wall to wall a doorway joins them, a door
-swinging into the private room (a bedroom or the study; it stands in
-for the preset door that room came with) or an open passage between
-the others, read by both rooms (the plan draws the
-leaf on its side and a gap on the other, the 3D view builds the shared
-wall once with the way through, the walk crosses it), named in each
-room's Openings by the room beyond, sized like any opening, closed to a
-solid wall and opened again. Each room is
-its outline, not the box round it: a template (square,
+A project is a flat of rooms on one sheet. The Room tab's Rooms row adds
+another room (the flat's next kind, stood a wall's thickness from the
+active room on its first free side), picks the active one or removes it
+with what stood in it; a click on another room's floor, or on a piece in
+it, makes it active. The plan draws every room, the active one with its
+dimensions and handles, the others faint with their names; the 3D view
+and the panel's small isometric view frame the whole flat. A piece added
+or dropped goes into the active room; the panels, the health check and
+Eva read the active room, and the outliner says which room a piece
+stands in when it is not the active one. With the Wall tool a room's
+floor drags the room about the sheet, and the magnet stands it against a
+neighbour a wall's thickness apart, ends in line. Where two rooms stand
+wall to wall a doorway joins them: a door swinging into the private room
+(a bedroom or the study; it stands in for the preset door that room came
+with) or an open passage between the others. Both rooms read the doorway
+(the plan draws the leaf on its side and a gap on the other, the 3D view
+builds the shared wall once with the way through, the walk crosses it);
+each room's Openings names it by the room beyond, sizes it like any
+opening, closes it to a solid wall and opens it again.
+
+Each room is its outline, not the box round it: a template (square,
 rectangle, long, L, mirrored L, alcove, T, U, or a shape tapped out of
 squares) or drawn walls, and either kind is reshaped on the plan with
 the Wall tool: a bar on each wall pushes it in or out (the walls either
 side follow, and a wall that ran straight on gets a step), a square on
 each corner moves it, a double-click splits a wall in two, and the bar
-reads the wall's length; what stands in the room keeps to the walls
-that stayed. The Room tab's four sections are Start (how the room
-begins, the flat and room, the size in millimetres), Openings, Rules
-and Finish. The health rules, the three layouts, the 3D floor and walls
-and the walk all keep to the outline. The openings are a list on
-the walls: hinged, sliding and double doors, open passages and windows,
-each on the longest real edge of its side, added from the + strip (a
-tile dropped on the plan goes into the nearest wall where it lands) or
-the Room tab, sized by name (Narrow to Sliding, Small to Full wall) or
-in millimetres, and moved on the plan with the Wall tool, which drags an
-opening along its wall and pulls either end. The 2D plan is a CAD sheet with
+reads the wall's length; what stands in the room keeps to the walls that
+stayed. The Room tab's four sections are Start (how the room begins, the
+flat and room, the size in millimetres), Openings, Rules and Finish. The
+health rules, the three layouts, the 3D floor and walls and the walk all
+keep to the outline. The openings are a list on the walls: hinged,
+sliding and double doors, open passages and windows, each on the longest
+real edge of its side, added from the + strip (a tile dropped on the
+plan goes into the nearest wall where it lands) or the Room tab, sized
+by name (Narrow to Sliding, Small to Full wall) or in millimetres, and
+moved on the plan with the Wall tool, which drags an opening along its
+wall and pulls either end. The 2D plan is a CAD sheet with
 four interior elevations and the planner's zones, zoomed with the wheel or the keys about the pointer,
 panned by dragging the sheet, fitted again in one click, and measured
 with the Measure tool (two clicks, the distance in millimetres, the run

@@ -27,8 +27,8 @@ import { usePieceActions } from "./piece-actions";
 import { metresOf, whyLines } from "./plan-explain";
 import { LABEL_MAX } from "./piece-detail";
 import { metres, ROOM_NAMES } from "./room-data";
-import { useActiveRoom } from "./room-store";
-import { useScene, useTopLevel } from "./scene-store";
+import { useActiveRoom, useRoom } from "./room-store";
+import { inRoom as standsIn, useScene, useTopLevel } from "./scene-store";
 import { useStudio } from "./studio-store";
 
 /**
@@ -46,7 +46,14 @@ import { useStudio } from "./studio-store";
  */
 export function AgentTab() {
   const room = useActiveRoom();
-  const items = useTopLevel();
+  const all = useTopLevel();
+  const overrides = useScene((s) => s.overrides);
+  const firstId = useRoom((s) => s.rooms[0]!.id);
+  // what stands in the active room: the card counts it, the labels
+  // reach it
+  const items = all.filter((n) =>
+    standsIn(overrides[n.id] ?? {}, room.id, firstId),
+  );
   const labels = useScene((s) => s.labels);
   const setDraft = useEva((s) => s.setDraft);
   const exploration = useEva((s) => s.exploration);
