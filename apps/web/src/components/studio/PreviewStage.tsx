@@ -5,13 +5,16 @@ import { CompareIcon } from "./icons";
 import { useStudio } from "./studio-store";
 
 /**
- * Preview on the stage, between the rails and behind the panels. Once the
- * line on the toolbar has run, a divider sweeps from the left rail to the
- * right one and the render fills in behind it; both draw only the room,
- * so the studio's gradient stays behind them. With the panels hidden, the
+ * Render on the stage, between the rails and behind the panels, over
+ * whichever view is up: the 3D room or the plan. Once the line on the
+ * toolbar has run, a divider sweeps from the left rail to the right one
+ * and the rendered view fills in behind it. With the panels hidden, the
  * compare button in the peek bar brings the divider in from the left to
- * the middle, the sketch left of it and the render right, to be dragged.
- * Nothing renders yet, so the sketch and the render stand in.
+ * the middle, the view as edited left of it and rendered right, to be
+ * dragged. No renderer is wired yet: the render is the live view graded
+ * (the 3D room with its shadows on and its handles away; the plan as
+ * drawn), so the sweep and the compare are real while the picture is
+ * the room itself.
  */
 export function PreviewStage() {
   const status = useStudio((s) => s.preview);
@@ -63,7 +66,6 @@ export function PreviewStage() {
         onPointerCancel={onPointerUp}
       >
         <div className="preview-before" aria-label="Before">
-          <div className="preview-room preview-room-sketch" />
           <span className="preview-tag">Before</span>
         </div>
         <div
@@ -81,7 +83,7 @@ export function PreviewStage() {
             if (e.propertyName === "clip-path") revealed();
           }}
         >
-          <div className="preview-room preview-room-render" />
+          <div className="preview-grade" />
           <span className="preview-tag preview-tag-after">Rendered</span>
         </div>
         <div className="preview-divider" style={{ left: `${split}%` }}>

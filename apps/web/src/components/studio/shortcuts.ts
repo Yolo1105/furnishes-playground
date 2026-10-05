@@ -19,7 +19,7 @@ export const SHORTCUTS = [
   { keys: ["2"], does: "2D plan" },
   { keys: ["H"], does: "Hide or show the panels" },
   { keys: ["G"], does: "Walk the room in 3D (W A S D to move, drag to look)" },
-  { keys: ["P"], does: "Preview, or back to Edit" },
+  { keys: ["P"], does: "Render, or back to Edit" },
   { keys: ["+"], does: "Zoom the plan in" },
   { keys: ["-"], does: "Zoom the plan out" },
   { keys: ["0"], does: "Fit the plan" },

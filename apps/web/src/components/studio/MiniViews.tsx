@@ -6,38 +6,11 @@ import { footprintOf, useRoom } from "./room-store";
 import { isoBoxes, isoFaces, isoProjector } from "./room-templates";
 
 /**
- * The view panel's small copies of the other view: the plan with its
- * pieces as plain outlines (nothing to click: the swap brings the real
- * one to the stage), and the room as a little isometric box with each
- * piece standing in it, the way the Room tab shows its templates.
+ * The view panel's small copy of the 3D view: the room as a little
+ * isometric box with each piece standing in it, the way the Room tab
+ * shows its templates (the small plan is the plan itself, with the
+ * stage's own pieces on it).
  */
-export function MiniPlanPieces() {
-  const a = usePieceActions();
-  const { W, D } = a.room;
-  return (
-    <>
-      {a.shown.map((n) => {
-        const f = footprint(a.props.get(n.id)!);
-        const at = a.spots.get(n.id)!;
-        return (
-          <span
-            key={n.id}
-            className="view-mini-piece"
-            data-kind={n.kind}
-            data-selected={a.selectedId === n.id}
-            style={{
-              left: `${(at.x / W) * 100}%`,
-              top: `${(at.y / D) * 100}%`,
-              width: `${(f.w / W) * 100}%`,
-              height: `${(f.d / D) * 100}%`,
-            }}
-          />
-        );
-      })}
-    </>
-  );
-}
-
 const BOX = { w: 160, h: 120 };
 
 export function MiniIso() {

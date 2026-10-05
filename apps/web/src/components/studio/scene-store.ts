@@ -15,6 +15,14 @@ type Snapshot = Pick<SceneState, "groups" | "cart" | "labels" | "overrides">;
 /** how far back undo reaches */
 const HISTORY_MAX = 50;
 
+type Spot = { x: number; y: number };
+/** where the pieces the room laid out stand right now, as the stage last
+    drew them (the layout hook notes it after each render) */
+let standing: ReadonlyMap<string, Spot> = new Map();
+export const noteStanding = (spots: ReadonlyMap<string, Spot>) => {
+  standing = spots;
+};
+
 type SceneState = {
   groups: AssetGroup[];
   /** the one thing picked, in the outliner and on the shelf alike */
@@ -53,12 +61,14 @@ type SceneState = {
   clearCart: () => void;
   /** label a piece for Eva, or take the label off; a sixth is refused */
   toggleLabel: (id: string) => void;
+  /** one piece's change; the pieces the room laid out hold their spots */
   setProps: (id: string, patch: Partial<PieceProps>) => void;
   /** a whole layout at once: every piece's place, one undo step */
   placeAll: (places: Record<string, Partial<PieceProps>>) => void;
   /** take a piece out of the room altogether */
   removeNode: (id: string) => void;
-  /** a drag writes many positions; only the whole of it is one undo step */
+  /** a drag writes many positions; only the whole of it is one undo step;
+      the pieces not dragged are held where they stand */
   dragStart: () => void;
   dragMove: (id: string, x: number, y: number) => void;
   /** the turn handle's drag, between dragStart and dragEnd */
@@ -81,6 +91,22 @@ export const useScene = create<SceneState>((set, get) => {
     past: [...s.past.slice(-(HISTORY_MAX - 1)), snap(s)],
     future: [] as Snapshot[],
   });
+  /** a change to one piece never moves another: before it, every piece
+      the room laid out is held at the spot it has now */
+  const held = (s: SceneState) => {
+    let overrides = s.overrides;
+    for (const g of s.groups)
+      for (const n of g.items) {
+        const o = overrides[n.id];
+        if (n.kind === "fixed" || (o?.x !== undefined && o?.y !== undefined))
+          continue;
+        const at = standing.get(n.id);
+        if (!at) continue;
+        if (overrides === s.overrides) overrides = { ...overrides };
+        overrides[n.id] = { ...o, x: at.x, y: at.y };
+      }
+    return overrides;
+  };
   return {
     groups: seed,
     selectedId: null,
@@ -193,10 +219,13 @@ export const useScene = create<SceneState>((set, get) => {
         return { labels: [...s.labels, id], ...remember(s) };
       }),
     setProps: (id, patch) =>
-      set((s) => ({
-        overrides: { ...s.overrides, [id]: { ...s.overrides[id], ...patch } },
-        ...remember(s),
-      })),
+      set((s) => {
+        const overrides = held(s);
+        return {
+          overrides: { ...overrides, [id]: { ...overrides[id], ...patch } },
+          ...remember(s),
+        };
+      }),
     placeAll: (places) =>
       set((s) => {
         const overrides = { ...s.overrides };
@@ -206,7 +235,7 @@ export const useScene = create<SceneState>((set, get) => {
       }),
     removeNode: (id) =>
       set((s) => {
-        const overrides = { ...s.overrides };
+        const overrides = { ...held(s) };
         delete overrides[id];
         return {
           groups: s.groups
@@ -219,7 +248,7 @@ export const useScene = create<SceneState>((set, get) => {
           ...remember(s),
         };
       }),
-    dragStart: () => set((s) => ({ dragFrom: snap(s) })),
+    dragStart: () => set((s) => ({ dragFrom: snap(s), overrides: held(s) })),
     dragMove: (id, x, y) =>
       set((s) => ({
         overrides: { ...s.overrides, [id]: { ...s.overrides[id], x, y } },

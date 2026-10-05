@@ -18,7 +18,9 @@ export function ProgressLine() {
       className="main-progress"
       data-kind={loading}
       role="progressbar"
-      aria-label={loading === "render" ? "Rendering preview" : "Switching view"}
+      aria-label={
+        loading === "render" ? "Rendering the room" : "Switching view"
+      }
       onAnimationEnd={end}
     />
   );

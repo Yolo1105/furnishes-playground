@@ -740,7 +740,13 @@ export default function Scene3D() {
   const wall =
     WALL_TONES.find((t) => t.id === room.wallTone)?.hex ?? WALL_TONES[0].hex;
   const floor = FLOOR_TONES[room.floor as Floor] ?? FLOOR_TONES.Vinyl;
-  const canDrag = a.tool === "select" && !a.focus;
+  // Render is for looking: the handles rest, as in a picture; the picture
+  // itself comes with the sweep, once the line has run
+  const rendering = useStudio((s) => s.mode === "preview");
+  const rendered = useStudio(
+    (s) => s.mode === "preview" && s.preview !== "generating",
+  );
+  const canDrag = a.tool === "select" && !a.focus && !rendering;
   // the pieces on the floor for the tour: a rug is walked over
   // the pieces on the floor in mm, for the magnet between them
   const rects = a.shown
@@ -770,7 +776,13 @@ export default function Scene3D() {
   const scene = useStudio((s) => s.scene);
   // a shared room is small on its page: the names would pile up
   const readOnly = useStudio((s) => s.readOnly);
-  const shadows = scene.shadows === "auto" ? !coarse : scene.shadows === "on";
+  // a render has its shadows whatever the View settings, and no names,
+  // grid or edges over the picture
+  const shadows =
+    rendered || (scene.shadows === "auto" ? !coarse : scene.shadows === "on");
+  const labels = scene.labels && !readOnly && !rendered;
+  const grid = scene.grid && !rendered;
+  const edges = scene.edges && !rendered;
   const light = LIGHTS[scene.light];
   return (
     <div
@@ -779,10 +791,10 @@ export default function Scene3D() {
       data-focus={a.focus !== null}
       data-walk={walk}
       data-dragging={dragging}
-      data-edges={scene.edges}
+      data-edges={edges}
       data-shadows={shadows}
-      data-labels={scene.labels}
-      data-grid={scene.grid}
+      data-labels={labels}
+      data-grid={grid}
       data-light={scene.light}
     >
       <Canvas
@@ -820,7 +832,7 @@ export default function Scene3D() {
           shadow-bias={-0.0004}
         />
         <RoomLight evening={scene.light === "evening"} />
-        {scene.grid && !a.focus && (
+        {grid && !a.focus && (
           <gridHelper
             args={[
               Math.ceil(Math.max(w, d) * 1.2),
@@ -875,7 +887,7 @@ export default function Scene3D() {
               parts={(n.children ?? []).map((c) =>
                 colourHex(propsOf(c, a.overrides).colour),
               )}
-              selected={a.selectedId === n.id}
+              selected={a.selectedId === n.id && !rendering}
               clash={a.clashes.has(n.id)}
               label={label}
               canDrag={canDrag && !p.locked && !walk}
@@ -884,8 +896,8 @@ export default function Scene3D() {
               onPick={() => a.onPick(n)}
               onTurn={() => a.turn(n)}
               onDragging={setDragging}
-              labels={scene.labels && !readOnly}
-              edges={scene.edges}
+              labels={labels}
+              edges={edges}
               actions={
                 a.actionsFor === n.id ? (
                   <PieceActions

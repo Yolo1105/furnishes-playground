@@ -67,14 +67,14 @@ export const TOUR_STEPS: readonly TourStep[] = [
   {
     id: "toolbar",
     title: "The toolbar",
-    body: "Edit or Preview. Select picks, moves and turns a piece; Inspect offers its details or a label for Eva; Wall draws the room, Measure reads a distance and Tour sets stops, all on the plan; Add opens the parts and pieces. In 3D, View settings sets edges, names, the grid, shadows and the light. Then the eye that hides every panel, undo and redo, Eva's preferences, this guide, and Export, which also shares the room by link.",
+    body: "Edit or Render. Select picks, moves and turns a piece; Inspect offers its details or a label for Eva; Wall draws the room, Measure reads a distance and Tour sets stops, all on the plan; Add opens the parts and pieces. In 3D, View settings sets edges, names, the grid, shadows and the light. Then the eye that hides every panel, undo and redo, Eva's preferences, this guide, and Export, which also shares the room by link.",
     target: ".main-top",
     side: "below",
   },
   {
     id: "room",
     title: "The room",
-    body: "The room is the stage behind the panels. Click a piece to pick it everywhere; drag a product from the catalogue and drop it here. Preview renders it and sweeps the render in over the sketch.",
+    body: "The room is the stage behind the panels. Click a piece to pick it everywhere; drag a product from the catalogue and drop it here. Render grades whichever view is up, 3D or the plan, and sweeps it in; with the panels hidden, Compare sets before and after side by side.",
     target: ".shell-main",
     side: "center",
   },

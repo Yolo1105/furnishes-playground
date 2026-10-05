@@ -10,30 +10,35 @@ import {
 } from "./studio-store";
 
 const KEY = "furnishes.view";
+const TAB_KEY = "furnishes.view.tab";
 
 /**
- * Coming into the studio: the view and angle last used come back from the
- * browser, then the panels and the stage arrive with their transitions
- * (the root gains data-arrived a frame after mount; the CSS does the
- * rest). Later changes of view, angle and the wheel's meaning are kept
- * for next time.
+ * Coming into the studio: the view and angle last used in this tab come
+ * back (a new visit opens on the room in 3D), and the wheel's meaning,
+ * the magnet and the view settings come back from the last visit; then
+ * the panels and the stage arrive with their transitions (the root gains
+ * data-arrived a frame after mount; the CSS does the rest). Later
+ * changes are kept the same two ways.
  */
 export function useArrival() {
   useEffect(() => {
     try {
       const raw = localStorage.getItem(KEY);
-      if (raw) {
-        const saved = JSON.parse(raw) as {
-          view?: View;
-          angle?: Angle;
+      const tab = sessionStorage.getItem(TAB_KEY);
+      if (raw || tab) {
+        const saved = JSON.parse(raw ?? "{}") as {
           wheelMode?: WheelMode;
           magnet?: boolean;
           scene?: Partial<SceneLook>;
         };
-        const view = saved.view === "2d" ? "2d" : "3d";
+        const kept = JSON.parse(tab ?? "{}") as {
+          view?: View;
+          angle?: Angle;
+        };
+        const view = kept.view === "2d" ? "2d" : "3d";
         const angle =
-          saved.angle && ANGLES[view].includes(saved.angle)
-            ? saved.angle
+          kept.angle && ANGLES[view].includes(kept.angle)
+            ? kept.angle
             : ANGLES[view][0]!;
         const wheelMode = WHEEL_MODES.some((m) => m.id === saved.wheelMode)
           ? saved.wheelMode!
@@ -72,11 +77,13 @@ export function useArrival() {
       )
         return;
       try {
+        sessionStorage.setItem(
+          TAB_KEY,
+          JSON.stringify({ view: s.view, angle: s.angle }),
+        );
         localStorage.setItem(
           KEY,
           JSON.stringify({
-            view: s.view,
-            angle: s.angle,
             wheelMode: s.wheelMode,
             magnet: s.magnet,
             scene: s.scene,

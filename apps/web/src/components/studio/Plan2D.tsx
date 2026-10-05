@@ -24,7 +24,7 @@ import {
 } from "./input";
 
 /**
- * The plan as a drawing office draws it, a stand-in until the real plan.
+ * The plan as a drawing office draws it.
  * The room's outline (drawn, or the template's shape) as a wall band,
  * poché-hatched and faced both sides; the door as an opening, its leaf
  * and swing; the window as the three lines of its frame; dimension lines

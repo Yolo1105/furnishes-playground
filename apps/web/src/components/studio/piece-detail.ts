@@ -72,6 +72,8 @@ export const colourHex = (id: string) =>
 export const ROOM_ITEM_HEX = "#d9d2c8";
 /** the accent as a canvas needs it, a plain hex: the token itself is oklch */
 export const ACCENT_HEX = "#ed5c00";
+/** the warning colour, as `--color-danger` reads in sRGB */
+export const DANGER_HEX = "#cc3b2c";
 /** a plant's crown */
 export const FOLIAGE_HEX = "#8fa37c";
 

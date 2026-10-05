@@ -216,25 +216,23 @@
   padding: 10px;
   container-type: size;
 }
+/* the sheet takes no hand (the swap brings the real plan up); the pieces
+   on it do: a pick or a drag there moves the piece in 3D */
 .view-mini .plan {
   width: min(100%, calc(100cqh * var(--ratio, 1.5)));
   pointer-events: none;
 }
+.view-mini .plan-pieces {
+  pointer-events: auto;
+}
 .view-mini .plan-svg {
   --plan-ink: rgb(from var(--color-ink) r g b / 0.6);
 }
-.view-mini-piece {
-  position: absolute;
-  box-sizing: border-box;
-  border: 1px solid rgb(from var(--color-ink) r g b / 0.5);
-  background: rgba(255, 255, 255, 0.35);
+.view-mini .plan-pieces .stage-piece-body {
+  border-width: 1px;
 }
-.view-mini-piece[data-kind="decor"] {
-  border-color: rgb(from var(--color-ink) r g b / 0.3);
-}
-.view-mini-piece[data-selected="true"] {
-  border-color: var(--color-accent);
-  background: rgb(from var(--color-accent) r g b / 0.14);
+.view-mini .stage-piece[data-selected="true"] .stage-piece-body {
+  box-shadow: 0 0 0 1.5px rgb(from var(--color-accent) r g b / 0.3);
 }
 .view-mini-iso {
   width: 100%;
@@ -828,16 +826,6 @@ body > .shell-menu {
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
-.stage-room > span {
-  position: absolute;
-  left: 50%;
-  top: calc(50% + var(--room-w) * 0.35 + 14px);
-  transform: translateX(-50%);
-}
-.shell-stage:has(.preview) .shell-main-hint {
-  display: none;
-}
-
 /* the panels hidden to look at the room: only the peek bar remains */
 .shell[data-ui="hidden"]
   :is(.shell-rail, .shell-main, .shell-tabs, .shell-scrim) {

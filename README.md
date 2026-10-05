@@ -118,7 +118,7 @@ piece's parts, place and turn in degrees, lock, hide, remove, colour,
 texture and size). A piece turns a quarter with a click on its handle or
 the R key, and freely with a drag round it, in steps of 15 degrees
 unless Shift is held; Square brings it back to the walls. On the slant
-a clash is read from the turned outline, not the box round it. The main column has a toolbar (Edit/Preview, Select, which drags
+a clash is read from the turned outline, not the box round it. The main column has a toolbar (Edit/Render, Select, which drags
 and turns pieces on the plan and in 3D, Inspect, Add, an eye that hides
 every panel, Undo/Redo, Eva's preferences, Guide, Export as SVG/PNG/JSON)
 and a shelf with Saved and Cart. Checkout takes a delivery address and
@@ -157,8 +157,15 @@ walks the camera through them at a slow pace with its eye on the
 pieces, a progress bar and Stop; a round of the room clear of the
 pieces when there are no stops),
 and View settings (edges on every piece, the names, a floor
-grid, shadows, daylight or evening light), kept with the view. Preview
-runs a stand-in render with a before/after divider.
+grid, shadows, daylight or evening light), kept with the view. Render
+grades whichever view is up, the 3D room (its shadows on, its handles
+away) or the plan, sweeps it in and, with the panels hidden, offers a
+before/after divider. The studio opens in 3D on each visit and keeps
+the view and angle for the tab. A piece can stand past the walls; a
+move never shifts another piece, and two pieces standing over each
+other read in the warning red on the plan and in 3D. The small plan in
+the view panel is the plan itself: a piece is picked and dragged there
+too, and the 3D room follows.
 
 Add also makes room items: things that set the scene and are not for
 sale (an armchair, a plant, a pendant) from a few words. With `FAL_KEY`

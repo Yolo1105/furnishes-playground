@@ -1,7 +1,7 @@
 import { CubeIcon, PlanIcon, SwapIcon } from "./icons";
 import dynamic from "next/dynamic";
 import { Elevation2D } from "./Elevation2D";
-import { MiniIso, MiniPlanPieces } from "./MiniViews";
+import { MiniIso } from "./MiniViews";
 import { Plan2D } from "./Plan2D";
 import { StagePieces } from "./StagePieces";
 import { other, useStudio, viewName, type View } from "./studio-store";
@@ -12,7 +12,8 @@ const Scene3D = dynamic(() => import("./Scene3D"), { ssr: false });
 /**
  * The small view in the right rail: whichever of 3D and 2D the main
  * surface is not showing, as a small copy that follows the room and the
- * pieces. The swap button trades them.
+ * pieces; on the small plan a piece is picked and dragged as on the
+ * large one, and the 3D room follows. The swap button trades them.
  */
 export function ViewPanel({
   main,
@@ -41,9 +42,9 @@ export function ViewPanel({
       </div>
       <div className="view-stub" data-view={here} aria-label={viewName(here)}>
         {here === "2d" ? (
-          <div className="view-plan view-mini" aria-hidden="true">
+          <div className="view-plan view-mini">
             <Plan2D interactive={false}>
-              <MiniPlanPieces />
+              <StagePieces compact />
             </Plan2D>
           </div>
         ) : (
@@ -74,7 +75,7 @@ export function MainView({ view }: { view: View }) {
           <Scene3D />
         </div>
         {view === "2d" && (
-          <div className="preview-room stage-room-pieces">
+          <div className="stage-room-box stage-room-pieces">
             {angle === "Plan" ? (
               <Plan2D>
                 <StagePieces />

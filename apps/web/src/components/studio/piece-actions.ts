@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { AssetNode } from "./assets-data";
 import { products } from "./catalogue";
 import { describeItem } from "./generation-store";
@@ -9,7 +9,7 @@ import { healthOf, type Issue, type Room } from "./room-health";
 import { gapOf, layoutPlans, layoutRoom, type Placed } from "./room-layout";
 import { MUST_HAVE_CHOICES } from "./room-data";
 import { footprintOf, useRoom } from "./room-store";
-import { propsOf, useScene, useTopLevel } from "./scene-store";
+import { noteStanding, propsOf, useScene, useTopLevel } from "./scene-store";
 import { useStudio } from "./studio-store";
 
 /**
@@ -62,6 +62,11 @@ export function usePieceActions() {
   const named = pieces.map((n) => ({ ...props.get(n.id)!, name: n.name }));
   const laid = layoutRoom(named, room, gapOf(rules));
   const spots = new Map(laid.map((s, i) => [pieces[i]!.id, s]));
+  // the store holds the laid-out pieces here before any one of them is
+  // changed, so a move never shifts the rest
+  useEffect(() => {
+    if (!readOnly) noteStanding(spots);
+  });
   const focus = pieces.find((n) => n.id === focusId) ?? null;
   const shown = focus
     ? [focus]

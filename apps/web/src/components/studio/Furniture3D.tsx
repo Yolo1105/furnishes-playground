@@ -11,7 +11,7 @@ import {
   type Vector3Tuple,
 } from "three";
 import type { AssetNode } from "./assets-data";
-import { ACCENT_HEX, FOLIAGE_HEX } from "./piece-detail";
+import { ACCENT_HEX, DANGER_HEX, FOLIAGE_HEX } from "./piece-detail";
 import { shade, woodTexture } from "./textures";
 
 /**
@@ -276,7 +276,10 @@ export function Furniture3D(p: Props) {
         <mesh position={[0, h / 2, 0]}>
           <boxGeometry args={[w + 0.004, h + 0.004, d + 0.004]} />
           <meshBasicMaterial visible={false} />
-          <Edges color={ACCENT_HEX} lineWidth={p.clash ? 2 : 1.5} />
+          <Edges
+            color={p.clash ? DANGER_HEX : ACCENT_HEX}
+            lineWidth={p.clash ? 2 : 1.5}
+          />
         </mesh>
       )}
     </group>

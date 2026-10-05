@@ -54,6 +54,8 @@ export const PROMPTS = [
 
 const h = 60 * 60 * 1000;
 const now = Date.now();
+/** the first minute of today, by the clock here */
+const dayStart = (t: number) => new Date(t).setHours(0, 0, 0, 0);
 
 export const conversations: Conversation[] = [
   {
@@ -61,7 +63,8 @@ export const conversations: Conversation[] = [
     title: "Reading nook by the window",
     snippet:
       "…a low bookwall under the sill, the armchair turned to the light.",
-    at: now - 2 * h,
+    // earlier today: two hours ago, or midnight when the day is younger
+    at: Math.max(now - 2 * h, dayStart(now)),
     turns: 14,
   },
   {
@@ -94,10 +97,9 @@ export const conversations: Conversation[] = [
   },
 ];
 
-/** "Today", "Yesterday", then the date */
+/** "Today", "Yesterday", then the date, by the calendar days here */
 export function dayLabel(at: number, ref = Date.now()) {
-  const day = (t: number) => Math.floor(t / (24 * h));
-  const d = day(ref) - day(at);
+  const d = Math.round((dayStart(ref) - dayStart(at)) / (24 * h));
   if (d <= 0) return "Today";
   if (d === 1) return "Yesterday";
   return new Date(at).toLocaleDateString("en-SG", {

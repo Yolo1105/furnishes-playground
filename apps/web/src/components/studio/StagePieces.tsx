@@ -28,15 +28,19 @@ import { useStudio } from "./studio-store";
  * raises its actions. A locked
  * piece shows its lock and stays put. A piece in focus stands alone on
  * a blank ground with a way back. Under a finger, a long press raises
- * the actions, as Inspect's click does.
+ * the actions, as Inspect's click does. `compact` is the view panel's
+ * small plan: the same pieces to pick and drag (the 3D room follows),
+ * with no names, tags, handles or actions at that size.
  */
 /** a plan name's letters, about, in CSS pixels at the plan's own scale */
 const NAME_CHAR_PX = 6.4;
 
-export function StagePieces() {
+export function StagePieces({ compact = false }: { compact?: boolean }) {
   const a = usePieceActions();
   const { W, D } = a.room;
   const magnet = useStudio((s) => s.magnet);
+  // a render is for looking: nothing is dragged while it is up
+  const rendering = useStudio((s) => s.mode === "preview");
   // the layer's width in pixels, so a name is written only where its
   // whole word fits the footprint; the plan's zoom scales both alike
   const layer = useRef<HTMLDivElement>(null);
@@ -127,7 +131,7 @@ export function StagePieces() {
 
   const onDown = (e: PointerEvent<HTMLButtonElement>, n: AssetNode) => {
     const p = a.props.get(n.id)!;
-    if (e.pointerType === "touch" && !a.focus) {
+    if (e.pointerType === "touch" && !a.focus && !compact) {
       endPress();
       press.current = window.setTimeout(() => {
         press.current = null;
@@ -135,7 +139,14 @@ export function StagePieces() {
         a.hold(n);
       }, LONG_PRESS);
     }
-    if (a.tool !== "select" || a.focus || p.locked || e.button !== 0) return;
+    if (
+      a.tool !== "select" ||
+      a.focus ||
+      p.locked ||
+      rendering ||
+      e.button !== 0
+    )
+      return;
     const box = e.currentTarget.parentElement?.parentElement;
     if (!box) return;
     const at = a.spots.get(n.id)!;
@@ -261,7 +272,7 @@ export function StagePieces() {
               onClick={() => onClick(n)}
             >
               <PlanSymbol node={n} props={p} turn={slant ? 0 : p.rotation} />
-              {(a.focus || nameFits(n.name, f.w, f.d)) && (
+              {!compact && (a.focus || nameFits(n.name, f.w, f.d)) && (
                 <span
                   className="stage-piece-name"
                   style={
@@ -273,13 +284,13 @@ export function StagePieces() {
                   {n.name}
                 </span>
               )}
-              {p.locked && (
+              {p.locked && !compact && (
                 <span className="stage-piece-lock" aria-hidden="true">
                   <LockIcon size={11} />
                 </span>
               )}
             </button>
-            {label >= 0 && (
+            {label >= 0 && !compact && (
               <span
                 className="stage-piece-tag f-num"
                 aria-label={`Label ${label + 1}`}
@@ -287,28 +298,32 @@ export function StagePieces() {
                 {label + 1}
               </span>
             )}
-            {selected && a.tool === "select" && !a.focus && !p.locked && (
-              <button
-                type="button"
-                className="stage-piece-turn shell-tip"
-                data-tooltip="Turn: click a quarter, drag freely"
-                aria-label={`Turn ${n.name}`}
-                onPointerDown={(e) => onTurnDown(e, n)}
-                onPointerMove={(e) => onTurnMove(e, n)}
-                onPointerUp={() => onTurnUp(n)}
-                onPointerCancel={() => onTurnUp(n)}
-                onClick={() => {
-                  if (skipTurnClick.current) {
-                    skipTurnClick.current = false;
-                    return;
-                  }
-                  a.turn(n);
-                }}
-              >
-                <RotateIcon size={12} />
-              </button>
-            )}
-            {a.actionsFor === n.id && (
+            {selected &&
+              a.tool === "select" &&
+              !a.focus &&
+              !p.locked &&
+              !compact && (
+                <button
+                  type="button"
+                  className="stage-piece-turn shell-tip"
+                  data-tooltip="Turn: click a quarter, drag freely"
+                  aria-label={`Turn ${n.name}`}
+                  onPointerDown={(e) => onTurnDown(e, n)}
+                  onPointerMove={(e) => onTurnMove(e, n)}
+                  onPointerUp={() => onTurnUp(n)}
+                  onPointerCancel={() => onTurnUp(n)}
+                  onClick={() => {
+                    if (skipTurnClick.current) {
+                      skipTurnClick.current = false;
+                      return;
+                    }
+                    a.turn(n);
+                  }}
+                >
+                  <RotateIcon size={12} />
+                </button>
+              )}
+            {a.actionsFor === n.id && !compact && (
               <PieceActions
                 node={n}
                 label={label}

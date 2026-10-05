@@ -416,7 +416,7 @@
   color: var(--color-accent);
 }
 /* walking or dragging: the canvas takes the hand; a clash on the plan
-   reads in the accent */
+   reads as a warning */
 .stage-3d[data-walk="true"] canvas {
   cursor: grab;
 }
@@ -425,8 +425,8 @@
   cursor: grabbing;
 }
 .plan-pieces .stage-piece[data-clash="true"] .stage-piece-body {
-  border-color: var(--color-accent);
-  background: rgb(from var(--color-accent) r g b / 0.1);
+  border-color: var(--color-danger);
+  background: rgb(from var(--color-danger) r g b / 0.14);
 }
 .view-cube-name {
   font-size: 10.5px;
@@ -602,7 +602,7 @@
   }
 }
 
-/* ---- preview on the stage: the sweep, then the compare ---- */
+/* ---- Render on the stage: the sweep, then the compare ---- */
 .preview {
   position: absolute;
   inset: 0;
@@ -624,62 +624,18 @@
 .preview-after {
   transition: clip-path var(--preview-reveal, 2.8s) var(--ease);
 }
-/* the room, drawn on the gradient and nothing else: a sketch, a render */
-.preview-room {
+/* the render: the view beneath, graded (deeper contrast and colour, a
+   little lift, the corners drawn down); the before side is the view as
+   it is, so the sweep and the compare show the grade coming in */
+.preview-grade {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  width: var(--room-w);
-  aspect-ratio: 10 / 7;
-  transform: translate(-50%, -50%);
-}
-.preview-room-sketch {
-  border: 2px solid rgb(from var(--color-line) r g b / 0.45);
-  background: rgba(255, 255, 255, 0.22);
-  background-image:
-    linear-gradient(
-      rgb(from var(--color-line) r g b / 0.12) 1px,
-      transparent 1px
-    ),
-    linear-gradient(
-      90deg,
-      rgb(from var(--color-line) r g b / 0.12) 1px,
-      transparent 1px
-    );
-  background-size: 24px 24px;
-}
-.preview-room-sketch::after {
-  content: "";
-  position: absolute;
-  left: 14%;
-  top: 18%;
-  width: 36%;
-  height: 40%;
-  border: 1.5px dashed rgb(from var(--color-line) r g b / 0.5);
-}
-.preview-room-render {
-  background-color: var(--color-paper);
-  background-image: linear-gradient(
-    180deg,
-    var(--color-paper) 0%,
-    rgb(from var(--color-line) r g b / 0.16) 60%,
-    rgb(from var(--color-line) r g b / 0.42) 60.4%,
-    rgb(from var(--color-line) r g b / 0.3) 100%
+  inset: 0;
+  backdrop-filter: contrast(1.07) saturate(1.1);
+  background: radial-gradient(
+    ellipse at center,
+    transparent 58%,
+    rgb(from var(--color-shadow) r g b / 0.16) 100%
   );
-  box-shadow:
-    0 1px 0 0 rgba(255, 255, 255, 0.7) inset,
-    0 50px 90px -40px rgb(from var(--color-shadow) r g b / 0.5);
-}
-.preview-room-render::after {
-  content: "";
-  position: absolute;
-  left: 14%;
-  top: 18%;
-  width: 36%;
-  height: 40%;
-  border-radius: 3px;
-  background: rgb(from var(--color-glass) r g b / 0.9);
-  box-shadow: 0 22px 30px -16px rgb(from var(--color-shadow) r g b / 0.55);
 }
 .preview-divider {
   position: absolute;
@@ -1135,6 +1091,15 @@
 }
 
 /* ---- the pieces on the stage ---- */
+/* the room's box, centred between the rails */
+.stage-room-box {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--room-w);
+  aspect-ratio: 10 / 7;
+  transform: translate(-50%, -50%);
+}
 .stage-room-pieces {
   pointer-events: auto;
 }
@@ -1278,8 +1243,6 @@
 .shell-stage[data-focus="true"] {
   background: var(--color-paper);
 }
-.shell-stage[data-focus="true"] .preview-room-sketch,
-.shell-stage[data-focus="true"] .stage-room > span,
 .shell-stage[data-focus="true"] .view-plan-main {
   display: none;
 }
@@ -1320,10 +1283,6 @@
   color: rgb(from var(--color-ink) r g b / 0.55);
   white-space: nowrap;
 }
-.shell-stage:has(.preview) .stage-room-pieces {
-  display: none;
-}
-
 /* ---- the tour ---- */
 .tour {
   position: fixed;
@@ -1478,11 +1437,6 @@
 .stage-piece-tag-3d {
   position: static;
 }
-/* while previewing, the stand-ins take the stage */
-.shell-stage:has(.preview) .stage-3d {
-  display: none;
-}
-
 /* ---- the plan, drawn as a drawing office draws it ---- */
 .stage-room-pieces:has(> .plan) {
   aspect-ratio: auto;

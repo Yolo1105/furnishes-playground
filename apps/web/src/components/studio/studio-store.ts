@@ -9,12 +9,12 @@ import type { WheelMode } from "./input";
  * distance off the plan), which view is on the main surface, how far
  * the plan is zoomed and panned, whether the panels are hidden to look at the room, a
  * piece in focus on its own, the project panel's tab, the loading line,
- * and the Preview run. Preview walks
+ * and the Render run. Render walks
  * a fixed path: generating (the line on the toolbar's edge), revealing
  * (the divider sweeps left to right between the rails, the render filling
  * in behind it), done (the render stands alone), compare (with the panels
  * hidden, the divider comes in from the left to the middle and can be
- * dragged: the sketch is left of it, the render right).
+ * dragged: the view as edited is left of it, the render right).
  */
 export type Mode = "edit" | "preview";
 export type Tool = "select" | "inspect" | "wall" | "measure" | "tour";
@@ -235,8 +235,8 @@ export const useStudio = create<StudioState>((set, get) => ({
     if (get().preview === "revealing") set({ preview: "done" });
   },
   compare: () => {
-    // the render is already everywhere: the sketch slides in from the
-    // left once that frame has painted
+    // the render is already everywhere: the view as edited slides in
+    // from the left once that frame has painted
     set({ preview: "compare", split: 0 });
     window.setTimeout(() => {
       if (get().preview === "compare") set({ split: 50 });

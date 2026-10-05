@@ -62,15 +62,15 @@ import { useFixedMenu } from "./useFixedMenu";
  */
 
 /**
- * The toolbar, read left to right: the mode (Edit or Preview), the tools
+ * The toolbar, read left to right: the mode (Edit or Render), the tools
  * (Select, which also moves and turns a piece by its handles; Inspect,
  * which offers a clicked piece's details or a label for Eva; Add, which
  * opens the strip of parts and pieces), the eye that hides
  * every panel to look at the room, undo and redo, the Guide mark, and
  * Export as the one primary button. Every icon is the same quiet button;
  * only Export is filled. `leading` is the slot the collapsed left rail's
- * restore icon docks into. Preview starts the render run and rests the
- * tools.
+ * restore icon docks into. Render starts the render run over the view
+ * that is up and rests the tools.
  */
 
 export function MainTopBar({ leading }: { leading?: ReactNode }) {
@@ -154,7 +154,7 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
             {(
               [
                 ["edit", "Edit"],
-                ["preview", "Preview"],
+                ["preview", "Render"],
               ] as const
             ).map(([id, label]) => (
               <button

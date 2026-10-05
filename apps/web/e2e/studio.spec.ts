@@ -342,9 +342,27 @@ test("the right rail holds the other view, and the swap trades them", async ({
   await expect(view.locator(".view-stub")).toHaveAttribute("data-view", "2d");
   // the small plan is the real plan, read-only, with the pieces on it
   await expect(view.locator(".view-mini .plan-svg")).toHaveCount(1);
-  await expect(view.locator(".view-mini-piece")).toHaveCount(
-    top.filter((a) => a.kind !== "fixed").length,
-  );
+  const small = view.locator(".view-mini .stage-piece");
+  await expect(small).toHaveCount(top.filter((a) => a.kind !== "fixed").length);
+  // its pieces are the stage's own: a click picks one, a drag moves it
+  // (the 3D room follows), with no names or handles at that size
+  const first = top.filter((a) => a.kind === "piece")[0]!;
+  const piece = view
+    .locator(".view-mini")
+    .getByRole("button", { name: first.name, exact: true });
+  await piece.click();
+  await expect(piece).toHaveAttribute("aria-pressed", "true");
+  await expect(view.locator(".view-mini .stage-piece-name")).toHaveCount(0);
+  await expect(view.locator(".view-mini .stage-piece-turn")).toHaveCount(0);
+  const pb = (await piece.boundingBox())!;
+  await page.mouse.move(pb.x + pb.width / 2, pb.y + pb.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(pb.x + pb.width / 2 + 30, pb.y + pb.height / 2, {
+    steps: 6,
+  });
+  await page.mouse.up();
+  await expect(page.getByRole("button", { name: "Undo" })).toBeEnabled();
+  await page.keyboard.press("Control+z");
   await page.getByRole("button", { name: "Show 2D plan in main" }).click();
   await expect(page.locator(".shell-main-hint")).toHaveAttribute(
     "data-view",
@@ -602,8 +620,8 @@ test("the toolbar reads mode · select, add, wall · undo, guide, export", async
     "aria-pressed",
     "false",
   );
-  await bar.getByRole("button", { name: "Preview" }).click();
-  await expect(bar.getByRole("button", { name: "Preview" })).toHaveAttribute(
+  await bar.getByRole("button", { name: "Render" }).click();
+  await expect(bar.getByRole("button", { name: "Render" })).toHaveAttribute(
     "aria-pressed",
     "true",
   );
@@ -669,7 +687,7 @@ test("the Room tab starts from the HDB preset and takes a size of your own", asy
   ).toHaveAttribute("aria-checked", "true");
 });
 
-test("Preview runs a line along the top, sweeps the render in, then compares on demand", async ({
+test("Render runs a line along the top, sweeps the render in over the view, then compares on demand", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -679,8 +697,8 @@ test("Preview runs a line along the top, sweeps the render in, then compares on 
     content: ":root{--preview-generate:1.2s;--preview-reveal:.3s}",
   });
   const bar = page.getByRole("toolbar", { name: "Studio tools" });
-  await bar.getByRole("button", { name: "Preview" }).click();
-  const line = page.getByRole("progressbar", { name: "Rendering preview" });
+  await bar.getByRole("button", { name: "Render" }).click();
+  const line = page.getByRole("progressbar", { name: "Rendering the room" });
   await expect(line).toBeAttached();
   await expect
     .poll(async () => (await line.boundingBox())?.width ?? 0)
@@ -690,14 +708,15 @@ test("Preview runs a line along the top, sweeps the render in, then compares on 
   expect(Math.abs(lb!.y + lb!.height - (bb!.y + bb!.height))).toBeLessThan(2);
   expect(lb!.x).toBeGreaterThanOrEqual(bb!.x);
   await expect(bar.getByRole("button", { name: "Select" })).toBeDisabled();
-  // the eye keeps its colour while previewing: looking is what preview is for
+  // the eye keeps its colour while rendering: looking is what a render is for
   await expect(bar.getByRole("button", { name: "Hide panels" })).toBeEnabled();
   await expect(page.locator(".preview")).toHaveAttribute(
     "data-status",
     "done",
     { timeout: 8000 },
   );
-  // the stage is full screen, behind the panels, and shows the gradient
+  // the stage is full screen, behind the panels; the render is the view
+  // that was up (the 3D room, its shadows on and its names away), graded
   const stageBox = (await page.locator(".shell-stage").boundingBox())!;
   expect(stageBox.width).toBe(1440);
   expect(stageBox.x).toBe(0);
@@ -705,6 +724,12 @@ test("Preview runs a line along the top, sweeps the render in, then compares on 
     "background-color",
     "rgba(0, 0, 0, 0)",
   );
+  await expect(page.locator(".stage-3d canvas")).toBeVisible();
+  await expect(page.locator(".stage-3d")).toHaveAttribute(
+    "data-shadows",
+    "true",
+  );
+  await expect(page.locator(".stage-3d .stage-3d-name")).toHaveCount(0);
   // the sweep runs between the rails and ends at the right one: all render
   const sb = (await page.locator(".preview-stage").boundingBox())!;
   const [leftRail, rightRail] = await Promise.all([
@@ -1779,9 +1804,9 @@ test("in 3D a piece is dragged over the floor, the camera glides between angles,
     .getByRole("radio", { name: "Perspective" })
     .click();
   await page.waitForTimeout(800);
-  // a drag on a piece moves it over the floor, snapped to 50 mm and kept
-  // inside the room; which piece stands under the press depends on the
-  // perspective, so the moved one is read back from the kept project
+  // a drag on a piece moves it over the floor, snapped to 50 mm; the
+  // rest are held where they stood, so no other piece shifts: every
+  // piece is read back from the kept project with a place on the grid
   const first = top.filter((a) => a.kind === "piece")[0]!;
   const tag = stage.locator(".stage-3d-name", { hasText: first.name }).first();
   const t = (await tag.boundingBox())!;
@@ -1808,10 +1833,12 @@ test("in 3D a piece is dragged over the floor, the camera glides between angles,
       kept.projects?.[0]?.data?.scene?.overrides ?? {},
     ).filter((o) => o.x !== undefined);
   });
-  expect(placed).toHaveLength(1);
+  expect(placed).toHaveLength(top.filter((a) => a.kind !== "fixed").length);
   // on the grid (a piece may stand past a wall, so a side can be negative)
-  expect(Math.abs(placed[0]!.x! % 50)).toBe(0);
-  expect(Math.abs(placed[0]!.y! % 50)).toBe(0);
+  for (const o of placed) {
+    expect(Math.abs(o.x! % 50)).toBe(0);
+    expect(Math.abs(o.y! % 50)).toBe(0);
+  }
   // the piece goes back (the walk below starts where it now stands)
   await page.keyboard.press("Control+z");
   await expect(page.getByRole("button", { name: "Undo" })).toBeDisabled();
@@ -2651,16 +2678,18 @@ test("a piece turns freely: the handle drags round it in steps of 15, Shift free
     await sy.fill(y);
     await sy.press("Tab");
   };
-  await placeAt("Sofa", "1000", "1000");
+  // (the rest of the pieces hold their places, so the sofa goes to the
+  // clear floor south of the rug, its turned box past the south wall)
+  await placeAt("Sofa", "2500", "2900");
   await deg.fill("45");
   await deg.press("Tab");
-  await placeAt("Ceramic vase", "1050", "1050");
+  await placeAt("Ceramic vase", "2550", "2950");
   const health = page
     .locator(".agent")
     .getByRole("list", { name: "Room health" });
   await expect(health.getByText(/overlaps/)).toHaveCount(0);
   // squared, the sofa's box reaches the vase: a clash
-  await placeAt("Sofa", "1000", "1000");
+  await placeAt("Sofa", "2500", "2900");
   await page.getByRole("button", { name: "Square to the walls" }).click();
   await expect(health).toContainText(/overlaps/);
 });

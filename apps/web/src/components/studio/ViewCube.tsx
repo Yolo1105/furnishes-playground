@@ -9,7 +9,7 @@ import { ANGLES, useStudio, type Angle } from "./studio-store";
  * behind it are Back and Left, and the near corner is the perspective.
  * In 2D a plan square with the four elevations around it, as a drawing
  * sheet lays them out. The current one is tinted; its name reads under
- * the cube. Rests while previewing.
+ * the cube. Rests while rendering.
  */
 const FACES_3D: { id: Angle; points: string; label: [number, number] }[] = [
   { id: "Top", points: "50,20 74,33 50,46 26,33", label: [50, 35] },
