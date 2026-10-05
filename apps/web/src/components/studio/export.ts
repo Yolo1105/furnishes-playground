@@ -1,5 +1,5 @@
 import { propsOf, useScene } from "./scene-store";
-import { activeOf, footprintOf, useRoom } from "./room-store";
+import { activeOf, footprintOf, openingsOf, useRoom } from "./room-store";
 import { ROOM_NAMES } from "./room-data";
 import { sgd } from "./assets-data";
 
@@ -79,7 +79,9 @@ export const exportRoomJson = () => {
       width: r.width,
       depth: r.depth,
       height: r.height,
-      openings: r.openings.map(({ id: _id, hdb: _hdb, ...o }) => o),
+      openings: openingsOf(st, r).map(
+        ({ id: _id, hdb: _hdb, join: _join, ...o }) => o,
+      ),
       floor: r.floor,
       wallTone: r.wallTone,
       footprint: footprintOf(r),

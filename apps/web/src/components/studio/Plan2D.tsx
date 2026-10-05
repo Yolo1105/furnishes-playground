@@ -18,6 +18,7 @@ import {
   edgeFrame,
   edgesOf,
   isSimple,
+  magnetRoom,
   moveCorner,
   pushEdge,
   splitEdge,
@@ -29,9 +30,11 @@ import {
   activeOf,
   CLOSE_WITHIN,
   footprintOf,
+  openingsOf,
   roomLabel,
   type RoomSpec,
   sheetBox,
+  sheetOutline,
   useRoom,
 } from "./room-store";
 import { StagePieces } from "./StagePieces";
@@ -162,7 +165,7 @@ export function Plan2D({
     W: rm.width,
     D: rm.depth,
     outline: footprintOf(rm),
-    openings: rm.openings,
+    openings: openingsOf(st, rm),
   });
   const edges = edgesOf(outline);
   const poly = outline.map((p) => p.join(",")).join(" ");
@@ -189,6 +192,20 @@ export function Plan2D({
     /** how far the frame has moved since, as walls were pushed */
     acc: { x: number; y: number };
   } | null>(null);
+  // and the whole room: with the Wall tool, its floor drags it about the
+  // sheet; the magnet stands it against a neighbour, a wall apart
+  const magnet = useStudio((s) => s.magnet);
+  const carry = useRef<{
+    from: Point;
+    /** the pointer at the press, px, and the sheet's scale then: the
+        sheet grows as the room moves, so the drag keeps the first scale */
+    x0: number;
+    y0: number;
+    mmPerPx: number;
+    moved: boolean;
+  } | null>(null);
+  /** a drag of the room just ended: the click that follows is not a corner */
+  const carried = useRef(false);
   const measuring = interactive && tool === "measure";
   const touring = interactive && tool === "tour";
   const stops = useRoom((s) => s.stops);
@@ -263,6 +280,10 @@ export function Plan2D({
   ];
   // a click on the sheet: a corner while drawing, an end while measuring
   const onPlanClick = (e: MouseEvent<SVGSVGElement>) => {
+    if (carried.current) {
+      carried.current = false;
+      return;
+    }
     const pt = mmOf(e);
     if (!pt) return;
     if (drawingOn) r.addCorner(pt);
@@ -468,6 +489,52 @@ export function Plan2D({
   const onShapeUp = () => {
     shape.current = null;
   };
+  const onRoomDown = (e: PointerEvent<SVGElement>) => {
+    if (!handles || e.button !== 0) return;
+    const ctm = svgRef.current?.getScreenCTM();
+    if (!ctm) return;
+    carry.current = {
+      from: pos,
+      x0: e.clientX,
+      y0: e.clientY,
+      mmPerPx: 1 / ctm.a,
+      moved: false,
+    };
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* a pointer the browser no longer knows */
+    }
+  };
+  const onRoomMove = (e: PointerEvent<SVGElement>) => {
+    const c = carry.current;
+    if (!c) return;
+    const dx = (e.clientX - c.x0) * c.mmPerPx;
+    const dy = (e.clientY - c.y0) * c.mmPerPx;
+    if (!c.moved && Math.hypot(dx, dy) < snap) return;
+    c.moved = true;
+    let next: Point = [
+      Math.round((c.from[0] + dx) / snap) * snap,
+      Math.round((c.from[1] + dy) / snap) * snap,
+    ];
+    if (magnet) {
+      const moving = outline.map(([x, y]): Point => [x + next[0], y + next[1]]);
+      const pull = magnetRoom(
+        moving,
+        rooms.filter((rm) => rm.id !== active.id).map(sheetOutline),
+      );
+      next = [next[0] + pull.dx, next[1] + pull.dy];
+    }
+    st.moveRoom(active.id, next);
+  };
+  const onRoomUp = () => {
+    const c = carry.current;
+    if (!c) return;
+    carry.current = null;
+    if (!c.moved) return;
+    carried.current = true;
+    st.moveRoom(active.id, activeOf(useRoom.getState()).pos, true);
+  };
   const onEdgeSplit = (e: MouseEvent<SVGElement>, i: number) => {
     e.stopPropagation();
     const at = mmOf(e);
@@ -539,7 +606,7 @@ export function Plan2D({
       three lines; a door as the gap, its leaf and its swing (two for a
       double door); a sliding door as two panels past each other; a
       passage as the gap alone. With `grips`, each has its handles */
-  const openingsOf = (shell: ReturnType<typeof shellOf>, grips: boolean) =>
+  const drawOpenings = (shell: ReturnType<typeof shellOf>, grips: boolean) =>
     shell.openings.map((o) => {
       const e = onEdge(shell, o);
       const half = o.width / 2;
@@ -725,7 +792,7 @@ export function Plan2D({
                   className="plan-wall"
                   strokeWidth={WALL * 2}
                 />
-                {openingsOf(shell, false)}
+                {drawOpenings(shell, false)}
                 <text
                   className="plan-room-name"
                   x={rm.width / 2}
@@ -744,7 +811,17 @@ export function Plan2D({
         >
           {/* the floor; then the band along the outline: its faces as a wide
             heavy stroke, the hatch over all but the face lines */}
-          <polygon points={poly} className="plan-floor" />
+          <polygon
+            points={poly}
+            className="plan-floor"
+            data-carries={handles}
+            role={handles ? "button" : undefined}
+            aria-label={handles ? "Move the room" : undefined}
+            onPointerDown={onRoomDown}
+            onPointerMove={onRoomMove}
+            onPointerUp={onRoomUp}
+            onPointerCancel={onRoomUp}
+          />
           <polygon
             points={poly}
             className="plan-face"
@@ -769,7 +846,7 @@ export function Plan2D({
                 );
                 const hi = lo + f.len;
                 const across = horizontal ? f.a[1] : f.a[0];
-                const taken = r.openings
+                const taken = opening.openings
                   .map((o) => ({ o, c: openingCentre(opening, o) }))
                   .filter(({ c }) => c.at === across)
                   .map(
@@ -846,7 +923,7 @@ export function Plan2D({
               ))}
             </g>
           )}
-          {openingsOf(opening, grips)}
+          {drawOpenings(opening, grips)}
 
           {dim([0, 0], [W, 0], `${W}`, [0, -1])}
           {dim([0, D], [0, 0], `${D}`, [-1, 0])}

@@ -43,6 +43,7 @@ import {
   activeOf,
   footprintOf,
   nextRoomKind,
+  openingsOf,
   roomLabel,
   useRoom,
   wallsOf,
@@ -138,14 +139,29 @@ export function RoomTab() {
     </div>
   );
   const shell = { W: s.width, D: s.depth, outline: footprintOf(s) };
-  const firstDoor = s.openings.find((o) => !isWindow(o)) ?? null;
-  const firstWindow = s.openings.find(isWindow) ?? null;
-  /** the name an opening's row goes by: its kind, numbered past the first */
+  /** the room's openings with the doorways it shares */
+  const openings = openingsOf(st, s);
+  const firstDoor = openings.find((o) => !isWindow(o)) ?? null;
+  const firstWindow = openings.find(isWindow) ?? null;
+  /** the room beyond a shared doorway */
+  const beyond = (o: Opening) => {
+    const j = st.joins.find((x) => x.id === o.join);
+    const other = st.rooms.find((r) => r.id === (j?.a === s.id ? j?.b : j?.a));
+    return other ? roomLabel(st.rooms, other) : null;
+  };
+  /** the name an opening's row goes by: its kind, numbered past the
+      first; a shared doorway, by the room beyond it */
   const nameOf = (o: Opening) => {
+    const to = beyond(o);
+    if (to) return `${openingLabel(o.kind)} to the ${to}`;
     const same = s.openings.filter((x) => x.kind === o.kind);
     const n = same.indexOf(o);
     return n === 0 ? openingLabel(o.kind) : `${openingLabel(o.kind)} ${n + 1}`;
   };
+  /** the doorways closed up, each a chip away from opening again */
+  const closed = st.joins.filter(
+    (j) => !j.open && (j.a === s.id || j.b === s.id),
+  );
   const openingRow = (o: Opening) => {
     const name = nameOf(o);
     const win = isWindow(o);
@@ -159,7 +175,7 @@ export function RoomTab() {
     return (
       <div key={o.id} className="room-field room-opening" data-kind={o.kind}>
         <span className="room-field-label room-opening-head">
-          {name} on the
+          {o.join ? name : `${name} on the`}
           <button
             type="button"
             className="shell-iconbtn room-opening-remove"
@@ -169,9 +185,10 @@ export function RoomTab() {
             <CloseIcon size={12} />
           </button>
         </span>
-        {wallPick(`${name} on the`, o.wall, (w) =>
-          s.setOpening(o.id, { wall: w, at: null }),
-        )}
+        {!o.join &&
+          wallPick(`${name} on the`, o.wall, (w) =>
+            s.setOpening(o.id, { wall: w, at: null }),
+          )}
         <div
           className="eva-chips room-opening-sizes"
           role="group"
@@ -492,7 +509,26 @@ export function RoomTab() {
                 Draw the walls first; the doors and windows then go on them.
               </p>
             )}
-            {s.openings.map(openingRow)}
+            {openings.map(openingRow)}
+            {closed.map((j) => {
+              const other = st.rooms.find(
+                (r) => r.id === (j.a === s.id ? j.b : j.a),
+              )!;
+              return (
+                <div key={j.id} className="room-field room-opening">
+                  <span className="room-field-label room-opening-head">
+                    Wall to the {roomLabel(st.rooms, other)} · solid
+                    <button
+                      type="button"
+                      className="eva-pref-clear"
+                      onClick={() => st.reopenJoin(j.id)}
+                    >
+                      Open it
+                    </button>
+                  </span>
+                </div>
+              );
+            })}
             {!firstDoor && (
               <div className="room-field">
                 <span className="room-field-label">Door on the</span>

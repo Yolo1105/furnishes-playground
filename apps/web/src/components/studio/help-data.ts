@@ -51,7 +51,7 @@ export const HELP_TABS: readonly HelpTab[] = [
           },
           {
             does: "Work in another room",
-            how: "Click its floor, or a piece in it; the Room tab's Rooms row adds one, picks one or removes one.",
+            how: "Click its floor, or a piece in it; the Room tab's Rooms row adds one, picks one or removes one. With the Wall tool, drag a room by its floor: against a neighbour, the magnet stands it a wall apart and a doorway joins them.",
           },
           {
             does: "Set the tour's stops",

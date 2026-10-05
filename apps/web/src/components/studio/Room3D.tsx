@@ -47,6 +47,41 @@ export type RoomShape = {
   floor: Floor;
   floorHex: string;
   wallHex: string;
+  /** stretches of its walls another room builds, mm along the wall's
+      axis: where two rooms stand wall to wall the wall is built once */
+  shared?: readonly { wall: Wall; from: number; to: number }[];
+};
+
+/** an edge's wall as the runs this room builds: the whole edge, less
+    the stretches shared with a room that builds them */
+const runsOf = (
+  e: Edge,
+  shared: readonly { wall: Wall; from: number; to: number }[],
+): Edge[] => {
+  const horizontal = e.wall === "north" || e.wall === "south";
+  const k = horizontal ? 0 : 1;
+  const lo = Math.min(e.a[k], e.b[k]);
+  const hi = Math.max(e.a[k], e.b[k]);
+  const cuts = shared
+    .filter((c) => c.wall === e.wall && c.to > lo && c.from < hi)
+    .map((c) => [Math.max(lo, c.from), Math.min(hi, c.to)] as const)
+    .sort((p, q) => p[0] - q[0]);
+  if (cuts.length === 0) return [e];
+  const runs: [number, number][] = [];
+  let from = lo;
+  for (const [c0, c1] of cuts) {
+    if (c0 - from > 1) runs.push([from, c0]);
+    from = Math.max(from, c1);
+  }
+  if (hi - from > 1) runs.push([from, hi]);
+  // the runs keep the edge's direction
+  const forward = e.a[k] <= e.b[k];
+  const at = (v: number): Point => (horizontal ? [v, e.a[1]] : [e.a[0], v]);
+  return runs.map(([p, q]) => ({
+    a: at(forward ? p : q),
+    b: at(forward ? q : p),
+    wall: e.wall,
+  }));
 };
 
 /** the floor as a shape in metres about the room's middle; the plane is
@@ -369,17 +404,19 @@ export function RoomShell({
         <shapeGeometry args={[shape]} />
         <meshStandardMaterial map={map} roughness={ROUGHNESS[r.floor]} />
       </mesh>
-      {edgesOf(r.outline).map((e, i) => (
-        <WallRun
-          key={i}
-          e={e}
-          w={w}
-          d={d}
-          h={h}
-          wallHex={r.wallHex}
-          holes={holesOf(r, e, h)}
-        />
-      ))}
+      {edgesOf(r.outline).flatMap((e, i) =>
+        runsOf(e, r.shared ?? []).map((run, k) => (
+          <WallRun
+            key={`${i}-${k}`}
+            e={run}
+            w={w}
+            d={d}
+            h={h}
+            wallHex={r.wallHex}
+            holes={holesOf(r, run, h)}
+          />
+        )),
+      )}
       {r.openings.map((o) =>
         isWindow(o) ? (
           <Window key={o.id} r={r} o={o} />

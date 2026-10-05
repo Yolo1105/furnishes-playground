@@ -9,7 +9,7 @@ import { explainPlan, travel } from "./plan-explain";
 import { healthOf, type Issue, type Room } from "./room-health";
 import { gapOf, layoutPlans, layoutRoom, type Placed } from "./room-layout";
 import { MUST_HAVE_CHOICES } from "./room-data";
-import { footprintOf, useRoom } from "./room-store";
+import { footprintOf, openingsOf, useRoom } from "./room-store";
 import {
   inRoom,
   noteStanding,
@@ -45,8 +45,15 @@ export function usePieceActions(roomId?: string) {
   const activeId = useRoom((s) => s.activeId);
   const spec = rooms.find((r) => r.id === (roomId ?? activeId)) ?? rooms[0]!;
   const firstId = rooms[0]!.id;
-  const { width: W, depth: D, openings, rules } = spec;
-  const room: Room = { W, D, outline: footprintOf(spec), openings, rules };
+  const joins = useRoom((s) => s.joins);
+  const { width: W, depth: D, rules } = spec;
+  const room: Room = {
+    W,
+    D,
+    outline: footprintOf(spec),
+    openings: openingsOf({ joins }, spec),
+    rules,
+  };
 
   // what stands in this room: the pieces and the room items, never the
   // architecture (that is the room itself); a hidden piece keeps its

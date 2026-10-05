@@ -25,11 +25,15 @@ import {
 } from "./piece-detail";
 import { FLOOR_TONES, WALL_TONES, type Floor } from "./room-data";
 import { settle, type Rect } from "./room-layout";
-import { insideOutline } from "./room-geometry";
+import { insideOutline, WALL_MM } from "./room-geometry";
 import type { Point } from "./room-templates";
 import {
+  activeOf,
   footprintOf,
+  openingsOf,
+  roomAt,
   type RoomSpec,
+  sharedOf,
   sheetBox,
   useActiveRoom,
   useRoom,
@@ -239,13 +243,16 @@ function Walker({
   w,
   d,
   outline,
+  walkable,
   blocks,
   stage,
 }: {
   w: number;
   d: number;
-  /** the room's outline, mm; the walk keeps inside it */
+  /** the room's outline, mm; the tour's round keeps inside it */
   outline: readonly (readonly [number, number])[];
+  /** standing room: the rooms' floors and the doorways between them */
+  walkable: (x: number, z: number) => boolean;
   /** the pieces on the floor, metres from the room's middle: the tour
       looks at them and its round keeps clear of them */
   blocks: Block[];
@@ -324,14 +331,15 @@ function Walker({
       s.tour = null;
       return;
     }
+    // the stops are on the sheet; the walk is about the active room's middle
+    const [px, pz] = activeOf(useRoom.getState()).pos;
     const toM = ([x, y]: readonly [number, number]) => ({
-      x: x / 1000 - w / 2,
-      z: y / 1000 - d / 2,
+      x: (x - px) / 1000 - w / 2,
+      z: (y - pz) / 1000 - d / 2,
     });
     const stops = useRoom.getState().stops.map(toM);
     const inset = Math.max(0.5, Math.min(TOUR_INSET, Math.min(w, d) / 2 - 0.3));
-    const inRoom = (x: number, z: number) =>
-      insideOutline((x + w / 2) * 1000, (z + d / 2) * 1000, outline);
+    const inRoom = walkable;
     // standing room: inside the walls with a little to spare, off the
     // pieces by the clearance
     const clear = (x: number, z: number) =>
@@ -380,7 +388,7 @@ function Walker({
     s.goto = null;
     useStudio.getState().setTourAt(0, 1, path.length);
     invalidate();
-  }, [touring, w, d, outline, invalidate]);
+  }, [touring, w, d, outline, walkable, invalidate]);
   useFrame((_, raw) => {
     const dt = Math.min(raw, FRAME_MAX);
     const s = WALK;
@@ -772,6 +780,7 @@ function OtherRoom({
   rendering: boolean;
 }) {
   const a = usePieceActions(rm.id);
+  const st = useRoom();
   const outline = footprintOf(rm);
   const w = m(rm.width);
   const d = m(rm.depth);
@@ -795,11 +804,12 @@ function OtherRoom({
           W: rm.width,
           D: rm.depth,
           outline,
-          openings: rm.openings,
+          openings: openingsOf(st, rm),
           height: rm.height,
           floor: rm.floor as Floor,
           floorHex: floor,
           wallHex: wall,
+          shared: sharedOf(st, rm),
         }}
         walk={false}
         onWalkTo={() => undefined}
@@ -850,7 +860,47 @@ export default function Scene3D() {
   const walk = useStudio((s) => s.walk);
   const room = useActiveRoom();
   const rooms = useRoom((s) => s.rooms);
+  const joins = useRoom((s) => s.joins);
   const outline = footprintOf(room);
+  // standing room for the walk: any room's floor, or a doorway between
+  // two, from a point in metres about the active room's middle
+  const walkable = useMemo(() => {
+    const gaps = joins
+      .filter((j) => j.open)
+      .map((j) => {
+        const a = rooms.find((r) => r.id === j.a)!;
+        const horizontal = j.wallA === "north" || j.wallA === "south";
+        // the wall band between the outlines, over the doorway's width
+        const across =
+          (horizontal ? a.pos[1] : a.pos[0]) +
+          (j.wallA === "south" || j.wallA === "east"
+            ? horizontal
+              ? a.depth
+              : a.width
+            : -WALL_MM);
+        return horizontal
+          ? {
+              x0: j.at - j.width / 2,
+              x1: j.at + j.width / 2,
+              y0: across,
+              y1: across + WALL_MM,
+            }
+          : {
+              x0: across,
+              x1: across + WALL_MM,
+              y0: j.at - j.width / 2,
+              y1: j.at + j.width / 2,
+            };
+      });
+    return (x: number, z: number) => {
+      const px = (x + m(room.width) / 2) * 1000 + room.pos[0];
+      const py = (z + m(room.depth) / 2) * 1000 + room.pos[1];
+      if (roomAt(rooms, [px, py])) return true;
+      return gaps.some(
+        (g) => px >= g.x0 && px <= g.x1 && py >= g.y0 && py <= g.y1,
+      );
+    };
+  }, [joins, rooms, room.width, room.depth, room.pos]);
   // the flat's box on the sheet, and its middle from the active room's
   // centre (the origin), so the camera frames every room
   const box = sheetBox(rooms);
@@ -957,7 +1007,14 @@ export default function Scene3D() {
         onPointerMissed={() => undefined}
       >
         {walk ? (
-          <Walker w={w} d={d} outline={outline} blocks={blocks} stage={stage} />
+          <Walker
+            w={w}
+            d={d}
+            outline={outline}
+            walkable={walkable}
+            blocks={blocks}
+            stage={stage}
+          />
         ) : (
           <Rig
             angle={angle}
@@ -996,8 +1053,9 @@ export default function Scene3D() {
               W: room.width,
               D: room.depth,
               outline,
-              openings: room.openings,
+              openings: openingsOf({ joins }, room),
               height: room.height,
+              shared: sharedOf({ rooms }, room),
               floor: room.floor as Floor,
               floorHex: floor,
               wallHex: wall,

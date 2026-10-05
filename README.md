@@ -156,7 +156,16 @@ in it; a click on another room's floor, or on a piece in it, makes it
 active; the plan draws every room, the active one with its dimensions
 and handles, the others faint with their names; the 3D view frames the
 whole flat; a piece added or dropped goes into the active room, and the
-panels, the health check and Eva read the active room. Each room is
+panels, the health check and Eva read the active room. With the Wall
+tool a room's floor drags the room about the sheet, and the magnet
+stands it against a neighbour a wall's thickness apart, ends in line;
+where two rooms stand wall to wall a doorway joins them, a door
+swinging into the private room (a bedroom or the study) or an open
+passage between the others, read by both rooms (the plan draws the
+leaf on its side and a gap on the other, the 3D view builds the shared
+wall once with the way through, the walk crosses it), named in each
+room's Openings by the room beyond, sized like any opening, closed to a
+solid wall and opened again. Each room is
 its outline, not the box round it: a template (square,
 rectangle, long, L, mirrored L, alcove, T, U, or a shape tapped out of
 squares) or drawn walls, and either kind is reshaped on the plan with

@@ -169,6 +169,9 @@ export type Opening = {
   id: string;
   kind: OpeningKind;
   wall: Wall;
+  /** an opening shared with the room beyond the wall: the join it comes
+      from, which both rooms read */
+  join?: string;
   /** mm, the opening's centre along its wall from the room's west side
       (north and south walls) or north side (east and west walls); null
       is the middle of the wall */
@@ -237,6 +240,16 @@ export const REVEAL = 300;
 export const PASS_DEPTH = 600;
 /** the floor under a window kept clear of tall pieces, mm */
 export const SILL_DEPTH = 150;
+/** the shortest shared wall that gets a doorway, mm */
+export const JOIN_MIN = 900;
+/** the rooms a door swings into: the private ones. Two rooms joined get
+    a door into the private one, else an open passage */
+export const PRIVATE_ROOMS: readonly RoomId[] = [
+  "master",
+  "bedroom-1",
+  "bedroom-2",
+  "study",
+];
 
 let openingSeq = 0;
 export const openingId = () => `o-${Date.now().toString(36)}-${++openingSeq}`;

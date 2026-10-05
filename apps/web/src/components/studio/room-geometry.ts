@@ -288,3 +288,118 @@ export const normalizeOutline = (poly: readonly Point[]) => {
     dy,
   };
 };
+
+/* ---------- rooms beside each other ---------- */
+
+/** a stretch where an edge of one room runs along an edge of another,
+    the two outlines a wall's thickness apart: the wall between them.
+    `from` and `to` run along the sheet's axis the wall lies on, `at` is
+    where the first room's outline crosses the other axis */
+export type SharedRun = {
+  wallA: Wall;
+  wallB: Wall;
+  horizontal: boolean;
+  from: number;
+  to: number;
+  at: number;
+};
+
+const FACING: Record<Wall, Wall> = {
+  north: "south",
+  south: "north",
+  east: "west",
+  west: "east",
+};
+
+/** the walls room A (outline `a`, on the sheet) shares with room B:
+    facing edges, parallel, the gap between the outlines within `slack`
+    of a wall's thickness, running alongside each other */
+export const sharedRuns = (
+  a: readonly Point[],
+  b: readonly Point[],
+  slack = 1,
+): SharedRun[] => {
+  const out: SharedRun[] = [];
+  for (const ea of edgesOf(a))
+    for (const eb of edgesOf(b)) {
+      if (eb.wall !== FACING[ea.wall]) continue;
+      const horizontal = ea.wall === "north" || ea.wall === "south";
+      const across = (e: Edge) => (horizontal ? e.a[1] : e.a[0]);
+      // the other room lies beyond A's wall: south of a south wall, and
+      // so on; the gap is measured that way
+      const outward = ea.wall === "south" || ea.wall === "east" ? 1 : -1;
+      const gap = (across(eb) - across(ea)) * outward;
+      if (Math.abs(gap - WALL_MM) > slack) continue;
+      const span = (e: Edge) =>
+        horizontal
+          ? [Math.min(e.a[0], e.b[0]), Math.max(e.a[0], e.b[0])]
+          : [Math.min(e.a[1], e.b[1]), Math.max(e.a[1], e.b[1])];
+      const [a0, a1] = span(ea);
+      const [b0, b1] = span(eb);
+      const from = Math.max(a0!, b0!);
+      const to = Math.min(a1!, b1!);
+      if (to - from <= 0) continue;
+      out.push({
+        wallA: ea.wall,
+        wallB: eb.wall,
+        horizontal,
+        from,
+        to,
+        at: across(ea),
+      });
+    }
+  return out;
+};
+
+/** how far a room moved on the plan is drawn to a neighbour: within
+    this of a wall's thickness from a facing wall, or of lining up its
+    end with the neighbour's, mm */
+export const ROOM_REACH = 400;
+
+/** the shift that stands a moving room against its neighbours: its
+    facing walls a wall's thickness from theirs, and their ends in line,
+    when they come within reach */
+export const magnetRoom = (
+  moving: readonly Point[],
+  others: readonly (readonly Point[])[],
+): { dx: number; dy: number } => {
+  let dx: number | null = null;
+  let dy: number | null = null;
+  const nearer = (cur: number | null, v: number) =>
+    cur === null || Math.abs(v) < Math.abs(cur) ? v : cur;
+  for (const other of others)
+    for (const ea of edgesOf(moving))
+      for (const eb of edgesOf(other)) {
+        if (eb.wall !== FACING[ea.wall]) continue;
+        const horizontal = ea.wall === "north" || ea.wall === "south";
+        const across = (e: Edge) => (horizontal ? e.a[1] : e.a[0]);
+        const outward = ea.wall === "south" || ea.wall === "east" ? 1 : -1;
+        const gap = (across(eb) - across(ea)) * outward;
+        // within reach of a wall apart, or pushed a little into the
+        // neighbour: either way it stands off by a wall
+        if (gap > WALL_MM + ROOM_REACH || gap < -ROOM_REACH) continue;
+        const span = (e: Edge) =>
+          horizontal
+            ? [Math.min(e.a[0], e.b[0]), Math.max(e.a[0], e.b[0])]
+            : [Math.min(e.a[1], e.b[1]), Math.max(e.a[1], e.b[1])];
+        const [a0, a1] = span(ea) as [number, number];
+        const [b0, b1] = span(eb) as [number, number];
+        // alongside, or nearly: the runs overlap or come within reach
+        if (a1 < b0 - ROOM_REACH || a0 > b1 + ROOM_REACH) continue;
+        const shift = (gap - WALL_MM) * outward;
+        if (horizontal) dy = nearer(dy, shift);
+        else dx = nearer(dx, shift);
+        // the nearer pair of ends lines up too
+        const ends = [b0 - a0, b1 - a1, b0 - a1, b1 - a0].filter(
+          (v) => Math.abs(v) <= ROOM_REACH,
+        );
+        if (ends.length) {
+          const along = ends.reduce((p, q) =>
+            Math.abs(q) < Math.abs(p) ? q : p,
+          );
+          if (horizontal) dx = nearer(dx, along);
+          else dy = nearer(dy, along);
+        }
+      }
+  return { dx: dx ?? 0, dy: dy ?? 0 };
+};

@@ -2,7 +2,7 @@
 
 import { isWindow, OPENINGS, ROOM_NAMES, type Wall } from "./room-data";
 import { openingCentre } from "./room-health";
-import { footprintOf, useActiveRoom } from "./room-store";
+import { footprintOf, openingsOf, useActiveRoom, useRoom } from "./room-store";
 import { usePieceActions } from "./piece-actions";
 import { footprint } from "./piece-detail";
 import type { Angle } from "./studio-store";
@@ -52,8 +52,9 @@ export function Elevation2D({ angle }: { angle: Angle }) {
   const vh = H + 2 * MARGIN;
   // the openings on this wall, seen from inside: the south and west
   // walls read mirrored, so a place along the wall is turned round
-  const shell = { W, D, outline: footprintOf(r), openings: r.openings };
-  const openings = r.openings
+  const all = openingsOf(useRoom.getState(), r);
+  const shell = { W, D, outline: footprintOf(r), openings: all };
+  const openings = all
     .filter((o) => o.wall === wall)
     .map((o) => {
       const from = openingCentre(shell, o).centre - o.width / 2;

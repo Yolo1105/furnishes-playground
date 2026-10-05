@@ -2038,3 +2038,8 @@
   flex: 1;
   min-width: 80px;
 }
+/* with the Wall tool, the active room's floor carries the room */
+.plan-floor[data-carries="true"] {
+  pointer-events: all;
+  cursor: grab;
+}

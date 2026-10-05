@@ -2403,6 +2403,50 @@ test("the flat has rooms: one added stands beside the active room, a click on it
   ]);
   expect(bb!.x).toBeGreaterThan(lb!.x + lb!.width);
   await expect(living.locator(".plan-room-name")).toHaveText("LIVING & DINING");
+  // the rooms stand wall to wall, so a doorway joins them: a door into
+  // the bedroom, read as a passage from the living room; the Room tab
+  // names it by the room beyond
+  await expect(
+    bedroom.locator('.plan-opening-group[data-kind="door"][data-wall="west"]'),
+  ).toHaveCount(1);
+  await expect(
+    living.locator(
+      '.plan-opening-group[data-kind="passage"][data-wall="east"]',
+    ),
+  ).toHaveCount(1);
+  await expect(page.getByText("Door to the Living & dining")).toBeVisible();
+  // closed, the wall is solid until it is opened again
+  await page
+    .getByRole("button", { name: "Remove Door to the Living & dining" })
+    .click();
+  await expect(bedroom.locator(".plan-opening-group")).toHaveCount(2);
+  await expect(page.getByText(/^Wall to the Living & dining/)).toBeVisible();
+  await page.getByRole("button", { name: "Open it" }).click();
+  await expect(bedroom.locator(".plan-opening-group")).toHaveCount(3);
+  // the Wall tool drags the room away: the doorway goes; dragged back
+  // within reach, the magnet stands it a wall apart and the doorway returns
+  await page.keyboard.press("w");
+  const room = svg.getByRole("button", { name: "Move the room" });
+  const rb = (await room.boundingBox())!;
+  await page.mouse.move(rb.x + rb.width / 2, rb.y + rb.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(rb.x + rb.width / 2 + 90, rb.y + rb.height / 2 + 40, {
+    steps: 8,
+  });
+  await page.mouse.up();
+  await expect(bedroom.locator(".plan-opening-group")).toHaveCount(2);
+  const rb2 = (await room.boundingBox())!;
+  await page.mouse.move(rb2.x + rb2.width / 2, rb2.y + rb2.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(
+    rb2.x + rb2.width / 2 - 85,
+    rb2.y + rb2.height / 2 - 38,
+    { steps: 8 },
+  );
+  await page.mouse.up();
+  await expect(bedroom.locator(".plan-opening-group")).toHaveCount(3);
+  await expect(bedroom).toHaveAttribute("transform", "translate(6800 0)");
+  await page.keyboard.press("v");
   // a piece added goes into the active room's sheet
   const sheets = page.locator(".shell-stage .plan-pieces");
   await expect(sheets).toHaveCount(2);

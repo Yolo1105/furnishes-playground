@@ -3,16 +3,20 @@ import { newId } from "./ids";
 import {
   CEILING,
   type FlatType,
+  JOIN_MIN,
   makeOpening,
   type Opening,
   type OpeningKind,
   openingsFor,
+  OPENINGS,
   PRESETS,
+  PRIVATE_ROOMS,
   ROOM_NAMES,
   ROOM_SIZE,
   type RoomId,
   type Rules,
   rulesFor,
+  swings,
   type Wall,
   WALLS,
 } from "./room-data";
@@ -20,6 +24,7 @@ import {
   insideOutline,
   normalizeOutline,
   outlineFromCells,
+  sharedRuns,
   WALL_MM,
 } from "./room-geometry";
 import { useScene } from "./scene-store";
@@ -54,10 +59,31 @@ export type RoomSpec = {
   rules: Rules;
 };
 
+/** a doorway through the wall two rooms share: a passage, or a door
+    swinging into the private room. Both rooms read it as an opening of
+    theirs; closed, the wall stays solid until it is opened again */
+export type Join = {
+  id: string;
+  a: string;
+  b: string;
+  /** the wall of room a the doorway is in, and room b's facing it */
+  wallA: Wall;
+  wallB: Wall;
+  /** the doorway's centre along the sheet's axis the wall lies on, mm */
+  at: number;
+  width: number;
+  kind: OpeningKind;
+  /** the room a swinging leaf opens into */
+  into: string;
+  open: boolean;
+};
+
 type RoomConfig = {
   flat: FlatType;
   /** the rooms of the flat, in the order they were added */
   rooms: RoomSpec[];
+  /** the doorways between rooms that stand wall to wall */
+  joins: Join[];
   /** the room being worked on: the panels, the handles and Eva read it */
   activeId: string;
   /** the tour's stops on the sheet, mm, in the order they are walked */
@@ -109,8 +135,15 @@ type RoomState = RoomConfig & {
   /** a room taken out of the flat, with what stood in it; the last room stays */
   removeRoom: (id: string) => void;
   setActive: (id: string) => void;
-  /** a room stood elsewhere on the sheet */
-  moveRoom: (id: string, pos: Point) => void;
+  /** a room stood elsewhere on the sheet; `done` once the move ends, so
+      the doorways between rooms are settled */
+  moveRoom: (id: string, pos: Point, done?: boolean) => void;
+  /** the doorways between rooms read afresh from where the rooms stand:
+      one for each wall two rooms share, kept where it was while the
+      shared stretch still holds it, gone when the rooms part */
+  settleJoins: () => void;
+  /** a closed doorway opened again */
+  reopenJoin: (id: string) => void;
 };
 
 /** how close to the first corner a click closes the room, mm */
@@ -256,6 +289,98 @@ export const nextRoomKind = (flat: FlatType, rooms: readonly RoomSpec[]) =>
     (k) => !rooms.some((r) => r.room === k),
   ) ?? "living";
 
+/** what joins two rooms: a door into the private one, else a passage;
+    between two private rooms the door opens into the second */
+const joinKind = (a: RoomSpec, b: RoomSpec) =>
+  PRIVATE_ROOMS.includes(b.room)
+    ? { kind: "door" as const, into: b.id }
+    : PRIVATE_ROOMS.includes(a.room)
+      ? { kind: "door" as const, into: a.id }
+      : { kind: "passage" as const, into: b.id };
+
+/** the id an opening carries when it comes from a join */
+const JOIN_ID = "join:";
+export const joinOf = (openingId: string) =>
+  openingId.startsWith(JOIN_ID) ? openingId.slice(JOIN_ID.length) : null;
+
+/** a room's openings: its own, and the open doorways it shares, each
+    as an opening in the wall on its side (a leaf swings in the room it
+    opens into; the other side reads the doorway as a passage) */
+export const openingsOf = (
+  s: Pick<RoomConfig, "joins">,
+  r: RoomSpec,
+): Opening[] => [
+  ...r.openings,
+  ...s.joins
+    .filter((j) => j.open && (j.a === r.id || j.b === r.id))
+    .map((j): Opening => {
+      const wall = j.a === r.id ? j.wallA : j.wallB;
+      const horizontal = wall === "north" || wall === "south";
+      return {
+        id: JOIN_ID + j.id,
+        join: j.id,
+        kind: swings(j) && j.into !== r.id ? "passage" : j.kind,
+        wall,
+        at: j.at - (horizontal ? r.pos[0] : r.pos[1]),
+        width: j.width,
+      };
+    }),
+];
+
+/** the stretches of a room's walls that an earlier room draws: where
+    the two stand wall to wall, the 3D view builds the wall once */
+export const sharedOf = (
+  s: Pick<RoomConfig, "rooms">,
+  r: RoomSpec,
+): { wall: Wall; from: number; to: number }[] => {
+  const i = s.rooms.findIndex((x) => x.id === r.id);
+  const mine = sheetOutline(r);
+  return s.rooms.slice(0, Math.max(0, i)).flatMap((other) =>
+    sharedRuns(mine, sheetOutline(other)).map((run) => {
+      const along = run.horizontal ? r.pos[0] : r.pos[1];
+      return { wall: run.wallA, from: run.from - along, to: run.to - along };
+    }),
+  );
+};
+
+/** the joins as the rooms stand now, from the ones there were */
+const settled = (s: Pick<RoomConfig, "rooms" | "joins">): Join[] => {
+  const kept: Join[] = [];
+  for (let i = 0; i < s.rooms.length; i++)
+    for (let k = i + 1; k < s.rooms.length; k++) {
+      const a = s.rooms[i]!;
+      const b = s.rooms[k]!;
+      for (const run of sharedRuns(sheetOutline(a), sheetOutline(b))) {
+        if (run.to - run.from < JOIN_MIN) continue;
+        const was = s.joins.find(
+          (j) =>
+            j.a === a.id &&
+            j.b === b.id &&
+            j.wallA === run.wallA &&
+            j.at - j.width / 2 >= run.from - 1 &&
+            j.at + j.width / 2 <= run.to + 1,
+        );
+        if (was) {
+          kept.push(was);
+          continue;
+        }
+        const width = OPENINGS.door.width;
+        kept.push({
+          id: newId("join"),
+          a: a.id,
+          b: b.id,
+          wallA: run.wallA,
+          wallB: run.wallB,
+          at: Math.round((run.from + run.to) / 2 / 50) * 50,
+          width,
+          ...joinKind(a, b),
+          open: true,
+        });
+      }
+    }
+  return kept;
+};
+
 /** the box round every room on the sheet, mm */
 export const sheetBox = (rooms: readonly RoomSpec[]) =>
   bbox(rooms.flatMap(sheetOutline));
@@ -279,6 +404,7 @@ export const useRoom = create<RoomState>((set, get) => {
     flat: "4-room",
     rooms: [first],
     activeId: first.id,
+    joins: [],
     stops: [],
     drawing: [],
     setFlat: (flat) =>
@@ -301,7 +427,7 @@ export const useRoom = create<RoomState>((set, get) => {
           };
         }),
       })),
-    setRoom: (room) =>
+    setRoom: (room) => {
       active((r, s) => {
         const size = sized(s.flat, room);
         return {
@@ -312,20 +438,47 @@ export const useRoom = create<RoomState>((set, get) => {
           preset: true,
           rules: rulesFor(room),
         };
-      }),
-    setSize: (patch) =>
+      });
+      get().settleJoins();
+    },
+    setSize: (patch) => {
       active((r) => ({
         ...stretched(r, patch.width ?? r.width, patch.depth ?? r.depth),
         ...patch,
         preset: false,
-      })),
+      }));
+      get().settleJoins();
+    },
     set: (patch) => active(patch),
-    setOpening: (id, patch) =>
-      active((r) => ({
-        openings: r.openings.map((o) =>
-          o.id === id ? { ...o, hdb: false, ...patch } : o,
-        ),
-      })),
+    setOpening: (id, patch) => {
+      const jid = joinOf(id);
+      if (!jid) {
+        active((r) => ({
+          openings: r.openings.map((o) =>
+            o.id === id ? { ...o, hdb: false, ...patch } : o,
+          ),
+        }));
+        return;
+      }
+      // a shared doorway: its place is kept on the sheet, its width and
+      // kind are the join's; its wall is where the rooms meet
+      const r = activeOf(get());
+      set((s) => ({
+        joins: s.joins.map((j) => {
+          if (j.id !== jid) return j;
+          const wall = j.a === r.id ? j.wallA : j.wallB;
+          const horizontal = wall === "north" || wall === "south";
+          return {
+            ...j,
+            ...(patch.width !== undefined ? { width: patch.width } : {}),
+            ...(patch.kind !== undefined ? { kind: patch.kind } : {}),
+            ...(patch.at !== undefined && patch.at !== null
+              ? { at: patch.at + (horizontal ? r.pos[0] : r.pos[1]) }
+              : {}),
+          };
+        }),
+      }));
+    },
     addOpening: (kind, wall, at) => {
       const r = activeOf(get());
       const o = makeOpening(kind, wall ?? freeWall(r.openings), {
@@ -334,9 +487,15 @@ export const useRoom = create<RoomState>((set, get) => {
       active({ openings: [...r.openings, o] });
       return o.id;
     },
-    removeOpening: (id) =>
-      active((r) => ({ openings: r.openings.filter((o) => o.id !== id) })),
-    resetSize: () =>
+    removeOpening: (id) => {
+      const jid = joinOf(id);
+      if (jid)
+        set((s) => ({
+          joins: s.joins.map((j) => (j.id === jid ? { ...j, open: false } : j)),
+        }));
+      else active((r) => ({ openings: r.openings.filter((o) => o.id !== id) }));
+    },
+    resetSize: () => {
       active((r, s) => {
         const size = sized(s.flat, r.room);
         return {
@@ -345,12 +504,16 @@ export const useRoom = create<RoomState>((set, get) => {
           height: CEILING.default,
           preset: true,
         };
-      }),
+      });
+      get().settleJoins();
+    },
     setRules: (patch) => active((r) => ({ rules: { ...r.rules, ...patch } })),
     resetRules: () => active((r) => ({ rules: rulesFor(r.room) })),
     setStart: (start) => active({ start }),
-    setTemplate: (template) =>
-      active({ template, start: "template", drawn: null }),
+    setTemplate: (template) => {
+      active({ template, start: "template", drawn: null });
+      get().settleJoins();
+    },
     addStop: ([x, y]) =>
       set((s) => {
         const p: Point = [Math.round(x / 100) * 100, Math.round(y / 100) * 100];
@@ -359,7 +522,7 @@ export const useRoom = create<RoomState>((set, get) => {
     removeStop: (i) =>
       set((s) => ({ stops: s.stops.filter((_, k) => k !== i) })),
     clearStops: () => set({ stops: [] }),
-    toggleCell: (x, y) =>
+    toggleCell: (x, y) => {
       active((r) => {
         const key = `${x},${y}`;
         const cells = r.cells.includes(key)
@@ -369,7 +532,9 @@ export const useRoom = create<RoomState>((set, get) => {
         return outlineFromCells(new Set(cells)).length
           ? { cells, drawn: null }
           : {};
-      }),
+      });
+      get().settleJoins();
+    },
     addCorner: ([x, y]) => {
       const p: Point = [
         Math.round(x / SNAP) * SNAP,
@@ -393,6 +558,7 @@ export const useRoom = create<RoomState>((set, get) => {
           depth: Math.max(ROOM_SIZE.min, b.h),
           preset: false,
         });
+        get().settleJoins();
         return;
       }
       const last = drawing[drawing.length - 1];
@@ -402,6 +568,7 @@ export const useRoom = create<RoomState>((set, get) => {
     clearWalls: () => {
       set({ drawing: [] });
       active({ drawn: null });
+      get().settleJoins();
     },
     setOutline: (points) => {
       const { points: drawn, dx, dy } = normalizeOutline(points);
@@ -426,6 +593,7 @@ export const useRoom = create<RoomState>((set, get) => {
         ),
       });
       useScene.getState().nudgeAll(dx, dy, r.id, get().rooms[0]!.id);
+      get().settleJoins();
       return { dx, dy };
     },
     addRoom: (room) => {
@@ -438,6 +606,7 @@ export const useRoom = create<RoomState>((set, get) => {
       ]);
       next.start = "template";
       set({ rooms: [...s.rooms, next], activeId: next.id });
+      get().settleJoins();
       return next.id;
     },
     removeRoom: (id) => {
@@ -447,14 +616,23 @@ export const useRoom = create<RoomState>((set, get) => {
       useScene.getState().removeRoomPieces(id, s.rooms[0]!.id);
       set({
         rooms,
+        joins: s.joins.filter((j) => j.a !== id && j.b !== id),
         activeId: s.activeId === id ? rooms[0]!.id : s.activeId,
       });
+      get().settleJoins();
     },
     setActive: (id) =>
       set((s) => (s.rooms.some((r) => r.id === id) ? { activeId: id } : {})),
-    moveRoom: (id, pos) =>
+    moveRoom: (id, pos, done = false) => {
       set((s) => ({
         rooms: s.rooms.map((r) => (r.id === id ? { ...r, pos } : r)),
+      }));
+      if (done) get().settleJoins();
+    },
+    settleJoins: () => set((s) => ({ joins: settled(s) })),
+    reopenJoin: (id) =>
+      set((s) => ({
+        joins: s.joins.map((j) => (j.id === id ? { ...j, open: true } : j)),
       })),
   };
 });
