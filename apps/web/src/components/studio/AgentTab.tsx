@@ -22,7 +22,7 @@ import {
   TagIcon,
   ThumbIcon,
 } from "./icons";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePieceActions } from "./piece-actions";
 import { metresOf, whyLines } from "./plan-explain";
 import { LABEL_MAX } from "./piece-detail";
@@ -658,6 +658,7 @@ export function AgentTab() {
               </div>
             </div>
           )}
+          <ThreadEnd count={thread.length} thinking={thinking} />
           {offline && (
             <p className="agent-offline">
               No model is connected on this server, so Eva answers from the
@@ -709,4 +710,18 @@ export function AgentTab() {
       </div>
     </div>
   );
+}
+
+/** the end of the thread: a new turn, or Eva thinking, brings it into
+    view; a thread already there when the panel opens stays put */
+function ThreadEnd({ count, thinking }: { count: number; thinking: boolean }) {
+  const endRef = useRef<HTMLDivElement>(null);
+  const seenRef = useRef<number | null>(null);
+  useEffect(() => {
+    const grew = seenRef.current !== null && count > seenRef.current;
+    seenRef.current = count;
+    if (grew || thinking)
+      endRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
+  }, [count, thinking]);
+  return <div ref={endRef} aria-hidden="true" />;
 }

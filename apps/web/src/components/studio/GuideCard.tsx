@@ -2,7 +2,8 @@
 
 import { useEffect } from "react";
 import { CloseIcon, InfoIcon, PencilIcon } from "./icons";
-import { GUIDES, useGuide } from "./guide-store";
+import { GUIDES, linesFor, useGuide } from "./guide-store";
+import { useSession } from "@/lib/auth-client";
 
 /**
  * The small guide card over the main surface: an info mark and a title,
@@ -14,6 +15,7 @@ export function GuideCard() {
   const open = useGuide((s) => s.open);
   const dismissed = useGuide((s) => s.dismissed);
   const { hydrate, close, setDismissed } = useGuide.getState();
+  const { data: session } = useSession();
 
   // the browser's record is read after mount so the server and client
   // render the same thing
@@ -45,7 +47,7 @@ export function GuideCard() {
         </button>
       </div>
       <div className="guide-body">
-        {g.lines.map((line) => (
+        {linesFor(g, session !== null).map((line) => (
           <p key={line}>{line}</p>
         ))}
       </div>

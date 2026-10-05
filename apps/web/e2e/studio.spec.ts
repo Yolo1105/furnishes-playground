@@ -409,9 +409,31 @@ test("the outliner draws hierarchy lines and the Products tab adds to the room",
   await expect(page.locator(".product")).toHaveCount(products.length);
   await page.getByRole("searchbox", { name: "Search products" }).fill("coat");
   await expect(page.locator(".product")).toHaveCount(1);
+  // where the pieces stand before one more comes in
+  const before = await page
+    .locator(".view-mini .stage-piece")
+    .evaluateAll((els) => els.map((el) => (el as HTMLElement).style.left));
   await page
     .getByRole("button", { name: "Add Coat stand to the room" })
     .click();
+  // the new piece finds a spot inside the room; nothing else moves
+  await expect(page.locator(".view-mini .stage-piece")).toHaveCount(
+    before.length + 1,
+  );
+  const after = await page
+    .locator(".view-mini .stage-piece")
+    .evaluateAll((els) => els.map((el) => (el as HTMLElement).style.left));
+  // the new piece joins its group's rows, so the order shifts; each
+  // place that was there is still there, and one is new
+  for (const left of before) {
+    const i = after.indexOf(left);
+    expect(i).toBeGreaterThanOrEqual(0);
+    after.splice(i, 1);
+  }
+  expect(after).toHaveLength(1);
+  await expect(
+    page.locator(".agent").getByText(/Coat stand stands past/),
+  ).toHaveCount(0);
   // adding from Products keeps you in Products
   await expect(page.getByRole("tab", { name: "Products" })).toHaveAttribute(
     "aria-selected",
@@ -2996,6 +3018,13 @@ test("the site opens on the home page: the way in, and a sign-in goes straight i
   const email = `home-${Date.now()}@example.com`;
   await page.getByLabel("Name").fill("Mei Tan");
   await page.getByLabel("Email").fill(email);
+  // the rules are said on the page, before anything is sent
+  await expect(page.getByText("8 characters or more")).toBeVisible();
+  await page.getByLabel("Password").fill("short");
+  await page.getByRole("button", { name: "Create account" }).click();
+  await expect(page.locator(".home-error")).toContainText(
+    "8 characters or more",
+  );
   await page.getByLabel("Password").fill(PASSWORD);
   await page.getByRole("button", { name: "Create account" }).click();
   // in: straight into the studio, signed in

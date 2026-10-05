@@ -189,9 +189,12 @@
 .shelf-card-pic {
   appearance: none;
   display: block;
+  position: relative;
   width: 100%;
   height: 108px;
-  padding: 0;
+  padding: 14px 18px;
+  /* the piece's plan mark, until a photograph stands here */
+  --plan-ink: rgb(from var(--color-ink) r g b / 0.6);
   border-radius: var(--r-card);
   background: rgba(255, 255, 255, 0.55);
   border: 1px solid rgb(from var(--color-line) r g b / 0.14);
@@ -1107,6 +1110,14 @@
 /* a card: the picture is the pick, the cart button sits on it */
 .shelf-card-pic:hover {
   border-color: rgb(from var(--color-accent) r g b / 0.4);
+}
+.shelf-card-pic .stage-piece-symbol {
+  position: static;
+  width: 100%;
+  height: 100%;
+}
+.shelf-card[data-selected="true"] .shelf-card-pic {
+  --plan-ink: var(--color-accent);
 }
 .shelf-card[data-selected="true"] .shelf-card-pic {
   border-color: var(--color-accent);

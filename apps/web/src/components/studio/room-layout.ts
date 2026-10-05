@@ -26,6 +26,8 @@ import type { Rules } from "./room-data";
  */
 const MARGIN = 250;
 const GRID = 100;
+/** how far along the rows a piece is tried before the loose pass has it */
+const TRIES = 400;
 
 type Spot = { x: number; y: number };
 export type Placed = Spot & { rotation: number };
@@ -64,16 +66,20 @@ const rows = (
   sizes.forEach((f, i) => {
     if (!f) return;
     // along the row until the piece is clear of what already stands;
-    // a new row when the wall is reached
-    for (let tries = 0; ; tries++) {
+    // a new row when the wall is reached; a piece the rows cannot seat
+    // (the room full, or held pieces in every row) is left for the
+    // loose pass, which finds the first clear spot or the nearest inside
+    let tries = 0;
+    for (; tries <= TRIES; tries++) {
       if (x > MARGIN && x + f.w > L - MARGIN) {
         x = MARGIN;
         y += rowDepth + gap;
         rowDepth = 0;
       }
-      if (!blocked({ ...f, x, y }) || tries > 400) break;
+      if (!blocked({ ...f, x, y })) break;
       x += GRID;
     }
+    if (tries > TRIES) return;
     out[i] = { x, y };
     taken.push({ ...f, x, y });
     x += f.w + gap;

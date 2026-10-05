@@ -91,8 +91,9 @@ export const useScene = create<SceneState>((set, get) => {
     past: [...s.past.slice(-(HISTORY_MAX - 1)), snap(s)],
     future: [] as Snapshot[],
   });
-  /** a change to one piece never moves another: before it, every piece
-      the room laid out is held at the spot it has now */
+  /** a change to one piece never moves another, and a piece coming in
+      never shifts the ones there: before either, every piece the room
+      laid out is held at the spot it has now */
   const held = (s: SceneState) => {
     let overrides = s.overrides;
     for (const g of s.groups)
@@ -163,7 +164,7 @@ export const useScene = create<SceneState>((set, get) => {
               },
               ...s.groups,
             ];
-        return { groups, ...remember(s) };
+        return { groups, overrides: held(s), ...remember(s) };
       });
       return node.id;
     },
@@ -193,7 +194,7 @@ export const useScene = create<SceneState>((set, get) => {
               },
               ...s.groups,
             ];
-        return { groups, ...remember(s) };
+        return { groups, overrides: held(s), ...remember(s) };
       });
       return node.id;
     },

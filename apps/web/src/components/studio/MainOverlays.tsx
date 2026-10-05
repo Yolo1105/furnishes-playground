@@ -45,7 +45,9 @@ import {
 } from "./icons";
 import { orderedIds, useOrders } from "./order-store";
 import { useRoom } from "./room-store";
-import { topLevelOf, useScene, useTopLevel } from "./scene-store";
+import type { PieceProps } from "./piece-detail";
+import { PlanSymbol } from "./plan-symbols";
+import { propsOf, topLevelOf, useScene, useTopLevel } from "./scene-store";
 import {
   type ShelfTab,
   type Tool,
@@ -671,6 +673,7 @@ export function MainShelf() {
   const items = useTopLevel();
   const groups = useScene((s) => s.groups);
   const cart = useScene((s) => s.cart);
+  const overrides = useScene((s) => s.overrides);
   const selectedId = useScene((s) => s.selectedId);
   const selectedAt = useScene((s) => s.selectedAt);
   const { select, toggleCart } = useScene.getState();
@@ -787,6 +790,7 @@ export function MainShelf() {
             <ShelfCard
               key={n.id}
               node={n}
+              props={propsOf(n, overrides)}
               tab={tab}
               selected={selected === n.id}
               inCart={cart.includes(n.id)}
@@ -803,6 +807,7 @@ export function MainShelf() {
 
 function ShelfCard({
   node: n,
+  props,
   tab,
   selected,
   inCart,
@@ -811,6 +816,8 @@ function ShelfCard({
   onCart,
 }: {
   node: AssetNode;
+  /** the piece's size and turn, for its mark */
+  props: PieceProps;
   tab: ShelfTab;
   selected: boolean;
   inCart: boolean;
@@ -843,7 +850,9 @@ function ShelfCard({
         aria-label={n.name}
         aria-pressed={selected}
         onClick={onSelect}
-      />
+      >
+        <PlanSymbol node={n} props={props} turn={0} />
+      </button>
       {piece && (
         <button
           type="button"

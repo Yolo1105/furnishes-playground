@@ -14,7 +14,19 @@ export type Guide = {
   id: GuideId;
   title: string;
   lines: string[];
+  /** a line that depends on whether someone is signed in */
+  whoLine?: { out: string; in: string };
 };
+/** a guide's lines for whoever is reading: the signed-in or signed-out
+    line where the guide has one, in its place after the first two */
+export const linesFor = (g: Guide, signedIn: boolean) =>
+  g.whoLine
+    ? [
+        ...g.lines.slice(0, 2),
+        signedIn ? g.whoLine.in : g.whoLine.out,
+        ...g.lines.slice(2),
+      ]
+    : g.lines;
 
 export const GUIDES: Record<GuideId, Guide> = {
   intro: {
@@ -23,9 +35,12 @@ export const GUIDES: Record<GuideId, Guide> = {
     lines: [
       "Plan a room with Furnishes pieces: pick or draw the room, put pieces in, see it rendered, and buy what you keep.",
       "Eva plans with you on the right; the project and its pieces live on the left; the room is the stage behind everything.",
-      "Everything stays in this browser; sign in from the gear at the foot of the project panel to keep it on every device.",
       "Take the short tour to see where each thing is, or skip it and start.",
     ],
+    whoLine: {
+      out: "Everything stays in this browser; sign in from the gear at the foot of the project panel to keep it on every device.",
+      in: "Everything you do here is saved to your account as you go, so it is there on every device you sign in on.",
+    },
   },
   walls: {
     id: "walls",
@@ -53,7 +68,8 @@ export const TOUR_STEPS: readonly TourStep[] = [
   {
     id: "welcome",
     title: GUIDES.intro.title,
-    body: GUIDES.intro.lines.join(" "),
+    // the welcome's body is read for whoever is there, in Tour
+    body: "",
     target: null,
     side: "center",
   },

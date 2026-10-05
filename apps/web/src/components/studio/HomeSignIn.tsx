@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ACCOUNT_MODES, useAccountForm } from "./account-form";
+import { PASSWORD_MIN } from "@/lib/account-rules";
 
 /**
  * The home page's stage for anyone not signed in: the account form in
@@ -35,7 +36,7 @@ export function HomeSignIn({ studio }: { studio: string }) {
         </p>
       </header>
       <div className="home-signin">
-        <form className="home-form" onSubmit={f.submit}>
+        <form className="home-form" onSubmit={f.submit} noValidate>
           <div className="home-modes" role="tablist" aria-label="Account">
             {ACCOUNT_MODES.map((m, i) => (
               <button
@@ -71,19 +72,23 @@ export function HomeSignIn({ studio }: { studio: string }) {
                 className="home-input"
                 type="email"
                 autoComplete="email"
-                required
                 value={f.email}
                 onChange={(e) => f.setEmail(e.target.value)}
               />
             </label>
             <label className="home-row">
-              <span className="home-row-l">Password</span>
+              <span className="home-row-l">
+                Password
+                {up && (
+                  <span className="home-row-hint">
+                    {PASSWORD_MIN} characters or more
+                  </span>
+                )}
+              </span>
               <input
                 className="home-input"
                 type="password"
                 autoComplete={up ? "new-password" : "current-password"}
-                required
-                minLength={8}
                 value={f.password}
                 onChange={(e) => f.setPassword(e.target.value)}
               />

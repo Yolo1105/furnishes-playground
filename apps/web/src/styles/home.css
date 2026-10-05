@@ -250,10 +250,21 @@
 }
 .home-row-l {
   flex: 0 0 150px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
   font-size: 11.5px;
   letter-spacing: 0.13em;
   color: var(--terra);
   white-space: nowrap;
+}
+.home-row-hint {
+  font-family: var(--sans);
+  font-stretch: 78%;
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: color-mix(in srgb, var(--ink) 50%, transparent);
 }
 .home-input {
   flex: 1;

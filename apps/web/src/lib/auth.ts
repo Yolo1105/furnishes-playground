@@ -3,6 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { getDb } from "./db";
 import * as schema from "./db/schema";
+import { PASSWORD_MIN } from "./account-rules";
 import { trustedOrigins } from "./site";
 
 /**
@@ -18,7 +19,7 @@ import { trustedOrigins } from "./site";
 const make = () =>
   betterAuth({
     database: drizzleAdapter(getDb().db, { provider: "pg", schema }),
-    emailAndPassword: { enabled: true, minPasswordLength: 8 },
+    emailAndPassword: { enabled: true, minPasswordLength: PASSWORD_MIN },
     trustedOrigins: trustedOrigins(),
     user: { deleteUser: { enabled: true } },
     plugins: [nextCookies()],

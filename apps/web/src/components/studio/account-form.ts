@@ -1,13 +1,16 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { PASSWORD_MIN } from "@/lib/account-rules";
 import { authClient } from "@/lib/auth-client";
 
 /**
  * Signing in, or making an account, wherever the form stands (the
  * studio's dialog, the home page's stage): a name for a new account,
- * an email and a password of eight or more. What goes wrong is said in
- * the library's words; what goes right calls `onDone`.
+ * an email and a password of PASSWORD_MIN or more. What is missing or
+ * too short is said here, in the page's words, before anything is sent;
+ * what the server refuses is said in the library's words; what goes
+ * right calls `onDone`.
  */
 export type AccountMode = "in" | "up";
 export const ACCOUNT_MODES: { id: AccountMode; label: string }[] = [
@@ -29,6 +32,18 @@ export function useAccountForm(onDone?: () => void) {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (busy) return;
+    const problem =
+      mode === "up" && !name.trim()
+        ? "A name, so Eva knows what to call you."
+        : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+          ? "That email does not look right."
+          : password.length < PASSWORD_MIN
+            ? `A password needs ${PASSWORD_MIN} characters or more.`
+            : null;
+    if (problem) {
+      setError(problem);
+      return;
+    }
     setBusy(true);
     setError(null);
     const r =

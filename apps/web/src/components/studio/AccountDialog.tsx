@@ -1,6 +1,7 @@
 "use client";
 
 import { ACCOUNT_MODES, useAccountForm } from "./account-form";
+import { PASSWORD_MIN } from "@/lib/account-rules";
 import { Dialog } from "./Dialog";
 
 /**
@@ -40,7 +41,7 @@ export function AccountDialog({
           </button>
         ))}
       </div>
-      <form className="account-form" onSubmit={f.submit}>
+      <form className="account-form" onSubmit={f.submit} noValidate>
         {f.mode === "up" && (
           <label className="order-field">
             <span className="room-dim-label">Name</span>
@@ -48,7 +49,6 @@ export function AccountDialog({
               className="room-dim-input"
               type="text"
               autoComplete="name"
-              required
               value={f.name}
               onChange={(e) => f.setName(e.target.value)}
             />
@@ -60,19 +60,24 @@ export function AccountDialog({
             className="room-dim-input"
             type="email"
             autoComplete="email"
-            required
             value={f.email}
             onChange={(e) => f.setEmail(e.target.value)}
           />
         </label>
         <label className="order-field">
-          <span className="room-dim-label">Password</span>
+          <span className="room-dim-label">
+            Password
+            {f.mode === "up" && (
+              <small className="account-hint">
+                {" "}
+                · {PASSWORD_MIN} characters or more
+              </small>
+            )}
+          </span>
           <input
             className="room-dim-input"
             type="password"
             autoComplete={f.mode === "up" ? "new-password" : "current-password"}
-            required
-            minLength={8}
             value={f.password}
             onChange={(e) => f.setPassword(e.target.value)}
           />

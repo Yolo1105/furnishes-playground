@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TOUR_STEPS, useGuide, type TourSide } from "./guide-store";
+import {
+  GUIDES,
+  linesFor,
+  TOUR_STEPS,
+  useGuide,
+  type TourSide,
+} from "./guide-store";
+import { useSession } from "@/lib/auth-client";
 
 /**
  * The tour. Its first step is the welcome, a large card in the middle of
@@ -53,6 +60,7 @@ export function Tour() {
   const { tourTo, endTour } = useGuide.getState();
   const [box, setBox] = useState<Box | null>(null);
   const current = step === null ? null : TOUR_STEPS[step]!;
+  const { data: session } = useSession();
 
   // a step is measured as it is chosen (the panels are always there),
   // and again whenever the window is resized
@@ -114,7 +122,11 @@ export function Tour() {
         <h2 className="tour-title" id="tour-title">
           {current.title}
         </h2>
-        <p className="tour-body">{current.body}</p>
+        <p className="tour-body">
+          {welcome
+            ? linesFor(GUIDES.intro, session !== null).join(" ")
+            : current.body}
+        </p>
         <div className="tour-acts">
           <button type="button" className="tour-skip" onClick={endTour}>
             {last ? "Close" : "Skip"}

@@ -1,10 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CATEGORY_NAMES, sgd, type AssetCategory } from "./assets-data";
-import { products } from "./catalogue";
+import {
+  CATEGORY_NAMES,
+  sgd,
+  type AssetCategory,
+  type AssetNode,
+} from "./assets-data";
+import { products, type Product } from "./catalogue";
 import { endTileDrag, moveTileDrag, startTileDrag } from "./dnd";
 import { PlusIcon } from "./icons";
+import { defaultProps } from "./piece-detail";
+import { PlanSymbol } from "./plan-symbols";
 import { useScene } from "./scene-store";
 
 /**
@@ -72,7 +79,13 @@ export function ProductsTab({
                 onPointerUp={endTileDrag}
                 onPointerCancel={endTileDrag}
               >
-                <div className="product-pic" aria-hidden="true" />
+                <div className="product-pic" aria-hidden="true">
+                  <PlanSymbol
+                    node={asNode(p)}
+                    props={defaultProps(asNode(p))}
+                    turn={0}
+                  />
+                </div>
                 <div className="product-row">
                   <span className="product-name">{p.name}</span>
                   <span className="product-price f-num">{sgd(p.price)}</span>
@@ -94,3 +107,12 @@ export function ProductsTab({
     </div>
   );
 }
+
+/** a catalogue product as the piece it would be in the room, for its mark */
+const asNode = (p: Product): AssetNode => ({
+  id: p.id,
+  name: p.name,
+  kind: "piece",
+  category: p.category,
+  price: p.price,
+});
