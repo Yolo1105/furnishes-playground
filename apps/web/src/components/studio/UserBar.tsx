@@ -13,6 +13,7 @@ import { HelpDialog } from "./HelpDialog";
 import { useGuide } from "./guide-store";
 import { CartIcon, CompassIcon, GearIcon, HelpIcon, UserIcon } from "./icons";
 import { OrdersDialog } from "./OrdersDialog";
+import { ProfileDialog } from "./ProfileDialog";
 import { useDismiss } from "./useDismiss";
 
 /**
@@ -21,11 +22,10 @@ import { useDismiss } from "./useDismiss";
  * panels' corners, the wheel), the orders, Help (mouse, touch and
  * keyboard), the guide again, and signing in or out.
  */
-type Sheet = "settings" | "help" | "orders" | "account" | null;
+type Sheet = "settings" | "help" | "orders" | "account" | "profile" | null;
 
 export function UserBar() {
   const { data: session } = useSession();
-  const path = usePathname();
   const note = useSyncState((s) => s.note);
   const name = session?.user.name ?? "Guest";
   const line = note ?? session?.user.email ?? "Not signed in";
@@ -102,14 +102,14 @@ export function UserBar() {
           <span className="shell-menu-sep" aria-hidden="true" />
           {session ? (
             <>
-              <Link
+              <button
+                type="button"
                 role="menuitem"
                 className="shell-menu-row"
-                href={path === "/rounded" ? "/" : "/?from=studio"}
-                onClick={() => setOpen(false)}
+                onClick={() => pick(() => setSheet("profile"))}
               >
                 <UserIcon /> Account
-              </Link>
+              </button>
               <button
                 type="button"
                 role="menuitem"
@@ -136,6 +136,13 @@ export function UserBar() {
       )}
       {sheet === "help" && <HelpDialog onClose={() => setSheet(null)} />}
       {sheet === "account" && <AccountDialog onClose={() => setSheet(null)} />}
+      {sheet === "profile" && session && (
+        <ProfileDialog
+          name={session.user.name}
+          email={session.user.email}
+          onClose={() => setSheet(null)}
+        />
+      )}
       {sheet === "orders" && <OrdersDialog onClose={() => setSheet(null)} />}
     </div>
   );

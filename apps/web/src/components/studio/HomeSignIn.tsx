@@ -110,7 +110,7 @@ export function HomeSignIn({ studio }: { studio: string }) {
         </form>
         <aside className="home-keeps" aria-label="What an account keeps">
           {KEEPS.map(([name, text]) => (
-            <div key={name} className="home-door home-door-still">
+            <div key={name} className="home-door">
               <span className="home-door-name">{name}</span>
               <span className="home-door-prev">{text}</span>
             </div>

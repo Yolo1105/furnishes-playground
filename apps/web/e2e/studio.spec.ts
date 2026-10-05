@@ -2451,6 +2451,10 @@ test("the plan's tools: the wheel and the keys zoom it, a drag pans it, Fit brin
   await expect(sheet).toHaveAttribute("data-zoomed", "true");
   await zoom.getByRole("button", { name: "Fit the plan", exact: true }).click();
   await expect(sheet).toHaveAttribute("data-zoomed", "false");
+  // the sheet glides back; the clicks below are placed once it has landed
+  await sheet.evaluate((el) =>
+    Promise.all(el.getAnimations().map((a) => a.finished)),
+  );
   // Measure: two clicks, the distance in millimetres, snapped to 50
   await page.getByRole("button", { name: "Measure" }).click();
   await expect(page.getByRole("button", { name: "Measure" })).toHaveAttribute(
@@ -2934,7 +2938,7 @@ const account = async (
   return dialog;
 };
 
-test("the site opens on the home page: the way in, then the dashboard with its doors to the studio and the views", async ({
+test("the site opens on the home page: the way in, and a sign-in goes straight into the studio", async ({
   page,
 }) => {
   // an account made, left and entered again: a long way for one test
@@ -2947,7 +2951,6 @@ test("the site opens on the home page: the way in, then the dashboard with its d
     name: "Account",
     exact: true,
   });
-  await expect(rail).toContainText("Guest");
   await expect(rail.getByRole("link", { name: /^Studio/ })).toHaveAttribute(
     "href",
     "/rounded",
@@ -2966,26 +2969,30 @@ test("the site opens on the home page: the way in, then the dashboard with its d
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(PASSWORD);
   await page.getByRole("button", { name: "Create account" }).click();
-  // in: the dashboard greets by the first name, the rail reads the name
-  await expect(
-    page.getByRole("heading", { name: /^Welcome back, Mei\.$/ }),
-  ).toBeVisible({ timeout: 20_000 });
-  await expect(rail).toContainText("Mei Tan");
-  await expect(page.getByRole("region", { name: "Your work" })).toContainText(
-    "Projects",
-  );
-  // Settings shows the email; Sign out brings the way in back
-  await rail.getByRole("button", { name: "Settings" }).click();
-  await expect(page.getByText(email)).toBeVisible();
-  await page.getByRole("button", { name: "Sign out" }).click();
+  // in: straight into the studio, signed in
+  await expect(page).toHaveURL(/\/rounded$/, { timeout: 20_000 });
+  const bar = page.locator(".user-bar");
+  await expect(bar).toContainText("Mei Tan");
+  // signed in, the home page passes straight on to the studio
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/rounded$/);
+  // the gear's Account: the email, Sign out; then the way in again
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page
+    .getByRole("menu")
+    .getByRole("menuitem", { name: "Account" })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "Account" });
+  await expect(dialog).toContainText(email);
+  await dialog.getByRole("button", { name: "Sign out" }).click();
+  await expect(bar).toContainText("Guest");
+  await page.goto("/");
   await expect(page.getByText("Sign in to keep your projects")).toBeVisible();
-  // back in by the form, then through the door into the studio
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await page.getByRole("link", { name: /Open the studio/ }).click();
-  await expect(page).toHaveURL(/\/rounded\?project=/);
-  await expect(page.locator(".user-bar")).toContainText("Mei Tan");
+  await expect(page).toHaveURL(/\/rounded$/);
+  await expect(bar).toContainText("Mei Tan");
 });
 
 test("an account: created with an email and a password, signed out, signed in again; a wrong password is said", async ({
@@ -3068,36 +3075,23 @@ test("signed in, the projects follow the account to another browser; the account
     b.getByRole("menuitemradio", { name: "Study corner" }),
   ).toBeVisible({ timeout: 15_000 });
   await b.keyboard.press("Escape");
-  // the home page, signed in: the dashboard greets, its doors open the
-  // studio and the views; Projects has a way into each
+  // the gear's Account: the mirror, the name kept; the account can end,
+  // and its mirror with it
   await b.getByRole("button", { name: "Settings", exact: true }).click();
   await b.getByRole("menu").getByRole("menuitem", { name: "Account" }).click();
-  await expect(
-    b.getByRole("heading", { name: /^Welcome back, Mei\.$/ }),
-  ).toBeVisible();
-  await expect(b.getByText(/Last saved to your account/)).toBeVisible({
+  const dialog = b.getByRole("dialog", { name: "Account" });
+  await expect(dialog).toContainText(email);
+  await expect(dialog.getByText(/Last saved to your account/)).toBeVisible({
     timeout: 15_000,
   });
-  await expect(
-    b.getByRole("link", { name: /Open the studio/ }),
-  ).toHaveAttribute("href", /^\/rounded\?project=/);
-  await b
-    .getByRole("complementary", { name: "Account" })
-    .getByRole("button", { name: "Projects" })
-    .click();
-  await expect(b.getByRole("heading", { name: "Projects" })).toBeVisible();
-  await b.getByRole("link", { name: "Open Study corner" }).click();
-  await expect(b.locator(".shell-project-name")).toHaveText("Study corner");
-  // Settings: the name is kept; the account can end, and its mirror with it
-  await b.goto("/?view=settings");
-  await expect(b.getByText(email)).toBeVisible();
-  const name = b.getByRole("textbox", { name: "Name" });
+  const name = dialog.getByRole("textbox", { name: "Name" });
   await name.fill("Mei Tan Lim");
-  await b.getByRole("button", { name: "Save name" }).click();
-  await expect(b.getByRole("status")).toContainText("Saved");
-  await b.getByRole("button", { name: "Delete account" }).click();
-  await b.getByRole("button", { name: "Delete for good" }).click();
-  await expect(b.getByText("Sign in to keep your projects")).toBeVisible();
+  await dialog.getByRole("button", { name: "Save name" }).click();
+  await expect(dialog.getByRole("status")).toContainText("Saved");
+  await dialog.getByRole("button", { name: "Delete account" }).click();
+  await dialog.getByRole("button", { name: "Delete for good" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(b.locator(".user-bar")).toContainText("Guest");
   expect((await a.request.get("/api/sync")).status()).toBe(401);
   await ctxA.close();
   await ctxB.close();
@@ -3158,10 +3152,15 @@ test("a room shared by link: read-only for anyone, taken into a studio as a proj
   );
   await b.getByRole("button", { name: /^Project, / }).click();
   await expect(b.getByRole("menuitemradio")).toHaveCount(2);
-  // the home page lists it under Shared rooms; taking it down ends the link
-  await a.goto("/?view=shared");
-  await expect(a.getByText("shared", { exact: false }).first()).toBeVisible();
-  await a.getByRole("button", { name: "Stop sharing First project" }).click();
+  // the gear's Account lists it under Shared rooms; taking it down ends
+  // the link
+  await a.getByRole("button", { name: "Settings", exact: true }).click();
+  await a.getByRole("menu").getByRole("menuitem", { name: "Account" }).click();
+  const dialogA = a.getByRole("dialog", { name: "Account" });
+  await expect(dialogA.getByText(/^shared /)).toBeVisible();
+  await dialogA
+    .getByRole("button", { name: "Stop sharing First project" })
+    .click();
   await b.goto(url);
   await expect(b.getByText("This room is no longer shared")).toBeVisible();
   await ctxA.close();

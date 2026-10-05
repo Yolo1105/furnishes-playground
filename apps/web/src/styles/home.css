@@ -36,11 +36,8 @@
 }
 /* the caps labels: Space Mono, spaced */
 .home-eye,
-.home-band,
 .home-group-h,
 .home-row-l,
-.home-door-meta,
-.home-act-d,
 .home-credit,
 .home-ix {
   font-family: var(--mono);
@@ -93,10 +90,9 @@
   letter-spacing: 0.08em;
   color: var(--terra);
 }
-/* the mode switch and the nav: one row each, an underline that grows
-   under the current one and under the hovered one */
-.home-modes,
-.home-nav {
+/* the mode switch: one row each, an underline that grows under the
+   current one and under the hovered one */
+.home-modes {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -104,8 +100,7 @@
   flex-direction: column;
   gap: 2px;
 }
-.home-mode,
-.home-nav button {
+.home-mode {
   display: flex;
   width: 100%;
   align-items: center;
@@ -124,13 +119,11 @@
   color: var(--ink);
   cursor: pointer;
 }
-.home-mode > span:first-child,
-.home-nav button > span {
+.home-mode > span:first-child {
   position: relative;
   display: inline-block;
 }
-.home-mode > span:first-child::after,
-.home-nav button > span::after {
+.home-mode > span:first-child::after {
   content: "";
   position: absolute;
   left: 0;
@@ -144,9 +137,7 @@
 }
 .home-mode[aria-current="page"] > span:first-child::after,
 .home-mode[aria-selected="true"] > span:first-child::after,
-.home-nav button[aria-current="page"] > span::after,
-.home-mode:hover > span:first-child::after,
-.home-nav button:hover > span::after {
+.home-mode:hover > span:first-child::after {
   transform: scaleX(1);
 }
 .home-ix {
@@ -179,30 +170,6 @@
   font-size: 10.9px;
   letter-spacing: 0.16em;
   opacity: 0.5;
-}
-.home-who {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 16px;
-}
-.home-av {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: color-mix(in srgb, var(--terra) 16%, var(--cream-ui));
-  border: 1px solid color-mix(in srgb, var(--terra) 32%, transparent);
-  color: var(--terra);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-.home-who-name {
-  font-size: 17.25px;
-  letter-spacing: 0.01em;
 }
 
 /* ───────────────────────── the stage ───────────────────────── */
@@ -243,200 +210,29 @@
 .home-canvas > .home-sub {
   padding: 0 var(--gut);
 }
-/* the dashboard's head */
-.home-dash-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 4px 24px;
-  padding: 16px var(--gut) 22px;
-}
-.home-hi {
-  margin: 0;
-  font-size: clamp(26.45px, 2.875vw, 34.5px);
-  font-weight: 600;
-  line-height: 1.02;
-  letter-spacing: -0.02em;
-}
-.home-hi em {
-  font-style: normal;
-  color: var(--terra);
-}
-.home-status {
-  margin: 0;
-  font-size: 14.95px;
-  line-height: 1.5;
-  color: color-mix(in srgb, var(--ink) 56%, transparent);
-}
-.home-status b {
-  font-weight: 600;
-  color: var(--ink);
-}
-.home-band {
-  margin: 0 0 10px;
-  font-size: 10.35px;
-  letter-spacing: 0.2em;
-  color: color-mix(in srgb, var(--ink) 40%, transparent);
-}
-
-/* one connected, edge-to-edge ledger of doors */
-.home-ledger {
-  border-top: 1px solid var(--hair);
-  border-bottom: 1px solid var(--hair);
-}
-.home-row-grid {
-  display: grid;
-  gap: 1px;
-  background: var(--hair);
-}
-.home-row-grid + .home-row-grid {
-  border-top: 1px solid var(--hair);
-}
-.home-row-feature {
-  grid-template-columns: 1.5fr 1fr;
-}
-.home-row-work {
-  grid-template-columns: repeat(4, 1fr);
-}
+/* a door: what an account keeps, one per row */
 .home-door {
   position: relative;
   display: flex;
   flex-direction: column;
-  align-items: stretch;
   min-width: 0;
   padding: 17px var(--gut);
-  border: 0;
   background: var(--cream-ui);
-  text-align: left;
-  text-decoration: none;
   color: var(--ink);
-  cursor: pointer;
-  transition: background 0.16s ease;
-}
-.home-door:hover {
-  background: color-mix(in srgb, var(--terra) 6%, var(--cream-ui));
-}
-.home-door:not(.home-door-still)::after {
-  content: "↗";
-  position: absolute;
-  top: 15px;
-  right: var(--gut);
-  font-size: 14.95px;
-  line-height: 1;
-  color: var(--terra);
-  opacity: 0;
-  transition: opacity 0.16s;
-}
-.home-door:hover::after {
-  opacity: 0.85;
-}
-.home-door-still {
-  cursor: default;
-}
-.home-door-still:hover {
-  background: var(--cream-ui);
-}
-.home-door-feat {
-  padding: 20px var(--gut);
-  min-height: 158px;
-}
-.home-feat-title {
-  font-size: 21.85px;
-  font-weight: 600;
-  line-height: 1.1;
-  letter-spacing: -0.01em;
-}
-.home-feat-sub {
-  margin-top: 7px;
-  max-width: 42ch;
-  font-size: 14.4px;
-  line-height: 1.5;
-  color: color-mix(in srgb, var(--ink) 56%, transparent);
-}
-.home-door-go {
-  margin-top: auto;
-  padding-top: 16px;
-  font-size: 12.65px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--terra);
-}
-.home-door-top {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
 }
 .home-door-name {
   font-size: 17.25px;
   font-weight: 600;
-}
-.home-door-count {
-  font-size: 21.85px;
-  font-weight: 500;
-  line-height: 1;
-}
-.home-door-meta {
-  margin-top: 8px;
-  font-size: 10.9px;
-  letter-spacing: 0.08em;
-  color: var(--terra);
 }
 .home-door-prev {
   margin-top: 11px;
   font-size: 14.4px;
   line-height: 1.45;
   color: color-mix(in srgb, var(--ink) 56%, transparent);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-/* recent activity */
-.home-act {
-  padding: 22px var(--gut) 0;
-}
-.home-act > .home-sub {
-  margin-top: 0;
-}
-.home-act-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-}
-.home-act-list li {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  padding: 9px 0;
-  font-size: 14.95px;
-  color: color-mix(in srgb, var(--ink) 62%, transparent);
-}
-.home-act-list li::before {
-  content: "";
-  flex: 0 0 auto;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--terra);
-  opacity: 0.6;
-  transform: translateY(-1px);
-}
-.home-act-d {
-  margin-left: auto;
-  font-size: 10.9px;
-  letter-spacing: 0.06em;
-  color: color-mix(in srgb, var(--ink) 40%, transparent);
-  white-space: nowrap;
 }
 
-/* ───────── rows: a label, a value, an action; the lists; the form ───────── */
-.home-rows,
-.home-list {
+/* ───────── rows: a label and a field; the form ───────── */
+.home-rows {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -455,24 +251,6 @@
   letter-spacing: 0.13em;
   color: var(--terra);
   white-space: nowrap;
-}
-.home-row-v {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 15.5px;
-  line-height: 1.45;
-  color: var(--ink);
-}
-.home-row-name {
-  font-weight: 500;
-  font-size: 16.1px;
-}
-.home-row-when {
-  font-size: 12.65px;
-  color: color-mix(in srgb, var(--ink) 50%, transparent);
 }
 .home-input {
   flex: 1;
@@ -539,21 +317,14 @@
   gap: 16px;
   flex-wrap: wrap;
 }
-.home-note,
 .home-error {
   margin: 14px var(--gut) 0;
   font-size: 13.8px;
 }
 .home-error {
+  margin: 14px var(--gut) 0;
+  font-size: 13.8px;
   color: var(--terra);
-}
-.home-note {
-  color: color-mix(in srgb, var(--ink) 62%, transparent);
-}
-/* the orders list keeps its own rows, on this page's surface */
-.home-canvas > .order-list,
-.home-canvas > .assets-empty {
-  margin: 0 var(--gut);
 }
 
 /* ───────────────────────── signing in ───────────────────────── */
@@ -623,14 +394,12 @@
   .home-group {
     margin-top: 12px;
   }
-  .home-modes,
-  .home-nav {
+  .home-modes {
     flex-direction: row;
     flex-wrap: wrap;
     gap: 2px 10px;
   }
-  .home-mode,
-  .home-nav button {
+  .home-mode {
     width: auto;
   }
   .home-tagline,
@@ -638,12 +407,8 @@
   .home-credit {
     display: none;
   }
-  .home-row-feature,
   .home-signin {
     grid-template-columns: 1fr;
-  }
-  .home-row-work {
-    grid-template-columns: repeat(2, 1fr);
   }
   .home-row {
     flex-wrap: wrap;
@@ -653,10 +418,5 @@
   }
   .home-keeps {
     margin: 20px var(--gut) 0;
-  }
-}
-@media (max-width: 560px) {
-  .home-row-work {
-    grid-template-columns: 1fr;
   }
 }

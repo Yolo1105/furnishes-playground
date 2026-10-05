@@ -79,15 +79,12 @@ Chromium only, so those two engines run on your machine.
 ## Status
 
 A working studio on placeholder data. The site opens on the home page
-(`/`): the account's workbench in the production account page's design,
-a rail beside a cream stage, set in Archivo and Space Mono. Signed out,
-the stage is the way in, Sign in or Create account, with a quiet link to
-look around without one; signed in, it is a dashboard, "Welcome back",
-with doors to the studio (the last project), the account, Projects,
-Orders, Shared rooms and the Cart, and the recent activity, and the
-rail opens Projects (a way into each), Orders, Shared rooms and
-Settings. `/rounded` is the studio with floating panels and `/studio`
-the square-cornered one; Settings switches between them, and the old
+(`/`): the way in, in the production account page's design, a rail
+beside a cream stage set in Archivo and Space Mono, with Sign in or
+Create account and a quiet link to look around without one. Whoever is
+signed in, or has just signed in, goes straight on into the studio.
+`/rounded` is the studio with floating panels and `/studio` the
+square-cornered one; Settings switches between them, and the old
 `/account` address goes to the home page. Projects
 (new, rename, delete, switch) each hold a room, its pieces and Eva's
 side, autosaved in the browser.
@@ -100,15 +97,16 @@ room items made and the guide's record are pulled once, merged with
 what is here (a project goes to the newer copy and stays gone where
 either side deleted it later; an order keeps the state that moved on
 from awaiting payment) and pushed back, then every change is pushed a
-moment later; the view and the wheel stay the device's own. The home
-page's Settings shows the name, editable, the email, when the mirror
-was last taken with Save now, Sign out, and the end of the account,
-which takes the mirror with it and leaves the browser's copy. Export has Share a link: a copy
+moment later; the view and the wheel stay the device's own. The gear's
+Account shows the name, editable, the email, when the mirror was last
+taken with Save now, Sign out, the rooms shared by link, and the end of
+the account, which takes the mirror with it and leaves the browser's
+copy. Export has Share a link: a copy
 of the open project's room and pieces, without Eva's side, kept under a
 short id for anyone with the link (`/s/<id>`), who sees the room in 3D
 read-only with the pieces and their total and can take it into a studio
-of their own as a new project; the home page's Shared rooms lists what
-is shared and takes a link down. The database is Neon Postgres when `DATABASE_URL` is set and
+of their own as a new project; the gear's Account lists what is shared
+and takes a link down. The database is Neon Postgres when `DATABASE_URL` is set and
 PGlite otherwise, a Postgres inside the server process that keeps its
 files under `apps/web/.data/pglite`, so a checkout runs and tests with
 no account anywhere; the migrations under `apps/web/drizzle` run when
