@@ -31,7 +31,7 @@ export type SceneLook = {
 export const SCENE_DEFAULT: SceneLook = {
   edges: false,
   shadows: "auto",
-  labels: true,
+  labels: false,
   grid: false,
   light: "day",
 };

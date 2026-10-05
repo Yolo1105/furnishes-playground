@@ -163,9 +163,13 @@ away) or the plan, sweeps it in and, with the panels hidden, offers a
 before/after divider. The studio opens in 3D on each visit and keeps
 the view and angle for the tab. A piece can stand past the walls; a
 move never shifts another piece, and two pieces standing over each
-other read in the warning red on the plan and in 3D. The small plan in
-the view panel is the plan itself: a piece is picked and dragged there
-too, and the 3D room follows.
+other read in the warning red on the plan and in 3D, and are listed in
+one card at the top left of the stage, each with a pick and a Fix, which
+shows only while something overlaps. In 3D no names show until View
+settings asks for them; the piece under the pointer shows its own, with
+an outline and a hand (or a finger, when it can only be picked). The
+small plan in the view panel is the plan itself: a piece is picked and
+dragged there too, and the 3D room follows.
 
 Add also makes room items: things that set the scene and are not for
 sale (an armchair, a plant, a pendant) from a few words. With `FAL_KEY`

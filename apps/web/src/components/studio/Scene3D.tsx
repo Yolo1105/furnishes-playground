@@ -488,6 +488,8 @@ function Piece({
   onPick,
   onTurn,
   onDragging,
+  hovered,
+  onHover,
   labels,
   edges,
 }: {
@@ -515,6 +517,9 @@ function Piece({
   onPick: () => void;
   onTurn: () => void;
   onDragging: (on: boolean) => void;
+  /** the pointer is over this piece: an outline, its name, the hand */
+  hovered: boolean;
+  onHover: (on: boolean) => void;
   /** the View settings: the name under the piece, edges on it */
   labels: boolean;
   edges: boolean;
@@ -627,9 +632,15 @@ function Piece({
       onPointerMove={onMove}
       onPointerUp={onUp}
       onPointerCancel={onUp}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        onHover(true);
+      }}
+      onPointerOut={() => onHover(false)}
     >
       <Furniture3D
         edges={edges}
+        hovered={hovered}
         node={node}
         size={size}
         colour={colour}
@@ -708,7 +719,7 @@ function Piece({
           {actions}
         </Html>
       )}
-      {labels && (
+      {(labels || hovered) && (
         <Html
           portal={portal}
           position={[0, -0.02, size[2] / 2 + 0.05]}
@@ -734,6 +745,11 @@ export default function Scene3D() {
   const room = useRoom();
   const outline = footprintOf(room);
   const [dragging, setDragging] = useState(false);
+  // the piece under the pointer: the canvas shows a hand over one that
+  // can be dragged, a finger over one that can only be picked
+  const [hover, setHover] = useState<string | null>(null);
+  const hoverOf = (id: string) => (on: boolean) =>
+    setHover((cur) => (on ? id : cur === id ? null : cur));
   const w = m(room.width);
   const d = m(room.depth);
   const h = m(room.height);
@@ -791,6 +807,13 @@ export default function Scene3D() {
       data-focus={a.focus !== null}
       data-walk={walk}
       data-dragging={dragging}
+      data-hover={
+        hover === null || rendering
+          ? "none"
+          : canDrag && !a.props.get(hover)?.locked && !walk
+            ? "grab"
+            : "pick"
+      }
       data-edges={edges}
       data-shadows={shadows}
       data-labels={labels}
@@ -896,6 +919,8 @@ export default function Scene3D() {
               onPick={() => a.onPick(n)}
               onTurn={() => a.turn(n)}
               onDragging={setDragging}
+              hovered={hover === n.id && !rendering}
+              onHover={hoverOf(n.id)}
               labels={labels}
               edges={edges}
               actions={

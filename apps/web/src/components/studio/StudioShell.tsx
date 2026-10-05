@@ -7,6 +7,7 @@ import { ChatInput } from "./ChatInput";
 import { useEva } from "./eva-store";
 import { HistoryTab } from "./HistoryTab";
 import { PreferenceTab } from "./PreferenceTab";
+import { ClashCard } from "./ClashCard";
 import { GuideCard } from "./GuideCard";
 import { MainTopBar } from "./MainOverlays";
 import { PeekBar } from "./PeekBar";
@@ -197,6 +198,7 @@ export function StudioShell({
         )}
         {children}
         <ViewCube />
+        <ClashCard />
         <GuideCard />
       </main>
 

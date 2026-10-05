@@ -327,8 +327,10 @@
   top: 56px;
   right: 12px;
   z-index: 3;
-  width: 84px;
-  padding: 6px 6px 4px;
+  /* as wide as its longest name, Perspective */
+  width: auto;
+  min-width: 84px;
+  padding: 6px 8px 4px;
   border-radius: var(--r-card);
   display: grid;
   justify-items: center;
@@ -424,6 +426,13 @@
 .stage-3d[data-dragging="true"] canvas {
   cursor: grabbing;
 }
+/* over a piece: a hand for one that can be dragged, a finger for a pick */
+.stage-3d[data-hover="grab"] canvas {
+  cursor: grab;
+}
+.stage-3d[data-hover="pick"] canvas {
+  cursor: pointer;
+}
 .plan-pieces .stage-piece[data-clash="true"] .stage-piece-body {
   border-color: var(--color-danger);
   background: rgb(from var(--color-danger) r g b / 0.14);
@@ -433,7 +442,78 @@
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  white-space: nowrap;
   color: rgb(from var(--color-ink) r g b / 0.55);
+}
+
+/* ---- the overlaps: one card at the top left of the stage ---- */
+.clash-card {
+  position: absolute;
+  top: 56px;
+  left: 12px;
+  z-index: 3;
+  width: min(250px, calc(100% - 130px));
+  padding: 5px 6px 6px 10px;
+  border-radius: var(--r-card);
+  display: grid;
+  gap: 3px;
+}
+.clash-card-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.clash-card-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-danger);
+  box-shadow: 0 0 0 3px rgb(from var(--color-danger) r g b / 0.16);
+}
+.clash-card-title {
+  flex: 1;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: rgb(from var(--color-ink) r g b / 0.8);
+}
+.clash-card-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1px;
+  max-height: 180px;
+  overflow: auto;
+}
+.clash-card-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.clash-card-row .stage-action {
+  flex: none;
+}
+.clash-card-pick {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  margin-left: -6px;
+  border-radius: var(--r-control);
+  text-align: left;
+  font: inherit;
+  font-size: 11.5px;
+  color: rgb(from var(--color-ink) r g b / 0.75);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.clash-card-pick:hover {
+  background: rgb(from var(--color-accent) r g b / 0.1);
+  color: var(--color-accent);
 }
 .main-sep {
   width: 1px;

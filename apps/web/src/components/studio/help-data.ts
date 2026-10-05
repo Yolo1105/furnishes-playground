@@ -61,8 +61,12 @@ export const HELP_TABS: readonly HelpTab[] = [
           },
           { does: "Zoom", how: "The wheel, or a pinch on the trackpad." },
           {
+            does: "Find a piece",
+            how: "Rest on it: it outlines, shows its name, and the hand says it can be dragged (a finger, only picked). View settings can keep every name on.",
+          },
+          {
             does: "Move a piece",
-            how: "Drag it over the floor; it outlines in red where it meets another.",
+            how: "Drag it over the floor; it outlines in red where it meets another, and the overlaps are listed in a card at the top left.",
           },
           { does: "Turn a piece", how: "Drag the spin handle over it." },
           {

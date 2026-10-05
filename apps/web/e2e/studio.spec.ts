@@ -692,16 +692,19 @@ test("Render runs a line along the top, sweeps the render in over the view, then
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
-  // the run's lengths are tokens; the test shortens them
+  // the run's lengths are tokens; the test shortens them (the line keeps
+  // a few seconds: a software renderer's first frame can hold the page)
   await page.addStyleTag({
-    content: ":root{--preview-generate:1.2s;--preview-reveal:.3s}",
+    content: ":root{--preview-generate:6s;--preview-reveal:.3s}",
   });
   const bar = page.getByRole("toolbar", { name: "Studio tools" });
   await bar.getByRole("button", { name: "Render" }).click();
   const line = page.getByRole("progressbar", { name: "Rendering the room" });
   await expect(line).toBeAttached();
   await expect
-    .poll(async () => (await line.boundingBox())?.width ?? 0)
+    .poll(async () => (await line.boundingBox())?.width ?? 0, {
+      timeout: 8000,
+    })
     .toBeGreaterThan(0);
   // the line is the toolbar's own bottom edge
   const [lb, bb] = await Promise.all([line.boundingBox(), bar.boundingBox()]);
@@ -713,7 +716,7 @@ test("Render runs a line along the top, sweeps the render in over the view, then
   await expect(page.locator(".preview")).toHaveAttribute(
     "data-status",
     "done",
-    { timeout: 8000 },
+    { timeout: 12000 },
   );
   // the stage is full screen, behind the panels; the render is the view
   // that was up (the 3D room, its shadows on and its names away), graded
@@ -1808,9 +1811,19 @@ test("in 3D a piece is dragged over the floor, the camera glides between angles,
   // rest are held where they stood, so no other piece shifts: every
   // piece is read back from the kept project with a place on the grid
   const first = top.filter((a) => a.kind === "piece")[0]!;
+  // the names come on to find the piece (none show until asked)
+  await expect(stage).toHaveAttribute("data-hover", "none");
+  await page.getByRole("button", { name: "View settings" }).click();
+  await page
+    .getByRole("menu", { name: "View settings" })
+    .getByRole("menuitemcheckbox", { name: "Names under the pieces" })
+    .click();
+  await page.keyboard.press("Escape");
   const tag = stage.locator(".stage-3d-name", { hasText: first.name }).first();
   const t = (await tag.boundingBox())!;
+  // over the piece the canvas shows a hand: it can be dragged
   await page.mouse.move(t.x + t.width / 2, t.y - 22);
+  await expect(stage).toHaveAttribute("data-hover", "grab");
   await page.mouse.down();
   await page.mouse.move(t.x + t.width / 2 + 60, t.y - 22, { steps: 8 });
   await page.mouse.move(t.x + t.width / 2 + 120, t.y - 22, { steps: 8 });
@@ -2688,10 +2701,24 @@ test("a piece turns freely: the handle drags round it in steps of 15, Shift free
     .locator(".agent")
     .getByRole("list", { name: "Room health" });
   await expect(health.getByText(/overlaps/)).toHaveCount(0);
+  // the overlaps card shows only while something overlaps
+  const card = page.getByRole("region", { name: "Overlaps" });
+  await expect(card).toHaveCount(0);
   // squared, the sofa's box reaches the vase: a clash
   await placeAt("Sofa", "2500", "2900");
   await page.getByRole("button", { name: "Square to the walls" }).click();
   await expect(health).toContainText(/overlaps/);
+  await expect(card).toContainText("1 overlap");
+  const rows = card.locator(".clash-card-pick");
+  await expect(rows).toHaveCount(1);
+  await expect(rows).toContainText(/Sofa overlaps|overlaps Sofa/);
+  // the card folds to its count, and opens again
+  await card.getByRole("button", { name: "Fold the overlaps" }).click();
+  await expect(rows).toHaveCount(0);
+  await card.getByRole("button", { name: "Show the overlaps" }).click();
+  // a row's Fix moves the other piece clear: the card goes
+  await card.getByRole("button", { name: /^Fix:/ }).click();
+  await expect(card).toHaveCount(0);
 });
 
 test("the room is its outline: a notch is a wall, the layouts keep out of it, the door sits on a real edge; T, U and a tapped shape", async ({
@@ -2776,17 +2803,18 @@ test("View settings: edges, names, a floor grid, shadows and the light, kept for
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   const stage = page.locator(".shell-stage .stage-3d");
-  await expect(stage).toHaveAttribute("data-labels", "true");
+  // no names until asked: the hovered piece alone shows its own
+  await expect(stage).toHaveAttribute("data-labels", "false");
   await expect(stage).toHaveAttribute("data-edges", "false");
   await expect(stage).toHaveAttribute("data-light", "day");
-  await expect(stage.locator(".stage-3d-name")).not.toHaveCount(0);
+  await expect(stage.locator(".stage-3d-name")).toHaveCount(0);
   await page.getByRole("button", { name: "View settings" }).click();
   const menu = page.getByRole("menu", { name: "View settings" });
   await menu
     .getByRole("menuitemcheckbox", { name: "Names under the pieces" })
     .click();
-  await expect(stage).toHaveAttribute("data-labels", "false");
-  await expect(stage.locator(".stage-3d-name")).toHaveCount(0);
+  await expect(stage).toHaveAttribute("data-labels", "true");
+  await expect(stage.locator(".stage-3d-name")).not.toHaveCount(0);
   await menu
     .getByRole("menuitemcheckbox", { name: "Edges on every piece" })
     .click();
@@ -2807,7 +2835,7 @@ test("View settings: edges, names, a floor grid, shadows and the light, kept for
   await page.keyboard.press("3");
   await expect(stage).toHaveAttribute("data-light", "evening");
   await expect(stage).toHaveAttribute("data-grid", "true");
-  await expect(stage).toHaveAttribute("data-labels", "false");
+  await expect(stage).toHaveAttribute("data-labels", "true");
 });
 
 test("the tour: stops on the plan, Play walks the camera through them, Stop and Escape end it, a round when there are none", async ({

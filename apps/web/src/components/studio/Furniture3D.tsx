@@ -64,6 +64,8 @@ type Props = {
   parts: string[];
   texture: string;
   selected: boolean;
+  /** the pointer is over it: a thin outline says it can be picked */
+  hovered: boolean;
   clash: boolean;
   /** the View settings ask for edges on every piece */
   edges: boolean;
@@ -254,7 +256,7 @@ class ModelGuard extends Component<
 
 export function Furniture3D(p: Props) {
   const [w, h, d] = p.size;
-  const outline = p.clash || p.selected || p.edges;
+  const outline = p.clash || p.selected || p.edges || p.hovered;
   const form = <Form {...p} />;
   return (
     <group
@@ -278,7 +280,7 @@ export function Furniture3D(p: Props) {
           <meshBasicMaterial visible={false} />
           <Edges
             color={p.clash ? DANGER_HEX : ACCENT_HEX}
-            lineWidth={p.clash ? 2 : 1.5}
+            lineWidth={p.clash ? 2 : p.selected ? 1.5 : 1}
           />
         </mesh>
       )}
