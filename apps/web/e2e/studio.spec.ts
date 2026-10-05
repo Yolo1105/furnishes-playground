@@ -60,6 +60,7 @@ test("background paints the playground palette", async ({ page }) => {
   // the token is written in oklch and may be served as lab; what matters
   // is the orange it paints, read back through a canvas as sRGB
   expect(accent).toMatch(/^(oklch|lab)\(/);
+  await page.goto("/rounded");
   const painted = await page
     .locator(".assets-mark[data-kind='piece']")
     .first()
@@ -76,7 +77,7 @@ test("background paints the playground palette", async ({ page }) => {
 });
 
 for (const [path, corners] of [
-  ["/", "square"],
+  ["/studio", "square"],
   ["/rounded", "rounded"],
 ] as const) {
   test(`${path} lays out left | main | right (${corners})`, async ({
@@ -256,6 +257,7 @@ test("the outliner searches, filters and marks the pieces", async ({
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
+  await arrived(page);
   const tree = page.getByRole("tree", { name: "Assets" });
   await expect(tree.getByRole("treeitem")).toHaveCount(rows);
   // a Furnishes piece carries the mark and a price; a room item does not
@@ -280,9 +282,14 @@ test("the outliner searches, filters and marks the pieces", async ({
   await page.getByRole("searchbox", { name: "Search assets" }).fill("");
   // filter: only the pieces
   await page.getByRole("button", { name: "Filter assets" }).click();
-  // the filter flies out to the right of the panel
+  // the filter flies out to the right of the panel (measured once its
+  // fly-out has landed)
+  const filter = page.getByRole("dialog", { name: "Filter" });
+  await filter.evaluate((el) =>
+    Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)),
+  );
   const [menu, rail] = await Promise.all([
-    page.getByRole("dialog", { name: "Filter" }).boundingBox(),
+    filter.boundingBox(),
     page.locator(".shell-rail-left").boundingBox(),
   ]);
   expect(menu!.x).toBeGreaterThan(rail!.x + rail!.width);
@@ -2927,6 +2934,60 @@ const account = async (
   return dialog;
 };
 
+test("the site opens on the home page: the way in, then the dashboard with its doors to the studio and the views", async ({
+  page,
+}) => {
+  // an account made, left and entered again: a long way for one test
+  test.slow();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  // the old address still arrives
+  await page.goto("/account?from=rounded");
+  await expect(page).toHaveURL(/\/\?from=rounded$/);
+  const rail = page.getByRole("complementary", {
+    name: "Account",
+    exact: true,
+  });
+  await expect(rail).toContainText("Guest");
+  await expect(rail.getByRole("link", { name: /^Studio/ })).toHaveAttribute(
+    "href",
+    "/rounded",
+  );
+  // signed out, the stage is the way in; the studio is a link away
+  await expect(page.getByText("Sign in to keep your projects")).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: /Look around without an account/ }),
+  ).toHaveAttribute("href", "/rounded");
+  await page.getByRole("tab", { name: "Create account" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Make an account." }),
+  ).toBeVisible();
+  const email = `home-${Date.now()}@example.com`;
+  await page.getByLabel("Name").fill("Mei Tan");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Create account" }).click();
+  // in: the dashboard greets by the first name, the rail reads the name
+  await expect(
+    page.getByRole("heading", { name: /^Welcome back, Mei\.$/ }),
+  ).toBeVisible({ timeout: 20_000 });
+  await expect(rail).toContainText("Mei Tan");
+  await expect(page.getByRole("region", { name: "Your work" })).toContainText(
+    "Projects",
+  );
+  // Settings shows the email; Sign out brings the way in back
+  await rail.getByRole("button", { name: "Settings" }).click();
+  await expect(page.getByText(email)).toBeVisible();
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page.getByText("Sign in to keep your projects")).toBeVisible();
+  // back in by the form, then through the door into the studio
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.getByRole("link", { name: /Open the studio/ }).click();
+  await expect(page).toHaveURL(/\/rounded\?project=/);
+  await expect(page.locator(".user-bar")).toContainText("Mei Tan");
+});
+
 test("an account: created with an email and a password, signed out, signed in again; a wrong password is said", async ({
   page,
 }) => {
@@ -3007,23 +3068,29 @@ test("signed in, the projects follow the account to another browser; the account
     b.getByRole("menuitemradio", { name: "Study corner" }),
   ).toBeVisible({ timeout: 15_000 });
   await b.keyboard.press("Escape");
-  // the account page: the mirror, the projects, a way into one
+  // the home page, signed in: the dashboard greets, its doors open the
+  // studio and the views; Projects has a way into each
   await b.getByRole("button", { name: "Settings", exact: true }).click();
   await b.getByRole("menu").getByRole("menuitem", { name: "Account" }).click();
   await expect(
-    b.getByRole("heading", { name: "Account", exact: true }),
+    b.getByRole("heading", { name: /^Welcome back, Mei\.$/ }),
   ).toBeVisible();
-  await expect(b.getByText(email)).toBeVisible();
   await expect(b.getByText(/Last saved to your account/)).toBeVisible({
     timeout: 15_000,
   });
   await expect(
-    b.getByRole("link", { name: "Back to the studio" }),
-  ).toHaveAttribute("href", "/rounded");
+    b.getByRole("link", { name: /Open the studio/ }),
+  ).toHaveAttribute("href", /^\/rounded\?project=/);
+  await b
+    .getByRole("complementary", { name: "Account" })
+    .getByRole("button", { name: "Projects" })
+    .click();
+  await expect(b.getByRole("heading", { name: "Projects" })).toBeVisible();
   await b.getByRole("link", { name: "Open Study corner" }).click();
   await expect(b.locator(".shell-project-name")).toHaveText("Study corner");
-  // the name is kept; the account can end, and its mirror with it
-  await b.goto("/account?from=rounded");
+  // Settings: the name is kept; the account can end, and its mirror with it
+  await b.goto("/?view=settings");
+  await expect(b.getByText(email)).toBeVisible();
   const name = b.getByRole("textbox", { name: "Name" });
   await name.fill("Mei Tan Lim");
   await b.getByRole("button", { name: "Save name" }).click();
@@ -3091,8 +3158,8 @@ test("a room shared by link: read-only for anyone, taken into a studio as a proj
   );
   await b.getByRole("button", { name: /^Project, / }).click();
   await expect(b.getByRole("menuitemradio")).toHaveCount(2);
-  // the account page lists it; taking it down ends the link
-  await a.goto("/account?from=rounded");
+  // the home page lists it under Shared rooms; taking it down ends the link
+  await a.goto("/?view=shared");
   await expect(a.getByText("shared", { exact: false }).first()).toBeVisible();
   await a.getByRole("button", { name: "Stop sharing First project" }).click();
   await b.goto(url);

@@ -1,20 +1,35 @@
 import type { Metadata } from "next";
-import { Syne } from "next/font/google";
+import { Archivo, Space_Mono, Syne } from "next/font/google";
 import "./globals.css";
 import "@/styles/shell.css";
 import "@/styles/main.css";
 import "@/styles/assets.css";
 import "@/styles/eva.css";
+import "@/styles/home.css";
 
 /**
  * Syne is the studio's typeface, exposed as --font-syne and aliased to
- * --font-app in globals.css so every surface reads one variable.
+ * --font-app in globals.css so every surface reads one variable. The
+ * home page is set as the production account page is: Archivo along
+ * its width axis (compressed) and Space Mono for the caps labels.
  */
 const syne = Syne({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],
   display: "swap",
   variable: "--font-syne",
+});
+const archivo = Archivo({
+  subsets: ["latin"],
+  axes: ["wdth"],
+  display: "swap",
+  variable: "--font-archivo",
+});
+const spaceMono = Space_Mono({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  display: "swap",
+  variable: "--font-mono",
 });
 
 export const metadata: Metadata = {
@@ -28,7 +43,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={syne.variable}>
+    <html
+      lang="en"
+      className={`${syne.variable} ${archivo.variable} ${spaceMono.variable}`}
+    >
       <body className="h-full w-full antialiased">
         {/* Animated fluid background: three blurred warm blobs drifting on
             independent loops behind every studio surface. Pure CSS, see

@@ -1,21 +1,13 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { ACCOUNT_MODES, useAccountForm } from "./account-form";
 import { Dialog } from "./Dialog";
-import { authClient } from "@/lib/auth-client";
 
 /**
- * Signing in, or making an account: a name (for a new one), an email
- * and a password of eight or more. What goes wrong is said under the
- * form in the library's words; what goes right closes the dialog, and
- * the user bar reads the name.
+ * The studio's way in to an account, from the gear: Sign in and Create
+ * account as tabs over one form; done, the dialog closes and the user
+ * bar reads the name.
  */
-type Mode = "in" | "up";
-const MODES: { id: Mode; label: string }[] = [
-  { id: "in", label: "Sign in" },
-  { id: "up", label: "Create account" },
-];
-
 export function AccountDialog({
   onClose,
   onSignedIn,
@@ -24,31 +16,10 @@ export function AccountDialog({
   /** what was waiting on the account goes on from here */
   onSignedIn?: () => void;
 }) {
-  const [mode, setMode] = useState<Mode>("in");
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (busy) return;
-    setBusy(true);
-    setError(null);
-    const r =
-      mode === "up"
-        ? await authClient.signUp.email({ name: name.trim(), email, password })
-        : await authClient.signIn.email({ email, password });
-    setBusy(false);
-    if (r.error) {
-      setError(r.error.message ?? "That did not work; try again.");
-      return;
-    }
+  const f = useAccountForm(() => {
     onClose();
     onSignedIn?.();
-  };
-
+  });
   return (
     <Dialog title="Account" onClose={onClose}>
       <div
@@ -56,24 +27,21 @@ export function AccountDialog({
         role="tablist"
         aria-label="Account"
       >
-        {MODES.map((m) => (
+        {ACCOUNT_MODES.map((m) => (
           <button
             key={m.id}
             type="button"
             role="tab"
             className="shell-tabbtn help-tab"
-            aria-selected={mode === m.id}
-            onClick={() => {
-              setMode(m.id);
-              setError(null);
-            }}
+            aria-selected={f.mode === m.id}
+            onClick={() => f.setMode(m.id)}
           >
             {m.label}
           </button>
         ))}
       </div>
-      <form className="account-form" onSubmit={submit}>
-        {mode === "up" && (
+      <form className="account-form" onSubmit={f.submit}>
+        {f.mode === "up" && (
           <label className="order-field">
             <span className="room-dim-label">Name</span>
             <input
@@ -81,8 +49,8 @@ export function AccountDialog({
               type="text"
               autoComplete="name"
               required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={f.name}
+              onChange={(e) => f.setName(e.target.value)}
             />
           </label>
         )}
@@ -93,8 +61,8 @@ export function AccountDialog({
             type="email"
             autoComplete="email"
             required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            value={f.email}
+            onChange={(e) => f.setEmail(e.target.value)}
           />
         </label>
         <label className="order-field">
@@ -102,25 +70,29 @@ export function AccountDialog({
           <input
             className="room-dim-input"
             type="password"
-            autoComplete={mode === "up" ? "new-password" : "current-password"}
+            autoComplete={f.mode === "up" ? "new-password" : "current-password"}
             required
             minLength={8}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            value={f.password}
+            onChange={(e) => f.setPassword(e.target.value)}
           />
         </label>
-        {error && (
+        {f.error && (
           <p className="account-error" role="alert">
-            {error}
+            {f.error}
           </p>
         )}
         <div className="shell-dialog-acts">
           <button
             type="submit"
             className="main-btn main-btn-primary"
-            disabled={busy}
+            disabled={f.busy}
           >
-            {busy ? "One moment" : mode === "up" ? "Create account" : "Sign in"}
+            {f.busy
+              ? "One moment"
+              : f.mode === "up"
+                ? "Create account"
+                : "Sign in"}
           </button>
         </div>
       </form>

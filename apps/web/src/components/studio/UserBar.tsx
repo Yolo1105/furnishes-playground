@@ -105,9 +105,7 @@ export function UserBar() {
               <Link
                 role="menuitem"
                 className="shell-menu-row"
-                href={
-                  path === "/rounded" ? "/account?from=rounded" : "/account"
-                }
+                href={path === "/rounded" ? "/" : "/?from=studio"}
                 onClick={() => setOpen(false)}
               >
                 <UserIcon /> Account
@@ -211,7 +209,7 @@ function SettingsDialog({ onClose }: { onClose: () => void }) {
           <small>How the panels and menus are cut</small>
         </span>
         <span className="shell-choice" role="group" aria-label="Panel corners">
-          <Link href="/" aria-current={rounded ? undefined : "page"}>
+          <Link href="/studio" aria-current={rounded ? undefined : "page"}>
             Square
           </Link>
           <Link href="/rounded" aria-current={rounded ? "page" : undefined}>

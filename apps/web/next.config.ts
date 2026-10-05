@@ -14,6 +14,10 @@ const nextConfig: NextConfig = {
   // rather than bundled; the migrations ride along with every route
   serverExternalPackages: ["@electric-sql/pglite"],
   outputFileTracingIncludes: { "/**": ["./drizzle/**/*"] },
+  // the account lives on the home page now; old links still arrive
+  redirects: async () => [
+    { source: "/account", destination: "/", permanent: false },
+  ],
   turbopack: {
     // The pnpm workspace root, so workspace packages resolve.
     root: path.resolve(here, "../.."),

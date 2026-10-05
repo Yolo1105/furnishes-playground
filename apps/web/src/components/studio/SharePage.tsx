@@ -56,7 +56,7 @@ export function SharePage({ id }: { id: string }) {
             Whoever shared it has taken the link down.
           </p>
           <div className="shell-dialog-acts">
-            <Link href="/" className="main-btn main-btn-primary">
+            <Link href="/rounded" className="main-btn main-btn-primary">
               Open the studio
             </Link>
           </div>
@@ -73,7 +73,7 @@ export function SharePage({ id }: { id: string }) {
           </p>
         </div>
         <div className="shell-dialog-acts share-acts">
-          <Link href="/" className="main-btn">
+          <Link href="/rounded" className="main-btn">
             Make your own
           </Link>
           <button
@@ -83,7 +83,7 @@ export function SharePage({ id }: { id: string }) {
             onClick={() => {
               if (!room) return;
               const pid = importProject(room.name, room.data);
-              router.push(`/?project=${encodeURIComponent(pid)}`);
+              router.push(`/rounded?project=${encodeURIComponent(pid)}`);
             }}
           >
             Open in my studio

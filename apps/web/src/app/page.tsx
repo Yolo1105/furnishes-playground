@@ -1,13 +1,14 @@
 import { Suspense } from "react";
-import { Studio } from "@/components/studio/Studio";
+import { Home } from "@/components/studio/Home";
 
-/** The studio with square, edge-to-edge glass panels. */
+/** Where the site opens: the account's home, the way in, and the doors
+    to the studio. */
 export default function Page() {
-  // the shell reads the address (a link into a project), so it renders
-  // inside a boundary while the page itself stays static
+  // the page reads the address (which studio to open, a view), so it
+  // renders inside a boundary while the page itself stays static
   return (
     <Suspense>
-      <Studio corners="square" />
+      <Home />
     </Suspense>
   );
 }
