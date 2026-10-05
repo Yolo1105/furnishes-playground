@@ -24,6 +24,7 @@ import {
 } from "./icons";
 import { useState } from "react";
 import { usePieceActions } from "./piece-actions";
+import { metresOf, whyLines } from "./plan-explain";
 import { LABEL_MAX } from "./piece-detail";
 import { metres, ROOM_NAMES } from "./room-data";
 import { useRoom } from "./room-store";
@@ -61,6 +62,8 @@ export function AgentTab() {
   const { send, settleProposal, pickChip, rate, pin, brainstorm, context } =
     useEva.getState();
   const [refining, setRefining] = useState<string | null>(null);
+  // the layout opened to see what it would do
+  const [inspecting, setInspecting] = useState<string | null>(null);
   const { addProduct, select } = useScene.getState();
   const { setShelfTab, setPanelTab } = useStudio.getState();
   const stage = usePieceActions();
@@ -280,30 +283,109 @@ export function AgentTab() {
           <div className="agent-layouts" role="group" aria-label="Layouts">
             <span className="agent-plan-label">Layouts</span>
             {stage.plans.map((p, i) => (
-              <div key={p.id} className="agent-layout" data-applied={p.applied}>
-                <div className="agent-layout-text">
-                  <span className="agent-layout-name">
-                    {p.label}
-                    {i === stage.pick && (
-                      <span className="agent-layout-pick">Eva&apos;s pick</span>
-                    )}
-                  </span>
-                  <span className="agent-layout-note f-num">
-                    {p.note} ·{" "}
-                    {p.findings === 0
-                      ? "clear"
-                      : `${p.findings} finding${p.findings === 1 ? "" : "s"}`}
-                  </span>
+              <div
+                key={p.id}
+                className="agent-layout"
+                data-applied={p.applied}
+                data-open={inspecting === p.id}
+              >
+                <div className="agent-layout-row">
+                  <div className="agent-layout-text">
+                    <span className="agent-layout-name">
+                      {p.label}
+                      {i === stage.pick && (
+                        <span className="agent-layout-pick">
+                          Eva&apos;s pick
+                        </span>
+                      )}
+                    </span>
+                    <span className="agent-layout-note f-num">
+                      {p.note} ·{" "}
+                      {p.findings === 0
+                        ? "clear"
+                        : `${p.findings} finding${p.findings === 1 ? "" : "s"}`}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="agent-fix agent-inspect-btn"
+                    aria-expanded={inspecting === p.id}
+                    aria-label={`Inspect ${p.label}`}
+                    onClick={() =>
+                      setInspecting((cur) => (cur === p.id ? null : p.id))
+                    }
+                  >
+                    Inspect
+                  </button>
+                  <button
+                    type="button"
+                    className="agent-fix"
+                    aria-pressed={p.applied}
+                    disabled={p.applied}
+                    onClick={() => stage.apply(p)}
+                  >
+                    {p.applied ? "Applied" : "Apply"}
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  className="agent-fix"
-                  aria-pressed={p.applied}
-                  disabled={p.applied}
-                  onClick={() => stage.apply(p)}
-                >
-                  {p.applied ? "Applied" : "Apply"}
-                </button>
+                {inspecting === p.id && (
+                  <div
+                    className="agent-inspect"
+                    role="region"
+                    aria-label={`${p.label}, inspected`}
+                  >
+                    <ul className="agent-inspect-why">
+                      {whyLines(
+                        p.id,
+                        p,
+                        stage.room.rules,
+                        i === stage.pick,
+                        stage.tied,
+                      ).map((line) => (
+                        <li key={line}>{line}</li>
+                      ))}
+                    </ul>
+                    {p.issues.length > 0 && (
+                      <ul
+                        className="agent-inspect-list"
+                        aria-label={`What ${p.label} would leave`}
+                      >
+                        {p.issues.map((x) => (
+                          <li key={`${x.kind}-${x.pieceId}-${x.text}`}>
+                            {x.text}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <p className="agent-inspect-sum f-num">
+                      {p.applied
+                        ? "Every piece stands as this layout has it."
+                        : p.moves.length === 0
+                          ? "No piece would move."
+                          : `${p.moves.length} ${p.moves.length === 1 ? "piece" : "pieces"} would move${p.stays > 0 ? `, ${p.stays} would stay` : ""}.`}
+                    </p>
+                    {!p.applied && p.moves.length > 0 && (
+                      <ul
+                        className="agent-inspect-list agent-inspect-moves"
+                        aria-label={`What ${p.label} would move`}
+                      >
+                        {p.moves.slice(0, 5).map((m) => (
+                          <li key={m.id}>
+                            <span>{m.name}</span>
+                            <span className="f-num">
+                              {m.dist >= 50 ? metresOf(m.dist) : "in place"}
+                              {m.turns ? " · turns" : ""}
+                            </span>
+                          </li>
+                        ))}
+                        {p.moves.length > 5 && (
+                          <li className="agent-plan-more">
+                            and {p.moves.length - 5} more
+                          </li>
+                        )}
+                      </ul>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>

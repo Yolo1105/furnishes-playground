@@ -190,9 +190,12 @@ export const openingsFor = (room: RoomId): Openings => {
  * The planner's rules, as the archive's Requirements tab had them: how
  * wide a walkway must be, whether the door's swing and the window are
  * kept clear, whether a bed must stand against a wall, what the room
- * must have, and how far apart a layout spreads the pieces. The
+ * must have, and how far apart a layout spreads the pieces; and the
+ * two priorities the archive's tab had as sliders, flow against storage
+ * and open against cosy, which lean on how the layouts are weighed. The
  * walkway starts at 600 mm, as HDB has it; a layout starts snug, at
- * the walkway, and can be opened up to 600 mm more.
+ * the walkway, and can be opened up to 600 mm more. A preset sets the
+ * whole lot for a way of living in the room.
  */
 export type BedWall = "prefer" | "required" | "off";
 export type Rules = {
@@ -205,7 +208,13 @@ export type Rules = {
   mustHave: string[];
   /** mm added to the walkway between pieces a layout lays out */
   spacing: number;
+  /** 0 storage first, 100 flow first: how much a narrow gap or a
+      blocked door weighs against a layout */
+  flow: number;
+  /** 0 cosy, 100 open: whether the middle of the room should stay clear */
+  open: number;
 };
+export const PRIORITY = { min: 0, max: 100, step: 10, default: 50 };
 export const WALKWAY = { min: 500, max: 1200, step: 50, default: 600 };
 export const SPACING = { max: 600, step: 50 };
 /** what a room can be asked to have, and the words a piece's name
@@ -241,6 +250,8 @@ export const rulesFor = (room: RoomId): Rules => ({
   bedWall: "prefer",
   mustHave: MUST_HAVE_FOR_ROOM[room],
   spacing: 0,
+  flow: PRIORITY.default,
+  open: PRIORITY.default,
 });
 export const sameRules = (a: Rules, b: Rules) =>
   a.walkway === b.walkway &&
@@ -248,8 +259,79 @@ export const sameRules = (a: Rules, b: Rules) =>
   a.windowClear === b.windowClear &&
   a.bedWall === b.bedWall &&
   a.spacing === b.spacing &&
+  a.flow === b.flow &&
+  a.open === b.open &&
   a.mustHave.length === b.mustHave.length &&
   a.mustHave.every((k) => b.mustHave.includes(k));
+
+/** the rules for a way of living in the room, over its typical ones */
+export type RulePreset = {
+  id: string;
+  label: string;
+  note: string;
+  patch: Partial<Omit<Rules, "mustHave">>;
+  /** what the room must have besides its typical pieces */
+  also?: string[];
+};
+export const RULE_PRESETS: RulePreset[] = [
+  {
+    id: "open-plan",
+    label: "Open plan",
+    note: "Wide walkways, pieces spread, the middle clear",
+    patch: { walkway: 900, spacing: 300, open: 90, flow: 70 },
+  },
+  {
+    id: "snug-storage",
+    label: "Snug storage",
+    note: "Pieces close, every wall working",
+    patch: { walkway: 600, spacing: 0, open: 20, flow: 30 },
+    also: ["storage"],
+  },
+  {
+    id: "family-flow",
+    label: "Family flow",
+    note: "A metre to pass, the door and window clear",
+    patch: {
+      walkway: 1000,
+      flow: 100,
+      open: 60,
+      doorClear: true,
+      windowClear: true,
+    },
+  },
+  {
+    id: "reading-nook",
+    label: "Reading nook",
+    note: "Cosy, by the window, a lamp to read by",
+    patch: {
+      walkway: 600,
+      spacing: 150,
+      open: 30,
+      flow: 40,
+      windowClear: true,
+    },
+    also: ["lamp"],
+  },
+  {
+    id: "live-work",
+    label: "Live-work",
+    note: "A desk and storage, room to move between",
+    patch: { walkway: 800, flow: 60, open: 50 },
+    also: ["desk", "storage"],
+  },
+];
+/** a preset's rules for a room: the typical ones with the preset over them */
+export const presetRules = (preset: RulePreset, room: RoomId): Rules => {
+  const base = rulesFor(room);
+  return {
+    ...base,
+    ...preset.patch,
+    mustHave: [...new Set([...base.mustHave, ...(preset.also ?? [])])],
+  };
+};
+/** the preset the rules match exactly, if any */
+export const presetOf = (rules: Rules, room: RoomId) =>
+  RULE_PRESETS.find((p) => sameRules(rules, presetRules(p, room)))?.id ?? null;
 
 /** where the door's centre sits along a wall of length `L` */
 export const doorCentreAlong = (L: number, offset: number | null) =>

@@ -2367,9 +2367,37 @@ test("the room's rules shape the planner: the walkway, what is kept clear, a bed
     hasText: "Along the walls",
   });
   await expect(walls).toContainText("facing the south door");
+  // Inspect says what a layout does, what it would leave and move
+  await walls.getByRole("button", { name: "Inspect Along the walls" }).click();
+  const inspected = page.getByRole("region", {
+    name: "Along the walls, inspected",
+  });
+  await expect(inspected).toContainText("The middle stays open");
+  await expect(inspected).toContainText(/would move|would stay|No piece/);
   await walls.getByRole("button", { name: "Apply" }).click();
   await expect(walls.getByRole("button", { name: "Applied" })).toBeDisabled();
   await expect(layouts.getByRole("button", { name: "Apply" })).toHaveCount(2);
+  await expect(inspected).toContainText("Every piece stands as this layout");
+  // the priorities lean on Eva's pick; a preset sets the rules whole
+  await page.getByRole("tab", { name: "Room", exact: true }).click();
+  const open = page.getByRole("slider", { name: "Cosy or open" });
+  await expect(open).toHaveValue("50");
+  await open.fill("100");
+  await expect(open).toHaveAttribute("aria-valuetext", "open first");
+  await expect(walls).toContainText("Eva's pick");
+  await page
+    .getByRole("group", { name: "Presets" })
+    .getByRole("button", { name: "Open plan" })
+    .click();
+  await expect(walkway).toHaveValue("900");
+  await expect(
+    page
+      .getByRole("group", { name: "Presets" })
+      .getByRole("button", { name: "Open plan" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await typical.click();
+  await expect(walkway).toHaveValue("600");
+  await expect(open).toHaveValue("50");
   // what the room must have: a bed asked for, missing, then added
   const mustHave = page.getByRole("group", { name: "Must have" });
   await expect(mustHave.getByRole("button", { name: "sofa" })).toHaveAttribute(

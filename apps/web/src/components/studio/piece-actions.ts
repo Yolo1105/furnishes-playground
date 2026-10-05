@@ -5,6 +5,7 @@ import type { AssetNode } from "./assets-data";
 import { products } from "./catalogue";
 import { describeItem } from "./generation-store";
 import { footprint, LABEL_MAX, turned, type PieceProps } from "./piece-detail";
+import { explainPlan, travel } from "./plan-explain";
 import { healthOf, type Issue, type Room } from "./room-health";
 import { gapOf, layoutPlans, layoutRoom, type Placed } from "./room-layout";
 import { MUST_HAVE_CHOICES } from "./room-data";
@@ -100,25 +101,41 @@ export function usePieceActions() {
       .filter((i) => i.kind === "overlap")
       .flatMap((i) => [i.pieceId!, i.otherId!]),
   );
-  // the three layouts, each read against the same rules
-  const plans = layoutPlans(named, room, laid).map((plan) => ({
-    ...plan,
-    findings: healthOf(
-      boxes((i) => plan.places[i]),
-      room,
-    ).filter((i) => i.kind !== "missing").length,
-    applied: pieces.every((n, i) => {
-      const p = plan.places[i]!;
-      const s = laid[i]!;
-      return (
-        p.x === s.x && p.y === s.y && p.rotation === props.get(n.id)!.rotation
-      );
-    }),
-  }));
-  const pick = plans.reduce(
-    (best, p, i) => (p.findings < plans[best]!.findings ? i : best),
-    0,
-  );
+  // the three layouts, each read against the same rules, costed by the
+  // priorities and explained: what each would leave and move
+  const plans = layoutPlans(named, room, laid).map((plan) => {
+    const e = explainPlan(
+      plan.id,
+      plan.places,
+      laid,
+      pieces.map((n) => ({ id: n.id, name: n.name, props: props.get(n.id)! })),
+      healthOf(
+        boxes((i) => plan.places[i]),
+        room,
+      ),
+      rules,
+    );
+    return {
+      ...plan,
+      ...e,
+      findings: e.issues.length,
+      applied: pieces.every((n, i) => {
+        const p = plan.places[i]!;
+        const s = laid[i]!;
+        return (
+          p.x === s.x && p.y === s.y && p.rotation === props.get(n.id)!.rotation
+        );
+      }),
+    };
+  });
+  // the lowest cost; when costs tie, the layout that moves the least
+  const pick = plans.reduce((best, p, i) => {
+    const b = plans[best]!;
+    if (p.score < b.score) return i;
+    if (p.score === b.score && travel(p.moves) < travel(b.moves)) return i;
+    return best;
+  }, 0);
+  const tied = plans.filter((p) => p.score === plans[pick]!.score).length > 1;
 
   const onPick = (n: AssetNode) => {
     if (readOnly) select(n.id, false);
@@ -180,6 +197,8 @@ export function usePieceActions() {
     /** the room laid out three ways, and which Eva would pick */
     plans,
     pick,
+    /** more than one layout costs the same: the pick is the one that moves least */
+    tied,
     /** stand every piece as a layout says, one undo step */
     apply: (plan: (typeof plans)[number]) =>
       placeAll(

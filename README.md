@@ -219,9 +219,17 @@ can be sent back for review and an open one asked about, and Stop cuts
 an answer off. The Room tab's Rules set what the planner holds to: the walkway's
 width, whether the door's swing and the window are kept clear, a bed
 against a wall (preferred, required or off), what the room must have
-(a missing thing gets an Add), and how far apart a layout spreads the
-pieces. Under the room's health, Layouts lays the room out three ways
-(rows across the width, rows down the depth, along the walls with the
-middle open), reads each against the same rules, marks Eva's pick and
-applies one in a single undo step; locked pieces stay put. Keyboard
+(a missing thing gets an Add), how far apart a layout spreads the
+pieces, and two priorities, storage or flow and cosy or open; five
+presets (Open plan, Snug storage, Family flow, Reading nook,
+Live-work) set the whole lot for a way of living in the room, and
+Typical brings the room's own back. Under the room's health, Layouts
+lays the room out three ways (rows across the width, rows down the
+depth, along the walls with the middle open), costs each against the
+rules with the priorities leaning on the walkways, the door and the
+window, marks Eva's pick (the lowest cost; when costs tie, the layout
+that moves the least) and applies one in a single undo step; locked
+pieces stay put. Inspect under a layout says why it stands where it
+does, what it would leave for the planner, and which pieces it would
+move, how far, and turn. Keyboard
 shortcuts are listed under the gear.

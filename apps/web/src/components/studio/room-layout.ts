@@ -145,7 +145,7 @@ export const layoutRoom = (
 
 /* ---------- the three layouts ---------- */
 
-type PlanId = "rows" | "across" | "walls";
+export type PlanId = "rows" | "across" | "walls";
 type LayoutPlan = {
   id: PlanId;
   label: string;

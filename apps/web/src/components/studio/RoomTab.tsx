@@ -9,7 +9,11 @@ import {
   metres,
   MUST_HAVE_CHOICES,
   PRESETS,
+  presetOf,
+  presetRules,
+  PRIORITY,
   ROOM_NAMES,
+  RULE_PRESETS,
   rulesFor,
   sameRules,
   SPACING,
@@ -121,9 +125,10 @@ export function RoomTab() {
   const rules = s.rules;
   const slider = (
     label: string,
-    key: "walkway" | "spacing",
+    key: "walkway" | "spacing" | "flow" | "open",
     range: { min: number; max: number; step: number },
     shown: string,
+    unit = "in millimetres",
   ) => (
     <label className="room-field room-rule-row">
       <span className="room-field-label">{label}</span>
@@ -134,12 +139,17 @@ export function RoomTab() {
         max={range.max}
         step={range.step}
         value={rules[key]}
-        aria-label={`${label} in millimetres`}
+        aria-label={unit ? `${label} ${unit}` : label}
+        aria-valuetext={shown}
         onChange={(e) => s.setRules({ [key]: Number(e.target.value) })}
       />
       <span className="room-rule-value f-num">{shown}</span>
     </label>
   );
+  /** a priority's reading: which end it leans to, or balanced */
+  const leaning = (v: number, low: string, high: string) =>
+    v >= 70 ? `${high} first` : v <= 30 ? `${low} first` : "balanced";
+  const preset = presetOf(rules, s.room);
 
   return (
     <div className="room">
@@ -309,6 +319,23 @@ export function RoomTab() {
                 </button>
               )}
             </div>
+            <div className="room-field">
+              <span className="room-field-label">Presets</span>
+              <div className="eva-chips" role="group" aria-label="Presets">
+                {RULE_PRESETS.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className="assets-chip"
+                    aria-pressed={preset === p.id}
+                    title={p.note}
+                    onClick={() => s.setRules(presetRules(p, s.room))}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             {slider("Walkway", "walkway", WALKWAY, `${rules.walkway} mm`)}
             <div className="room-field">
               <span className="room-field-label">Keep clear</span>
@@ -385,8 +412,24 @@ export function RoomTab() {
               { min: 0, ...SPACING },
               rules.spacing === 0 ? "snug" : `+${rules.spacing} mm`,
             )}
+            {slider(
+              "Storage or flow",
+              "flow",
+              PRIORITY,
+              leaning(rules.flow, "storage", "flow"),
+              "",
+            )}
+            {slider(
+              "Cosy or open",
+              "open",
+              PRIORITY,
+              leaning(rules.open, "cosy", "open"),
+              "",
+            )}
             <p className="eva-pref-hint">
-              The plan&apos;s health and its layouts keep to these.
+              The plan&apos;s health and its layouts keep to these; the two
+              priorities decide which layout Eva picks, and Inspect under a
+              layout says why.
             </p>
           </section>
           <section className="eva-pref" data-set="true">

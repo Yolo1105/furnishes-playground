@@ -1033,14 +1033,68 @@
   gap: 4px;
 }
 .agent-layout {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  display: grid;
+  gap: 6px;
   padding: 6px 8px;
   border-radius: var(--r-card);
   background: rgba(255, 255, 255, 0.45);
   transition: background 0.15s ease;
+}
+.agent-layout-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.agent-layout-row .agent-layout-text {
+  margin-right: auto;
+}
+.agent-inspect-btn[aria-expanded="true"] {
+  background: rgb(from var(--color-accent) r g b / 0.12);
+  color: var(--color-accent);
+}
+/* a layout inspected: why it stands where it does, what it would
+   leave, what it would move */
+.agent-inspect {
+  display: grid;
+  gap: 6px;
+  padding: 2px 0 2px;
+  border-top: 1px solid var(--line);
+  padding-top: 6px;
+}
+.agent-inspect-why,
+.agent-inspect-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: rgb(from var(--color-ink) r g b / 0.75);
+}
+.agent-inspect-why li::before {
+  content: "— ";
+  color: var(--color-accent);
+}
+.agent-inspect-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: rgb(from var(--color-ink) r g b / 0.62);
+}
+.agent-inspect-list:not(.agent-inspect-moves) li::before {
+  content: "!";
+  flex: 0 0 auto;
+  width: 14px;
+  color: var(--color-accent);
+  font-weight: 700;
+}
+.agent-inspect-sum {
+  margin: 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-ink);
 }
 .agent-layout[data-applied="true"] {
   background: rgb(from var(--color-accent) r g b / 0.08);

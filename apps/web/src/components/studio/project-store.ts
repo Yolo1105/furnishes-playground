@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { create } from "zustand";
 import { useEva } from "./eva-store";
 import { newId } from "./ids";
+import { rulesFor } from "./room-data";
 import { useRoom } from "./room-store";
 import { useScene } from "./scene-store";
 
@@ -128,7 +129,12 @@ const fresh = (): Snapshot => {
 
 /** put a project's contents into the stores */
 const load = (data: Snapshot) => {
-  useRoom.setState({ ...dataOnly(useRoom.getInitialState()), ...data.room });
+  // a room saved before a rule existed takes that rule's typical value
+  useRoom.setState({
+    ...dataOnly(useRoom.getInitialState()),
+    ...data.room,
+    rules: { ...rulesFor(data.room.room), ...data.room.rules },
+  });
   useScene.setState({
     ...data.scene,
     selectedId: null,

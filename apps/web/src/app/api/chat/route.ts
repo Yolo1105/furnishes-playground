@@ -85,6 +85,8 @@ const Body = z.object({
       bedWall: z.enum(["prefer", "required", "off"]),
       mustHave: z.array(z.string().max(40)).max(20),
       spacing: z.number(),
+      flow: z.number().min(0).max(100).default(50),
+      open: z.number().min(0).max(100).default(50),
     }),
     persona: z.enum(["eva", "style", "plan", "budget"]).default("eva"),
   }),
