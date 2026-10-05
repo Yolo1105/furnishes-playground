@@ -1549,6 +1549,40 @@
 .plan-grip-end:hover {
   fill: var(--color-accent);
 }
+/* the room's own handles: a bar on each wall, a square on each corner */
+.plan-shape-edge {
+  fill: rgb(from var(--color-accent) r g b / 0.1);
+  stroke: var(--color-accent);
+  stroke-width: 16;
+  pointer-events: all;
+}
+.plan-shape-edge[data-across="ns"] {
+  cursor: ns-resize;
+}
+.plan-shape-edge[data-across="ew"] {
+  cursor: ew-resize;
+}
+.plan-shape-edge:hover {
+  fill: rgb(from var(--color-accent) r g b / 0.3);
+}
+.plan-shape-len {
+  font-size: 150px;
+  font-weight: 600;
+  fill: var(--color-accent);
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
+.plan-shape-corner {
+  fill: var(--color-glass);
+  stroke: var(--color-accent);
+  stroke-width: 24;
+  cursor: move;
+  pointer-events: all;
+}
+.plan-shape-corner:hover {
+  fill: var(--color-accent);
+}
 .plan-grip-label {
   font-size: 180px;
   font-weight: 600;

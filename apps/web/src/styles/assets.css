@@ -561,7 +561,8 @@
   padding-top: 6px;
   border-top: 1px solid var(--line);
 }
-.room-opening-head {
+.room-opening-head,
+.room-field-head {
   display: flex;
   align-items: center;
   justify-content: space-between;

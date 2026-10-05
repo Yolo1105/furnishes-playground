@@ -8,12 +8,18 @@ import {
   openingsFor,
   PRESETS,
   type RoomId,
+  ROOM_SIZE,
   type Rules,
   rulesFor,
   type Wall,
   WALLS,
 } from "./room-data";
-import { insideOutline, outlineFromCells } from "./room-geometry";
+import {
+  insideOutline,
+  normalizeOutline,
+  outlineFromCells,
+} from "./room-geometry";
+import { useScene } from "./scene-store";
 import { ROOM_TEMPLATES, type Point, type TemplateId } from "./room-templates";
 
 /** how the room's shape comes about: traced on the canvas, or picked */
@@ -74,6 +80,11 @@ type RoomState = RoomConfig & {
   addCorner: (p: Point) => void;
   /** forget the drawing and the drawn room */
   clearWalls: () => void;
+  /** the room's outline as the plan's handles left it, mm in the frame
+      the plan showed; the room becomes its own shape, sized by its box,
+      and what stood in it keeps to the walls that did not move. Returns
+      how far the frame moved. */
+  setOutline: (points: readonly Point[]) => { dx: number; dy: number };
 };
 
 /** how close to the first corner a click closes the room, mm */
@@ -150,6 +161,28 @@ const freeWall = (openings: Opening[]): Wall => {
   );
 };
 
+/** a drawn outline and its openings stretched to a new width and depth */
+const stretched = (
+  s: Pick<RoomConfig, "drawn" | "openings" | "width" | "depth">,
+  width: number,
+  depth: number,
+) => {
+  if (!s.drawn) return {};
+  const fx = width / s.width;
+  const fy = depth / s.depth;
+  return {
+    drawn: s.drawn.map(([x, y]): Point => [x * fx, y * fy]),
+    openings: s.openings.map((o) =>
+      o.at === null
+        ? o
+        : {
+            ...o,
+            at: o.at * (o.wall === "north" || o.wall === "south" ? fx : fy),
+          },
+    ),
+  };
+};
+
 export const useRoom = create<RoomState>((set, get) => ({
   start: null,
   template: ROOM_TEMPLATES[0]!.id,
@@ -197,7 +230,12 @@ export const useRoom = create<RoomState>((set, get) => ({
       preset: true,
       rules: rulesFor(room),
     }),
-  setSize: (patch) => set({ ...patch, preset: false }),
+  setSize: (patch) =>
+    set((s) => ({
+      ...stretched(s, patch.width ?? s.width, patch.depth ?? s.depth),
+      ...patch,
+      preset: false,
+    })),
   set: (patch) => set(patch),
   setOpening: (id, patch) =>
     set((s) => ({
@@ -216,10 +254,14 @@ export const useRoom = create<RoomState>((set, get) => ({
   removeOpening: (id) =>
     set((s) => ({ openings: s.openings.filter((o) => o.id !== id) })),
   resetSize: () =>
-    set({
-      ...sized(get().flat, get().room),
-      height: CEILING.default,
-      preset: true,
+    set((s) => {
+      const size = sized(s.flat, s.room);
+      return {
+        ...stretched(s, size.width, size.depth),
+        ...size,
+        height: CEILING.default,
+        preset: true,
+      };
     }),
   setRules: (patch) => set({ rules: { ...get().rules, ...patch } }),
   resetRules: () => set({ rules: rulesFor(get().room) }),
@@ -241,7 +283,9 @@ export const useRoom = create<RoomState>((set, get) => ({
         ? s.cells.filter((c) => c !== key)
         : [...s.cells, key];
       // the squares must hold together to be a room
-      return outlineFromCells(new Set(cells)).length ? { cells } : {};
+      return outlineFromCells(new Set(cells)).length
+        ? { cells, drawn: null }
+        : {};
     }),
   addCorner: ([x, y]) => {
     const p: Point = [Math.round(x / SNAP) * SNAP, Math.round(y / SNAP) * SNAP];
@@ -256,8 +300,8 @@ export const useRoom = create<RoomState>((set, get) => ({
       set({
         drawn: drawing,
         drawing: [],
-        width: Math.max(1500, b.w),
-        depth: Math.max(1500, b.h),
+        width: Math.max(ROOM_SIZE.min, b.w),
+        depth: Math.max(ROOM_SIZE.min, b.h),
         preset: false,
       });
       return;
@@ -267,4 +311,27 @@ export const useRoom = create<RoomState>((set, get) => ({
     set({ drawing: [...drawing, p] });
   },
   clearWalls: () => set({ drawing: [], drawn: null }),
+  setOutline: (points) => {
+    const { points: drawn, dx, dy } = normalizeOutline(points);
+    const b = bbox(drawn);
+    const s = get();
+    set({
+      drawn,
+      width: b.w,
+      depth: b.h,
+      preset: false,
+      start: s.start ?? "template",
+      openings: s.openings.map((o) =>
+        o.at === null
+          ? o
+          : {
+              ...o,
+              at: o.at + (o.wall === "north" || o.wall === "south" ? dx : dy),
+            },
+      ),
+      stops: s.stops.map(([x, y]): Point => [x + dx, y + dy]),
+    });
+    useScene.getState().nudgeAll(dx, dy);
+    return { dx, dy };
+  },
 }));

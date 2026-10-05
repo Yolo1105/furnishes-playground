@@ -880,16 +880,17 @@ test("the Room tab starts from drawn walls or a template", async ({ page }) => {
   await expect(howTo.getByText("Don't show next time")).toBeVisible();
   await howTo.getByRole("button", { name: "Close guide" }).click();
   await expect(page.getByRole("button", { name: "Show me how" })).toBeVisible();
-  // drawing: the size comes from the walls, so no size block; the door and
-  // window wait for walls; the flat and room stay, to name the room
+  // four sections, whichever way the room starts; drawing: the size comes
+  // from the walls, so no size fields yet; the openings wait for walls;
+  // the flat and room stay, to name the room
   const titles = page.locator(".room .eva-pref-title");
-  await expect(titles.filter({ hasText: /^Walls$/ })).toBeVisible();
+  await expect(titles).toHaveText(["Start", "Openings", "Rules", "Finish"]);
   await expect(page.getByText("No walls yet")).toBeVisible();
-  await expect(titles.filter({ hasText: /^Size$/ })).toHaveCount(0);
+  await expect(page.locator(".room-dims")).toHaveCount(0);
   await expect(page.locator(".eva-pref[data-muted='true']")).toHaveCount(1);
   await expect(page.getByRole("radio", { name: "4-room" })).toBeVisible();
   await start.getByRole("radio", { name: "Template" }).click();
-  await expect(titles.filter({ hasText: /^Size$/ })).toBeVisible();
+  await expect(page.locator(".room-dims")).toHaveCount(1);
   await expect(page.locator(".eva-pref[data-muted='true']")).toHaveCount(0);
   const shapes = page.getByRole("radiogroup", { name: "Room shape" });
   await expect(shapes.getByRole("radio")).toHaveCount(ROOM_TEMPLATES.length);
@@ -2292,6 +2293,79 @@ test("openings are a list: the + strip adds them, the Wall tool moves and sizes 
   await page.getByRole("button", { name: "Remove passage" }).click();
   await expect(groups).toHaveCount(3);
   await expect(ofKind("passage")).toHaveCount(0);
+});
+
+test("the Wall tool reshapes the room: a wall pushed, a corner moved, a wall split; the pieces keep to the walls that stayed", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  await page.getByRole("button", { name: "Show 2D plan in main" }).click();
+  const svg = page.locator(".shell-stage .plan-svg");
+  const size = async () => {
+    const m = /(\d+) by (\d+) millimetres/.exec(
+      (await svg.getAttribute("aria-label")) ?? "",
+    )!;
+    return { w: Number(m[1]), d: Number(m[2]) };
+  };
+  const drag = async (name: string, dx: number, dy: number) => {
+    const h = svg.getByRole("button", { name, exact: true });
+    const b = (await h.boundingBox())!;
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(b.x + b.width / 2 + dx, b.y + b.height / 2 + dy, {
+      steps: 8,
+    });
+    await page.mouse.up();
+  };
+  // a piece's place from the west wall, to see it hold still
+  await page.getByRole("treeitem", { name: "Sofa", exact: true }).click();
+  await page.getByRole("tab", { name: "Detail", exact: true }).click();
+  const fromWest = page.getByRole("spinbutton", {
+    name: "Sofa from the west wall in millimetres",
+  });
+  const sofaX = Number(await fromWest.inputValue());
+  expect(await size()).toEqual({ w: 6500, d: 4000 });
+  await page.keyboard.press("w");
+  await expect(svg).toHaveAttribute("data-drawing", "true");
+  await expect(svg.locator(".plan-shape-edge")).toHaveCount(4);
+  await expect(svg.locator(".plan-shape-corner")).toHaveCount(4);
+  // the east wall pushed out: wider, the sofa where it was
+  await drag("Move wall 2", 20, 0);
+  const wider = await size();
+  expect(wider.w).toBeGreaterThan(6500);
+  expect(wider.d).toBe(4000);
+  await expect(fromWest).toHaveValue(String(sofaX));
+  // the west wall pushed out: wider again, and the sofa keeps to the
+  // walls that stayed, so it stands further from the west wall
+  await drag("Move wall 4", -20, 0);
+  const widest = await size();
+  expect(widest.w).toBeGreaterThan(wider.w);
+  expect(Number(await fromWest.inputValue())).toBe(sofaX + widest.w - wider.w);
+  // a corner dragged: the two walls meeting there follow
+  await drag("Move corner 3", 15, 15);
+  const cornered = await size();
+  expect(cornered.w).toBeGreaterThan(widest.w);
+  expect(cornered.d).toBeGreaterThan(4000);
+  // the north wall split in two, one half pushed in: a notch, six corners
+  await svg
+    .getByRole("button", { name: "Move wall 1", exact: true })
+    .dblclick();
+  await expect(svg.locator(".plan-shape-corner")).toHaveCount(5);
+  await drag("Move wall 1", 0, 15);
+  await expect(svg.locator(".plan-shape-corner")).toHaveCount(6);
+  await expect(svg.locator(".plan-shape-edge")).toHaveCount(6);
+  // the Room tab reads the room as yours now, no template checked
+  await page.getByRole("tab", { name: "Room", exact: true }).click();
+  await expect(page.locator(".room-size")).toContainText("yours");
+  await expect(
+    page
+      .getByRole("radiogroup", { name: "Room shape" })
+      .getByRole("radio", { checked: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("spinbutton", { name: "width in millimetres", exact: true }),
+  ).toHaveValue(String(cornered.w));
 });
 
 test("Generate makes a room item from a few words; it stands as a shape without a provider", async ({

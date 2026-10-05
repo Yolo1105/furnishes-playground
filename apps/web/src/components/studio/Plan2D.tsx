@@ -11,13 +11,23 @@ import {
 import {
   OPENING_WIDTH,
   ROOM_NAMES,
+  ROOM_SIZE,
   type Opening,
   type Wall,
 } from "./room-data";
-import { WALL_MM } from "./room-geometry";
+import {
+  edgeFrame,
+  edgesOf,
+  isSimple,
+  moveCorner,
+  pushEdge,
+  splitEdge,
+  WALL_MM,
+} from "./room-geometry";
 import { usePieceActions } from "./piece-actions";
 import { openingCentre, zonesOf } from "./room-health";
 import { CLOSE_WITHIN, footprintOf, useRoom } from "./room-store";
+import type { Point } from "./room-templates";
 import { useStudio } from "./studio-store";
 import { PLACE_SNAP } from "./piece-detail";
 import {
@@ -50,6 +60,12 @@ import {
 const WALL = WALL_MM / 2; // mm, half the band's thickness
 const FACE = 14; // mm, the face line either side of the band
 const MARGIN = 1100; // mm, room for the dimensions, the arrow, the title
+/** the room's handles with the Wall tool, mm: the bar on a wall takes a
+    share of the wall's free run, between a shortest and a longest, and
+    carries the wall's length once it is long enough; the corner is a
+    square */
+const BAR = { min: 300, max: 1200, share: 0.6, labelled: 700 };
+const CORNER = 260;
 
 type Edge = {
   x: number;
@@ -126,6 +142,7 @@ export function Plan2D({
   const vw = W + 2 * MARGIN;
   const vh = D + 2 * MARGIN;
   const outline = footprintOf(r);
+  const edges = edgesOf(outline);
   const poly = outline.map((p) => p.join(",")).join(" ");
   const drawingOn = interactive && tool === "wall";
   // with the Wall tool the openings take the hand: a drag along the wall
@@ -136,6 +153,19 @@ export function Plan2D({
     mode: "move" | "a" | "b";
     /** the end that stays, mm along the wall, while the other is pulled */
     keep: number;
+  } | null>(null);
+  // and the room itself: a bar on each wall pushes it in or out, a square
+  // on each corner moves it, a double-click on a wall splits it in two
+  const handles = drawingOn && r.drawing.length === 0;
+  const shape = useRef<{
+    kind: "edge" | "corner";
+    i: number;
+    /** the outline when the drag began, in the frame it began in */
+    from: Point[];
+    /** where the pointer began, in that frame */
+    at: Point;
+    /** how far the frame has moved since, as walls were pushed */
+    acc: { x: number; y: number };
   } | null>(null);
   const measuring = interactive && tool === "measure";
   const touring = interactive && tool === "tour";
@@ -210,7 +240,7 @@ export function Plan2D({
     const pt = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse());
     return [pt.x, pt.y] as [number, number];
   };
-  const snapped = (p: [number, number]): [number, number] => [
+  const snapped = (p: Point): [number, number] => [
     Math.round(p[0] / snap) * snap,
     Math.round(p[1] / snap) * snap,
   ];
@@ -358,6 +388,66 @@ export function Plan2D({
   const onGripUp = (o: Opening) => {
     if (grip.current?.id === o.id) grip.current = null;
   };
+  /** the outline put to the store if it still makes a room, in the frame
+      the drag began in; the frame's own move is kept to carry on from */
+  const reshape = (g: NonNullable<typeof shape.current>, next: Point[]) => {
+    if (!isSimple(next)) return;
+    const xs = next.map((p) => p[0]);
+    const ys = next.map((p) => p[1]);
+    const w = Math.max(...xs) - Math.min(...xs);
+    const d = Math.max(...ys) - Math.min(...ys);
+    if (
+      w < ROOM_SIZE.min ||
+      d < ROOM_SIZE.min ||
+      w > ROOM_SIZE.max ||
+      d > ROOM_SIZE.max
+    )
+      return;
+    const moved = r.setOutline(
+      next.map(([x, y]): Point => [x - g.acc.x, y - g.acc.y]),
+    );
+    g.acc = { x: g.acc.x - moved.dx, y: g.acc.y - moved.dy };
+  };
+  const onShapeDown = (
+    e: PointerEvent<SVGElement>,
+    kind: "edge" | "corner",
+    i: number,
+  ) => {
+    if (!handles || e.button !== 0) return;
+    e.stopPropagation();
+    const pt = mmOf(e);
+    if (!pt) return;
+    shape.current = { kind, i, from: outline, at: pt, acc: { x: 0, y: 0 } };
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* a pointer the browser no longer knows */
+    }
+  };
+  const onShapeMove = (e: PointerEvent<SVGElement>) => {
+    const g = shape.current;
+    if (!g) return;
+    const here = mmOf(e);
+    if (!here) return;
+    // the pointer, in the frame the drag began in
+    const pt: Point = [here[0] + g.acc.x, here[1] + g.acc.y];
+    if (g.kind === "edge") {
+      const f = edgeFrame(g.from, g.i);
+      const d =
+        Math.round(
+          ((pt[0] - g.at[0]) * f.nx + (pt[1] - g.at[1]) * f.ny) / snap,
+        ) * snap;
+      reshape(g, pushEdge(g.from, g.i, d));
+    } else reshape(g, moveCorner(g.from, g.i, snapped(pt)));
+  };
+  const onShapeUp = () => {
+    shape.current = null;
+  };
+  const onEdgeSplit = (e: MouseEvent<SVGElement>, i: number) => {
+    e.stopPropagation();
+    const pt = mmOf(e);
+    if (pt) r.setOutline(splitEdge(outline, i, snapped(pt)));
+  };
   /** a hinged leaf: the hinge at one jamb, the leaf standing into the
       room, the swing from its tip to the other jamb; a double door is
       two of these, hinged at each jamb */
@@ -473,6 +563,100 @@ export function Plan2D({
         />
         <polygon points={poly} className="plan-wall" strokeWidth={WALL * 2} />
 
+        {/* the room's own handles, with the Wall tool, under the openings so
+            their grips stay in reach: a bar on each wall
+            and a square on each corner, the wall's length beside it */}
+        {handles && (
+          <g className="plan-shape">
+            {outline.map((_, i) => {
+              const f = edgeFrame(outline, i);
+              const wall = edges[i]!.wall;
+              const horizontal = wall === "north" || wall === "south";
+              // the bar sits in the longest run of the wall with no
+              // opening in it, so the openings' own grips stay in reach
+              const lo = Math.min(
+                horizontal ? f.a[0] : f.a[1],
+                horizontal ? f.b[0] : f.b[1],
+              );
+              const hi = lo + f.len;
+              const across = horizontal ? f.a[1] : f.a[0];
+              const taken = r.openings
+                .map((o) => ({ o, c: openingCentre(opening, o) }))
+                .filter(({ c }) => c.at === across)
+                .map(
+                  ({ o, c }) =>
+                    [c.centre - o.width / 2, c.centre + o.width / 2] as const,
+                )
+                .sort((p, q) => p[0] - q[0]);
+              let run: readonly [number, number] = [lo, lo];
+              let from = lo;
+              for (const [p, q] of [...taken, [hi, hi] as const]) {
+                if (p - from > run[1] - run[0]) run = [from, p];
+                from = Math.max(from, q);
+              }
+              const len = Math.max(
+                BAR.min,
+                Math.min(BAR.max, (run[1] - run[0]) * BAR.share),
+              );
+              const mid = (run[0] + run[1]) / 2;
+              const mx = horizontal ? mid : across;
+              const my = horizontal ? across : mid;
+              const angle = (Math.atan2(f.uy, f.ux) * 180) / Math.PI;
+              return (
+                <g
+                  key={`e${i}`}
+                  transform={`translate(${mx} ${my}) rotate(${angle})`}
+                >
+                  <rect
+                    x={-len / 2}
+                    y={-WALL}
+                    width={len}
+                    height={WALL * 2}
+                    rx={60}
+                    className="plan-shape-edge"
+                    data-across={horizontal ? "ns" : "ew"}
+                    role="button"
+                    aria-label={`Move wall ${i + 1}`}
+                    onPointerDown={(ev) => onShapeDown(ev, "edge", i)}
+                    onPointerMove={onShapeMove}
+                    onPointerUp={onShapeUp}
+                    onPointerCancel={onShapeUp}
+                    onClick={(ev) => ev.stopPropagation()}
+                    onDoubleClick={(ev) => onEdgeSplit(ev, i)}
+                  />
+                  {len >= BAR.labelled && (
+                    <text
+                      className="plan-shape-len f-num"
+                      // read from below or from the right, as a drawing has it
+                      transform={
+                        angle >= 90 || angle < -90 ? "rotate(180)" : undefined
+                      }
+                    >
+                      {Math.round(f.len)}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
+            {outline.map(([x, y], i) => (
+              <rect
+                key={`c${i}`}
+                x={x - CORNER / 2}
+                y={y - CORNER / 2}
+                width={CORNER}
+                height={CORNER}
+                className="plan-shape-corner"
+                role="button"
+                aria-label={`Move corner ${i + 1}`}
+                onPointerDown={(ev) => onShapeDown(ev, "corner", i)}
+                onPointerMove={onShapeMove}
+                onPointerUp={onShapeUp}
+                onPointerCancel={onShapeUp}
+                onClick={(ev) => ev.stopPropagation()}
+              />
+            ))}
+          </g>
+        )}
         {/* the openings: a window as the gap and its three lines; a door
             as the gap, its leaf and its swing (two for a double door);
             a sliding door as two panels past each other; a passage as

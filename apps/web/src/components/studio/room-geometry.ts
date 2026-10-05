@@ -161,3 +161,130 @@ export const outlineFromCells = (cells: ReadonlySet<string>): Point[] => {
     );
   });
 };
+
+/* ---------- editing the outline ---------- */
+
+/** edge i: its ends, its direction as a unit vector, its inward normal
+    and its length */
+export const edgeFrame = (poly: readonly Point[], i: number) => {
+  let area = 0;
+  for (let k = 0; k < poly.length; k++) {
+    const [x1, y1] = poly[k]!;
+    const [x2, y2] = poly[(k + 1) % poly.length]!;
+    area += x1 * y2 - x2 * y1;
+  }
+  const cw = area > 0;
+  const a = poly[i]!;
+  const b = poly[(i + 1) % poly.length]!;
+  const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+  const ux = (b[0] - a[0]) / len;
+  const uy = (b[1] - a[1]) / len;
+  return { a, b, ux, uy, nx: cw ? -uy : uy, ny: cw ? ux : -ux, len };
+};
+
+const collinear = (p: Point, q: Point, r: Point) =>
+  Math.abs((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])) <
+  1e-6;
+
+/** edge i moved along its inward normal by d (outward when d < 0); the
+    edges either side stretch to follow, and a neighbour that ran
+    straight on from it gets a step instead, so the moved edge stays
+    square to the room */
+export const pushEdge = (
+  poly: readonly Point[],
+  i: number,
+  d: number,
+): Point[] => {
+  const n = poly.length;
+  const f = edgeFrame(poly, i);
+  const prev = poly[(i + n - 1) % n]!;
+  const next = poly[(i + 2) % n]!;
+  const a2: Point = [f.a[0] + f.nx * d, f.a[1] + f.ny * d];
+  const b2: Point = [f.b[0] + f.nx * d, f.b[1] + f.ny * d];
+  const out: Point[] = [];
+  for (let k = 0; k < n; k++) {
+    if (k === i) {
+      if (d !== 0 && collinear(prev, f.a, f.b)) out.push(f.a);
+      out.push(a2);
+    } else if (k === (i + 1) % n) {
+      out.push(b2);
+      if (d !== 0 && collinear(f.a, f.b, next)) out.push(f.b);
+    } else out.push(poly[k]!);
+  }
+  return out;
+};
+
+/** corner i moved to p; a neighbour that shared the corner's x or y
+    keeps sharing it, so the walls between stay straight */
+export const moveCorner = (
+  poly: readonly Point[],
+  i: number,
+  p: Point,
+): Point[] => {
+  const n = poly.length;
+  const was = poly[i]!;
+  return poly.map((q, k) => {
+    if (k === i) return p;
+    if (k !== (i + n - 1) % n && k !== (i + 1) % n) return q;
+    return [q[0] === was[0] ? p[0] : q[0], q[1] === was[1] ? p[1] : q[1]];
+  });
+};
+
+/** a corner put into edge i where p falls along it, so each half can
+    be moved on its own */
+export const splitEdge = (
+  poly: readonly Point[],
+  i: number,
+  p: Point,
+): Point[] => {
+  const f = edgeFrame(poly, i);
+  const t = Math.min(
+    f.len,
+    Math.max(0, (p[0] - f.a[0]) * f.ux + (p[1] - f.a[1]) * f.uy),
+  );
+  const at: Point = [
+    Math.round(f.a[0] + f.ux * t),
+    Math.round(f.a[1] + f.uy * t),
+  ];
+  return [...poly.slice(0, i + 1), at, ...poly.slice(i + 1)];
+};
+
+const segmentsCross = (p: Point, q: Point, r: Point, s: Point) => {
+  const o = (a: Point, b: Point, c: Point) =>
+    Math.sign((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]));
+  return (
+    o(p, q, r) !== o(p, q, s) &&
+    o(r, s, p) !== o(r, s, q) &&
+    o(p, q, r) !== 0 &&
+    o(r, s, p) !== 0
+  );
+};
+
+/** whether the outline still makes a room: three corners or more, no
+    wall of no length, no wall crossing another */
+export const isSimple = (poly: readonly Point[]) => {
+  const n = poly.length;
+  if (n < 3) return false;
+  for (let i = 0; i < n; i++) {
+    const a = poly[i]!;
+    const b = poly[(i + 1) % n]!;
+    if (a[0] === b[0] && a[1] === b[1]) return false;
+    for (let j = i + 2; j < n; j++) {
+      if (i === 0 && j === n - 1) continue;
+      if (segmentsCross(a, b, poly[j]!, poly[(j + 1) % n]!)) return false;
+    }
+  }
+  return true;
+};
+
+/** the outline from its top-left corner, and how far it moved to get
+    there (what stood in the old frame shifts by the same amount) */
+export const normalizeOutline = (poly: readonly Point[]) => {
+  const dx = -Math.min(...poly.map((p) => p[0]));
+  const dy = -Math.min(...poly.map((p) => p[1]));
+  return {
+    points: poly.map(([x, y]): Point => [x + dx, y + dy]),
+    dx,
+    dy,
+  };
+};

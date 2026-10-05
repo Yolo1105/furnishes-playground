@@ -24,6 +24,7 @@ import {
   PRIORITY,
   REVEAL,
   ROOM_NAMES,
+  ROOM_SIZE,
   type RoomId,
   RULE_PRESETS,
   rulesFor,
@@ -83,8 +84,8 @@ export function RoomTab() {
         type="number"
         className="room-dim-input f-num"
         inputMode="numeric"
-        min={key === "height" ? CEILING.min : 1500}
-        max={key === "height" ? CEILING.max : 12000}
+        min={key === "height" ? CEILING.min : ROOM_SIZE.min}
+        max={key === "height" ? CEILING.max : ROOM_SIZE.max}
         step={50}
         value={s[key]}
         aria-label={`${key} in millimetres`}
@@ -312,133 +313,124 @@ export function RoomTab() {
           <span className="eva-pref-title">Start</span>
         </div>
         <RoomStart />
-      </section>
-
-      {start === null && (
-        <p className="eva-pref-hint room-start-lead">
-          Pick one to go on: a template brings the flat&apos;s typical sizes;
-          drawing brings your own.
-        </p>
-      )}
-      {start === "draw" && (
-        <section className="eva-pref" data-set={walls > 0}>
-          <div className="eva-pref-head">
-            <span className="eva-pref-index f-num">{index()}</span>
-            <span className="eva-pref-title">Walls</span>
-            {walls > 0 && (
-              <button
-                type="button"
-                className="eva-pref-clear"
-                onClick={s.clearWalls}
-              >
-                Clear
-              </button>
-            )}
-          </div>
-          <p className="eva-pref-hint room-size">
-            {walls === 0
-              ? "No walls yet"
-              : s.drawn
-                ? `${walls} walls · ${metres(s.width)} × ${metres(s.depth)}`
-                : `${walls} ${walls === 1 ? "wall" : "walls"} so far`}
-            <span className="room-size-note">
-              {s.drawn
-                ? " · from your drawing"
-                : " · click the plan to set corners; click the first again to close"}
-            </span>
+        {start === null && (
+          <p className="eva-pref-hint room-start-lead">
+            Pick one to go on: a template brings the flat&apos;s typical sizes;
+            drawing brings your own.
           </p>
-        </section>
-      )}
-      {start !== null && (
-        <>
-          <section className="eva-pref" data-set="true">
-            <div className="eva-pref-head">
-              <span className="eva-pref-index f-num">{index()}</span>
-              <span className="eva-pref-title">Flat</span>
+        )}
+        {start !== null && (
+          <>
+            <div className="room-field">
+              <span className="room-field-label">Flat</span>
+              <div
+                className="main-seg room-seg"
+                role="radiogroup"
+                aria-label="Flat type"
+              >
+                {FLAT_TYPES.map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    role="radio"
+                    className="main-seg-btn"
+                    aria-checked={s.flat === f}
+                    onClick={() => s.setFlat(f)}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+              <p className="eva-pref-hint">
+                {start === "draw"
+                  ? "HDB · Singapore · so Eva knows which flat this is"
+                  : "HDB · Singapore"}
+              </p>
             </div>
-            <div
-              className="main-seg room-seg"
-              role="radiogroup"
-              aria-label="Flat type"
-            >
-              {FLAT_TYPES.map((f) => (
-                <button
-                  key={f}
-                  type="button"
-                  role="radio"
-                  className="main-seg-btn"
-                  aria-checked={s.flat === f}
-                  onClick={() => s.setFlat(f)}
-                >
-                  {f}
-                </button>
-              ))}
+            <div className="room-field">
+              <span className="room-field-label">Room</span>
+              <div className="eva-chips" role="radiogroup" aria-label="Room">
+                {rooms.map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    role="radio"
+                    className="assets-chip"
+                    aria-checked={s.room === id}
+                    onClick={() => s.setRoom(id)}
+                  >
+                    {ROOM_NAMES[id]}
+                  </button>
+                ))}
+              </div>
             </div>
-            <p className="eva-pref-hint">
-              {start === "draw"
-                ? "HDB · Singapore · so Eva knows which flat this is"
-                : "HDB · Singapore"}
-            </p>
-          </section>
-          <section className="eva-pref" data-set="true">
-            <div className="eva-pref-head">
-              <span className="eva-pref-index f-num">{index()}</span>
-              <span className="eva-pref-title">Room</span>
-            </div>
-            <div className="eva-chips" role="radiogroup" aria-label="Room">
-              {rooms.map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  role="radio"
-                  className="assets-chip"
-                  aria-checked={s.room === id}
-                  onClick={() => s.setRoom(id)}
-                >
-                  {ROOM_NAMES[id]}
-                </button>
-              ))}
-            </div>
-          </section>
-        </>
-      )}
-      {start === "template" && (
-        <>
-          <section className="eva-pref" data-set="true">
-            <div className="eva-pref-head">
-              <span className="eva-pref-index f-num">{index()}</span>
-              <span className="eva-pref-title">Size</span>
-              {!s.preset && (
-                <button
-                  type="button"
-                  className="eva-pref-clear"
-                  onClick={s.resetSize}
-                >
-                  Typical
-                </button>
+            <div className="room-field">
+              <span className="room-field-label room-field-head">
+                Size
+                {start === "draw" && walls > 0 && (
+                  <button
+                    type="button"
+                    className="eva-pref-clear"
+                    onClick={s.clearWalls}
+                  >
+                    Clear
+                  </button>
+                )}
+                {start === "template" && !s.preset && (
+                  <button
+                    type="button"
+                    className="eva-pref-clear"
+                    onClick={s.resetSize}
+                  >
+                    Typical
+                  </button>
+                )}
+              </span>
+              <p className="eva-pref-hint room-size">
+                {start === "draw" && !s.drawn ? (
+                  <>
+                    {walls === 0
+                      ? "No walls yet"
+                      : `${walls} ${walls === 1 ? "wall" : "walls"} so far`}
+                    <span className="room-size-note">
+                      {" "}
+                      · click the plan to set corners; click the first again to
+                      close
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    {start === "draw" ? `${walls} walls · ` : ""}
+                    {metres(s.width)} × {metres(s.depth)} · {metres(s.height)}{" "}
+                    high
+                    <span className="room-size-note">
+                      {s.preset
+                        ? ` · typical for a ${s.flat}`
+                        : start === "draw"
+                          ? " · from your drawing"
+                          : " · yours"}
+                    </span>
+                  </>
+                )}
+              </p>
+              {(start === "template" || s.drawn) && (
+                <div className="room-dims">
+                  {num("width")}
+                  {num("depth")}
+                  {num("height")}
+                </div>
+              )}
+              {fit.length > 0 && (
+                <ul className="room-fit" aria-label="What fits">
+                  {fit.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
               )}
             </div>
-            <p className="eva-pref-hint room-size">
-              {metres(s.width)} × {metres(s.depth)} · {metres(s.height)} high
-              <span className="room-size-note">
-                {s.preset ? ` · typical for a ${s.flat}` : " · yours"}
-              </span>
-            </p>
-            <div className="room-dims">
-              {num("width")}
-              {num("depth")}
-              {num("height")}
-            </div>
-            {fit.length > 0 && (
-              <ul className="room-fit" aria-label="What fits">
-                {fit.map((line) => (
-                  <li key={line}>{line}</li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </>
-      )}
+          </>
+        )}
+      </section>
       {start !== null && (
         <>
           <section

@@ -151,8 +151,15 @@ other view small over Eva's Agent, History and Preference tabs.
 
 The room is its outline, not the box round it: a template (square,
 rectangle, long, L, mirrored L, alcove, T, U, or a shape tapped out of
-squares) or drawn walls; the health rules, the three layouts, the 3D
-floor and walls and the walk all keep to it. The openings are a list on
+squares) or drawn walls, and either kind is reshaped on the plan with
+the Wall tool: a bar on each wall pushes it in or out (the walls either
+side follow, and a wall that ran straight on gets a step), a square on
+each corner moves it, a double-click splits a wall in two, and the bar
+reads the wall's length; what stands in the room keeps to the walls
+that stayed. The Room tab's four sections are Start (how the room
+begins, the flat and room, the size in millimetres), Openings, Rules
+and Finish. The health rules, the three layouts, the 3D floor and walls
+and the walk all keep to the outline. The openings are a list on
 the walls: hinged, sliding and double doors, open passages and windows,
 each on the longest real edge of its side, added from the + strip (a
 tile dropped on the plan goes into the nearest wall where it lands) or

@@ -48,6 +48,7 @@ export const GUIDES: Record<GuideId, Guide> = {
     lines: [
       "Click on the canvas to start a wall. Move the pointer to set its length.",
       "Click again to place it, and carry on until the room closes.",
+      "A room already there has handles: drag a wall in or out, drag a corner, or double-click a wall to split it.",
     ],
   },
 };
@@ -83,7 +84,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
   {
     id: "toolbar",
     title: "The toolbar",
-    body: "Edit or Render. Select picks, moves and turns a piece; Inspect offers its details or a label for Eva; Wall draws the room and moves its doors and windows, Measure reads a distance and Tour sets stops, all on the plan; Add opens the openings, parts and pieces. In 3D, View settings sets edges, names, the grid, shadows and the light. Then the eye that hides every panel, undo and redo, Eva's preferences, this guide, and Export, which also shares the room by link.",
+    body: "Edit or Render. Select picks, moves and turns a piece; Inspect offers its details or a label for Eva; Wall draws or reshapes the room and moves its doors and windows, Measure reads a distance and Tour sets stops, all on the plan; Add opens the openings, parts and pieces. In 3D, View settings sets edges, names, the grid, shadows and the light. Then the eye that hides every panel, undo and redo, Eva's preferences, this guide, and Export, which also shares the room by link.",
     target: ".main-top",
     side: "below",
   },

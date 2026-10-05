@@ -74,6 +74,11 @@ type SceneState = {
   /** the turn handle's drag, between dragStart and dragEnd */
   turnMove: (id: string, rotation: number) => void;
   dragEnd: () => void;
+  /** the room's shape changed: every piece is held where it stands (a
+      laid-out one is not laid out afresh) and, when the room's corner
+      moved, all move by the same amount, so they keep to the walls that
+      stayed. Not a step to undo, since the room's shape is not one either */
+  nudgeAll: (dx: number, dy: number) => void;
 };
 
 /** What stands in the room right now: the outliner, the shelf and the
@@ -258,6 +263,19 @@ export const useScene = create<SceneState>((set, get) => {
       set((s) => ({
         overrides: { ...s.overrides, [id]: { ...s.overrides[id], rotation } },
       })),
+    nudgeAll: (dx, dy) =>
+      set((s) => {
+        const overrides = { ...held(s) };
+        if (!dx && !dy) return { overrides };
+        for (const g of s.groups)
+          for (const n of g.items) {
+            const o = overrides[n.id];
+            if (n.kind === "fixed" || o?.x === undefined || o?.y === undefined)
+              continue;
+            overrides[n.id] = { ...o, x: o.x + dx, y: o.y + dy };
+          }
+        return { overrides };
+      }),
     dragEnd: () =>
       set((s) => {
         const from = s.dragFrom;

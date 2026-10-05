@@ -52,6 +52,8 @@ export const PRESETS: Record<FlatType, Partial<Record<RoomId, Size>>> = {
 
 /** HDB ceilings run 2.6 to 2.8 m */
 export const CEILING = { default: 2600, min: 2400, max: 3200 } as const;
+/** how small and how large a room's width and depth can be, mm */
+export const ROOM_SIZE = { min: 1500, max: 12000 } as const;
 
 /** the door and the window as the drawings show them, mm: the door from
     the floor, the window from its sill */

@@ -15,6 +15,7 @@ import { useStudio } from "./studio-store";
 export function RoomStart() {
   const start = useRoom((s) => s.start);
   const template = useRoom((s) => s.template);
+  const drawn = useRoom((s) => s.drawn);
   const cells = useRoom((s) => s.cells);
   const { toggleCell } = useRoom.getState();
   const { setStart, setTemplate } = useRoom.getState();
@@ -58,7 +59,8 @@ export function RoomStart() {
       </div>
       {start === "draw" && (
         <p className="eva-pref-hint room-start-hint">
-          The Wall tool is on. Click the canvas to start.
+          The Wall tool is on: drag a wall or a corner, or click the canvas to
+          trace a new room.
           <button
             type="button"
             className="eva-pref-clear"
@@ -80,7 +82,7 @@ export function RoomStart() {
               type="button"
               role="radio"
               className="room-template"
-              aria-checked={template === t.id}
+              aria-checked={template === t.id && !drawn}
               onClick={() => setTemplate(t.id)}
             >
               <svg
@@ -97,7 +99,7 @@ export function RoomStart() {
           ))}
         </div>
       )}
-      {start === "template" && template === "grid" && (
+      {start === "template" && template === "grid" && !drawn && (
         <div className="room-grid-wrap">
           <div
             className="room-grid"
