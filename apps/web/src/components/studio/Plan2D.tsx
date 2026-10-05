@@ -8,10 +8,15 @@ import {
   type PointerEvent,
   type ReactNode,
 } from "react";
-import { OPENINGS, ROOM_NAMES, type Wall } from "./room-data";
+import {
+  OPENING_WIDTH,
+  ROOM_NAMES,
+  type Opening,
+  type Wall,
+} from "./room-data";
 import { WALL_MM } from "./room-geometry";
 import { usePieceActions } from "./piece-actions";
-import { openingAt, zonesOf } from "./room-health";
+import { openingCentre, zonesOf } from "./room-health";
 import { CLOSE_WITHIN, footprintOf, useRoom } from "./room-store";
 import { useStudio } from "./studio-store";
 import { PLACE_SNAP } from "./piece-detail";
@@ -45,7 +50,6 @@ import {
 const WALL = WALL_MM / 2; // mm, half the band's thickness
 const FACE = 14; // mm, the face line either side of the band
 const MARGIN = 1100; // mm, room for the dimensions, the arrow, the title
-const DOOR = OPENINGS.door.width;
 
 type Edge = {
   x: number;
@@ -124,6 +128,15 @@ export function Plan2D({
   const outline = footprintOf(r);
   const poly = outline.map((p) => p.join(",")).join(" ");
   const drawingOn = interactive && tool === "wall";
+  // with the Wall tool the openings take the hand: a drag along the wall
+  // moves one, a drag at an end pulls its width
+  const grips = drawingOn;
+  const grip = useRef<{
+    id: string;
+    mode: "move" | "a" | "b";
+    /** the end that stays, mm along the wall, while the other is pulled */
+    keep: number;
+  } | null>(null);
   const measuring = interactive && tool === "measure";
   const touring = interactive && tool === "tour";
   const stops = useRoom((s) => s.stops);
@@ -133,10 +146,7 @@ export function Plan2D({
     W,
     D,
     outline,
-    door: r.door,
-    doorOffset: r.doorOffset,
-    window: r.window,
-    windowWidth: r.windowWidth,
+    openings: r.openings,
   };
   const zones = zonesOf(opening);
   const doorBlocked = issues.some((i) => i.kind === "door");
@@ -291,35 +301,77 @@ export function Plan2D({
   const slant = a && b && a[0] !== b[0] && a[1] !== b[1];
   const length = a && b ? Math.round(Math.hypot(b[0] - a[0], b[1] - a[1])) : 0;
 
-  const WINDOW = r.windowWidth;
-  // the door sits along its wall by the HDB convention, the window in
-  // the middle of its own
-  const onEdge = (wall: Wall, width: number, offset: number | null): Edge => {
-    const e = edgeOf(wall, W, D);
-    const { centre, at } = openingAt(opening, wall, width, offset);
-    const horizontal = wall === "north" || wall === "south";
+  // each opening on its wall: its centre and the edge's run, so it is
+  // drawn along the wall whichever way the wall faces
+  const onEdge = (o: Opening): Edge => {
+    const e = edgeOf(o.wall, W, D);
+    const { centre, at } = openingCentre(opening, o);
+    const horizontal = o.wall === "north" || o.wall === "south";
     return {
       ...e,
       x: horizontal ? centre : at,
       y: horizontal ? at : centre,
     };
   };
-  const door = onEdge(r.door, DOOR, r.doorOffset);
-  const win = r.window ? onEdge(r.window, WINDOW, null) : null;
-  // the door: the hinge at one jamb, the leaf standing into the room, the
-  // swing from the leaf's tip to the other jamb
-  const hinge = {
-    x: door.x - (door.dx * DOOR) / 2,
-    y: door.y - (door.dy * DOOR) / 2,
+  /** where the pointer is along an opening's wall, mm, snapped */
+  const alongWall = (o: Opening, e: { clientX: number; clientY: number }) => {
+    const pt = mmOf(e);
+    if (!pt) return null;
+    const horizontal = o.wall === "north" || o.wall === "south";
+    return Math.round((horizontal ? pt[0] : pt[1]) / snap) * snap;
   };
-  const jamb = {
-    x: door.x + (door.dx * DOOR) / 2,
-    y: door.y + (door.dy * DOOR) / 2,
+  const onGripDown = (
+    e: PointerEvent<SVGElement>,
+    o: Opening,
+    mode: "move" | "a" | "b",
+  ) => {
+    if (!grips || e.button !== 0) return;
+    e.stopPropagation();
+    const c = openingCentre(opening, o).centre;
+    grip.current = {
+      id: o.id,
+      mode,
+      keep: mode === "a" ? c + o.width / 2 : c - o.width / 2,
+    };
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* a pointer the browser no longer knows */
+    }
   };
-  const tip = { x: hinge.x + door.nx * DOOR, y: hinge.y + door.ny * DOOR };
-  const cross = door.dx * door.ny - door.dy * door.nx;
-  const sweep = cross > 0 ? 1 : 0;
-
+  const onGripMove = (e: PointerEvent<SVGElement>, o: Opening) => {
+    const g = grip.current;
+    if (!g || g.id !== o.id) return;
+    const v = alongWall(o, e);
+    if (v === null) return;
+    const { setOpening } = useRoom.getState();
+    if (g.mode === "move") setOpening(o.id, { at: v });
+    else {
+      const width = Math.min(
+        OPENING_WIDTH.max,
+        Math.max(OPENING_WIDTH.min, Math.abs(v - g.keep)),
+      );
+      const at = g.mode === "a" ? g.keep - width / 2 : g.keep + width / 2;
+      setOpening(o.id, { at, width });
+    }
+  };
+  const onGripUp = (o: Opening) => {
+    if (grip.current?.id === o.id) grip.current = null;
+  };
+  /** a hinged leaf: the hinge at one jamb, the leaf standing into the
+      room, the swing from its tip to the other jamb; a double door is
+      two of these, hinged at each jamb */
+  const leafOf = (e: Edge, hingeAt: number, leaf: number, into: 1 | -1) => {
+    const hinge = { x: e.x + e.dx * hingeAt, y: e.y + e.dy * hingeAt };
+    const tip = { x: hinge.x + e.nx * leaf, y: hinge.y + e.ny * leaf };
+    const jamb = {
+      x: hinge.x + e.dx * leaf * into,
+      y: hinge.y + e.dy * leaf * into,
+    };
+    const cross = e.dx * e.ny - e.dy * e.nx;
+    const sweep = (cross > 0 ? 1 : 0) ^ (into < 0 ? 1 : 0);
+    return { hinge, tip, jamb, sweep, leaf };
+  };
   const dim = (
     a: [number, number],
     b: [number, number],
@@ -421,42 +473,110 @@ export function Plan2D({
         />
         <polygon points={poly} className="plan-wall" strokeWidth={WALL * 2} />
 
-        {/* the window: the opening in the band, then its three lines */}
-        {win && (
-          <>
-            <polygon
-              points={alongRect(win, WINDOW, WALL * 2 + 30)}
-              className="plan-opening"
-            />
-            {[-WALL, 0, WALL].map((k) => (
-              <line
-                key={k}
-                x1={win.x - (win.dx * WINDOW) / 2 + win.nx * k}
-                y1={win.y - (win.dy * WINDOW) / 2 + win.ny * k}
-                x2={win.x + (win.dx * WINDOW) / 2 + win.nx * k}
-                y2={win.y + (win.dy * WINDOW) / 2 + win.ny * k}
-                className="plan-line"
+        {/* the openings: a window as the gap and its three lines; a door
+            as the gap, its leaf and its swing (two for a double door);
+            a sliding door as two panels past each other; a passage as
+            the gap alone */}
+        {r.openings.map((o) => {
+          const e = onEdge(o);
+          const half = o.width / 2;
+          return (
+            <g
+              key={o.id}
+              className="plan-opening-group"
+              data-kind={o.kind}
+              data-wall={o.wall}
+            >
+              <polygon
+                points={alongRect(e, o.width, WALL * 2 + 30)}
+                className="plan-opening"
               />
-            ))}
-          </>
-        )}
-
-        {/* the door: the opening, the leaf, the swing */}
-        <polygon
-          points={alongRect(door, DOOR, WALL * 2 + 30)}
-          className="plan-opening"
-        />
-        <line
-          x1={hinge.x}
-          y1={hinge.y}
-          x2={tip.x}
-          y2={tip.y}
-          className="plan-leaf"
-        />
-        <path
-          d={`M ${tip.x} ${tip.y} A ${DOOR} ${DOOR} 0 0 ${sweep} ${jamb.x} ${jamb.y}`}
-          className="plan-swing"
-        />
+              {o.kind === "window" &&
+                [-WALL, 0, WALL].map((k) => (
+                  <line
+                    key={k}
+                    x1={e.x - e.dx * half + e.nx * k}
+                    y1={e.y - e.dy * half + e.ny * k}
+                    x2={e.x + e.dx * half + e.nx * k}
+                    y2={e.y + e.dy * half + e.ny * k}
+                    className="plan-line"
+                  />
+                ))}
+              {(o.kind === "door"
+                ? [leafOf(e, -half, o.width, 1)]
+                : o.kind === "double"
+                  ? [leafOf(e, -half, half, 1), leafOf(e, half, half, -1)]
+                  : []
+              ).map((l, i) => (
+                <g key={i}>
+                  <line
+                    x1={l.hinge.x}
+                    y1={l.hinge.y}
+                    x2={l.tip.x}
+                    y2={l.tip.y}
+                    className="plan-leaf"
+                  />
+                  <path
+                    d={`M ${l.tip.x} ${l.tip.y} A ${l.leaf} ${l.leaf} 0 0 ${l.sweep} ${l.jamb.x} ${l.jamb.y}`}
+                    className="plan-swing"
+                  />
+                </g>
+              ))}
+              {o.kind === "sliding" &&
+                [-1, 1].map((k) => (
+                  <line
+                    key={k}
+                    x1={e.x + e.dx * (k === -1 ? -half : 0) + e.nx * k * 40}
+                    y1={e.y + e.dy * (k === -1 ? -half : 0) + e.ny * k * 40}
+                    x2={e.x + e.dx * (k === -1 ? 0 : half) + e.nx * k * 40}
+                    y2={e.y + e.dy * (k === -1 ? 0 : half) + e.ny * k * 40}
+                    className="plan-leaf"
+                  />
+                ))}
+              {grips && (
+                <g className="plan-grips">
+                  <polygon
+                    points={alongRect(e, o.width, WALL * 2 + 120)}
+                    className="plan-grip"
+                    role="button"
+                    aria-label={`Move the ${o.kind} along its wall`}
+                    onPointerDown={(ev) => onGripDown(ev, o, "move")}
+                    onPointerMove={(ev) => onGripMove(ev, o)}
+                    onPointerUp={() => onGripUp(o)}
+                    onPointerCancel={() => onGripUp(o)}
+                    onClick={(ev) => ev.stopPropagation()}
+                  />
+                  {(["a", "b"] as const).map((end) => {
+                    const k = end === "a" ? -1 : 1;
+                    return (
+                      <circle
+                        key={end}
+                        cx={e.x + e.dx * k * half}
+                        cy={e.y + e.dy * k * half}
+                        r={110}
+                        className="plan-grip-end"
+                        role="button"
+                        aria-label={`Pull the ${o.kind}'s ${end === "a" ? "first" : "second"} end`}
+                        onPointerDown={(ev) => onGripDown(ev, o, end)}
+                        onPointerMove={(ev) => onGripMove(ev, o)}
+                        onPointerUp={() => onGripUp(o)}
+                        onPointerCancel={() => onGripUp(o)}
+                        onClick={(ev) => ev.stopPropagation()}
+                      />
+                    );
+                  })}
+                  <text
+                    x={e.x + e.nx * (WALL + 260)}
+                    y={e.y + e.ny * (WALL + 260)}
+                    className="plan-grip-label f-num"
+                  >
+                    {o.width}
+                  </text>
+                </g>
+              )}
+            </g>
+          );
+        })}
 
         {dim([0, 0], [W, 0], `${W}`, [0, -1])}
         {dim([0, D], [0, 0], `${D}`, [-1, 0])}
@@ -486,24 +606,28 @@ export function Plan2D({
         </g>
 
         {/* the door's swing and the window's light, while something stands in them */}
-        {doorBlocked && (
-          <rect
-            className="plan-zone"
-            x={zones.door.x}
-            y={zones.door.y}
-            width={zones.door.w}
-            height={zones.door.d}
-          />
-        )}
-        {windowBlocked && zones.window && (
-          <rect
-            className="plan-zone"
-            x={zones.window.x}
-            y={zones.window.y}
-            width={zones.window.w}
-            height={zones.window.d}
-          />
-        )}
+        {doorBlocked &&
+          zones.doors.map((d, i) => (
+            <rect
+              key={`d${i}`}
+              className="plan-zone"
+              x={d.zone.x}
+              y={d.zone.y}
+              width={d.zone.w}
+              height={d.zone.d}
+            />
+          ))}
+        {windowBlocked &&
+          zones.windows.map((w, i) => (
+            <rect
+              key={`w${i}`}
+              className="plan-zone"
+              x={w.zone.x}
+              y={w.zone.y}
+              width={w.zone.w}
+              height={w.zone.d}
+            />
+          ))}
         {/* the corners set so far, and the line between them */}
         {r.drawing.length > 0 && (
           <g className="plan-drawing">

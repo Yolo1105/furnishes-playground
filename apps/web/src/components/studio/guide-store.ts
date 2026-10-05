@@ -83,7 +83,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
   {
     id: "toolbar",
     title: "The toolbar",
-    body: "Edit or Render. Select picks, moves and turns a piece; Inspect offers its details or a label for Eva; Wall draws the room, Measure reads a distance and Tour sets stops, all on the plan; Add opens the parts and pieces. In 3D, View settings sets edges, names, the grid, shadows and the light. Then the eye that hides every panel, undo and redo, Eva's preferences, this guide, and Export, which also shares the room by link.",
+    body: "Edit or Render. Select picks, moves and turns a piece; Inspect offers its details or a label for Eva; Wall draws the room and moves its doors and windows, Measure reads a distance and Tour sets stops, all on the plan; Add opens the openings, parts and pieces. In 3D, View settings sets edges, names, the grid, shadows and the light. Then the eye that hides every panel, undo and redo, Eva's preferences, this guide, and Export, which also shares the room by link.",
     target: ".main-top",
     side: "below",
   },

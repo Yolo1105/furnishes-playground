@@ -45,7 +45,10 @@ export const HELP_TABS: readonly HelpTab[] = [
             does: "Measure",
             how: "M, then click two points; Escape clears the line.",
           },
-          { does: "Draw the walls", how: "W, then click corner to corner." },
+          {
+            does: "Draw the walls",
+            how: "W, then click corner to corner. With the tool on, drag a door or window along its wall, or pull either end to size it.",
+          },
           {
             does: "Set the tour's stops",
             how: "T, then click the plan; a click on a stop takes it away. Play walks the room.",

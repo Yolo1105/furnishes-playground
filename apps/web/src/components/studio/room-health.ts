@@ -2,11 +2,15 @@ import { isRug, isSmall } from "./piece-detail";
 import { gapToWalls, rectInside, sideSpan } from "./room-geometry";
 import type { Point } from "./room-templates";
 import {
-  doorCentreAlong,
   MUST_HAVE_CHOICES,
   OPENINGS,
+  type Opening,
+  PASS_DEPTH,
+  SILL_DEPTH,
   type Rules,
   type Wall,
+  isWindow,
+  swings,
 } from "./room-data";
 
 /**
@@ -53,70 +57,76 @@ export type Issue = {
   /** what the room is missing, by its must-have key */
   add?: string | undefined;
 };
-type Opening = {
+/** the room's walls and what is cut in them */
+export type Shell = {
   W: number;
   D: number;
   /** the room's outline, mm from its top-left corner */
   outline: readonly Point[];
-  door: Wall;
-  doorOffset: number | null;
-  window: Wall | null;
-  windowWidth: number;
+  openings: readonly Opening[];
 };
-export type Room = Opening & { rules: Rules };
+export type Room = Shell & { rules: Rules };
 
-/** the floor the door needs to swing, and the window's span by the wall
-    (none when the room has no window of its own) */
-/** where an opening's centre sits along its wall, and where that wall
-    stands across: on the longest edge of that side, so a door never
-    opens onto a notch; the HDB offset is kept where the edge allows */
-export const openingAt = (
-  r: Opening,
-  wall: Wall,
-  width: number,
-  offset: number | null,
-) => {
+/** the wall an opening sits in: the longest edge of that side, so a
+    door never opens onto a notch; and where the opening's centre comes
+    to rest along it, its asked place clamped within the edge */
+export const wallSpan = (r: Pick<Shell, "W" | "D" | "outline">, wall: Wall) => {
   const horizontal = wall === "north" || wall === "south";
   const L = horizontal ? r.W : r.D;
-  const span = sideSpan(r.outline, wall) ?? {
-    from: 0,
-    to: L,
-    at: wall === "north" || wall === "west" ? 0 : horizontal ? r.D : r.W,
-  };
-  const want =
-    offset === null ? (span.from + span.to) / 2 : doorCentreAlong(L, offset);
-  const centre = Math.min(
-    span.to - width / 2,
-    Math.max(span.from + width / 2, want),
+  return (
+    sideSpan(r.outline, wall) ?? {
+      from: 0,
+      to: L,
+      at: wall === "north" || wall === "west" ? 0 : horizontal ? r.D : r.W,
+    }
   );
-  return { centre, at: span.at };
+};
+export const openingCentre = (
+  r: Pick<Shell, "W" | "D" | "outline">,
+  o: Pick<Opening, "wall" | "at" | "width">,
+) => {
+  const span = wallSpan(r, o.wall);
+  const want = o.at ?? (span.from + span.to) / 2;
+  const centre = Math.min(
+    span.to - o.width / 2,
+    Math.max(span.from + o.width / 2, want),
+  );
+  return { centre, at: span.at, from: span.from, to: span.to };
 };
 
-export const zonesOf = (r: Opening): { door: Zone; window: Zone | null } => {
-  const along = (
-    wall: Wall,
-    width: number,
-    offset: number | null,
-    depth: number,
-  ): Zone => {
-    const { centre, at } = openingAt(r, wall, width, offset);
-    const start = centre - width / 2;
-    switch (wall) {
-      case "north":
-        return { x: start, y: at, w: width, d: depth };
-      case "south":
-        return { x: start, y: at - depth, w: width, d: depth };
-      case "west":
-        return { x: at, y: start, w: depth, d: width };
-      default:
-        return { x: at - depth, y: start, w: depth, d: width };
-    }
-  };
-  return {
-    door: along(r.door, OPENINGS.door.width, r.doorOffset, OPENINGS.door.width),
-    window: r.window ? along(r.window, r.windowWidth, null, 150) : null,
-  };
+/** the floor an opening claims inside the room: a swinging leaf its
+    width, a doorway with no leaf a walk's depth, a window a sill's */
+const zoneOf = (r: Shell, o: Opening, depth: number): Zone => {
+  const { centre, at } = openingCentre(r, o);
+  const start = centre - o.width / 2;
+  switch (o.wall) {
+    case "north":
+      return { x: start, y: at, w: o.width, d: depth };
+    case "south":
+      return { x: start, y: at - depth, w: o.width, d: depth };
+    case "west":
+      return { x: at, y: start, w: depth, d: o.width };
+    default:
+      return { x: at - depth, y: start, w: depth, d: o.width };
+  }
 };
+export const zonesOf = (
+  r: Shell,
+): {
+  doors: { zone: Zone; swings: boolean }[];
+  windows: { zone: Zone; sill: number }[];
+} => ({
+  doors: r.openings
+    .filter((o) => !isWindow(o))
+    .map((o) => ({
+      zone: zoneOf(r, o, swings(o) ? o.width : PASS_DEPTH),
+      swings: swings(o),
+    })),
+  windows: r.openings.filter(isWindow).map((o) => ({
+    zone: zoneOf(r, o, SILL_DEPTH),
+    sill: o.sill ?? OPENINGS.window.sill,
+  })),
+});
 type Zones = ReturnType<typeof zonesOf>;
 
 export const meets = (a: Zone, b: Zone) =>
@@ -170,7 +180,7 @@ const minor = (b: Box) => flat(b) || isSmall({ width: b.w, depth: b.d });
 const BED = MUST_HAVE_CHOICES.find((c) => c.key === "bed")!.match;
 const isBed = (b: Pick<Box, "name">) => BED.test(b.name);
 /** how far a box stands from the nearest wall */
-const wallGap = (b: Box, r: Opening) => gapToWalls(b, r.outline);
+const wallGap = (b: Box, r: Shell) => gapToWalls(b, r.outline);
 
 /** the gap between two boxes along the axis they do not share, or null
     when they do not face each other */
@@ -185,9 +195,9 @@ const gapBetween = (a: Box, b: Box) => {
 /** the floor a box must keep off: the door's swing when the rules ask,
     and the window's span when it would stand taller than the sill */
 export const keepOff = (b: Pick<Box, "h">, r: Room, zones: Zones): Zone[] => [
-  ...(r.rules.doorClear ? [zones.door] : []),
-  ...(r.rules.windowClear && zones.window && b.h > OPENINGS.window.sill
-    ? [zones.window]
+  ...(r.rules.doorClear ? zones.doors.map((d) => d.zone) : []),
+  ...(r.rules.windowClear
+    ? zones.windows.filter((w) => b.h > w.sill).map((w) => w.zone)
     : []),
 ];
 
@@ -197,12 +207,15 @@ const troubles = (b: Box, others: Box[], r: Room, zones: Zones) => {
   if (!rectInside(b, r.outline)) out.push("outside");
   if (!flat(b) && others.some((o) => !flat(o) && overlaps(b, o)))
     out.push("overlap");
-  if (r.rules.doorClear && !flat(b) && meets(b, zones.door)) out.push("door");
+  if (
+    r.rules.doorClear &&
+    !flat(b) &&
+    zones.doors.some((d) => meets(b, d.zone))
+  )
+    out.push("door");
   if (
     r.rules.windowClear &&
-    zones.window &&
-    b.h > OPENINGS.window.sill &&
-    meets(b, zones.window)
+    zones.windows.some((w) => b.h > w.sill && meets(b, w.zone))
   )
     out.push("window");
   if (
@@ -265,7 +278,9 @@ export const healthOf = (boxes: Box[], r: Room): Issue[] => {
     if (t.includes("door"))
       issues.push({
         kind: "door",
-        text: `${b.name} blocks the door's swing`,
+        text: zones.doors.some((d) => d.swings && meets(b, d.zone))
+          ? `${b.name} blocks the door's swing`
+          : `${b.name} blocks the doorway`,
         pieceId: b.id,
         fix: fixFor(b),
       });

@@ -1528,6 +1528,63 @@
 .stage-piece-tag-3d {
   position: static;
 }
+/* the openings under the Wall tool: a grip along the wall to move one,
+   a dot at each end to pull it, its width written beside it */
+.plan-grip {
+  fill: transparent;
+  stroke: none;
+  cursor: grab;
+  pointer-events: all;
+}
+.plan-grip:hover {
+  fill: rgb(from var(--color-accent) r g b / 0.14);
+}
+.plan-grip-end {
+  fill: var(--color-glass);
+  stroke: var(--color-accent);
+  stroke-width: 24;
+  cursor: ew-resize;
+  pointer-events: all;
+}
+.plan-grip-end:hover {
+  fill: var(--color-accent);
+}
+.plan-grip-label {
+  font-size: 180px;
+  font-weight: 600;
+  fill: var(--color-accent);
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
+/* an opening's mark in a tile or a row */
+.opening-glyph {
+  display: block;
+  overflow: visible;
+}
+.opening-glyph * {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.add-tile-opening .add-tile-pic {
+  display: grid;
+  place-items: center;
+  color: rgb(from var(--color-ink) r g b / 0.6);
+}
+.add-tile-pic .stage-piece-symbol {
+  position: static;
+  width: 100%;
+  height: 100%;
+}
+.add-tile-pic {
+  position: relative;
+  padding: 10px 14px;
+  --plan-ink: rgb(from var(--color-ink) r g b / 0.6);
+}
+
 /* ---- the plan, drawn as a drawing office draws it ---- */
 .stage-room-pieces:has(> .plan) {
   aspect-ratio: auto;

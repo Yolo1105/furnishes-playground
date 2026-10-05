@@ -700,7 +700,7 @@ test("the Room tab starts from the HDB preset and takes a size of your own", asy
   await expect(page.locator(".room-size")).toContainText("3.0 m × 3.0 m");
   await expect(page.getByRole("radio", { name: "Study" })).toHaveCount(0);
   await page
-    .getByRole("spinbutton", { name: "width in millimetres" })
+    .getByRole("spinbutton", { name: "width in millimetres", exact: true })
     .fill("3400");
   await expect(page.locator(".room-size")).toContainText("3.4 m × 3.0 m");
   await expect(page.locator(".room-size")).toContainText("yours");
@@ -2196,6 +2196,102 @@ test("the room knows its flat: what fits, where the door is, a kitchen without a
       .filter({ hasText: "closed storage hides clutter" })
       .first(),
   ).toBeVisible();
+});
+
+test("openings are a list: the + strip adds them, the Wall tool moves and sizes them, the Room tab names and removes them", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  await page.getByRole("button", { name: "Show 2D plan in main" }).click();
+  const svg = page.locator(".shell-stage .plan-svg");
+  const groups = svg.locator(".plan-opening-group");
+  const ofKind = (k: string) =>
+    svg.locator(`.plan-opening-group[data-kind="${k}"]`);
+  // the living room starts with its door and window
+  await expect(groups).toHaveCount(2);
+  // the strip's Openings row: a tile adds one into a free wall, a tile
+  // dropped on the plan goes into the wall nearest the drop
+  const add = page.getByRole("button", { name: "Add", exact: true });
+  const strip = page.getByRole("dialog", { name: "Add to the room" });
+  const openings = () =>
+    strip
+      .getByRole("group", { name: "Category" })
+      .getByRole("button", { name: "Openings" })
+      .click();
+  await add.click();
+  await openings();
+  await strip.getByRole("button", { name: /^Add a sliding door,/ }).click();
+  await expect(strip).toHaveCount(0);
+  await expect(ofKind("sliding")).toHaveCount(1);
+  await add.click();
+  await openings();
+  const sheet = page.locator(".plan-pieces");
+  const sb = (await sheet.boundingBox())!;
+  await strip
+    .getByRole("button", { name: /^Add a passage,/ })
+    .dragTo(sheet, { targetPosition: { x: 8, y: sb.height / 2 } });
+  await expect(ofKind("passage")).toHaveCount(1);
+  await expect(groups).toHaveCount(4);
+  // the Wall tool shows a grip on each opening: the door slides along its
+  // wall, and pulling an end makes it wider
+  await page.keyboard.press("w");
+  await expect(svg).toHaveAttribute("data-drawing", "true");
+  await expect(svg.locator(".plan-grip")).toHaveCount(4);
+  const leaf = ofKind("door").locator(".plan-leaf");
+  const hinge = Number(await leaf.getAttribute("x1"));
+  const grip = svg.locator(
+    '.plan-grip[aria-label="Move the door along its wall"]',
+  );
+  const gb = (await grip.boundingBox())!;
+  await page.mouse.move(gb.x + gb.width / 2, gb.y + gb.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(gb.x + gb.width / 2 - 120, gb.y + gb.height / 2, {
+    steps: 6,
+  });
+  await page.mouse.up();
+  expect(Number(await leaf.getAttribute("x1"))).toBeLessThan(hinge);
+  const end = svg.locator(
+    '.plan-grip-end[aria-label="Pull the door\'s first end"]',
+  );
+  const eb = (await end.boundingBox())!;
+  await page.mouse.move(eb.x + eb.width / 2, eb.y + eb.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(eb.x + eb.width / 2 - 60, eb.y + eb.height / 2, {
+    steps: 6,
+  });
+  await page.mouse.up();
+  await page.keyboard.press("Escape");
+  // the Room tab lists each by its kind: a named size sets the width (and
+  // for a doorway its kind), the wall moves it, Remove takes it away
+  await page.getByRole("tab", { name: "Room", exact: true }).click();
+  await page
+    .getByRole("radiogroup", { name: "Start from" })
+    .getByRole("radio", { name: "Template" })
+    .click();
+  const doorWidth = page.getByRole("spinbutton", {
+    name: "Door width in millimetres",
+    exact: true,
+  });
+  expect(Number(await doorWidth.inputValue())).toBeGreaterThan(900);
+  const doorSize = page.getByRole("group", { name: "Door size", exact: true });
+  await doorSize.getByRole("button", { name: "Standard" }).click();
+  await expect(doorWidth).toHaveValue("850");
+  await doorSize.getByRole("button", { name: "Double" }).click();
+  await expect(doorSize).toHaveCount(0);
+  await expect(
+    page.getByRole("spinbutton", { name: "Double door width in millimetres" }),
+  ).toHaveValue("1500");
+  await expect(ofKind("double")).toHaveCount(1);
+  await expect(ofKind("door")).toHaveCount(0);
+  await page
+    .getByRole("radiogroup", { name: "Double door on the" })
+    .getByRole("radio", { name: "west" })
+    .click();
+  await expect(ofKind("double")).toHaveAttribute("data-wall", "west");
+  await page.getByRole("button", { name: "Remove passage" }).click();
+  await expect(groups).toHaveCount(3);
+  await expect(ofKind("passage")).toHaveCount(0);
 });
 
 test("Generate makes a room item from a few words; it stands as a shape without a provider", async ({

@@ -2,10 +2,16 @@
 
 import { Environment, Lightformer } from "@react-three/drei";
 import { useMemo } from "react";
-import { DoubleSide, Shape } from "three";
-import { OPENINGS, type Floor, type Wall } from "./room-data";
+import { DoubleSide, FrontSide, Path, Shape } from "three";
+import {
+  type Floor,
+  isWindow,
+  type Opening,
+  OPENINGS,
+  type Wall,
+} from "./room-data";
 import { edgesOf, type Edge } from "./room-geometry";
-import { openingAt } from "./room-health";
+import { openingCentre } from "./room-health";
 import type { Point } from "./room-templates";
 import { floorTexture, shade, TILE_M } from "./textures";
 
@@ -36,10 +42,7 @@ export type RoomShape = {
   W: number;
   D: number;
   outline: readonly Point[];
-  door: Wall;
-  doorOffset: number | null;
-  window: Wall | null;
-  windowWidth: number;
+  openings: readonly Opening[];
   height: number;
   floor: Floor;
   floorHex: string;
@@ -85,17 +88,39 @@ const inward = (wall: Wall): [number, number] =>
         : [-1, 0];
 
 /** an opening's middle on its wall, in metres about the room's middle */
-const placeOf = (
-  r: RoomShape,
-  wall: Wall,
-  width: number,
-  offset: number | null,
-): [number, number] => {
-  const { centre, at } = openingAt(r, wall, width, offset);
-  const horizontal = wall === "north" || wall === "south";
+const placeOf = (r: RoomShape, o: Opening): [number, number] => {
+  const { centre, at } = openingCentre(r, o);
+  const horizontal = o.wall === "north" || o.wall === "south";
   const x = horizontal ? m(centre) : m(at);
   const z = horizontal ? m(at) : m(centre);
   return [x - m(r.W) / 2, z - m(r.D) / 2];
+};
+/** the holes an edge's wall has: each opening on this edge, as a box
+    along the wall (metres from the edge's middle) and up it */
+const holesOf = (r: RoomShape, e: Edge, h: number) => {
+  const horizontal = e.wall === "north" || e.wall === "south";
+  const mid = horizontal ? (e.a[0] + e.b[0]) / 2 : (e.a[1] + e.b[1]) / 2;
+  const lo = horizontal ? Math.min(e.a[0], e.b[0]) : Math.min(e.a[1], e.b[1]);
+  const hi = horizontal ? Math.max(e.a[0], e.b[0]) : Math.max(e.a[1], e.b[1]);
+  // seen from inside, a south or west wall reads mirrored along its run
+  const flip = e.wall === "south" || e.wall === "west" ? -1 : 1;
+  return r.openings
+    .filter((o) => o.wall === e.wall)
+    .map((o) => ({ o, c: openingCentre(r, o).centre }))
+    .filter(({ c }) => c >= lo && c <= hi)
+    .map(({ o, c }) => {
+      const sill = isWindow(o) ? m(o.sill ?? OPENINGS.window.sill) : 0;
+      const top = isWindow(o)
+        ? Math.min(m(o.head ?? OPENINGS.window.head), h - 0.15)
+        : Math.min(m(OPENINGS.door.height), h - 0.1);
+      return {
+        o,
+        x: flip * m(c - mid),
+        w: m(o.width),
+        y0: sill,
+        y1: top,
+      };
+    });
 };
 
 function WallRun({
@@ -104,12 +129,14 @@ function WallRun({
   d,
   h,
   wallHex,
+  holes,
 }: {
   e: Edge;
   w: number;
   d: number;
   h: number;
   wallHex: string;
+  holes: ReturnType<typeof holesOf>;
 }) {
   const ax = m(e.a[0]) - w / 2;
   const az = m(e.a[1]) - d / 2;
@@ -118,11 +145,38 @@ function WallRun({
   const len = Math.hypot(bx - ax, bz - az);
   const yaw = yawOf(e.wall);
   const [nx, nz] = inward(e.wall);
+  // the wall as a shape with its openings cut out, so a doorway is a
+  // way through and a window a hole for the glass
+  const shape = useMemo(() => {
+    const sh = new Shape();
+    sh.moveTo(-len / 2, 0);
+    sh.lineTo(len / 2, 0);
+    sh.lineTo(len / 2, h);
+    sh.lineTo(-len / 2, h);
+    sh.closePath();
+    for (const hole of holes) {
+      const x0 = Math.max(-len / 2, hole.x - hole.w / 2);
+      const x1 = Math.min(len / 2, hole.x + hole.w / 2);
+      if (x1 - x0 < 0.05) continue;
+      const path = new Path();
+      path.moveTo(x0, hole.y0);
+      path.lineTo(x1, hole.y0);
+      path.lineTo(x1, hole.y1);
+      path.lineTo(x0, hole.y1);
+      path.closePath();
+      sh.holes.push(path);
+    }
+    return sh;
+  }, [len, h, holes]);
   return (
     <group position={[(ax + bx) / 2, 0, (az + bz) / 2]} rotation={[0, yaw, 0]}>
-      <mesh position={[0, h / 2, 0]} receiveShadow>
-        <planeGeometry args={[len, h]} />
-        <meshStandardMaterial color={wallHex} roughness={0.95} />
+      <mesh receiveShadow>
+        <shapeGeometry args={[shape]} />
+        <meshStandardMaterial
+          color={wallHex}
+          roughness={0.95}
+          side={DoubleSide}
+        />
       </mesh>
       {/* the skirting stands just inside the wall's face */}
       <mesh
@@ -144,12 +198,15 @@ function Face({
   colour,
   rough = 0.6,
   emissive,
+  both = false,
 }: {
   at: [number, number, number];
   size: [number, number];
   colour: string;
   rough?: number;
   emissive?: string;
+  /** seen from behind too: a leaf or a pane in a cut wall */
+  both?: boolean;
 }) {
   return (
     <mesh position={at} receiveShadow>
@@ -159,20 +216,20 @@ function Face({
         roughness={rough}
         emissive={emissive ?? "#000000"}
         emissiveIntensity={emissive ? 0.9 : 0}
+        side={both ? DoubleSide : FrontSide}
       />
     </mesh>
   );
 }
 
-function Window({ r }: { r: RoomShape }) {
-  if (!r.window) return null;
-  const width = m(r.windowWidth);
-  const sill = m(OPENINGS.window.sill);
-  const head = Math.min(m(OPENINGS.window.head), m(r.height) - 0.15);
+function Window({ r, o }: { r: RoomShape; o: Opening }) {
+  const width = m(o.width);
+  const sill = m(o.sill ?? OPENINGS.window.sill);
+  const head = Math.min(m(o.head ?? OPENINGS.window.head), m(r.height) - 0.15);
   const tall = head - sill;
   const mid = sill + tall / 2;
-  const [x, z] = placeOf(r, r.window, r.windowWidth, null);
-  const yaw = yawOf(r.window);
+  const [x, z] = placeOf(r, o);
+  const yaw = yawOf(o.wall);
   return (
     <group position={[x, 0, z]} rotation={[0, yaw, 0]}>
       {/* the glass, reading as daylight; the frame, a transom, the sill */}
@@ -182,6 +239,7 @@ function Window({ r }: { r: RoomShape }) {
         colour="#dfeaf2"
         rough={0.15}
         emissive="#eef5fa"
+        both
       />
       {[-1, 1].map((s) => (
         <Face
@@ -208,38 +266,70 @@ function Window({ r }: { r: RoomShape }) {
   );
 }
 
-function Door({ r }: { r: RoomShape }) {
-  const width = m(OPENINGS.door.width);
+/** a doorway: its frame round the cut; a hinged leaf closed in it, a
+    double door's two leaves, a sliding door's two panels, or nothing
+    at all for a passage */
+function Door({ r, o }: { r: RoomShape; o: Opening }) {
+  const width = m(o.width);
   const tall = Math.min(m(OPENINGS.door.height), m(r.height) - 0.1);
-  const [x, z] = placeOf(r, r.door, OPENINGS.door.width, r.doorOffset);
-  const yaw = yawOf(r.door);
+  const [x, z] = placeOf(r, o);
+  const yaw = yawOf(o.wall);
+  const leaves =
+    o.kind === "door"
+      ? [{ x: 0, w: width, handle: width / 2 - 0.1 }]
+      : o.kind === "double"
+        ? [
+            { x: -width / 4, w: width / 2, handle: width / 2 - 0.06 },
+            { x: width / 4, w: width / 2, handle: -(width / 2 - 0.06) },
+          ]
+        : o.kind === "sliding"
+          ? [
+              { x: -width / 4, w: width / 2 + 0.02, handle: width / 2 - 0.08 },
+              {
+                x: width / 4,
+                w: width / 2 + 0.02,
+                handle: -(width / 2 - 0.08),
+              },
+            ]
+          : [];
   return (
     <group position={[x, 0, z]} rotation={[0, yaw, 0]}>
-      <Face
-        at={[0, tall / 2, 0.01]}
-        size={[width, tall]}
-        colour={DOOR_HEX}
-        rough={0.55}
-      />
+      {leaves.map((l, i) => (
+        <group key={i}>
+          <Face
+            at={[l.x, tall / 2, o.kind === "sliding" ? 0.01 + i * 0.03 : 0.01]}
+            size={[l.w, tall]}
+            colour={DOOR_HEX}
+            rough={0.55}
+            both
+          />
+          {/* the handle, at hand height on the opening side */}
+          <Face
+            at={[
+              l.x + l.handle,
+              1.0,
+              o.kind === "sliding" ? 0.02 + i * 0.03 : 0.02,
+            ]}
+            size={[0.12, 0.02]}
+            colour="#9a948b"
+            rough={0.3}
+          />
+        </group>
+      ))}
       {[-1, 1].map((s) => (
         <Face
           key={s}
           at={[(s * (width + FRAME)) / 2, tall / 2, 0.02]}
           size={[FRAME, tall + FRAME]}
           colour={FRAME_HEX}
+          both
         />
       ))}
       <Face
         at={[0, tall + FRAME / 2, 0.02]}
         size={[width + 2 * FRAME, FRAME]}
         colour={FRAME_HEX}
-      />
-      {/* the handle, at hand height on the opening side */}
-      <Face
-        at={[width / 2 - 0.1, 1.0, 0.02]}
-        size={[0.12, 0.02]}
-        colour="#9a948b"
-        rough={0.3}
+        both
       />
     </group>
   );
@@ -280,10 +370,23 @@ export function RoomShell({
         <meshStandardMaterial map={map} roughness={ROUGHNESS[r.floor]} />
       </mesh>
       {edgesOf(r.outline).map((e, i) => (
-        <WallRun key={i} e={e} w={w} d={d} h={h} wallHex={r.wallHex} />
+        <WallRun
+          key={i}
+          e={e}
+          w={w}
+          d={d}
+          h={h}
+          wallHex={r.wallHex}
+          holes={holesOf(r, e, h)}
+        />
       ))}
-      <Window r={r} />
-      <Door r={r} />
+      {r.openings.map((o) =>
+        isWindow(o) ? (
+          <Window key={o.id} r={r} o={o} />
+        ) : (
+          <Door key={o.id} r={r} o={o} />
+        ),
+      )}
       {walk && (
         <mesh
           rotation={[-Math.PI / 2, 0, 0]}

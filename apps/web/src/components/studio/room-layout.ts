@@ -215,7 +215,8 @@ const wallsPlan = (
 ): Placed[] => {
   const gap = gapOf(r.rules);
   const zones = zonesOf(r);
-  const door = zones.door;
+  // the first door, or the south wall's middle when the room has none
+  const door = zones.doors[0]?.zone ?? { x: r.W / 2, y: r.D, w: 0, d: 0 };
   const dc = { x: door.x + door.w / 2, y: door.y + door.d / 2 };
   // the edges, starting from the one farthest from the door, then on
   // round the outline
@@ -324,7 +325,10 @@ export const layoutPlans = (
     {
       id: "walls",
       label: "Along the walls",
-      note: `The middle open, facing the ${r.door} door`,
+      note: `The middle open${(() => {
+        const d = r.openings.find((o) => o.kind !== "window");
+        return d ? `, facing the ${d.wall} door` : "";
+      })()}`,
       places: wallsPlan(items, r, kept),
     },
   ];

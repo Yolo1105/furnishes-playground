@@ -152,38 +152,173 @@ export const HDB_CONVENTIONS = [
  * the east wall, centred, and its light comes through the service yard,
  * so it has no window of its own.
  */
-export type Openings = {
-  door: Wall;
-  /** mm from the wall's far end (east for north and south walls, south
-      for east and west walls); null is the middle */
-  doorOffset: number | null;
-  window: Wall | null;
-  windowWidth: number;
+/**
+ * The openings in the walls: any number of doors (hinged, sliding,
+ * double, or a passage with no leaf) and windows, each on a wall at a
+ * place along it with a width; a window also has its sill and head. A
+ * room starts with the openings its flat has: the living room's door
+ * is 800 mm from the east corner with a wide window to the north; the
+ * kitchen's door is from the living room on the east wall, centred, and
+ * its light comes through the service yard, so it has no window of its
+ * own.
+ */
+export type OpeningKind = "door" | "sliding" | "double" | "passage" | "window";
+export type Opening = {
+  id: string;
+  kind: OpeningKind;
+  wall: Wall;
+  /** mm, the opening's centre along its wall from the room's west side
+      (north and south walls) or north side (east and west walls); null
+      is the middle of the wall */
+  at: number | null;
+  width: number;
+  /** a window: mm from the floor to the glass, and to its top */
+  sill?: number;
+  head?: number;
+  /** placed by the flat's convention, so the panel can say so */
+  hdb?: boolean;
 };
-export const openingsFor = (room: RoomId): Openings => {
+export const OPENING_KINDS: {
+  id: OpeningKind;
+  label: string;
+  width: number;
+}[] = [
+  { id: "door", label: "Door", width: OPENINGS.door.width },
+  { id: "sliding", label: "Sliding door", width: 1800 },
+  { id: "double", label: "Double door", width: 1500 },
+  { id: "passage", label: "Passage", width: OPENINGS.door.width },
+  { id: "window", label: "Window", width: OPENINGS.window.width },
+];
+export const openingLabel = (kind: OpeningKind) =>
+  OPENING_KINDS.find((k) => k.id === kind)!.label;
+/** the width an opening of that kind starts at */
+export const kindWidth = (kind: OpeningKind) =>
+  OPENING_KINDS.find((k) => k.id === kind)!.width;
+export const isWindow = (o: Pick<Opening, "kind">) => o.kind === "window";
+/** a leaf that swings into the room, and so needs its floor clear */
+export const swings = (o: Pick<Opening, "kind">) =>
+  o.kind === "door" || o.kind === "double";
+/** how wide an opening can be, mm, and the step it moves and grows by */
+export const OPENING_WIDTH = { min: 500, max: 4000, step: 50 };
+/** the sizes a person picks by name. A doorway's size can bring its
+    kind (Double, Sliding); the other three keep a hinged door hinged and
+    a passage open. Full wall runs the window to within a reveal of each
+    corner. */
+export const DOOR_SIZES: {
+  label: string;
+  width: number;
+  kind?: OpeningKind;
+}[] = [
+  { label: "Narrow", width: 750 },
+  { label: "Standard", width: 850 },
+  { label: "Wide", width: 900 },
+  { label: "Double", width: kindWidth("double"), kind: "double" },
+  { label: "Sliding", width: kindWidth("sliding"), kind: "sliding" },
+];
+/** what a named door size makes of a doorway: that width, and that kind */
+export const doorSized = (
+  o: Pick<Opening, "kind">,
+  z: (typeof DOOR_SIZES)[number],
+): Pick<Opening, "width" | "kind"> => ({
+  width: z.width,
+  kind: z.kind ?? (o.kind === "passage" ? "passage" : "door"),
+});
+export const WINDOW_SIZES: { label: string; width: number | "full" }[] = [
+  { label: "Small", width: 1200 },
+  { label: "Standard", width: 1500 },
+  { label: "Wide", width: 1900 },
+  { label: "Full wall", width: "full" },
+];
+/** what a full-wall window keeps from each corner, mm */
+export const REVEAL = 300;
+/** the floor a doorway with no swinging leaf keeps clear to pass, mm */
+export const PASS_DEPTH = 600;
+/** the floor under a window kept clear of tall pieces, mm */
+export const SILL_DEPTH = 150;
+
+let openingSeq = 0;
+export const openingId = () => `o-${Date.now().toString(36)}-${++openingSeq}`;
+export const makeOpening = (
+  kind: OpeningKind,
+  wall: Wall,
+  patch: Partial<Opening> = {},
+): Opening => ({
+  id: openingId(),
+  kind,
+  wall,
+  at: null,
+  width: kindWidth(kind),
+  ...(kind === "window"
+    ? { sill: OPENINGS.window.sill, head: OPENINGS.window.head }
+    : {}),
+  ...patch,
+});
+
+/** the openings a room starts with, by its flat's convention; the sizes
+    say where the far corner is */
+export const openingsFor = (room: RoomId, W: number, D: number): Opening[] => {
+  // a door `offset` mm from the wall's far end (east for a south wall)
+  const fromFar = (wall: Wall, offset: number, width: number) =>
+    (wall === "north" || wall === "south" ? W : D) - offset - width / 2;
   switch (room) {
     case "living":
-      return {
-        door: "south",
-        doorOffset: 800,
-        window: "north",
-        windowWidth: 1900,
-      };
+      return [
+        makeOpening("door", "south", {
+          at: fromFar("south", 800, OPENINGS.door.width),
+          hdb: true,
+        }),
+        makeOpening("window", "north", { width: 1900 }),
+      ];
     case "kitchen":
-      return {
-        door: "east",
-        doorOffset: null,
-        window: null,
-        windowWidth: OPENINGS.window.width,
-      };
+      return [makeOpening("door", "east")];
     default:
-      return {
-        door: "south",
-        doorOffset: 600,
-        window: "north",
-        windowWidth: OPENINGS.window.width,
-      };
+      return [
+        makeOpening("door", "south", {
+          at: fromFar("south", 600, OPENINGS.door.width),
+          hdb: true,
+        }),
+        makeOpening("window", "north"),
+      ];
   }
+};
+/** the HDB offset an opening was placed by: mm from the far corner */
+export const hdbOffset = (o: Opening, W: number, D: number) =>
+  o.at === null
+    ? null
+    : (o.wall === "north" || o.wall === "south" ? W : D) - o.at - o.width / 2;
+
+/** a room saved before openings were a list: its one door and window */
+type LegacyOpenings = {
+  door?: Wall;
+  doorOffset?: number | null;
+  window?: Wall | null;
+  windowWidth?: number;
+};
+export const fromLegacyOpenings = (
+  r: LegacyOpenings,
+  W: number,
+  D: number,
+): Opening[] | null => {
+  if (!r.door) return null;
+  const L = r.door === "north" || r.door === "south" ? W : D;
+  const out = [
+    makeOpening("door", r.door, {
+      at:
+        r.doorOffset === null || r.doorOffset === undefined
+          ? null
+          : L - r.doorOffset - OPENINGS.door.width / 2,
+      ...(r.doorOffset !== null && r.doorOffset !== undefined
+        ? { hdb: true }
+        : {}),
+    }),
+  ];
+  if (r.window)
+    out.push(
+      makeOpening("window", r.window, {
+        width: r.windowWidth ?? OPENINGS.window.width,
+      }),
+    );
+  return out;
 };
 
 /**
@@ -332,7 +467,3 @@ export const presetRules = (preset: RulePreset, room: RoomId): Rules => {
 /** the preset the rules match exactly, if any */
 export const presetOf = (rules: Rules, room: RoomId) =>
   RULE_PRESETS.find((p) => sameRules(rules, presetRules(p, room)))?.id ?? null;
-
-/** where the door's centre sits along a wall of length `L` */
-export const doorCentreAlong = (L: number, offset: number | null) =>
-  offset === null ? L / 2 : L - offset - OPENINGS.door.width / 2;

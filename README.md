@@ -152,8 +152,13 @@ other view small over Eva's Agent, History and Preference tabs.
 The room is its outline, not the box round it: a template (square,
 rectangle, long, L, mirrored L, alcove, T, U, or a shape tapped out of
 squares) or drawn walls; the health rules, the three layouts, the 3D
-floor and walls and the walk all keep to it, and a door or window sits
-on the longest real edge of its side. The 2D plan is a CAD sheet with
+floor and walls and the walk all keep to it. The openings are a list on
+the walls: hinged, sliding and double doors, open passages and windows,
+each on the longest real edge of its side, added from the + strip (a
+tile dropped on the plan goes into the nearest wall where it lands) or
+the Room tab, sized by name (Narrow to Sliding, Small to Full wall) or
+in millimetres, and moved on the plan with the Wall tool, which drags an
+opening along its wall and pulls either end. The 2D plan is a CAD sheet with
 four interior elevations and the planner's zones, zoomed with the wheel or the keys about the pointer,
 panned by dragging the sheet, fitted again in one click, and measured
 with the Measure tool (two clicks, the distance in millimetres, the run
@@ -162,8 +167,9 @@ a drawing has it (a sofa with its back, arms and cushions, storage in
 its bays, a table on its legs, a lamp as a circle with a cross, a plant,
 a rug laid under the rest), turned with the piece, its name written
 where it fits. The 3D room is three.js: the floor in its finish painted
-on a canvas, skirting, the window with its frame and glass, the door, a
-ceiling once you walk in, and light from soft panels baked into the
+on a canvas, skirting, each window with its frame and glass, each door
+as its kind (a hinged leaf, two leaves, sliding panels, or a bare
+passage), a ceiling once you walk in, and light from soft panels baked into the
 surroundings; the furniture is built from what each piece is (18 mm
 panel carcasses on a plinth for Furnishes pieces, with doors and
 handles, books on a bookwall, hooks on an organiser; a sofa with its

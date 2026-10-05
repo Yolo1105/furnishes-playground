@@ -1,31 +1,44 @@
 "use client";
 
 import {
+  type BedWall,
   CEILING,
+  DOOR_SIZES,
+  doorSized,
   FIT_FOR_ROOM,
   FIT_GUIDANCE,
   FLAT_TYPES,
   FLOORS,
+  hdbOffset,
+  isWindow,
   metres,
   MUST_HAVE_CHOICES,
-  PRESETS,
+  type Opening,
+  OPENING_KINDS,
+  OPENING_WIDTH,
+  openingLabel,
+  OPENINGS,
   presetOf,
   presetRules,
+  PRESETS,
   PRIORITY,
+  REVEAL,
   ROOM_NAMES,
+  type RoomId,
   RULE_PRESETS,
   rulesFor,
   sameRules,
   SPACING,
-  type BedWall,
-  type RoomId,
-  type Wall,
   WALKWAY,
+  type Wall,
   WALL_TONES,
   WALLS,
+  WINDOW_SIZES,
 } from "./room-data";
+import { CloseIcon, PlusIcon } from "./icons";
 import { RoomStart } from "./RoomStart";
-import { useRoom, wallsOf } from "./room-store";
+import { openingCentre, wallSpan } from "./room-health";
+import { footprintOf, useRoom, wallsOf } from "./room-store";
 
 /**
  * The room: which flat, which room in it, how big, where the door and
@@ -35,10 +48,13 @@ import { useRoom, wallsOf } from "./room-store";
  *
  * It opens with how the room begins, and the rest follows from that:
  *   template — the shape, then the flat and room (which size it), the
- *              size itself, the door and window, the finish;
+ *              size itself, the openings, the finish;
  *   draw     — the walls (the size comes from them), the flat and room
- *              as what to call it, the door and window once there are
- *              walls to put them on, the finish.
+ *              as what to call it, the openings once there are walls to
+ *              put them on, the finish.
+ * The openings are a list: each door (hinged, sliding, double, or an
+ * open passage) and window on its wall, sized by name or in millimetres,
+ * with a row to add another; the plan's Wall tool moves them too.
  * Before the choice, only the choice. The Rules come last: the walkway,
  * what is kept clear, a bed against a wall, what the room must have, and
  * how far apart a layout spreads the pieces; the plan's health and its
@@ -77,50 +93,187 @@ export function RoomTab() {
       <span className="room-dim-unit">mm</span>
     </label>
   );
-  const wallPick = (key: "door" | "window", label: string) => (
-    <div className="room-field">
-      <span className="room-field-label">{label}</span>
-      <div className="eva-chips" role="radiogroup" aria-label={label}>
-        {WALLS.map((w: Wall) => (
-          <button
-            key={w}
-            type="button"
-            role="radio"
-            className="assets-chip"
-            aria-checked={s[key] === w}
-            onClick={() =>
-              s.set(
-                key === "door" ? { door: w, doorOffset: null } : { window: w },
-              )
-            }
-          >
-            {w}
-          </button>
-        ))}
-        {key === "window" && (
-          <button
-            type="button"
-            role="radio"
-            className="assets-chip"
-            aria-checked={s.window === null}
-            onClick={() => s.set({ window: null })}
-          >
-            none
-          </button>
-        )}
-      </div>
-      {key === "door" && s.doorOffset !== null && (
-        <p className="eva-pref-hint room-opening-note">
-          {s.doorOffset} mm from the corner, as HDB has it
-        </p>
-      )}
-      {key === "window" && s.window === null && (
-        <p className="eva-pref-hint room-opening-note">
-          No window of its own: the service yard has it.
-        </p>
+  /** a wall picker for one opening, or for the one the room lacks (the
+      first door or the first window), where a wall adds it */
+  const wallPick = (
+    label: string,
+    picked: Wall | null,
+    onWall: (w: Wall) => void,
+    none?: { label: string; on: () => void },
+  ) => (
+    <div className="eva-chips" role="radiogroup" aria-label={label}>
+      {WALLS.map((w: Wall) => (
+        <button
+          key={w}
+          type="button"
+          role="radio"
+          className="assets-chip"
+          aria-checked={picked === w}
+          onClick={() => onWall(w)}
+        >
+          {w}
+        </button>
+      ))}
+      {none && (
+        <button
+          type="button"
+          role="radio"
+          className="assets-chip"
+          aria-checked={picked === null}
+          onClick={none.on}
+        >
+          {none.label}
+        </button>
       )}
     </div>
   );
+  const shell = { W: s.width, D: s.depth, outline: footprintOf(s) };
+  const firstDoor = s.openings.find((o) => !isWindow(o)) ?? null;
+  const firstWindow = s.openings.find(isWindow) ?? null;
+  /** the name an opening's row goes by: its kind, numbered past the first */
+  const nameOf = (o: Opening) => {
+    const same = s.openings.filter((x) => x.kind === o.kind);
+    const n = same.indexOf(o);
+    return n === 0 ? openingLabel(o.kind) : `${openingLabel(o.kind)} ${n + 1}`;
+  };
+  const openingRow = (o: Opening) => {
+    const name = nameOf(o);
+    const win = isWindow(o);
+    const span = wallSpan(shell, o.wall);
+    const offset = hdbOffset(o, s.width, s.depth);
+    const sizes = win ? WINDOW_SIZES : DOOR_SIZES;
+    const fullWidth = Math.max(
+      OPENING_WIDTH.min,
+      span.to - span.from - 2 * REVEAL,
+    );
+    return (
+      <div key={o.id} className="room-field room-opening" data-kind={o.kind}>
+        <span className="room-field-label room-opening-head">
+          {name} on the
+          <button
+            type="button"
+            className="shell-iconbtn room-opening-remove"
+            aria-label={`Remove ${name}`}
+            onClick={() => s.removeOpening(o.id)}
+          >
+            <CloseIcon size={12} />
+          </button>
+        </span>
+        {wallPick(`${name} on the`, o.wall, (w) =>
+          s.setOpening(o.id, { wall: w, at: null }),
+        )}
+        <div
+          className="eva-chips room-opening-sizes"
+          role="group"
+          aria-label={`${name} size`}
+        >
+          {sizes.map((z) => {
+            // a window's size is its width; a doorway's can be its kind too
+            const patch =
+              z.width === "full"
+                ? { width: fullWidth }
+                : win
+                  ? { width: z.width }
+                  : doorSized(o, z as (typeof DOOR_SIZES)[number]);
+            const pressed =
+              o.width === patch.width &&
+              (!("kind" in patch) || o.kind === patch.kind);
+            return (
+              <button
+                key={z.label}
+                type="button"
+                className="assets-chip"
+                aria-pressed={pressed}
+                onClick={() => s.setOpening(o.id, patch)}
+              >
+                {z.label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="room-opening-dims">
+          <label className="room-dim">
+            <span className="room-dim-label">Width</span>
+            <input
+              className="room-dim-input"
+              type="number"
+              min={OPENING_WIDTH.min}
+              max={OPENING_WIDTH.max}
+              step={OPENING_WIDTH.step}
+              value={o.width}
+              aria-label={`${name} width in millimetres`}
+              onChange={(e) =>
+                s.setOpening(o.id, {
+                  width: Math.min(
+                    OPENING_WIDTH.max,
+                    Math.max(OPENING_WIDTH.min, Number(e.target.value)),
+                  ),
+                })
+              }
+            />
+            <span className="room-dim-unit">mm</span>
+          </label>
+          <label className="room-dim">
+            <span className="room-dim-label">Centre</span>
+            <input
+              className="room-dim-input"
+              type="number"
+              min={0}
+              step={OPENING_WIDTH.step}
+              value={Math.round(openingCentre(shell, o).centre)}
+              aria-label={`${name} centre in millimetres`}
+              onChange={(e) =>
+                s.setOpening(o.id, { at: Number(e.target.value) })
+              }
+            />
+            <span className="room-dim-unit">mm</span>
+          </label>
+          {win && (
+            <>
+              <label className="room-dim">
+                <span className="room-dim-label">Sill</span>
+                <input
+                  className="room-dim-input"
+                  type="number"
+                  min={0}
+                  max={s.height - 300}
+                  step={50}
+                  value={o.sill ?? OPENINGS.window.sill}
+                  aria-label={`${name} sill in millimetres`}
+                  onChange={(e) =>
+                    s.setOpening(o.id, { sill: Number(e.target.value) })
+                  }
+                />
+                <span className="room-dim-unit">mm</span>
+              </label>
+              <label className="room-dim">
+                <span className="room-dim-label">Head</span>
+                <input
+                  className="room-dim-input"
+                  type="number"
+                  min={300}
+                  max={s.height}
+                  step={50}
+                  value={o.head ?? OPENINGS.window.head}
+                  aria-label={`${name} head in millimetres`}
+                  onChange={(e) =>
+                    s.setOpening(o.id, { head: Number(e.target.value) })
+                  }
+                />
+                <span className="room-dim-unit">mm</span>
+              </label>
+            </>
+          )}
+        </div>
+        {o.hdb && offset !== null && (
+          <p className="eva-pref-hint room-opening-note">
+            {offset} mm from the corner, as HDB has it
+          </p>
+        )}
+      </div>
+    );
+  };
+
   const fit = FIT_FOR_ROOM[s.room].map((k) => FIT_GUIDANCE[s.flat][k]);
   const rules = s.rules;
   const slider = (
@@ -299,11 +452,56 @@ export function RoomTab() {
             </div>
             {start === "draw" && walls === 0 && (
               <p className="eva-pref-hint">
-                Draw the walls first; the door and window then go on them.
+                Draw the walls first; the doors and windows then go on them.
               </p>
             )}
-            {wallPick("door", "Door on the")}
-            {wallPick("window", "Window on the")}
+            {s.openings.map(openingRow)}
+            {!firstDoor && (
+              <div className="room-field">
+                <span className="room-field-label">Door on the</span>
+                {wallPick("Door on the", null, (w) => s.addOpening("door", w))}
+              </div>
+            )}
+            {!firstWindow && (
+              <div className="room-field">
+                <span className="room-field-label">Window on the</span>
+                {wallPick(
+                  "Window on the",
+                  null,
+                  (w) => s.addOpening("window", w),
+                  { label: "none", on: () => undefined },
+                )}
+                <p className="eva-pref-hint room-opening-note">
+                  {s.room === "kitchen"
+                    ? "No window of its own: the service yard has it."
+                    : "No window yet: pick a wall to put one in."}
+                </p>
+              </div>
+            )}
+            <div className="room-field">
+              <span className="room-field-label">Add an opening</span>
+              <div
+                className="eva-chips"
+                role="group"
+                aria-label="Add an opening"
+              >
+                {OPENING_KINDS.map((k) => (
+                  <button
+                    key={k.id}
+                    type="button"
+                    className="assets-chip"
+                    aria-label={`Add a ${k.label.toLowerCase()}`}
+                    onClick={() => s.addOpening(k.id)}
+                  >
+                    <PlusIcon size={11} /> {k.label}
+                  </button>
+                ))}
+              </div>
+              <p className="eva-pref-hint">
+                On the plan, the Wall tool drags an opening along its wall and
+                pulls its ends; the + strip drops one onto a wall.
+              </p>
+            </div>
           </section>
           <section className="eva-pref" data-set="true">
             <div className="eva-pref-head">

@@ -1,13 +1,17 @@
 import { create } from "zustand";
 import {
   CEILING,
+  type FlatType,
+  makeOpening,
+  type Opening,
+  type OpeningKind,
   openingsFor,
   PRESETS,
-  rulesFor,
-  type FlatType,
   type RoomId,
   type Rules,
+  rulesFor,
   type Wall,
+  WALLS,
 } from "./room-data";
 import { insideOutline, outlineFromCells } from "./room-geometry";
 import { ROOM_TEMPLATES, type Point, type TemplateId } from "./room-templates";
@@ -31,12 +35,8 @@ type RoomConfig = {
   width: number;
   depth: number;
   height: number;
-  /** which wall the door is on and how far along it; the window, if
-      the room has one of its own, and how wide */
-  door: Wall;
-  doorOffset: number | null;
-  window: Wall | null;
-  windowWidth: number;
+  /** the doors and windows in the walls */
+  openings: Opening[];
   floor: string;
   wallTone: string;
   /** true until the visitor edits a size: sizes then stop following presets */
@@ -51,11 +51,13 @@ type RoomState = RoomConfig & {
   setSize: (
     patch: Partial<Pick<RoomConfig, "width" | "depth" | "height">>,
   ) => void;
-  set: (
-    patch: Partial<
-      Pick<RoomConfig, "door" | "doorOffset" | "window" | "floor" | "wallTone">
-    >,
-  ) => void;
+  set: (patch: Partial<Pick<RoomConfig, "floor" | "wallTone">>) => void;
+  /** one opening changed: its wall, place, width, sill or head */
+  setOpening: (id: string, patch: Partial<Omit<Opening, "id">>) => void;
+  /** an opening of a kind put in a wall (the emptiest, facing the first
+      door, unless one is named); returns its id */
+  addOpening: (kind: OpeningKind, wall?: Wall, at?: number) => string;
+  removeOpening: (id: string) => void;
   resetSize: () => void;
   setRules: (patch: Partial<Rules>) => void;
   /** the rules back to what this room starts with */
@@ -127,6 +129,27 @@ const sized = (flat: FlatType, room: RoomId) => {
 };
 
 /** The room being designed. One per project for now. */
+/** the wall with the fewest openings, the one facing the first door
+    first among equals, so a new door tends to face the old one */
+const freeWall = (openings: Opening[]): Wall => {
+  const first = openings.find((o) => o.kind !== "window")?.wall;
+  const facing: Record<Wall, Wall> = {
+    north: "south",
+    south: "north",
+    east: "west",
+    west: "east",
+  };
+  const order: Wall[] = first
+    ? [facing[first], ...WALLS.filter((w) => w !== facing[first])]
+    : WALLS;
+  return order.reduce((best, w) =>
+    openings.filter((o) => o.wall === w).length <
+    openings.filter((o) => o.wall === best).length
+      ? w
+      : best,
+  );
+};
+
 export const useRoom = create<RoomState>((set, get) => ({
   start: null,
   template: ROOM_TEMPLATES[0]!.id,
@@ -138,7 +161,11 @@ export const useRoom = create<RoomState>((set, get) => ({
   room: "living",
   ...sized("4-room", "living"),
   height: CEILING.default,
-  ...openingsFor("living"),
+  openings: openingsFor(
+    "living",
+    sized("4-room", "living").width,
+    sized("4-room", "living").depth,
+  ),
   floor: "Vinyl",
   wallTone: "white",
   preset: true,
@@ -149,7 +176,11 @@ export const useRoom = create<RoomState>((set, get) => ({
       flat,
       room,
       ...sized(flat, room),
-      ...openingsFor(room),
+      openings: openingsFor(
+        room,
+        sized(flat, room).width,
+        sized(flat, room).depth,
+      ),
       preset: true,
       ...(room === get().room ? {} : { rules: rulesFor(room) }),
     });
@@ -158,12 +189,32 @@ export const useRoom = create<RoomState>((set, get) => ({
     set({
       room,
       ...sized(get().flat, room),
-      ...openingsFor(room),
+      openings: openingsFor(
+        room,
+        sized(get().flat, room).width,
+        sized(get().flat, room).depth,
+      ),
       preset: true,
       rules: rulesFor(room),
     }),
   setSize: (patch) => set({ ...patch, preset: false }),
   set: (patch) => set(patch),
+  setOpening: (id, patch) =>
+    set((s) => ({
+      openings: s.openings.map((o) =>
+        o.id === id ? { ...o, hdb: false, ...patch } : o,
+      ),
+    })),
+  addOpening: (kind, wall, at) => {
+    const s = get();
+    const o = makeOpening(kind, wall ?? freeWall(s.openings), {
+      at: at ?? null,
+    });
+    set({ openings: [...s.openings, o] });
+    return o.id;
+  },
+  removeOpening: (id) =>
+    set((s) => ({ openings: s.openings.filter((o) => o.id !== id) })),
   resetSize: () =>
     set({
       ...sized(get().flat, get().room),

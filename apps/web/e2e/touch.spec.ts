@@ -135,6 +135,7 @@ test("two fingers pinch the plan; a tile is carried after a hold", async ({
   const tile = page
     .getByRole("dialog", { name: "Add to the room" })
     .getByRole("button", { name: /^Add Shelf,/ });
+  await tile.scrollIntoViewIfNeeded();
   const t = (await tile.boundingBox())!;
   const from = { x: t.x + t.width / 2, y: t.y + t.height / 2 };
   await touch(page, "pointerdown", from, 1);

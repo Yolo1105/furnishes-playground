@@ -1,5 +1,6 @@
 import type { PointerEvent as ReactPointerEvent } from "react";
 import type { Product } from "./catalogue";
+import { openingLabel, type OpeningKind } from "./room-data";
 import { DRAG_FROM, LONG_PRESS } from "./input";
 import { defaultProps, footprint } from "./piece-detail";
 import { settle } from "./room-layout";
@@ -16,9 +17,15 @@ import { useStudio } from "./studio-store";
  * pointer; the stage lights while something is carried; letting go over
  * the stage adds the piece, and over the plan's sheet stands it where
  * the pointer was. A press that never travels is the tile's own click.
+ * An opening is carried the same way, and let go over the plan it goes
+ * into the nearest wall where the pointer was; over the stage, into the
+ * wall with room for it.
  */
+export type Carried =
+  | { kind: "product"; product: Product }
+  | { kind: "opening"; opening: OpeningKind };
 type Carry = {
-  product: Product;
+  item: Carried;
   id: number;
   /** the tile or card pressed; it captures the pointer once the drag is on */
   el: Element;
@@ -32,10 +39,11 @@ let carry: Carry | null = null;
 /** true just after a drag ended, so the click that follows is not a pick */
 let justDropped = false;
 
-const ghostFor = (p: Product) => {
+const ghostFor = (c: Carried) => {
   const g = document.createElement("div");
   g.className = "drag-ghost";
-  g.textContent = p.name;
+  g.textContent =
+    c.kind === "product" ? c.product.name : openingLabel(c.opening);
   document.body.appendChild(g);
   return g;
 };
@@ -45,9 +53,9 @@ const moveGhost = (g: HTMLDivElement, x: number, y: number) => {
 
 const begin = (c: Carry, x: number, y: number) => {
   c.moved = true;
-  c.ghost = ghostFor(c.product);
+  c.ghost = ghostFor(c.item);
   moveGhost(c.ghost, x, y);
-  useStudio.getState().setCarrying(c.product);
+  useStudio.getState().setCarrying(c.item);
 };
 
 /** where the pointer let go: the stage, the plan's sheet, or neither */
@@ -58,13 +66,17 @@ const landing = (x: number, y: number) => {
   return { sheet, stage };
 };
 
-export const startTileDrag = (e: ReactPointerEvent, p: Product) => {
+export const startTileDrag = (e: ReactPointerEvent, p: Product) =>
+  startDrag(e, { kind: "product", product: p });
+export const startOpeningDrag = (e: ReactPointerEvent, kind: OpeningKind) =>
+  startDrag(e, { kind: "opening", opening: kind });
+const startDrag = (e: ReactPointerEvent, item: Carried) => {
   if (e.button !== 0 || carry) return;
   // a control inside a card (its own Add) is not a handle
   const inner = (e.target as HTMLElement).closest("button");
   if (inner && inner !== e.currentTarget) return;
   const c: Carry = {
-    product: p,
+    item,
     id: e.pointerId,
     el: e.currentTarget,
     x0: e.clientX,
@@ -122,13 +134,34 @@ export const endTileDrag = (e: ReactPointerEvent) => {
   }, 0);
   const { sheet, stage } = landing(e.clientX, e.clientY);
   if (!stage) return;
+  if (c.item.kind === "opening") {
+    const room = useRoom.getState();
+    if (!sheet) {
+      room.addOpening(c.item.opening);
+      return;
+    }
+    // into the wall nearest the pointer, where the pointer is along it
+    const r = sheet.getBoundingClientRect();
+    const x = ((e.clientX - r.left) / r.width) * room.width;
+    const y = ((e.clientY - r.top) / r.height) * room.depth;
+    const walls = [
+      { wall: "north" as const, gap: y, at: x },
+      { wall: "south" as const, gap: room.depth - y, at: x },
+      { wall: "west" as const, gap: x, at: y },
+      { wall: "east" as const, gap: room.width - x, at: y },
+    ];
+    const near = walls.reduce((a, b) => (b.gap < a.gap ? b : a));
+    room.addOpening(c.item.opening, near.wall, Math.round(near.at / 50) * 50);
+    return;
+  }
+  const product = c.item.product;
   const { addProduct, select, setProps } = useScene.getState();
-  const id = addProduct(c.product);
+  const id = addProduct(product);
   if (sheet) {
     // stood where the pointer let go, its middle under the pointer
     const r = sheet.getBoundingClientRect();
     const room = useRoom.getState();
-    const f = footprint(defaultProps({ ...c.product, kind: "piece" }));
+    const f = footprint(defaultProps({ ...product, kind: "piece" }));
     const x = ((e.clientX - r.left) / r.width) * room.width - f.w / 2;
     const y = ((e.clientY - r.top) / r.height) * room.depth - f.d / 2;
     setProps(

@@ -36,10 +36,7 @@ export function usePieceActions() {
   const [actionsFor, setActionsFor] = useState<string | null>(null);
   const W = useRoom((s) => s.width);
   const D = useRoom((s) => s.depth);
-  const door = useRoom((s) => s.door);
-  const doorOffset = useRoom((s) => s.doorOffset);
-  const window_ = useRoom((s) => s.window);
-  const windowWidth = useRoom((s) => s.windowWidth);
+  const openings = useRoom((s) => s.openings);
   const rules = useRoom((s) => s.rules);
   const drawn = useRoom((s) => s.drawn);
   const template = useRoom((s) => s.template);
@@ -48,10 +45,7 @@ export function usePieceActions() {
     W,
     D,
     outline: footprintOf({ drawn, template, cells, width: W, depth: D }),
-    door,
-    doorOffset,
-    window: window_,
-    windowWidth,
+    openings,
     rules,
   };
 

@@ -1,7 +1,7 @@
 "use client";
 
-import { OPENINGS, ROOM_NAMES, type Wall } from "./room-data";
-import { openingAt } from "./room-health";
+import { isWindow, OPENINGS, ROOM_NAMES, type Wall } from "./room-data";
+import { openingCentre } from "./room-health";
 import { footprintOf, useRoom } from "./room-store";
 import { usePieceActions } from "./piece-actions";
 import { footprint } from "./piece-detail";
@@ -50,30 +50,18 @@ export function Elevation2D({ angle }: { angle: Angle }) {
   };
   const vw = L + 2 * MARGIN;
   const vh = H + 2 * MARGIN;
-  const door = r.door === wall;
-  const win = r.window === wall;
-  // the door's place along the wall, seen from inside: the convention
-  // measures from the far end, and the south and west walls read mirrored
-  const opening = {
-    W,
-    D,
-    outline: footprintOf(r),
-    door: r.door,
-    doorOffset: r.doorOffset,
-    window: r.window,
-    windowWidth: r.windowWidth,
-  };
-  const doorAt =
-    openingAt(opening, wall, OPENINGS.door.width, r.doorOffset).centre -
-    OPENINGS.door.width / 2;
-  const doorFrom =
-    wall === "south" || wall === "west"
-      ? L - doorAt - OPENINGS.door.width
-      : doorAt;
-  const winW = r.windowWidth;
-  const winAt = openingAt(opening, wall, winW, null).centre - winW / 2;
-  const winFrom =
-    wall === "south" || wall === "west" ? L - winAt - winW : winAt;
+  // the openings on this wall, seen from inside: the south and west
+  // walls read mirrored, so a place along the wall is turned round
+  const shell = { W, D, outline: footprintOf(r), openings: r.openings };
+  const openings = r.openings
+    .filter((o) => o.wall === wall)
+    .map((o) => {
+      const from = openingCentre(shell, o).centre - o.width / 2;
+      return {
+        o,
+        from: wall === "south" || wall === "west" ? L - from - o.width : from,
+      };
+    });
   const pieces = a.shown
     .map((n) => {
       const p = a.props.get(n.id)!;
@@ -136,40 +124,65 @@ export function Elevation2D({ angle }: { angle: Angle }) {
         <line x1={0} y1={H} x2={L} y2={H} className="plan-line" />
         <line x1={0} y1={0} x2={L} y2={0} className="plan-line" />
 
-        {/* the door, from the floor; the window, from its sill */}
-        {door && (
-          <g className="elev-opening">
-            <rect
-              x={doorFrom}
-              y={up(OPENINGS.door.height)}
-              width={OPENINGS.door.width}
-              height={OPENINGS.door.height}
-            />
-            <circle
-              cx={doorFrom + OPENINGS.door.width - 90}
-              cy={up(OPENINGS.door.height / 2)}
-              r={28}
-              className="elev-knob"
-            />
-          </g>
+        {/* the doors from the floor, with a leaf's knob, a double's
+            meeting line or a sliding pair's overlap; the windows from
+            their sills */}
+        {openings.map(({ o, from }) =>
+          isWindow(o) ? (
+            <g key={o.id} className="elev-opening" data-kind={o.kind}>
+              <rect
+                x={from}
+                y={up(o.head ?? OPENINGS.window.head)}
+                width={o.width}
+                height={
+                  (o.head ?? OPENINGS.window.head) -
+                  (o.sill ?? OPENINGS.window.sill)
+                }
+              />
+              <line
+                x1={from + o.width / 2}
+                y1={up(o.head ?? OPENINGS.window.head)}
+                x2={from + o.width / 2}
+                y2={up(o.sill ?? OPENINGS.window.sill)}
+              />
+            </g>
+          ) : (
+            <g key={o.id} className="elev-opening" data-kind={o.kind}>
+              <rect
+                x={from}
+                y={up(OPENINGS.door.height)}
+                width={o.width}
+                height={OPENINGS.door.height}
+              />
+              {(o.kind === "double" || o.kind === "sliding") && (
+                <line
+                  x1={from + o.width / 2}
+                  y1={up(OPENINGS.door.height)}
+                  x2={from + o.width / 2}
+                  y2={up(0)}
+                />
+              )}
+              {o.kind === "door" && (
+                <circle
+                  cx={from + o.width - 90}
+                  cy={up(OPENINGS.door.height / 2)}
+                  r={28}
+                  className="elev-knob"
+                />
+              )}
+              {o.kind === "double" &&
+                [-60, 60].map((k) => (
+                  <circle
+                    key={k}
+                    cx={from + o.width / 2 + k}
+                    cy={up(OPENINGS.door.height / 2)}
+                    r={28}
+                    className="elev-knob"
+                  />
+                ))}
+            </g>
+          ),
         )}
-        {win && (
-          <g className="elev-opening">
-            <rect
-              x={winFrom}
-              y={up(OPENINGS.window.head)}
-              width={winW}
-              height={OPENINGS.window.head - OPENINGS.window.sill}
-            />
-            <line
-              x1={L / 2}
-              y1={up(OPENINGS.window.head)}
-              x2={L / 2}
-              y2={up(OPENINGS.window.sill)}
-            />
-          </g>
-        )}
-
         {/* the pieces before the wall, far to near */}
         {pieces.map(({ n, p, from, span }) => (
           <g

@@ -7,8 +7,14 @@ import {
   droppedJustNow,
   endTileDrag,
   moveTileDrag,
+  startOpeningDrag,
   startTileDrag,
 } from "./dnd";
+import { OpeningGlyph } from "./opening-glyphs";
+import { defaultProps } from "./piece-detail";
+import { PlanSymbol } from "./plan-symbols";
+import { OPENING_KINDS } from "./room-data";
+import { useRoom } from "./room-store";
 import {
   describeItem,
   useGenerations,
@@ -19,7 +25,10 @@ import { useScene } from "./scene-store";
 
 /**
  * What the + in the toolbar opens: a strip under the bar with the parts
- * and pieces to put in the room. One line of chips narrows it by
+ * and pieces to put in the room, and the openings to cut in its walls
+ * (a door, a sliding or double door, a passage, a window: a click puts
+ * one in a wall with room for it, a drag onto the plan puts it where it
+ * lands). One line of chips narrows it by
  * category; the last chip, Generate, makes a room item from a few words
  * (a sofa, a plant, a lamp: things that set the scene and are not for
  * sale). With an image and mesh provider connected the item gets a
@@ -27,10 +36,11 @@ import { useScene } from "./scene-store";
  * says so. Every item made is kept as a tile to use again; a star keeps
  * the ones worth coming back to, and Starred shows only those.
  */
-type Chip = "all" | AssetCategory | "generate";
+type Chip = "all" | "openings" | AssetCategory | "generate";
 /** every category with something to add, All first, Generate last */
 const CHIPS: Chip[] = [
   "all",
+  "openings",
   ...(Object.keys(CATEGORY_NAMES) as AssetCategory[]).filter((c) =>
     products.some((p) => p.category === c),
   ),
@@ -41,11 +51,16 @@ export function AddStrip({ onAdded }: { onAdded: (id: string) => void }) {
   const add = useScene((s) => s.addProduct);
   const addItem = useScene((s) => s.addItem);
   const select = useScene((s) => s.select);
+  const addOpening = useRoom((s) => s.addOpening);
   const [category, setCategory] = useState<Chip>("all");
   const shown = useMemo(
-    () => products.filter((p) => category === "all" || p.category === category),
+    () =>
+      category === "openings"
+        ? []
+        : products.filter((p) => category === "all" || p.category === category),
     [category],
   );
+  const openings = category === "all" || category === "openings";
   /** a generated item goes into the room; a fresh one keeps the strip
       open so its note and tile can be read, a tile click closes it */
   const place = (g: Generation, close: boolean) => {
@@ -75,9 +90,11 @@ export function AddStrip({ onAdded }: { onAdded: (id: string) => void }) {
           >
             {c === "all"
               ? "All"
-              : c === "generate"
-                ? "Generate"
-                : CATEGORY_NAMES[c]}
+              : c === "openings"
+                ? "Openings"
+                : c === "generate"
+                  ? "Generate"
+                  : CATEGORY_NAMES[c]}
           </button>
         ))}
       </div>
@@ -88,7 +105,7 @@ export function AddStrip({ onAdded }: { onAdded: (id: string) => void }) {
         />
       ) : (
         <div className="add-strip-row no-scrollbar">
-          {shown.length === 0 && (
+          {shown.length === 0 && !openings && (
             <p className="assets-empty">Nothing here matches.</p>
           )}
           {shown.map((p) => (
@@ -108,11 +125,40 @@ export function AddStrip({ onAdded }: { onAdded: (id: string) => void }) {
               }}
               aria-label={`Add ${p.name}, ${sgd(p.price)}`}
             >
-              <span className="add-tile-pic" aria-hidden="true" />
+              <span className="add-tile-pic" aria-hidden="true">
+                <PlanSymbol
+                  node={{ ...p, kind: "piece" }}
+                  props={defaultProps({ ...p, kind: "piece" })}
+                  turn={0}
+                />
+              </span>
               <span className="add-tile-name">{p.name}</span>
               <span className="add-tile-price f-num">{sgd(p.price)}</span>
             </button>
           ))}
+          {openings &&
+            OPENING_KINDS.map((k) => (
+              <button
+                key={k.id}
+                type="button"
+                className="add-tile add-tile-opening"
+                onPointerDown={(e) => startOpeningDrag(e, k.id)}
+                onPointerMove={moveTileDrag}
+                onPointerUp={endTileDrag}
+                onPointerCancel={endTileDrag}
+                onClick={() => {
+                  if (droppedJustNow()) return;
+                  onAdded(addOpening(k.id));
+                }}
+                aria-label={`Add a ${k.label.toLowerCase()}, ${k.width} mm`}
+              >
+                <span className="add-tile-pic" aria-hidden="true">
+                  <OpeningGlyph kind={k.id} size={44} />
+                </span>
+                <span className="add-tile-name">{k.label}</span>
+                <span className="add-tile-price f-num">{k.width} mm</span>
+              </button>
+            ))}
         </div>
       )}
     </div>

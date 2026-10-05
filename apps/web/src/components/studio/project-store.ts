@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { create } from "zustand";
 import { useEva } from "./eva-store";
 import { newId } from "./ids";
-import { rulesFor } from "./room-data";
+import { fromLegacyOpenings, rulesFor } from "./room-data";
 import { useRoom } from "./room-store";
 import { useScene } from "./scene-store";
 
@@ -129,10 +129,17 @@ const fresh = (): Snapshot => {
 
 /** put a project's contents into the stores */
 const load = (data: Snapshot) => {
-  // a room saved before a rule existed takes that rule's typical value
+  // a room saved before openings were a list brings its door and window;
+  // one saved before a rule existed takes that rule's typical value
+  const legacy = fromLegacyOpenings(
+    data.room as Parameters<typeof fromLegacyOpenings>[0],
+    data.room.width,
+    data.room.depth,
+  );
   useRoom.setState({
     ...dataOnly(useRoom.getInitialState()),
     ...data.room,
+    ...(data.room.openings ? {} : legacy ? { openings: legacy } : {}),
     rules: { ...rulesFor(data.room.room), ...data.room.rules },
   });
   useScene.setState({

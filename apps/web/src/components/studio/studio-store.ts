@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Product } from "./catalogue";
+import type { Carried } from "./dnd";
 import type { WheelMode } from "./input";
 
 /**
@@ -96,7 +96,8 @@ type StudioState = {
   tourStop: number;
   tourOf: number;
   /** a product being dragged towards the room, from a tile or a card */
-  carrying: Product | null;
+  /** what a tile drag carries over the stage, while it does */
+  carrying: Carried | null;
   /** a shared room is looked at, not changed: a click picks, nothing
       moves, no actions */
   readOnly: boolean;
@@ -130,7 +131,7 @@ type StudioState = {
   startTour: () => void;
   stopTour: () => void;
   setTourAt: (at: number, stop: number, of?: number) => void;
-  setCarrying: (carrying: Product | null) => void;
+  setCarrying: (carrying: Carried | null) => void;
 };
 
 const clamp = (n: number) => Math.min(100, Math.max(0, n));
