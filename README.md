@@ -113,7 +113,23 @@ no account anywhere; the migrations under `apps/web/drizzle` run when
 the server first touches the database, and `pnpm db:generate` writes a
 new one from a change to the schema. `BETTER_AUTH_SECRET` signs the
 sessions in production (a development run uses the library's own and
-says so). Not built, as each needs a mail sender or a payment provider
+says so).
+
+Deploying to furnish-es.com: the site's name, address and contact are
+in `apps/web/src/lib/site.ts`, which the titles, the sitemap, the
+auth's trusted origins, the privacy page (`/privacy`) and the gear's
+Feedback all read. On Vercel, import the repository with `apps/web` as
+the root directory (the build command and output are Next's own), add
+the domain, and set four variables: `DATABASE_URL` from a Neon project
+(a hosted run without one refuses to start rather than lose accounts
+on a wiped disk), `BETTER_AUTH_SECRET` from `openssl rand -base64 32`,
+`BETTER_AUTH_URL=https://furnish-es.com`, and whichever provider keys
+you want on (`ANTHROPIC_API_KEY`, `FAL_KEY`, `STRIPE_SECRET_KEY`); the
+migrations run on the first request. Every response carries
+`X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` and
+HSTS; `/robots.txt` keeps crawlers out of the API and `/sitemap.xml`
+lists the pages. A page that fails says so in the home page's design,
+with Try again and a way into the studio. Not built, as each needs a mail sender or a payment provider
 that is not connected: forgotten-password mail, email verification, and
 payment itself (an order waits at awaiting payment).
 

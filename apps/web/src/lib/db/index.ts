@@ -28,6 +28,12 @@ const open = (): { db: Db; ready: Promise<void> } => {
     const db = neonDrizzle({ connection: url, schema, casing: "snake_case" });
     return { db, ready: migrateNeon(db, { migrationsFolder: MIGRATIONS }) };
   }
+  // on a host, PGlite's files would live on a disk that is wiped between
+  // runs: accounts would vanish without a word, so this says so instead
+  if (process.env.VERCEL)
+    throw new Error(
+      "DATABASE_URL is not set: a hosted deployment needs a Postgres (Neon) behind it",
+    );
   const dataDir =
     process.env.DATA_DIR ?? path.join(process.cwd(), ".data", "pglite");
   // PGlite makes its own folder, not the ones above it

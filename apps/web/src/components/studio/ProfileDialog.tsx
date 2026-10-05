@@ -152,7 +152,8 @@ export function ProfileDialog({
       <h2 className="eva-pref-title">Deleting the account</h2>
       <p className="account-text">
         Deleting the account takes what it holds with it: the projects, orders,
-        room items and shared links. What is in this browser stays here.
+        room items and shared links. What is in this browser stays here.{" "}
+        <Link href="/privacy">What the studio keeps</Link> says the rest.
       </p>
       <div className="shell-dialog-acts">
         {ending ? (

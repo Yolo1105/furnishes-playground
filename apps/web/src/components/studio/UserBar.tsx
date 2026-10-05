@@ -11,7 +11,15 @@ import { AccountDialog } from "./AccountDialog";
 import { Dialog } from "./Dialog";
 import { HelpDialog } from "./HelpDialog";
 import { useGuide } from "./guide-store";
-import { CartIcon, CompassIcon, GearIcon, HelpIcon, UserIcon } from "./icons";
+import {
+  CartIcon,
+  CompassIcon,
+  GearIcon,
+  HelpIcon,
+  MessageIcon,
+  UserIcon,
+} from "./icons";
+import { SITE } from "@/lib/site";
 import { OrdersDialog } from "./OrdersDialog";
 import { ProfileDialog } from "./ProfileDialog";
 import { useDismiss } from "./useDismiss";
@@ -91,6 +99,14 @@ export function UserBar() {
           >
             <HelpIcon /> Help
           </button>
+          <a
+            role="menuitem"
+            className="shell-menu-row"
+            href={`mailto:${SITE.contact}?subject=${encodeURIComponent(`${SITE.name} feedback`)}`}
+            onClick={() => setOpen(false)}
+          >
+            <MessageIcon /> Feedback
+          </a>
           <button
             type="button"
             role="menuitem"

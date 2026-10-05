@@ -6,6 +6,7 @@ import "@/styles/main.css";
 import "@/styles/assets.css";
 import "@/styles/eva.css";
 import "@/styles/home.css";
+import { SITE } from "@/lib/site";
 
 /**
  * Syne is the studio's typeface, exposed as --font-syne and aliased to
@@ -33,8 +34,15 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Furnishes Studio",
-  description: "Design-to-buy studio for modular panel furniture.",
+  metadataBase: new URL(SITE.url),
+  title: { default: SITE.name, template: `%s · ${SITE.name}` },
+  description: SITE.description,
+  openGraph: {
+    siteName: SITE.name,
+    title: SITE.name,
+    description: SITE.description,
+    type: "website",
+  },
 };
 
 export default function RootLayout({

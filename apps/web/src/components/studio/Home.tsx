@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
+import { HomeRail } from "./HomeRail";
 import { HomeSignIn } from "./HomeSignIn";
 import { useSession } from "@/lib/auth-client";
 
@@ -23,35 +23,7 @@ export function Home() {
   }, [session, router, studio]);
   return (
     <div className="home">
-      <aside className="home-rail" aria-label="Account">
-        <div className="home-brand">
-          FURNISHES <b>「</b>STUDIO<b>」</b>
-        </div>
-        <div className="home-scroll">
-          <div className="home-group">
-            <p className="home-group-h">Workspace</p>
-            <nav className="home-modes" aria-label="Workspace">
-              <Link className="home-mode" href={studio}>
-                <span>Studio</span>
-                <span className="home-ix">[01]</span>
-              </Link>
-              <span className="home-mode" aria-current="page">
-                <span>Account</span>
-                <span className="home-ix">[02]</span>
-              </span>
-            </nav>
-          </div>
-        </div>
-        <div className="home-foot">
-          <span className="home-rule" aria-hidden="true" />
-          <h2 className="home-tagline">
-            A design studio where rooms move off-template
-          </h2>
-          <p className="home-credit">
-            © {new Date().getFullYear()}, Furnishes Studio
-          </p>
-        </div>
-      </aside>
+      <HomeRail current="account" studio={studio} />
       <section className="home-stage">
         {isPending || session ? (
           <p className="home-eye home-wait">One moment.</p>

@@ -1349,7 +1349,8 @@ test("the gear opens Settings, Help and the Guide; keys drive the tools", async 
   await page.goto("/rounded");
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   const menu = page.getByRole("menu");
-  await expect(menu.getByRole("menuitem")).toHaveCount(5);
+  await expect(menu.getByRole("menuitem")).toHaveCount(6);
+  await expect(menu.getByRole("menuitem", { name: "Feedback" })).toHaveCount(1);
   await expect(menu.getByRole("menuitem", { name: "Sign in" })).toHaveCount(1);
   await expect(menu.getByRole("menuitem", { name: "Sign out" })).toHaveCount(0);
   await menu.getByRole("menuitem", { name: "Settings" }).click();
@@ -2993,6 +2994,57 @@ test("the site opens on the home page: the way in, and a sign-in goes straight i
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/rounded$/);
   await expect(bar).toContainText("Mei Tan");
+});
+
+test("the site's edges: the privacy page, the gear's Feedback, the headers, robots and the sitemap", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const res = await page.goto("/privacy");
+  expect(res!.headers()["x-content-type-options"]).toBe("nosniff");
+  expect(res!.headers()["referrer-policy"]).toBe(
+    "strict-origin-when-cross-origin",
+  );
+  expect(res!.headers()["permissions-policy"]).toContain("microphone=(self)");
+  await expect(
+    page.getByRole("heading", { name: "What the studio keeps." }),
+  ).toBeVisible();
+  // the page is longer than the screen: its stage scrolls to the end
+  const terms = page.getByRole("heading", { name: "Terms" });
+  await terms.scrollIntoViewIfNeeded();
+  expect(
+    await terms.evaluate(
+      (el) => el.getBoundingClientRect().bottom <= window.innerHeight,
+    ),
+  ).toBe(true);
+  await expect(page.getByText("hello@furnish-es.com")).toBeVisible();
+  // the rail: the way in and the studio a link away, this page current
+  const rail = page.getByRole("complementary", { name: "Account" });
+  await expect(rail.getByRole("link", { name: /^Account/ })).toHaveAttribute(
+    "href",
+    "/",
+  );
+  await expect(rail.locator('[aria-current="page"]')).toContainText(
+    "Privacy & terms",
+  );
+  // the home rail links here
+  await page.goto("/");
+  await page
+    .getByRole("complementary", { name: "Account" })
+    .getByRole("link", { name: /^Privacy/ })
+    .click();
+  await expect(page).toHaveURL(/\/privacy$/);
+  // the gear's Feedback writes to the site
+  await page.goto("/rounded");
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(
+    page.getByRole("menu").getByRole("menuitem", { name: "Feedback" }),
+  ).toHaveAttribute("href", /^mailto:hello@furnish-es\.com\?subject=/);
+  // crawlers: the pages, not the API
+  const robots = await page.request.get("/robots.txt");
+  expect(await robots.text()).toContain("Disallow: /api/");
+  const sitemap = await page.request.get("/sitemap.xml");
+  expect(await sitemap.text()).toContain("https://furnish-es.com/privacy");
 });
 
 test("an account: created with an email and a password, signed out, signed in again; a wrong password is said", async ({
