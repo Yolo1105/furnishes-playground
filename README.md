@@ -160,8 +160,9 @@ panels, the health check and Eva read the active room. With the Wall
 tool a room's floor drags the room about the sheet, and the magnet
 stands it against a neighbour a wall's thickness apart, ends in line;
 where two rooms stand wall to wall a doorway joins them, a door
-swinging into the private room (a bedroom or the study) or an open
-passage between the others, read by both rooms (the plan draws the
+swinging into the private room (a bedroom or the study; it stands in
+for the preset door that room came with) or an open passage between
+the others, read by both rooms (the plan draws the
 leaf on its side and a gap on the other, the 3D view builds the shared
 wall once with the way through, the walk crosses it), named in each
 room's Openings by the room beyond, sized like any opening, closed to a

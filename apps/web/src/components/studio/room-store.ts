@@ -343,9 +343,13 @@ export const sharedOf = (
   );
 };
 
-/** the joins as the rooms stand now, from the ones there were */
-const settled = (s: Pick<RoomConfig, "rooms" | "joins">): Join[] => {
+/** the joins as the rooms stand now, from the ones there were; and the
+    rooms whose preset door the new doorway stands in for */
+const settled = (
+  s: Pick<RoomConfig, "rooms" | "joins">,
+): { joins: Join[]; doored: Set<string> } => {
   const kept: Join[] = [];
+  const doored = new Set<string>();
   for (let i = 0; i < s.rooms.length; i++)
     for (let k = i + 1; k < s.rooms.length; k++) {
       const a = s.rooms[i]!;
@@ -365,6 +369,8 @@ const settled = (s: Pick<RoomConfig, "rooms" | "joins">): Join[] => {
           continue;
         }
         const width = OPENINGS.door.width;
+        const kind = joinKind(a, b);
+        if (kind.kind === "door") doored.add(kind.into);
         kept.push({
           id: newId("join"),
           a: a.id,
@@ -373,12 +379,12 @@ const settled = (s: Pick<RoomConfig, "rooms" | "joins">): Join[] => {
           wallB: run.wallB,
           at: Math.round((run.from + run.to) / 2 / 50) * 50,
           width,
-          ...joinKind(a, b),
+          ...kind,
           open: true,
         });
       }
     }
-  return kept;
+  return { joins: kept, doored };
 };
 
 /** the box round every room on the sheet, mm */
@@ -599,11 +605,24 @@ export const useRoom = create<RoomState>((set, get) => {
     addRoom: (room) => {
       const s = get();
       const from = activeOf(s);
-      // beside the active room, a wall's thickness to its east
-      const next = roomOf(s.flat, room, [
-        from.pos[0] + from.width + WALL_MM,
-        from.pos[1],
-      ]);
+      // beside the active room, a wall's thickness away: east, south,
+      // west or north, the first side where nothing stands yet
+      const size = sized(s.flat, room);
+      const sides: Point[] = [
+        [from.pos[0] + from.width + WALL_MM, from.pos[1]],
+        [from.pos[0], from.pos[1] + from.depth + WALL_MM],
+        [from.pos[0] - size.width - WALL_MM, from.pos[1]],
+        [from.pos[0], from.pos[1] - size.depth - WALL_MM],
+      ];
+      const clear = ([x, y]: Point) =>
+        !s.rooms.some(
+          (r) =>
+            x < r.pos[0] + r.width &&
+            x + size.width > r.pos[0] &&
+            y < r.pos[1] + r.depth &&
+            y + size.depth > r.pos[1],
+        );
+      const next = roomOf(s.flat, room, sides.find(clear) ?? sides[0]!);
       next.start = "template";
       set({ rooms: [...s.rooms, next], activeId: next.id });
       get().settleJoins();
@@ -629,7 +648,23 @@ export const useRoom = create<RoomState>((set, get) => {
       }));
       if (done) get().settleJoins();
     },
-    settleJoins: () => set((s) => ({ joins: settled(s) })),
+    settleJoins: () =>
+      set((s) => {
+        const { joins, doored } = settled(s);
+        // a private room's door is the new doorway now: the preset door
+        // it came with, still as HDB had it, goes
+        const rooms = doored.size
+          ? s.rooms.map((r) =>
+              doored.has(r.id)
+                ? {
+                    ...r,
+                    openings: r.openings.filter((o) => !(o.hdb && swings(o))),
+                  }
+                : r,
+            )
+          : s.rooms;
+        return { joins, rooms };
+      }),
     reopenJoin: (id) =>
       set((s) => ({
         joins: s.joins.map((j) => (j.id === id ? { ...j, open: true } : j)),

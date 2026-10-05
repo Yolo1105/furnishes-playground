@@ -1,5 +1,12 @@
 import { propsOf, useScene } from "./scene-store";
-import { activeOf, footprintOf, openingsOf, useRoom } from "./room-store";
+import {
+  activeOf,
+  footprintOf,
+  openingsOf,
+  roomLabel,
+  type RoomSpec,
+  useRoom,
+} from "./room-store";
 import { ROOM_NAMES } from "./room-data";
 import { sgd } from "./assets-data";
 
@@ -71,21 +78,36 @@ export const exportRoomJson = () => {
   const st = useRoom.getState();
   const r = activeOf(st);
   const s = useScene.getState();
+  /** a room as the file has it */
+  const roomOf = (rm: RoomSpec) => ({
+    id: rm.id,
+    room: rm.room,
+    name: roomLabel(st.rooms, rm),
+    position: rm.pos,
+    width: rm.width,
+    depth: rm.depth,
+    height: rm.height,
+    openings: openingsOf(st, rm).map(
+      ({ id: _id, hdb: _hdb, join: _join, ...o }) => o,
+    ),
+    floor: rm.floor,
+    wallTone: rm.wallTone,
+    footprint: footprintOf(rm),
+  });
   const data = {
-    room: {
-      flat: st.flat,
-      room: r.room,
-      name: ROOM_NAMES[r.room],
-      width: r.width,
-      depth: r.depth,
-      height: r.height,
-      openings: openingsOf(st, r).map(
-        ({ id: _id, hdb: _hdb, join: _join, ...o }) => o,
-      ),
-      floor: r.floor,
-      wallTone: r.wallTone,
-      footprint: footprintOf(r),
-    },
+    flat: st.flat,
+    // the active room first, as before the flat had several
+    room: roomOf(r),
+    rooms: st.rooms.map(roomOf),
+    doorways: st.joins
+      .filter((j) => j.open)
+      .map((j) => ({
+        between: [j.a, j.b],
+        kind: j.kind,
+        into: j.into,
+        at: j.at,
+        width: j.width,
+      })),
     pieces: s.groups.flatMap((g) =>
       g.items.map((n) => ({
         id: n.id,
@@ -96,6 +118,7 @@ export const exportRoomJson = () => {
         inCart: s.cart.includes(n.id),
         labelled: s.labels.includes(n.id),
         ...propsOf(n, s.overrides),
+        roomId: propsOf(n, s.overrides).roomId ?? st.rooms[0]!.id,
         parts: n.children?.map((c) => c.name) ?? [],
       })),
     ),

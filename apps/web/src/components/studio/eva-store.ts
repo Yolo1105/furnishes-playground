@@ -23,7 +23,7 @@ import { CUSTOM_OPTIONS } from "./eva-data";
 import { FLOW_NAMES, type Flow } from "./quiz-data";
 import type { QuizResult } from "./quiz-engine";
 import { activeOf, useRoom } from "./room-store";
-import { useScene } from "./scene-store";
+import { inRoom, useScene } from "./scene-store";
 import { newId } from "./ids";
 import { useStudio } from "./studio-store";
 
@@ -110,7 +110,14 @@ const contextOf = (
       height: r.height,
       sized: r.start !== null,
     },
-    pieces: sc.groups.flatMap((g) => g.items).filter((n) => n.kind !== "fixed"),
+    // what stands in the active room, not the whole flat
+    pieces: sc.groups
+      .flatMap((g) => g.items)
+      .filter(
+        (n) =>
+          n.kind !== "fixed" &&
+          inRoom(sc.overrides[n.id] ?? {}, r.id, st.rooms[0]!.id),
+      ),
     cart: sc.cart,
     prefs: s.preferences,
     exploration: s.exploration,
