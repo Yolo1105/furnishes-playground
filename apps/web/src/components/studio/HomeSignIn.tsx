@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ACCOUNT_MODES, useAccountForm } from "./account-form";
+import { ACCOUNT_MODES, GOOGLE_SIGN_IN, useAccountForm } from "./account-form";
 import { PASSWORD_MIN } from "@/lib/account-rules";
 
 /**
@@ -99,6 +99,11 @@ export function HomeSignIn({ studio }: { studio: string }) {
               {f.error}
             </p>
           )}
+          {f.note && (
+            <p className="home-sub" role="status">
+              {f.note}
+            </p>
+          )}
           <div className="home-acts">
             <button
               type="submit"
@@ -108,6 +113,26 @@ export function HomeSignIn({ studio }: { studio: string }) {
               {f.busy ? "One moment" : up ? "Create account" : "Sign in"}
               <span aria-hidden="true"> →</span>
             </button>
+            {GOOGLE_SIGN_IN && (
+              <button
+                type="button"
+                className="home-btn"
+                disabled={f.busy}
+                onClick={f.google}
+              >
+                Continue with Google
+              </button>
+            )}
+            {!up && (
+              <button
+                type="button"
+                className="home-quiet"
+                disabled={f.busy}
+                onClick={() => void f.forgot()}
+              >
+                Forgot your password? →
+              </button>
+            )}
             <Link className="home-quiet" href={studio}>
               Look around without an account →
             </Link>

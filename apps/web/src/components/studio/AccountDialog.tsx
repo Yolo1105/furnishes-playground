@@ -1,13 +1,14 @@
 "use client";
 
-import { ACCOUNT_MODES, useAccountForm } from "./account-form";
+import { ACCOUNT_MODES, GOOGLE_SIGN_IN, useAccountForm } from "./account-form";
 import { PASSWORD_MIN } from "@/lib/account-rules";
 import { Dialog } from "./Dialog";
 
 /**
  * The studio's way in to an account, from the gear: Sign in and Create
- * account as tabs over one form; done, the dialog closes and the user
- * bar reads the name.
+ * account as tabs over one form, a forgotten password asked for by
+ * mail, and Google when the site has it; done, the dialog closes and
+ * the user bar reads the name.
  */
 export function AccountDialog({
   onClose,
@@ -87,7 +88,32 @@ export function AccountDialog({
             {f.error}
           </p>
         )}
+        {f.note && (
+          <p className="account-text" role="status">
+            {f.note}
+          </p>
+        )}
         <div className="shell-dialog-acts">
+          {f.mode === "in" && (
+            <button
+              type="button"
+              className="main-btn"
+              disabled={f.busy}
+              onClick={() => void f.forgot()}
+            >
+              Forgot your password?
+            </button>
+          )}
+          {GOOGLE_SIGN_IN && (
+            <button
+              type="button"
+              className="main-btn"
+              disabled={f.busy}
+              onClick={f.google}
+            >
+              Continue with Google
+            </button>
+          )}
           <button
             type="submit"
             className="main-btn main-btn-primary"

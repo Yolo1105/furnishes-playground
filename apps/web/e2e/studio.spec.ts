@@ -3721,17 +3721,79 @@ test("an account: created with an email and a password, signed out, signed in ag
   expect(mine.status()).toBe(200);
   expect(mine.headers()["content-disposition"]).toContain("attachment");
   expect((await mine.json()).account.email).toBe(email);
+  // the link that confirms the email went by mail (kept on this server);
+  // followed, the account reads as confirmed
+  const mails = async (subject: RegExp) => {
+    const r = await page.request.get(
+      `/api/dev/mail?to=${encodeURIComponent(email)}`,
+    );
+    const { mails } = (await r.json()) as {
+      mails: { subject: string; text: string }[];
+    };
+    return mails.filter((m) => subject.test(m.subject));
+  };
+  await expect.poll(async () => (await mails(/^Confirm/)).length).toBe(1);
+  const confirm = (await mails(/^Confirm/))[0]!.text.match(
+    /https?:\/\/\S+/,
+  )![0];
+  await page.goto(confirm);
+  await expect(page).toHaveURL(/\/rounded/);
+  await gear.click();
+  await menu.getByRole("menuitem", { name: "Account" }).click();
+  const profile = page.getByRole("dialog", { name: "Account" });
+  await expect(profile).toContainText(`${email} is confirmed`);
+  // this device is listed; the password is changed with the current one
+  await expect(
+    profile.getByRole("list", { name: "Signed-in devices" }).locator("li"),
+  ).toHaveCount(1);
+  await expect(profile).toContainText("this device");
+  await profile.getByLabel("Current password").fill(PASSWORD);
+  await profile.getByLabel("New password").fill(`${PASSWORD}-2`);
+  await profile.getByRole("button", { name: "Change password" }).click();
+  await expect(profile.getByRole("status")).toContainText("Password changed");
+  await page.keyboard.press("Escape");
   // signed out, a guest again
   await gear.click();
   await menu.getByRole("menuitem", { name: "Sign out" }).click();
   await expect(bar).toContainText("Guest");
-  // back in: a wrong password is said, the right one lets in
+  // back in: a wrong password is said, the new one lets in
   await account(page, email, "in", "not-the-right-one");
   await expect(dialog.getByRole("alert")).toContainText(/password|invalid/i);
-  await dialog.getByLabel("Password").fill(PASSWORD);
+  await dialog.getByLabel("Password").fill(`${PASSWORD}-2`);
   await dialog.getByRole("button", { name: "Sign in" }).click();
   await expect(dialog).toHaveCount(0);
   await expect(bar).toContainText("Mei Tan");
+  // a forgotten password: a link by mail, a new password on the page it
+  // opens, and in with that
+  await gear.click();
+  await menu.getByRole("menuitem", { name: "Sign out" }).click();
+  await expect(bar).toContainText("Guest");
+  await gear.click();
+  await menu.getByRole("menuitem", { name: "Sign in" }).click();
+  await dialog.getByLabel("Email").fill(email);
+  await dialog.getByRole("button", { name: "Forgot your password?" }).click();
+  await expect(dialog.getByRole("status")).toContainText("on its way");
+  await expect.poll(async () => (await mails(/^Reset/)).length).toBe(1);
+  const reset = (await mails(/^Reset/))[0]!.text.match(/https?:\/\/\S+/)![0];
+  await page.goto(reset);
+  await expect(page).toHaveURL(/\/reset\?token=/);
+  await page.getByLabel("New password").fill(`${PASSWORD}-3`);
+  await page.getByRole("button", { name: "Set the password" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Password changed." }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Sign in" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(`${PASSWORD}-3`);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).toHaveURL(/\/rounded$/, { timeout: 20_000 });
+  await expect(page.locator(".user-bar")).toContainText("Mei Tan");
+  // a lapsed or missing token is said on the page
+  await page.goto("/reset");
+  await expect(
+    page.getByRole("heading", { name: "That link has lapsed." }),
+  ).toBeVisible();
 });
 
 test("signed in, the projects follow the account to another browser; the account page lists them and opens one; deleting the account takes the mirror", async ({

@@ -4,15 +4,48 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { syncNow, useSyncState } from "./account-sync";
 import { Dialog } from "./Dialog";
-import { authClient } from "@/lib/auth-client";
+import { PASSWORD_MIN } from "@/lib/account-rules";
+import { authClient, useSession } from "@/lib/auth-client";
 
 /**
- * The account, from the studio's gear: the name (editable), the email,
- * when the account last took the browser's mirror with Save now, Sign
- * out, the rooms shared by link (open one, take a link down), a copy
- * of everything the account holds to download, and the end of the
- * account with its confirmation.
+ * The account, from the studio's gear: the name (editable), the email
+ * and whether it is confirmed (the link again if not), the password
+ * changed with the current one, the devices signed in (each signed out
+ * from here), when the account last took the browser's mirror with Save
+ * now, Sign out, the rooms shared by link (open one, take a link down),
+ * a copy of everything the account holds to download, and the end of
+ * the account with its confirmation.
  */
+type Device = {
+  token: string;
+  userAgent?: string | null;
+  createdAt: Date | string;
+};
+/** a device as its browser names itself, in two words */
+const deviceOf = (ua: string | null | undefined) => {
+  const u = ua ?? "";
+  const browser = /Firefox/.test(u)
+    ? "Firefox"
+    : /Edg\//.test(u)
+      ? "Edge"
+      : /Chrome/.test(u)
+        ? "Chrome"
+        : /Safari/.test(u)
+          ? "Safari"
+          : "A browser";
+  const os = /iPhone|iPad/.test(u)
+    ? "iOS"
+    : /Android/.test(u)
+      ? "Android"
+      : /Mac/.test(u)
+        ? "Mac"
+        : /Windows/.test(u)
+          ? "Windows"
+          : /Linux/.test(u)
+            ? "Linux"
+            : "";
+  return os ? `${browser} on ${os}` : browser;
+};
 type Share = { id: string; name: string; at: number };
 const when = (at: number) =>
   new Date(at).toLocaleString("en-SG", {
@@ -32,7 +65,61 @@ export function ProfileDialog({
   onClose: () => void;
 }) {
   const sync = useSyncState();
+  const { data: session } = useSession();
+  const verified = session?.user.emailVerified ?? false;
+  const thisToken = session?.session.token;
   const [draft, setDraft] = useState<string | null>(null);
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [passNote, setPassNote] = useState<string | null>(null);
+  const [devices, setDevices] = useState<Device[]>([]);
+  useEffect(() => {
+    let live = true;
+    void authClient
+      .listSessions()
+      .then((r) => live && r.data && setDevices(r.data as Device[]))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, []);
+  const resend = async () => {
+    const r = await authClient.sendVerificationEmail({
+      email,
+      callbackURL: "/rounded",
+    });
+    setNote(
+      r.error
+        ? (r.error.message ?? "That did not send.")
+        : "The link is on its way.",
+    );
+  };
+  const changePassword = async () => {
+    if (next.length < PASSWORD_MIN) {
+      setPassNote(`A password needs ${PASSWORD_MIN} characters or more.`);
+      return;
+    }
+    const r = await authClient.changePassword({
+      currentPassword: current,
+      newPassword: next,
+      revokeOtherSessions: true,
+    });
+    if (r.error) setPassNote(r.error.message ?? "That did not work.");
+    else {
+      setPassNote("Password changed; the other devices are signed out.");
+      setCurrent("");
+      setNext("");
+      setDevices((d) => d.filter((x) => x.token === thisToken));
+    }
+  };
+  const signOutThere = async (token: string) => {
+    await authClient.revokeSession({ token });
+    setDevices((d) => d.filter((x) => x.token !== token));
+  };
+  const signOutElsewhere = async () => {
+    await authClient.revokeOtherSessions();
+    setDevices((d) => d.filter((x) => x.token === thisToken));
+  };
   const [ending, setEnding] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [shares, setShares] = useState<Share[]>([]);
@@ -98,6 +185,104 @@ export function ProfileDialog({
           Save name
         </button>
       </div>
+      <h2 className="eva-pref-title">Email</h2>
+      <p className="account-text">
+        {verified
+          ? `${email} is confirmed.`
+          : `${email} is not confirmed yet: the link went by mail when the account was made.`}
+      </p>
+      {!verified && (
+        <div className="shell-dialog-acts">
+          <button
+            type="button"
+            className="main-btn"
+            onClick={() => void resend()}
+          >
+            Send the link again
+          </button>
+        </div>
+      )}
+      <h2 className="eva-pref-title">Password</h2>
+      <form
+        className="order-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void changePassword();
+        }}
+      >
+        <div className="order-form-row">
+          <label className="order-field">
+            <span className="room-dim-label">Current password</span>
+            <input
+              className="room-dim-input"
+              type="password"
+              autoComplete="current-password"
+              aria-label="Current password"
+              value={current}
+              onChange={(e) => setCurrent(e.target.value)}
+            />
+          </label>
+          <label className="order-field">
+            <span className="room-dim-label">New password</span>
+            <input
+              className="room-dim-input"
+              type="password"
+              autoComplete="new-password"
+              aria-label="New password"
+              value={next}
+              onChange={(e) => setNext(e.target.value)}
+            />
+          </label>
+        </div>
+        <div className="shell-dialog-acts">
+          {passNote && (
+            <span className="account-note" role="status">
+              {passNote}
+            </span>
+          )}
+          <button
+            type="submit"
+            className="main-btn"
+            disabled={!current || !next}
+          >
+            Change password
+          </button>
+        </div>
+      </form>
+      <h2 className="eva-pref-title">Signed-in devices</h2>
+      <ul className="shell-dialog-list" aria-label="Signed-in devices">
+        {devices.map((d) => (
+          <li key={d.token}>
+            <span>
+              <span className="account-project">{deviceOf(d.userAgent)}</span>
+              <small className="account-when">
+                since {when(new Date(d.createdAt).getTime())}
+                {d.token === thisToken ? " · this device" : ""}
+              </small>
+            </span>
+            {d.token !== thisToken && (
+              <button
+                type="button"
+                className="main-btn"
+                onClick={() => void signOutThere(d.token)}
+              >
+                Sign out there
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+      {devices.length > 1 && (
+        <div className="shell-dialog-acts">
+          <button
+            type="button"
+            className="main-btn"
+            onClick={() => void signOutElsewhere()}
+          >
+            Sign out everywhere else
+          </button>
+        </div>
+      )}
       <h2 className="eva-pref-title">Saved to your account</h2>
       <p className="account-text">
         The studio works in this browser and saves to your account as you go:

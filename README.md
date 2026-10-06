@@ -92,8 +92,19 @@ square-cornered one; Settings switches between them, and the old
 side, autosaved in the browser.
 
 Accounts are Better Auth over Drizzle: an email and a password from the
-gear's Sign in, the name and email in the user bar, Account and Sign
-out beside them. The browser stays the truth and the account mirrors
+gear's Sign in (or Google, when `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
+and `NEXT_PUBLIC_AUTH_GOOGLE=1` are set), the name and email in the
+user bar, Account and Sign out beside them. A new account is sent a
+link that confirms its email (signing in does not wait on it; the
+gear's Account says whether it is confirmed and sends the link again);
+a forgotten password is asked for from the sign-in form and set anew on
+the page its link opens (`/reset`); the gear's Account changes the
+password with the current one, which signs the other devices out, and
+lists the devices signed in, each to be signed out from here. Mail goes
+through Resend (`RESEND_API_KEY`, `MAIL_FROM`); without a key a
+development server keeps it under `.data/mail.json`, where the tests
+follow its links (`/api/dev/mail`), and a hosted run says it sent
+nothing. The browser stays the truth and the account mirrors
 it: signed in, the projects (and which were deleted), the orders, the
 room items made and the guide's record are pulled once, merged with
 what is here (a project goes to the newer copy and stays gone where
@@ -148,9 +159,9 @@ says is read without any line that plays a role. The gear's Feedback
 writes to the studio's own table (`/api/help`, with the page and
 project it came from), `/api/waitlist` keeps an email once, and the
 gear's Account offers everything the account holds as one file
-(`/api/account/export`). Not built, as each needs a mail sender or a payment provider
-that is not connected: forgotten-password mail, email verification, and
-payment itself (an order waits at awaiting payment).
+(`/api/account/export`). What needs a key that is not set still says so rather than pretend:
+without `RESEND_API_KEY` no mail leaves a hosted run, and without
+`STRIPE_SECRET_KEY` an order waits at awaiting payment.
 
 The room is a full-screen stage behind three panels. The project rail
 has Assets (an outliner with hide and remove), Products (the catalogue),

@@ -4,22 +4,55 @@ import { nextCookies } from "better-auth/next-js";
 import { getDb } from "./db";
 import * as schema from "./db/schema";
 import { PASSWORD_MIN } from "./account-rules";
-import { trustedOrigins } from "./site";
+import { sendMail } from "./mail";
+import { SITE, trustedOrigins } from "./site";
 
 /**
  * Who is in the studio: Better Auth over the Drizzle tables, with an
- * email and a password. A session lives in a cookie and is read from
- * the database on every request, so an account that ended is gone at
- * once on every device. An account can be deleted by its owner. The secret
- * comes from BETTER_AUTH_SECRET (a development run falls back to the
- * library's own and says so); BETTER_AUTH_URL names the site in
- * production, and a sign-in is trusted from the site's own addresses
- * and Vercel's previews. Built on first use, as the database is.
+ * email and a password, or Google when GOOGLE_CLIENT_ID and
+ * GOOGLE_CLIENT_SECRET are set. A session lives in a cookie and is read
+ * from the database on every request, so an account that ended is gone
+ * at once on every device. A new account is sent a link to confirm its
+ * email (signing in does not wait on it); a forgotten password is reset
+ * by a link; a password can be changed, and the other devices signed
+ * out. An account can be deleted by its owner. The secret comes from
+ * BETTER_AUTH_SECRET (a development run falls back to the library's own
+ * and says so); BETTER_AUTH_URL names the site in production, and a
+ * sign-in is trusted from the site's own addresses and Vercel's
+ * previews. Built on first use, as the database is.
  */
+const google = () => {
+  const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
+  return clientId && clientSecret ? { google: { clientId, clientSecret } } : {};
+};
+
 const make = () =>
   betterAuth({
     database: drizzleAdapter(getDb().db, { provider: "pg", schema }),
-    emailAndPassword: { enabled: true, minPasswordLength: PASSWORD_MIN },
+    emailAndPassword: {
+      enabled: true,
+      minPasswordLength: PASSWORD_MIN,
+      sendResetPassword: async ({ user, url }) => {
+        await sendMail({
+          to: user.email,
+          subject: `Reset your ${SITE.name} password`,
+          text: `Hello ${user.name},\n\nA new password for ${SITE.name} can be set here:\n${url}\n\nThe link is good for an hour. If you did not ask for it, nothing changes; this mail can be left alone.\n\n${SITE.name}`,
+        });
+      },
+    },
+    emailVerification: {
+      sendOnSignUp: true,
+      autoSignInAfterVerification: true,
+      sendVerificationEmail: async ({ user, url }) => {
+        await sendMail({
+          to: user.email,
+          subject: `Confirm your email for ${SITE.name}`,
+          text: `Hello ${user.name},\n\nThis confirms ${user.email} is yours:\n${url}\n\nIf you did not make an account at ${SITE.name}, this mail can be left alone.\n\n${SITE.name}`,
+        });
+      },
+    },
+    socialProviders: google(),
     trustedOrigins: trustedOrigins(),
     user: { deleteUser: { enabled: true } },
     plugins: [nextCookies()],
