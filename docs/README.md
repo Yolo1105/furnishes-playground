@@ -2,6 +2,9 @@
 
 What is here, and where it came from.
 
+- `DEPLOY.md`: how to put the studio on Vercel with Neon behind it, what
+  each provider needs, and what to check after a deploy.
+
 - `product-brief.zh.md`: the master planning document in Chinese from the
   discussion of 2 October 2026 ("Furnishes 软件与服务全量规划"), covering
   the business and product boundary, the service chain, the studio, Eva,

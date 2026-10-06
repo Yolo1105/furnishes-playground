@@ -3644,7 +3644,7 @@ test("the account page is the way in, and a sign-in goes straight into the studi
   await expect(bar).toContainText("Mei Tan");
 });
 
-test("the site's edges: the privacy and terms pages, the help page's Ask us, the gear's Feedback, the headers, robots and the sitemap", async ({
+test("the site's edges: the privacy and terms pages, the help page's Ask us, the gear's Feedback, the headers, health, robots and the sitemap", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -3705,6 +3705,21 @@ test("the site's edges: the privacy and terms pages, the help page's Ask us, the
     .click();
   await expect(page.getByRole("dialog", { name: "Feedback" })).toBeVisible();
   await page.keyboard.press("Escape");
+  // the backend says what is up, and never a secret
+  const health = await page.request.get("/api/health");
+  expect(health.status()).toBe(200);
+  const up = (await health.json()) as {
+    ok: boolean;
+    database: { kind: string; migrations: number };
+    services: { host: string; mail: string };
+    missingForHosting: string[];
+  };
+  expect(up.ok).toBe(true);
+  expect(up.database.kind).toBe("pglite");
+  expect(up.database.migrations).toBeGreaterThan(0);
+  expect(up.services.host).toBe("local");
+  expect(up.missingForHosting).toContain("DATABASE_URL");
+  expect(JSON.stringify(up)).not.toMatch(/sk_|re_|AIza|secret":"[^sd]/);
   // crawlers: the pages, not the API
   const robots = await page.request.get("/robots.txt");
   expect(await robots.text()).toContain("Disallow: /api/");

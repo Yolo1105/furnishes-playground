@@ -179,10 +179,15 @@ step, so nothing kept is ever stale. `BETTER_AUTH_SECRET` signs the
 sessions in production (a development run uses the library's own and
 says so).
 
-Deploying to furnish-es.com: the site's name, address and contact are
+Deploying to furnish-es.com (`docs/DEPLOY.md` has the steps and the
+checks): the site's name, address and contact are
 in `apps/web/src/lib/site.ts`, which the titles, the sitemap, the
 auth's trusted origins, the landing, the inner pages and the gear's
-Feedback all read. On Vercel, import the repository with `apps/web` as
+Feedback all read. `GET /api/health` says which backends are up (the
+database and its migrations, mail, the model, pictures, payments and
+its webhook, Google) and what a hosted deployment is still missing,
+never a secret; `.github/workflows/ci.yml` runs the format, lint,
+types, unit tests, build and the end-to-end suite on every push. On Vercel, import the repository with `apps/web` as
 the root directory (the build command and output are Next's own), add
 the domain, and set four variables: `DATABASE_URL` from a Neon project
 (a hosted run without one refuses to start rather than lose accounts
