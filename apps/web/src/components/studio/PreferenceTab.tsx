@@ -5,7 +5,6 @@ import {
   BUDGET,
   FURNITURE,
   PREFERENCE_BLOCKS,
-  ROOMS,
   STYLES,
   SWATCHES,
   type PreferenceCategory,
@@ -18,12 +17,12 @@ import { QuizDialog } from "./QuizDialog";
 import { FLOW_NAMES, type Flow } from "./quiz-data";
 
 /**
- * The five preference blocks of the playground's design, as controls:
- * pick the room, slide the budget, choose styles, colours and what the
- * room needs. Everything here is what Eva keeps to, however it got here.
- * Room type and Design style also take options of one's own, typed in,
- * three at most per block. Eva reads these on every turn, unless
- * Exploration is on: then she sets them aside and stays open to anything.
+ * The four preference blocks of the playground's design, as controls:
+ * the budget, styles, colours and what the room needs. Everything here
+ * is what Eva keeps to, however it got here; the room itself is the Room
+ * tab's. Design style also takes options of one's own, typed in, three
+ * at most. Eva reads these on every turn, unless Exploration is on: then
+ * she sets them aside and stays open to anything.
  */
 export function PreferenceTab() {
   const prefs = useEva((s) => s.preferences);
@@ -104,7 +103,7 @@ export function PreferenceTab() {
             autoFocus
             value={typing.draft}
             placeholder="Type and press Enter"
-            aria-label={`Your own ${cat === "room" ? "room type" : "design style"}`}
+            aria-label="Your own design style"
             maxLength={24}
             onChange={(e) => setTyping({ cat, draft: e.target.value })}
             onKeyDown={(e) => {
@@ -196,7 +195,6 @@ export function PreferenceTab() {
                   : b.hint}
             </p>
 
-            {b.id === "room" && chips("room", ROOMS, false, true)}
             {b.id === "budget" && (
               <div className="eva-budget">
                 {(

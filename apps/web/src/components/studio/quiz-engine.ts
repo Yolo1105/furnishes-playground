@@ -1,5 +1,5 @@
 import { sgd } from "./assets-data";
-import type { PreferenceCategory } from "./eva-data";
+import type { ProposalCat } from "./eva-data";
 import {
   budgetOf,
   ROOM_QUIZ,
@@ -15,7 +15,7 @@ import {
  * aside, never kept on their own.
  */
 type QuizProposal = {
-  cat: PreferenceCategory;
+  cat: ProposalCat;
   values: string[];
   budget?: [number, number];
 };

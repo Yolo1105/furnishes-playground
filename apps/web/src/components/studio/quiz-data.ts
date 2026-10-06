@@ -1,4 +1,4 @@
-import { BUDGET, snapBudget } from "./eva-data";
+import { BUDGET, ROOMS, snapBudget } from "./eva-data";
 
 /**
  * The three short quizzes, ported from the chatbot's: style (five
@@ -364,14 +364,7 @@ export const ROOM_QUIZ: Question[] = [
     subtext: "The one we are planning.",
     min: 1,
     max: 1,
-    options: [
-      { id: "Living room", label: "Living room" },
-      { id: "Bedroom", label: "Bedroom" },
-      { id: "Study", label: "Study" },
-      { id: "Kitchen", label: "Kitchen" },
-      { id: "Children's room", label: "Children's room" },
-      { id: "Hallway", label: "Hallway" },
-    ],
+    options: ROOMS.map((r) => ({ id: r, label: r })),
   },
   {
     id: "r1",

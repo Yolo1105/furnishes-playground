@@ -14,9 +14,13 @@ import {
   STYLES,
   SWATCHES,
   type PreferenceCategory,
+  type ProposalCat,
   personaOf,
   type PersonaId,
+  ASKS,
   BRAINSTORM,
+  PREF_REVIEW,
+  PREFERENCE_BLOCKS,
   snapBudget,
 } from "./eva-data";
 import { DESIGN_TIPS } from "./design-tips";
@@ -222,7 +226,7 @@ export const stageOf = (c: Context): Stage => {
 /* ---------- hearing preferences ---------- */
 
 type Proposal = {
-  cat: PreferenceCategory;
+  cat: ProposalCat;
   values: string[];
   budget?: [number, number];
 };
@@ -250,10 +254,9 @@ const hearBudget = (text: string): [number, number] | null => {
 /** the preferences a message carries that are not confirmed yet */
 export const hear = (text: string, prefs: Preferences): Proposal[] => {
   const out: Proposal[] = [];
-  const pick = (cat: PreferenceCategory, options: readonly string[]) => {
-    const heard = options.filter(
-      (o) => hasWord(text, o) && !prefs[cat]?.values.includes(o),
-    );
+  const pick = (cat: ProposalCat, options: readonly string[]) => {
+    const kept = cat === "room" ? [] : (prefs[cat]?.values ?? []);
+    const heard = options.filter((o) => hasWord(text, o) && !kept.includes(o));
     if (heard.length) out.push({ cat, values: heard });
   };
   pick("room", ROOMS);
@@ -328,6 +331,11 @@ const NEEDS: Record<string, (p: Product) => boolean> = {
   Bedside: (p) => /bedside/i.test(p.name),
 };
 
+/** the pieces that run along a wall, so its length is a reason they fit */
+const ALONG_A_WALL = /sofa|sideboard|bookwall|wardrobe|desk|bench|shelv/i;
+/** the pieces that close, for a style that asks for closed storage */
+const CLOSED = /cabinet|sideboard|wardrobe|drawer|cupboard/i;
+
 export const recommend = (
   c: Context,
   text: string,
@@ -379,9 +387,11 @@ export const recommend = (
           ? `${sgd(remaining - product.price)} of your budget would be left`
           : `${sgd(product.price - remaining)} over what is left of your budget`,
       );
-    why.push(`fits the ${metres(long)} wall`);
+    // the wall's length is a reason only for a piece that runs along it
+    if (ALONG_A_WALL.test(product.name))
+      why.push(`fits the ${metres(long)} wall`);
     const tip = c.prefs.style?.values.map((s) => DESIGN_TIPS[s]).find(Boolean);
-    if (tip && product.category === "storage" && /closed|hide/i.test(tip.do))
+    if (tip && CLOSED.test(product.name) && /closed|hide/i.test(tip.do))
       why.push("closed storage, as the style asks");
     return { product, why: why.join(" · ") };
   });
@@ -410,10 +420,41 @@ const roomLine = (c: Context) =>
 /** the box's mode: Ask lets the words decide; the others say what is wanted */
 export type ChatMode = "ask" | "furniture" | "layout";
 
+const sentences = (text: string) => text.split(/(?<=[.!?])\s+/).filter(Boolean);
+/** an answer long enough to offer shorter */
+export const isLong = (text: string) => sentences(text).length > 3;
 /** the first sentence or two of what was said, for "Make that shorter" */
 export const shorter = (text: string) => {
-  const parts = text.split(/(?<=[.!?])\s+/).filter(Boolean);
+  const parts = sentences(text);
   return parts.slice(0, parts.length > 3 ? 2 : 1).join(" ");
+};
+
+/** what Eva keeps to and what is still open, each open block a chip
+    that asks her about it */
+const review = (c: Context): Reply => {
+  const kept = PREFERENCE_BLOCKS.filter((b) => c.prefs[b.id]).map((b) => {
+    const p = c.prefs[b.id]!;
+    return `${b.label.toLowerCase()} ${
+      p.budget
+        ? `${sgd(p.budget[0])} to ${sgd(p.budget[1])}`
+        : p.values.join(", ")
+    }`;
+  });
+  const open = PREFERENCE_BLOCKS.filter((b) => !c.prefs[b.id]);
+  return {
+    text: `${
+      kept.length
+        ? `I'm keeping to ${kept.join("; ")}.`
+        : "Nothing is kept yet."
+    } ${
+      open.length
+        ? `Still open: ${open.map((b) => b.label.toLowerCase()).join(", ")}. Ask me about one and we'll settle it.`
+        : "Everything is settled; change any of it in the Preference tab."
+    }`,
+    proposals: [],
+    cards: [],
+    chips: open.map((b) => ({ label: b.label, send: ASKS[b.id] })),
+  };
 };
 
 /** three directions for the room: the kept styles first, then others,
@@ -438,6 +479,7 @@ export const reply = (
   mode: ChatMode = "ask",
 ): Reply => {
   if (text.trim() === BRAINSTORM) return brainstorm(c);
+  if (text.trim() === PREF_REVIEW) return review(c);
   const proposals = hear(text, c.prefs);
   // the lens steers what is asked for, not small talk: a greeting gets
   // an answer, not a layout
@@ -449,9 +491,6 @@ export const reply = (
       : mode === "layout" && !smallTalk
         ? "layout"
         : intentOf(text);
-  const stance = c.exploration
-    ? " Exploration is on, so I'm ranging wide rather than keeping to your preferences."
-    : "";
   // what fits this flat comes first, when a bed, a sofa or a table is named
   const fit = fitNoteFor(c, text);
   const fitLead = fit ? `For a ${c.room.flat} flat: ${fit} ` : "";
@@ -475,8 +514,7 @@ export const reply = (
         { label: "Pick the storage", send: "Suggest storage within my budget" },
       ],
     };
-  // the gates: the room's size before a layout, the budget before a list,
-  // the room before furniture
+  // the gates: the room's size before a layout, the budget before a list
   if (intent === "layout" && !c.room.sized)
     return {
       text: "Could you give me the room's size first? Draw its walls or pick a template in the Room tab, and I'll plan around the real walls.",
@@ -502,20 +540,6 @@ export const reply = (
         { label: "Flexible", act: "budget", budget: [BUDGET.min, BUDGET.max] },
       ],
     };
-  if (
-    intent === "furniture" &&
-    !c.prefs.room?.values.length &&
-    !proposals.some((p) => p.cat === "room")
-  )
-    return {
-      text: "Which room is this for? Then I'll pick what fits it.",
-      proposals,
-      cards: [],
-      chips: ROOMS.slice(0, 4).map((r) => ({
-        label: r,
-        send: `It's for the ${r.toLowerCase()}`,
-      })),
-    };
   if (intent !== "talk") {
     const cards = recommend(c, text);
     if (cards.length)
@@ -523,8 +547,8 @@ export const reply = (
         text:
           fitLead +
           (intent === "layout"
-            ? `For the ${roomLine(c)}, here is what I'd stand along the walls first.${stance}`
-            : `For the ${roomLine(c)}, ${cards.length === 1 ? "one piece" : `${cards.length} pieces`} that fit.${stance}`),
+            ? `For the ${roomLine(c)}, here is what I'd stand along the walls first.`
+            : `For the ${roomLine(c)}, ${cards.length === 1 ? "one piece" : `${cards.length} pieces`} that fit.`),
         proposals,
         cards,
         chips: [
@@ -549,7 +573,7 @@ export const reply = (
           : " Ask me for pieces, a layout or a list and I'll keep to what fits.";
   const t = pieceTotals(c.pieces);
   return {
-    text: `${fitLead}I'm reading the ${roomLine(c)}, with ${t.pieces} Furnishes pieces at ${sgd(t.total)}.${stance}${next}`,
+    text: `${fitLead}I'm reading the ${roomLine(c)}, with ${t.pieces} Furnishes pieces at ${sgd(t.total)}.${next}`,
     proposals,
     cards: [],
     chips:
@@ -559,6 +583,3 @@ export const reply = (
           [personaOf(c.persona).chip],
   };
 };
-
-/** the four rooms to start from, as the chatbot offers them */
-export const STARTERS = ["Living room", "Bedroom", "Study", "Kitchen"] as const;

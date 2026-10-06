@@ -1,24 +1,22 @@
 "use client";
 
 import { CATEGORY_NAMES, pieceTotals, sgd } from "./assets-data";
-import { planOf, stageOf, STAGES, STARTERS, type Chip } from "./eva-brain";
+import { planOf, stageOf, type Chip } from "./eva-brain";
 import {
-  INSIGHTS,
   personaOf,
+  PREF_REVIEW,
   PREFERENCE_BLOCKS,
   PROMPTS,
-  REFINES,
+  proposalLabel,
 } from "./eva-data";
 import { useEva } from "./eva-store";
 import {
-  CartIcon,
   CheckIcon,
   CopyIcon,
   LightbulbIcon,
   PencilIcon,
   PinIcon,
   PlusIcon,
-  RefineIcon,
   TagIcon,
   ThumbIcon,
 } from "./icons";
@@ -29,27 +27,27 @@ import { LABEL_MAX } from "./piece-detail";
 import { metres, ROOM_NAMES } from "./room-data";
 import { useActiveRoom, useRoom } from "./room-store";
 import { inRoom as standsIn, useScene, useTopLevel } from "./scene-store";
-import { useStudio } from "./studio-store";
 
 /**
- * The Agent tab: Eva says hello and what she has read from the room, the
- * stage the work is at, and the room plan's readiness; a first visit is
- * offered four rooms to start from. Once something is said, the thread
- * of the open conversation follows, you on the right and Eva on the
- * left: her messages carry the preferences she heard (to take up or set
- * aside), the pieces she picked with why each fits (and a way to add
- * them), and what to say or do next. Her latest answer can be refined
- * (shorter, more options, cheaper), any answer pinned to the project
- * (the pinned stand above the thread), and Brainstorm for me asks her
- * for three directions. A kept preference can be sent back to her for
- * review, an open one asked about.
+ * The Agent tab: Eva, what she has read from the room in one line, and
+ * two things to ask her straight away (Brainstorm for me, Review my
+ * preferences). Under that the room plan, folded to one line that says
+ * the most urgent of it: what is still to decide, the room's health
+ * with a Fix for each finding, three layouts to inspect and apply, and
+ * where the budget should go once one is kept. Then the thread of the
+ * open conversation, you on the right and Eva on the left: her messages
+ * carry the preferences she heard (to take up or set aside), the pieces
+ * she picked with why each fits (and a way to add them), and what to say
+ * next. Any answer can be pinned to the project (the pinned stand above
+ * the thread). Before the first message, prompts to start from.
  */
 export function AgentTab() {
   const room = useActiveRoom();
+  const flat = useRoom((s) => s.flat);
   const all = useTopLevel();
   const overrides = useScene((s) => s.overrides);
   const firstId = useRoom((s) => s.rooms[0]!.id);
-  // what stands in the active room: the card counts it, the labels
+  // what stands in the active room: the line counts it, the labels
   // reach it
   const items = all.filter((n) =>
     standsIn(overrides[n.id] ?? {}, room.id, firstId),
@@ -68,11 +66,9 @@ export function AgentTab() {
   const persona = personaOf(useEva((s) => s.persona));
   const { send, settleProposal, pickChip, rate, pin, brainstorm, context } =
     useEva.getState();
-  const [refining, setRefining] = useState<string | null>(null);
   // the layout opened to see what it would do
   const [inspecting, setInspecting] = useState<string | null>(null);
   const { addProduct, select } = useScene.getState();
-  const { setShelfTab, setPanelTab } = useStudio.getState();
   const stage = usePieceActions();
   const t = pieceTotals(items);
   const labelled = labels
@@ -84,11 +80,36 @@ export function AgentTab() {
   const at = stageOf(ctx);
   const inRoom = new Set(items.map((n) => n.name));
 
+  // what Eva has read, in one line: the room, what stands in it, and
+  // what she keeps to
+  const kept = PREFERENCE_BLOCKS.filter((b) => prefs[b.id]).map((b) => {
+    const p = prefs[b.id]!;
+    return p.budget
+      ? `${sgd(p.budget[0])} to ${sgd(p.budget[1])}`
+      : p.values.join(", ");
+  });
+  const read = `${ROOM_NAMES[room.room]} in a ${flat} HDB, ${metres(room.width)} × ${metres(room.depth)}: ${t.pieces} ${t.pieces === 1 ? "piece" : "pieces"} at ${sgd(t.total)}.${kept.length ? ` Keeping to ${kept.join(" · ")}.` : ""}`;
+
   // the planner's findings: the room's health, with a Fix where one exists
   const issues = stage.issues;
+  const missing = plan.missing.map((k) => CATEGORY_NAMES[k].toLowerCase());
+  // the plan's one line: the most urgent of what is inside
+  const urgent = [
+    issues.length
+      ? `${issues.length} finding${issues.length === 1 ? "" : "s"}`
+      : "",
+    missing.length ? `${missing.join(", ")} still to decide` : "",
+  ].filter(Boolean);
+  const showLayouts = at !== "intake" && stage.pieces.length > 0;
+  const summary = urgent.length
+    ? urgent.join(" · ")
+    : at === "intake"
+      ? "the room's walls first"
+      : showLayouts
+        ? `${stage.plans.length} layouts · clear`
+        : "clear";
 
   const started = thread !== undefined && thread.length > 0;
-  const latestEva = [...(thread ?? [])].reverse().find((m) => m.who === "eva");
   const pinned = (thread ?? []).filter((m) => m.pinned);
   return (
     <div className="agent">
@@ -98,19 +119,37 @@ export function AgentTab() {
           {persona.name}
           <span className="agent-who-tag">{persona.tagline}</span>
         </span>
-        <p>
-          Hi, I&apos;m Eva. I plan rooms with Furnishes pieces: tell me how the
-          room is used and I&apos;ll lay it out, price it and keep to what fits.
-        </p>
-        <button
-          type="button"
-          className="main-btn agent-brainstorm"
-          disabled={thinking}
-          onClick={() => void brainstorm()}
+        {!started && (
+          <p>
+            Hi, I&apos;m Eva. I plan rooms with Furnishes pieces: tell me how
+            the room is used and I&apos;ll lay it out, price it and keep to what
+            fits.
+          </p>
+        )}
+        <p className="agent-read">{read}</p>
+        <div
+          className="agent-chips agent-hello-acts"
+          role="group"
+          aria-label="Ask Eva"
         >
-          <LightbulbIcon size={14} />
-          <span>{thinking ? "Thinking…" : "Brainstorm for me"}</span>
-        </button>
+          <button
+            type="button"
+            className="main-btn"
+            disabled={thinking}
+            onClick={() => void brainstorm()}
+          >
+            <LightbulbIcon size={14} />
+            <span>{thinking ? "Thinking…" : "Brainstorm for me"}</span>
+          </button>
+          <button
+            type="button"
+            className="main-btn"
+            disabled={thinking}
+            onClick={() => void send(PREF_REVIEW)}
+          >
+            <span>{PREF_REVIEW}</span>
+          </button>
+        </div>
       </div>
       {exploration && (
         <p className="agent-exploring">
@@ -118,108 +157,22 @@ export function AgentTab() {
         </p>
       )}
 
-      {/* where the work stands */}
-      <ol className="agent-stages" aria-label="Where we are">
-        {STAGES.map((s, i) => {
-          const done = STAGES.findIndex((x) => x.id === at) > i;
-          return (
-            <li
-              key={s.id}
-              className="agent-stage"
-              data-now={s.id === at}
-              data-done={done}
-              aria-current={s.id === at ? "step" : undefined}
-            >
-              {done ? (
-                <CheckIcon size={11} />
-              ) : (
-                <span className="agent-stage-n f-num">{i + 1}</span>
-              )}
-              {s.label}
-            </li>
-          );
-        })}
-      </ol>
-
-      <dl className="agent-context" aria-label="What Eva has read">
-        <div>
-          <dt>Room</dt>
-          <dd>
-            {ROOM_NAMES[room.room]} · {room.flat} HDB
-          </dd>
-        </div>
-        <div>
-          <dt>Size</dt>
-          <dd className="f-num">
-            {metres(room.width)} × {metres(room.depth)} · {metres(room.height)}{" "}
-            high
-          </dd>
-        </div>
-        <div>
-          <dt>In the room</dt>
-          <dd className="f-num">
-            {t.pieces} pieces · {sgd(t.total)}
-          </dd>
-        </div>
-        {PREFERENCE_BLOCKS.filter((b) => prefs[b.id]).map((b) => {
-          const p = prefs[b.id]!;
-          const value = p.budget
-            ? `${sgd(p.budget[0])} – ${sgd(p.budget[1])}`
-            : p.values.join(", ");
-          return (
-            <div key={b.id}>
-              <dt>{b.label}</dt>
-              <dd className={p.budget ? "f-num" : undefined}>
-                {value}
-                <button
-                  type="button"
-                  className="agent-ask"
-                  aria-label={`Refine ${b.label.toLowerCase()} with Eva`}
-                  onClick={() => setDraft(INSIGHTS[b.id].review(value))}
-                >
-                  Refine
-                </button>
-              </dd>
-            </div>
-          );
-        })}
-      </dl>
-
-      {/* the room plan: how ready it is, the budget, what is missing */}
-      <section className="agent-plan" aria-label="Room plan">
-        <div className="agent-plan-head">
-          <span className="agent-plan-label">{plan.label}</span>
-          <span className="agent-plan-score f-num">{plan.score}%</span>
-        </div>
-        <div
-          className="agent-bar"
-          role="progressbar"
-          aria-valuenow={plan.score}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-label="Readiness"
-        >
-          <span style={{ width: `${plan.score}%` }} />
-        </div>
-        {plan.to !== undefined && (
-          <>
-            <div className="agent-plan-row f-num">
-              <span>Budget</span>
-              <span data-over={plan.remaining! < 0}>
-                {sgd(plan.total)} of {sgd(plan.to)} ·{" "}
-                {plan.remaining! >= 0
-                  ? `${sgd(plan.remaining!)} left`
-                  : `${sgd(-plan.remaining!)} over`}
-              </span>
-            </div>
-            <div className="agent-bar agent-bar-budget" aria-hidden="true">
-              <span
-                data-over={plan.remaining! < 0}
-                style={{
-                  width: `${Math.min(100, (plan.total / plan.to) * 100)}%`,
-                }}
-              />
-            </div>
+      {/* the room plan: what only Eva reads, under one line */}
+      <details className="agent-plan">
+        <summary className="agent-plan-head">
+          <span className="agent-plan-label">Room plan</span>
+          <span className="agent-plan-sum" data-urgent={urgent.length > 0}>
+            {summary}
+          </span>
+        </summary>
+        <div className="agent-plan-body" aria-label="Room plan">
+          {missing.length > 0 && (
+            <p className="agent-plan-row">
+              <span>Still to decide</span>
+              <span>{missing.join(", ")}</span>
+            </p>
+          )}
+          {plan.to !== undefined && (
             <ul
               className="agent-bands f-num"
               aria-label="Where the budget should go"
@@ -233,189 +186,154 @@ export function AgentTab() {
                 </li>
               ))}
             </ul>
-          </>
-        )}
-        {plan.missing.length > 0 && (
-          <p className="agent-plan-row">
-            <span>Still to decide</span>
-            <span>
-              {plan.missing
-                .map((k) => CATEGORY_NAMES[k].toLowerCase())
-                .join(", ")}
-            </span>
-          </p>
-        )}
-        {PREFERENCE_BLOCKS.some((b) => !prefs[b.id]) && (
-          <div className="agent-open" role="group" aria-label="Still open">
-            {PREFERENCE_BLOCKS.filter((b) => !prefs[b.id]).map((b) => (
-              <button
-                key={b.id}
-                type="button"
-                className="assets-chip"
-                title={INSIGHTS[b.id].openHint}
-                aria-label={`Ask Eva about ${b.label.toLowerCase()}`}
-                onClick={() => setDraft(INSIGHTS[b.id].ask)}
-              >
-                {b.label}: ask Eva
-              </button>
-            ))}
-          </div>
-        )}
-        {issues.length > 0 && (
-          <ul className="agent-issues" aria-label="Room health">
-            {issues.slice(0, 4).map((i) => (
-              <li
-                key={`${i.kind}-${i.pieceId}-${i.text}`}
-                className="agent-plan-warn"
-              >
-                <span>{i.text}</span>
-                {(i.fix || i.add) && (
-                  <button
-                    type="button"
-                    className="agent-fix"
-                    aria-label={`${i.add ? "Add" : "Fix"}: ${i.text}`}
-                    onClick={() => stage.fix(i)}
-                  >
-                    {i.add ? "Add" : "Fix"}
-                  </button>
-                )}
-              </li>
-            ))}
-            {issues.length > 4 && (
-              <li className="agent-plan-more">and {issues.length - 4} more</li>
-            )}
-          </ul>
-        )}
-        {at !== "intake" && stage.pieces.length > 0 && (
-          <div className="agent-layouts" role="group" aria-label="Layouts">
-            <span className="agent-plan-label">Layouts</span>
-            {stage.plans.map((p, i) => (
-              <div
-                key={p.id}
-                className="agent-layout"
-                data-applied={p.applied}
-                data-open={inspecting === p.id}
-              >
-                <div className="agent-layout-row">
-                  <div className="agent-layout-text">
-                    <span className="agent-layout-name">
-                      {p.label}
-                      {i === stage.pick && (
-                        <span className="agent-layout-pick">
-                          Eva&apos;s pick
-                        </span>
-                      )}
-                    </span>
-                    <span className="agent-layout-note f-num">
-                      {p.note} ·{" "}
-                      {p.findings === 0
-                        ? "clear"
-                        : `${p.findings} finding${p.findings === 1 ? "" : "s"}`}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    className="agent-fix agent-inspect-btn"
-                    aria-expanded={inspecting === p.id}
-                    aria-label={`Inspect ${p.label}`}
-                    onClick={() =>
-                      setInspecting((cur) => (cur === p.id ? null : p.id))
-                    }
-                  >
-                    Inspect
-                  </button>
-                  <button
-                    type="button"
-                    className="agent-fix"
-                    aria-pressed={p.applied}
-                    disabled={p.applied}
-                    onClick={() => stage.apply(p)}
-                  >
-                    {p.applied ? "Applied" : "Apply"}
-                  </button>
-                </div>
-                {inspecting === p.id && (
-                  <div
-                    className="agent-inspect"
-                    role="region"
-                    aria-label={`${p.label}, inspected`}
-                  >
-                    <ul className="agent-inspect-why">
-                      {whyLines(
-                        p.id,
-                        p,
-                        stage.room.rules,
-                        i === stage.pick,
-                        stage.tied,
-                      ).map((line) => (
-                        <li key={line}>{line}</li>
-                      ))}
-                    </ul>
-                    {p.issues.length > 0 && (
-                      <ul
-                        className="agent-inspect-list"
-                        aria-label={`What ${p.label} would leave`}
-                      >
-                        {p.issues.map((x) => (
-                          <li key={`${x.kind}-${x.pieceId}-${x.text}`}>
-                            {x.text}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    <p className="agent-inspect-sum f-num">
-                      {p.applied
-                        ? "Every piece stands as this layout has it."
-                        : p.moves.length === 0
-                          ? "No piece would move."
-                          : `${p.moves.length} ${p.moves.length === 1 ? "piece" : "pieces"} would move${p.stays > 0 ? `, ${p.stays} would stay` : ""}.`}
-                    </p>
-                    {!p.applied && p.moves.length > 0 && (
-                      <ul
-                        className="agent-inspect-list agent-inspect-moves"
-                        aria-label={`What ${p.label} would move`}
-                      >
-                        {p.moves.slice(0, 5).map((m) => (
-                          <li key={m.id}>
-                            <span>{m.name}</span>
-                            <span className="f-num">
-                              {m.dist >= 50 ? metresOf(m.dist) : "in place"}
-                              {m.turns ? " · turns" : ""}
-                            </span>
-                          </li>
-                        ))}
-                        {p.moves.length > 5 && (
-                          <li className="agent-plan-more">
-                            and {p.moves.length - 5} more
-                          </li>
+          )}
+          {issues.length > 0 && (
+            <ul className="agent-issues" aria-label="Room health">
+              {issues.slice(0, 4).map((i) => (
+                <li
+                  key={`${i.kind}-${i.pieceId}-${i.text}`}
+                  className="agent-plan-warn"
+                >
+                  <span>{i.text}</span>
+                  {(i.fix || i.add) && (
+                    <button
+                      type="button"
+                      className="agent-fix"
+                      aria-label={`${i.add ? "Add" : "Fix"}: ${i.text}`}
+                      onClick={() => stage.fix(i)}
+                    >
+                      {i.add ? "Add" : "Fix"}
+                    </button>
+                  )}
+                </li>
+              ))}
+              {issues.length > 4 && (
+                <li className="agent-plan-more">
+                  and {issues.length - 4} more
+                </li>
+              )}
+            </ul>
+          )}
+          {showLayouts && (
+            <div className="agent-layouts" role="group" aria-label="Layouts">
+              <span className="agent-plan-label">Layouts</span>
+              {stage.plans.map((p, i) => (
+                <div
+                  key={p.id}
+                  className="agent-layout"
+                  data-applied={p.applied}
+                  data-open={inspecting === p.id}
+                >
+                  <div className="agent-layout-row">
+                    <div className="agent-layout-text">
+                      <span className="agent-layout-name">
+                        {p.label}
+                        {i === stage.pick && (
+                          <span className="agent-layout-pick">
+                            Eva&apos;s pick
+                          </span>
                         )}
-                      </ul>
-                    )}
+                      </span>
+                      <span className="agent-layout-note f-num">
+                        {p.note} ·{" "}
+                        {p.findings === 0
+                          ? "clear"
+                          : `${p.findings} finding${p.findings === 1 ? "" : "s"}`}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="agent-fix agent-inspect-btn"
+                      aria-expanded={inspecting === p.id}
+                      aria-label={`Inspect ${p.label}`}
+                      onClick={() =>
+                        setInspecting((cur) => (cur === p.id ? null : p.id))
+                      }
+                    >
+                      Inspect
+                    </button>
+                    <button
+                      type="button"
+                      className="agent-fix"
+                      aria-pressed={p.applied}
+                      disabled={p.applied}
+                      onClick={() => stage.apply(p)}
+                    >
+                      {p.applied ? "Applied" : "Apply"}
+                    </button>
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-        {at === "order" ? (
-          <button
-            type="button"
-            className="main-btn main-btn-primary agent-plan-cta"
-            onClick={() => setShelfTab("cart")}
-          >
-            <CartIcon size={14} />
-            <span>Ready to order · open the cart</span>
-          </button>
-        ) : at === "intake" ? (
-          <button
-            type="button"
-            className="main-btn agent-plan-cta"
-            onClick={() => setPanelTab("room")}
-          >
-            <span>Set the room&apos;s walls</span>
-          </button>
-        ) : null}
-      </section>
+                  {inspecting === p.id && (
+                    <div
+                      className="agent-inspect"
+                      role="region"
+                      aria-label={`${p.label}, inspected`}
+                    >
+                      <ul className="agent-inspect-why">
+                        {whyLines(
+                          p.id,
+                          p,
+                          stage.room.rules,
+                          i === stage.pick,
+                          stage.tied,
+                        ).map((line) => (
+                          <li key={line}>{line}</li>
+                        ))}
+                      </ul>
+                      {p.issues.length > 0 && (
+                        <ul
+                          className="agent-inspect-list"
+                          aria-label={`What ${p.label} would leave`}
+                        >
+                          {p.issues.map((x) => (
+                            <li key={`${x.kind}-${x.pieceId}-${x.text}`}>
+                              {x.text}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      <p className="agent-inspect-sum f-num">
+                        {p.applied
+                          ? "Every piece stands as this layout has it."
+                          : p.moves.length === 0
+                            ? "No piece would move."
+                            : `${p.moves.length} ${p.moves.length === 1 ? "piece" : "pieces"} would move${p.stays > 0 ? `, ${p.stays} would stay` : ""}.`}
+                      </p>
+                      {!p.applied && p.moves.length > 0 && (
+                        <ul
+                          className="agent-inspect-list agent-inspect-moves"
+                          aria-label={`What ${p.label} would move`}
+                        >
+                          {p.moves.slice(0, 5).map((m) => (
+                            <li key={m.id}>
+                              <span>{m.name}</span>
+                              <span className="f-num">
+                                {m.dist >= 50 ? metresOf(m.dist) : "in place"}
+                                {m.turns ? " · turns" : ""}
+                              </span>
+                            </li>
+                          ))}
+                          {p.moves.length > 5 && (
+                            <li className="agent-plan-more">
+                              and {p.moves.length - 5} more
+                            </li>
+                          )}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {urgent.length === 0 && !showLayouts && (
+            <p className="agent-plan-note">
+              {at === "intake"
+                ? "Set the room's walls in the Room tab, and the plan reads from them."
+                : "Nothing to fix and nothing missing."}
+            </p>
+          )}
+        </div>
+      </details>
 
       {labelled.length > 0 && (
         <>
@@ -462,9 +380,6 @@ export function AgentTab() {
           {thread.map((m) => (
             <div key={m.id} className="agent-turn" data-who={m.who}>
               <div className="agent-bubble" data-who={m.who}>
-                {m.image && (
-                  <span className="agent-bubble-image">{m.image}</span>
-                )}
                 {m.text}
               </div>
               <div
@@ -523,79 +438,47 @@ export function AgentTab() {
                     >
                       <PinIcon size={12} />
                     </button>
-                    {m.id === latestEva?.id && (
-                      <button
-                        type="button"
-                        className="agent-act shell-tip"
-                        data-tooltip="Refine reply"
-                        aria-label="Refine reply"
-                        aria-pressed={refining === m.id}
-                        onClick={() =>
-                          setRefining((cur) => (cur === m.id ? null : m.id))
-                        }
-                      >
-                        <RefineIcon size={12} />
-                      </button>
-                    )}
                   </>
                 )}
               </div>
-              {refining === m.id && m.id === latestEva?.id && (
-                <div className="agent-chips" role="group" aria-label="Refine">
-                  {REFINES.map((r) => (
-                    <button
-                      key={r.label}
-                      type="button"
-                      className="assets-chip"
-                      onClick={() => {
-                        setRefining(null);
-                        void send(r.send);
-                      }}
-                    >
-                      {r.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {m.proposals?.map((p, i) => {
-                const block = PREFERENCE_BLOCKS.find((b) => b.id === p.cat)!;
-                return (
-                  <div
-                    key={i}
-                    className="agent-proposal"
-                    data-settled={p.settled ?? "open"}
-                    role="group"
-                    aria-label={`${block.label} heard`}
-                  >
-                    <span className="agent-proposal-text">
-                      <span className="agent-proposal-cat">{block.label}</span>
-                      {p.values.join(", ")}
+              {m.proposals?.map((p, i) => (
+                <div
+                  key={i}
+                  className="agent-proposal"
+                  data-settled={p.settled ?? "open"}
+                  role="group"
+                  aria-label={`${proposalLabel(p.cat)} heard`}
+                >
+                  <span className="agent-proposal-text">
+                    <span className="agent-proposal-cat">
+                      {proposalLabel(p.cat)}
                     </span>
-                    {p.settled ? (
-                      <span className="agent-proposal-state">
-                        {p.settled === "accepted" ? "Kept" : "Set aside"}
-                      </span>
-                    ) : (
-                      <span className="agent-proposal-acts">
-                        <button
-                          type="button"
-                          className="main-btn main-btn-primary"
-                          onClick={() => settleProposal(m.id, i, true)}
-                        >
-                          <span>Keep</span>
-                        </button>
-                        <button
-                          type="button"
-                          className="main-btn"
-                          onClick={() => settleProposal(m.id, i, false)}
-                        >
-                          <span>Not now</span>
-                        </button>
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
+                    {p.values.join(", ")}
+                  </span>
+                  {p.settled ? (
+                    <span className="agent-proposal-state">
+                      {p.settled === "accepted" ? "Kept" : "Set aside"}
+                    </span>
+                  ) : (
+                    <span className="agent-proposal-acts">
+                      <button
+                        type="button"
+                        className="main-btn main-btn-primary"
+                        onClick={() => settleProposal(m.id, i, true)}
+                      >
+                        <span>Keep</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="main-btn"
+                        onClick={() => settleProposal(m.id, i, false)}
+                      >
+                        <span>Not now</span>
+                      </button>
+                    </span>
+                  )}
+                </div>
+              ))}
               {m.cards && (
                 <div className="agent-cards" aria-label="Pieces Eva picked">
                   {m.cards.map(({ product, why }) => {
@@ -677,46 +560,31 @@ export function AgentTab() {
         </div>
       )}
 
+      {/* before anything is said: prompts to start from, the room's own
+          first; after that Eva's chips say what comes next */}
       {!started && (
         <>
           <p className="agent-lead">
             <LightbulbIcon size={14} />
-            Which room are we planning?
+            Start with one of these
           </p>
-          <div
-            className="agent-starters"
-            role="group"
-            aria-label="Start from a room"
-          >
-            {STARTERS.map((r) => (
+          <div className="agent-prompts">
+            {[
+              `Help me plan the ${ROOM_NAMES[room.room].toLowerCase()}`,
+              ...PROMPTS,
+            ].map((p) => (
               <button
-                key={r}
+                key={p}
                 type="button"
-                className="assets-chip"
-                onClick={() => send(`Help me plan my ${r.toLowerCase()}`)}
+                className="agent-prompt"
+                onClick={() => setDraft(p)}
               >
-                {r}
+                {p}
               </button>
             ))}
           </div>
         </>
       )}
-      <p className="agent-lead">
-        <LightbulbIcon size={14} />
-        {started ? "Or ask" : "Or start with one of these"}
-      </p>
-      <div className="agent-prompts">
-        {PROMPTS.map((p) => (
-          <button
-            key={p}
-            type="button"
-            className="agent-prompt"
-            onClick={() => setDraft(p)}
-          >
-            {p}
-          </button>
-        ))}
-      </div>
     </div>
   );
 }

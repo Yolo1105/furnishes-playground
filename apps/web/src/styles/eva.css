@@ -362,35 +362,6 @@
   letter-spacing: 0.02em;
   color: var(--color-ink);
 }
-.agent-context {
-  margin: 0;
-  padding: 2px 12px;
-  border-radius: var(--r-card);
-  border: 1px solid rgb(from var(--color-line) r g b / 0.16);
-  background: rgba(255, 255, 255, 0.5);
-}
-.agent-context > div {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 7px 0;
-  font-size: 12px;
-}
-.agent-context > div + div {
-  border-top: 1px solid rgb(from var(--color-line) r g b / 0.12);
-}
-.agent-context dt {
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: rgb(from var(--color-ink) r g b / 0.45);
-}
-.agent-context dd {
-  margin: 0;
-  text-align: right;
-  color: var(--color-ink);
-}
 .agent-lead {
   display: flex;
   align-items: center;
@@ -523,55 +494,10 @@
   color: rgb(from var(--color-ink) r g b / 0.5);
 }
 
-/* ---- where the work stands: five steps, the current one lit ---- */
-.agent-stages {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-.agent-stage {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 8px 3px 5px;
-  border-radius: var(--r-chip);
-  font-size: 11px;
-  font-weight: 600;
-  color: rgb(from var(--color-ink) r g b / 0.45);
-  background: rgba(255, 255, 255, 0.4);
-}
-.agent-stage-n {
-  width: 15px;
-  height: 15px;
-  border-radius: 999px;
-  display: grid;
-  place-items: center;
-  font-size: 9.5px;
-  background: rgb(from var(--color-ink) r g b / 0.08);
-}
-.agent-stage[data-done="true"] {
-  color: rgb(from var(--color-ink) r g b / 0.6);
-}
-.agent-stage[data-done="true"] svg {
-  color: var(--color-accent);
-}
-.agent-stage[data-now="true"] {
-  color: var(--color-accent);
-  background: rgb(from var(--color-accent) r g b / 0.1);
-}
-.agent-stage[data-now="true"] .agent-stage-n {
-  background: var(--color-accent);
-  color: var(--color-cream);
-}
-
-/* ---- the room plan: readiness, budget, what is missing ---- */
+/* ---- the room plan: what only Eva reads, folded under one line that
+   says the most urgent of it; open on a click ---- */
 .agent-plan {
-  display: grid;
-  gap: 7px;
-  padding: 10px 12px 12px;
+  padding: 0 12px;
   border-radius: var(--r-card);
   border: 1px solid rgb(from var(--color-line) r g b / 0.16);
   background: rgba(255, 255, 255, 0.5);
@@ -581,33 +507,53 @@
   display: flex;
   justify-content: space-between;
   align-items: baseline;
+  gap: 10px;
+  padding: 9px 0;
+  list-style: none;
+  cursor: pointer;
+}
+.agent-plan-head::-webkit-details-marker {
+  display: none;
+}
+.agent-plan-head::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  margin-right: 2px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  rotate: -45deg;
+  translate: 0 -2px;
+  color: rgb(from var(--color-ink) r g b / 0.45);
+  transition: rotate 0.15s ease;
+}
+.agent-plan[open] > .agent-plan-head::before {
+  rotate: 45deg;
+  translate: 0 -3px;
 }
 .agent-plan-label {
   font-weight: 700;
   color: var(--color-ink);
 }
-.agent-plan-score {
+.agent-plan-sum {
+  flex: 1;
+  text-align: right;
   font-size: 11px;
-  color: rgb(from var(--color-ink) r g b / 0.5);
+  color: rgb(from var(--color-ink) r g b / 0.55);
 }
-.agent-bar {
-  height: 6px;
-  border-radius: 999px;
-  background: rgb(from var(--color-ink) r g b / 0.07);
-  overflow: hidden;
+.agent-plan-sum[data-urgent="true"] {
+  color: var(--color-accent);
+  font-weight: 600;
 }
-.agent-bar > span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--color-accent);
-  transition: width 0.4s var(--ease);
+.agent-plan-body {
+  display: grid;
+  gap: 7px;
+  padding: 2px 0 12px;
 }
-.agent-bar-budget > span {
-  background: rgb(from var(--color-accent) r g b / 0.55);
-}
-.agent-bar > span[data-over="true"] {
-  background: var(--color-accent);
+.agent-plan-note {
+  margin: 0;
+  color: rgb(from var(--color-ink) r g b / 0.6);
 }
 .agent-plan-row {
   margin: 0;
@@ -676,13 +622,7 @@
   border-radius: 999px;
   background: var(--color-accent);
 }
-.agent-plan-cta {
-  justify-self: start;
-  margin-top: 2px;
-}
-
-/* ---- the starters ---- */
-.agent-starters,
+/* ---- chips ---- */
 .agent-chips {
   display: flex;
   flex-wrap: wrap;
@@ -1134,31 +1074,12 @@
   font-weight: 500;
   color: rgb(from var(--color-ink) r g b / 0.5);
 }
-.agent-brainstorm {
+/* what Eva has read, said in one line under her name */
+.agent-read {
+  color: rgb(from var(--color-ink) r g b / 0.65);
+}
+.agent-hello-acts {
   margin-top: 8px;
-}
-.agent-context dd .agent-ask {
-  appearance: none;
-  margin-left: 8px;
-  padding: 1px 7px;
-  border: 0;
-  border-radius: var(--r-chip);
-  background: rgb(from var(--color-accent) r g b / 0.12);
-  font: inherit;
-  font-size: 10.5px;
-  font-weight: 600;
-  color: var(--color-accent);
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-.agent-context dd .agent-ask:hover {
-  background: rgb(from var(--color-accent) r g b / 0.2);
-}
-.agent-open {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
 }
 /* a pinned line is clipped, never widening the column */
 .agent-pinned {

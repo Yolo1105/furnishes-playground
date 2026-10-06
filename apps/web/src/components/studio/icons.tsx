@@ -58,16 +58,6 @@ export function PlusIcon({ size = 16 }: IconProps) {
   );
 }
 
-export function ImageIcon({ size = 16 }: IconProps) {
-  return (
-    <svg {...svg(size)}>
-      <rect x="3" y="3" width="18" height="18" rx="2.5" />
-      <circle cx="9" cy="9" r="1.5" />
-      <path d="m21 15-4-4a2 2 0 0 0-2.8 0L4 21" />
-    </svg>
-  );
-}
-
 export function LightbulbIcon({ size = 16 }: IconProps) {
   return (
     <svg {...svg(size)}>
@@ -539,14 +529,6 @@ export function StopIcon({ size = 16 }: IconProps) {
   return (
     <svg {...svg(size)}>
       <rect x="6" y="6" width="12" height="12" rx="2" />
-    </svg>
-  );
-}
-
-export function RefineIcon({ size = 16 }: IconProps) {
-  return (
-    <svg {...svg(size)}>
-      <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.2 2.2M16.2 16.2l2.2 2.2M5.6 18.4l2.2-2.2M16.2 7.8l2.2-2.2" />
     </svg>
   );
 }

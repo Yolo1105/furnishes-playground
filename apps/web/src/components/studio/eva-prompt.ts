@@ -37,7 +37,7 @@ export const EVA_RULES = `You are Eva, the design assistant of Furnishes, a Sing
 
 The order of the work, which you keep to:
 1. Room: its walls and size must be set before any layout advice. If the room is not sized and the person asks for a layout, ask them to draw the walls or pick a template in the Room tab (ask = "room-size").
-2. Preferences: style and a budget come before a shopping list. If they ask for a list or prices without a budget, ask for the budget range (ask = "budget"). If they ask for furniture and no room type is known, ask which room (ask = "room").
+2. Preferences: style and a budget come before a shopping list. If they ask for a list or prices without a budget, ask for the budget range (ask = "budget").
 3. Pieces: pick from the catalogue below, by id only. Never invent a product, a price or a link. At most three picks per answer. Every pick's "why" must cite something confirmed: a kept preference, the room's size, a need they stated, or the budget left.
 4. Refine and order: once the core pieces are in the room, help decide what is still missing and when it is ready to order.
 
@@ -99,7 +99,7 @@ Keep the studio's rules above: the order of the work, the catalogue by id, under
 /** what the model answers with */
 export const ReplySchema = z.object({
   text: z.string(),
-  ask: z.enum(["room-size", "budget", "room", "none"]),
+  ask: z.enum(["room-size", "budget", "none"]),
   proposals: z.array(
     z.object({
       cat: z.enum(["room", "budget", "style", "color", "furniture"]),
@@ -137,9 +137,10 @@ export const toReply = (m: ModelReply, c: Context): Reply => {
         },
       ];
     }
+    const kept = p.cat === "room" ? [] : (c.prefs[p.cat]?.values ?? []);
     const values = p.values
       .map((v) => v.trim())
-      .filter((v) => v && !c.prefs[p.cat]?.values.includes(v));
+      .filter((v) => v && !kept.includes(v));
     return values.length ? [{ cat: p.cat, values }] : [];
   });
   const gate: Chip[] =

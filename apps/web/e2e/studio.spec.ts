@@ -169,11 +169,16 @@ test("rails collapse into the toolbar and come back", async ({ page }) => {
   await expect
     .poll(async () => (await main.boundingBox())!.width)
     .toBeGreaterThan(wide + 100);
+  // the restore button stands in the toolbar's left half, once the
+  // column has finished widening
   const restore = page.getByRole("button", { name: "Show project panel" });
-  const bar = (await page.locator(".main-top").boundingBox())!;
-  const rb = (await restore.boundingBox())!;
-  expect(rb.x).toBeGreaterThanOrEqual(bar.x);
-  expect(rb.x).toBeLessThan(bar.x + bar.width / 2);
+  await expect
+    .poll(async () => {
+      const bar = (await page.locator(".main-top").boundingBox())!;
+      const rb = (await restore.boundingBox())!;
+      return rb.x >= bar.x && rb.x < bar.x + bar.width / 2;
+    })
+    .toBe(true);
   await restore.click();
   await expect(shell).toHaveAttribute("data-left", "open");
   // Eva's panel has no collapse of its own: the eye hides everything
@@ -463,30 +468,39 @@ test("Eva's History lists conversations without an input box", async ({
   await expect(
     page.getByRole("textbox", { name: "Message Eva" }),
   ).toBeVisible();
+  // nothing until something is said: two conversations, then
+  await page.getByRole("tab", { name: "History" }).click();
+  await expect(page.getByText("No conversations yet")).toBeVisible();
+  await page.getByRole("tab", { name: "Agent" }).click();
+  const box = page.getByRole("textbox", { name: "Message Eva" });
+  await box.fill("hello");
+  await box.press("Enter");
+  await expect(page.locator(".agent-bubble[data-who='eva']")).toHaveCount(1);
+  await page.getByRole("button", { name: "New chat" }).click();
+  await box.fill("What fits along a 3 m wall?");
+  await box.press("Enter");
+  await expect(page.locator(".agent-bubble[data-who='eva']")).toHaveCount(1);
   await page.getByRole("tab", { name: "History" }).click();
   await expect(page.getByRole("textbox", { name: "Message Eva" })).toHaveCount(
     0,
   );
   const rows = page.locator(".eva-conv");
-  await expect(rows).toHaveCount(5);
+  await expect(rows).toHaveCount(2);
   await expect(page.locator(".eva-day-label").first()).toHaveText("Today");
   await expect(rows.first()).toHaveAttribute("data-active", "true");
-  // a row's three dots hold what can be done with it
-  await rows.nth(2).hover();
+  await expect(rows.first()).toContainText("What fits along a 3 m wall?");
+  // a row's three dots hold what can be done with it; a click opens
+  await rows.nth(1).hover();
   await rows
-    .nth(2)
+    .nth(1)
     .getByRole("button", { name: /^More for/ })
     .click();
   const menu = page.getByRole("menu", { name: /actions$/ });
-  await expect(menu.getByRole("menuitem")).toHaveText([
-    "Open",
-    "Rename",
-    "Delete",
-  ]);
+  await expect(menu.getByRole("menuitem")).toHaveText(["Rename", "Delete"]);
   await menu.getByRole("menuitem", { name: "Delete" }).click();
-  await expect(rows).toHaveCount(4);
+  await expect(rows).toHaveCount(1);
   // opening one goes back to the conversation
-  await rows.nth(1).locator(".eva-conv-open").click();
+  await rows.first().locator(".eva-conv-open").click();
   await expect(page.getByRole("tab", { name: "Agent" })).toHaveAttribute(
     "aria-selected",
     "true",
@@ -496,7 +510,7 @@ test("Eva's History lists conversations without an input box", async ({
   ).toBeVisible();
 });
 
-test("Eva's Preference blocks take a room, a budget, styles and colours", async ({
+test("Eva's Preference blocks take a budget, styles, colours and needs", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -506,16 +520,14 @@ test("Eva's Preference blocks take a room, a budget, styles and colours", async 
     0,
   );
   const blocks = page.locator(".eva-pref");
-  await expect(blocks).toHaveCount(5);
-  // two came from the chat, say so, and read as set
-  // nothing says who set a block: everything here is what Eva keeps to
+  // four blocks: the room itself is the Room tab's, not a preference
+  await expect(blocks).toHaveCount(4);
+  // the style came as if heard, and reads as set; nothing says who set
+  // a block: everything here is what Eva keeps to
   await expect(page.locator(".eva-pref-origin")).toHaveCount(0);
-  await expect(blocks.nth(0)).toHaveAttribute("data-set", "true");
-  // pick a room (single), a colour (multi), slide the budget
-  await page.getByRole("radio", { name: "Bedroom" }).click();
-  await expect(blocks.nth(0).locator(".eva-pref-hint")).toHaveText("Bedroom");
+  const style = blocks.nth(1);
+  await expect(style).toHaveAttribute("data-set", "true");
   // options of one's own, typed: three at most per block
-  const style = blocks.nth(2);
   for (const own of ["Loft", "Wabi-sabi", "Art deco"]) {
     await style.getByRole("button", { name: "+ Your own" }).click();
     await style
@@ -537,16 +549,16 @@ test("Eva's Preference blocks take a room, a budget, styles and colours", async 
   await expect(style.getByRole("checkbox", { name: "Loft" })).toHaveCount(0);
   await page.getByRole("checkbox", { name: "Walnut" }).click();
   await page.getByRole("checkbox", { name: "Sage" }).click();
-  await expect(blocks.nth(3).locator(".eva-pref-hint")).toHaveText(
+  await expect(blocks.nth(2).locator(".eva-pref-hint")).toHaveText(
     "Walnut · Sage",
   );
   await page.getByRole("spinbutton", { name: /Budget from/ }).fill("1000");
   await page.getByRole("spinbutton", { name: /Budget to/ }).fill("3000");
-  await expect(blocks.nth(1).locator(".eva-pref-hint")).toHaveText(
+  await expect(blocks.nth(0).locator(".eva-pref-hint")).toHaveText(
     "S$1,000 to S$3,000",
   );
-  await blocks.nth(0).getByRole("button", { name: "Remove" }).click();
-  await expect(blocks.nth(0)).toHaveAttribute("data-set", "false");
+  await style.getByRole("button", { name: "Remove", exact: true }).click();
+  await expect(style).toHaveAttribute("data-set", "false");
   // exploration: the preferences stand aside; Eva says so
   const explore = page.getByRole("switch", { name: "Exploration" });
   await expect(explore).toHaveAttribute("aria-checked", "false");
@@ -1108,10 +1120,13 @@ test("a view swap runs the quick line; the Agent tab hands prompts to the input"
   await expect(line).toBeVisible();
   await expect(line).toHaveAttribute("data-kind", "view");
   await expect(line).toHaveCount(0, { timeout: 4000 });
-  // Eva opens with what she has read and places to start
+  // Eva opens with what she has read, in a line, and places to start:
+  // the room's own prompt first
   const agent = page.locator(".agent");
-  await expect(agent.getByText("Living & dining · 4-room HDB")).toBeVisible();
-  await expect(agent.locator(".agent-prompt")).toHaveCount(4);
+  await expect(agent.locator(".agent-read")).toContainText(
+    "Living & dining in a 4-room HDB",
+  );
+  await expect(agent.locator(".agent-prompt")).toHaveCount(5);
   const prompt = (await agent.locator(".agent-prompt").first().textContent())!;
   await agent.locator(".agent-prompt").first().click();
   const box = page.getByRole("textbox", { name: "Message Eva" });
@@ -1270,13 +1285,10 @@ test("Eva answers a message; New chat opens a thread; suggestions fill the box",
   // a new chat is a clean thread, listed first in History
   await page.getByRole("button", { name: "New chat" }).click();
   await expect(bubbles).toHaveCount(0);
-  await page.getByRole("button", { name: "Show suggestions" }).click();
-  const chip = page
-    .getByRole("group", { name: "Suggestions" })
-    .getByRole("button")
-    .first();
-  const text = (await chip.textContent())!;
-  await chip.click();
+  // and the prompts to start from are back, with no thread to follow
+  const prompt = page.locator(".agent-prompt").last();
+  const text = (await prompt.textContent())!;
+  await prompt.click();
   await expect(box).toHaveValue(text);
 });
 
@@ -1638,18 +1650,15 @@ test("Eva keeps to the order of the work: the room's size first, a budget before
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   const agent = page.locator(".agent");
-  // the stages: the room comes first while its walls are not set
-  await expect(agent.locator(".agent-stage[aria-current='step']")).toHaveText(
-    /Room/,
-  );
-  await expect(
-    agent.getByRole("progressbar", { name: "Readiness" }),
-  ).toBeVisible();
-  // a room starter asks for a layout, which waits for the room's size
-  await agent
-    .getByRole("group", { name: "Start from a room" })
-    .getByRole("button", { name: "Living room" })
-    .click();
+  // the room comes first while its walls are not set: the plan's line
+  // says so, and the room's own prompt asks for a layout, which waits
+  // for the room's size
+  const planLine = agent.locator(".agent-plan-sum");
+  await expect(planLine).toHaveText("the room's walls first");
+  await agent.locator(".agent-prompt").first().click();
+  const box = page.getByRole("textbox", { name: "Message Eva" });
+  await expect(box).toHaveValue("Help me plan the living & dining");
+  await box.press("Enter");
   await expect(
     agent.locator(".agent-bubble[data-who='eva']").last(),
   ).toContainText("room's size first");
@@ -1661,11 +1670,8 @@ test("Eva keeps to the order of the work: the room's size first, a budget before
     .getByRole("radiogroup", { name: "Start from" })
     .getByRole("radio", { name: "Template" })
     .click();
-  await expect(agent.locator(".agent-stage[aria-current='step']")).toHaveText(
-    /Preferences/,
-  );
+  await expect(planLine).not.toHaveText("the room's walls first");
   // a list without a budget asks for one
-  const box = page.getByRole("textbox", { name: "Message Eva" });
   await box.fill("Give me a shopping list");
   await box.press("Enter");
   await expect(
@@ -1678,9 +1684,7 @@ test("Eva keeps to the order of the work: the room's size first, a budget before
   await expect(proposal).toBeVisible();
   await proposal.getByRole("button", { name: "Keep" }).click();
   await expect(proposal).toHaveAttribute("data-settled", "accepted");
-  await expect(agent.locator(".agent-context")).toContainText(
-    "S$500 – S$1,500",
-  );
+  await expect(agent.locator(".agent-read")).toContainText("S$500 to S$1,500");
   // the pieces she picked say why, and go into the room
   const cards = agent.locator(".agent-card");
   await expect(cards).toHaveCount(3);
@@ -1695,8 +1699,11 @@ test("Eva keeps to the order of the work: the room's size first, a budget before
   // and more can be asked for
   await agent.getByRole("button", { name: "More options" }).last().click();
   await expect(agent.locator(".agent-cards")).toHaveCount(2);
-  // the plan reads the budget against what is in the room
-  await expect(agent.locator(".agent-plan")).toContainText(/of S\$1,500/);
+  // the plan, opened, says where the budget should go
+  await agent.locator(".agent-plan > summary").click();
+  await expect(
+    agent.getByRole("list", { name: "Where the budget should go" }),
+  ).toBeVisible();
 });
 
 test("projects: a new one starts clean, the first keeps its room, rename and delete", async ({
@@ -2106,6 +2113,8 @@ test("the planner's rules: the door's swing, the window, a walkway, each with a 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await page.getByRole("button", { name: "Show 2D plan in main" }).click();
+  // the room plan, opened: its health is empty to start
+  await page.locator(".agent-plan > summary").click();
   const health = page
     .locator(".agent")
     .getByRole("list", { name: "Room health" });
@@ -2254,6 +2263,7 @@ test("the room knows its flat: what fits, where the door is, a kitchen without a
     .getByRole("group", { name: "Budget range heard" })
     .getByRole("button", { name: "Keep" })
     .click();
+  await page.locator(".agent-plan > summary").click();
   await expect(
     agent.getByRole("list", { name: "Where the budget should go" }),
   ).toContainText("Storage");
@@ -2691,6 +2701,7 @@ test("the room's rules shape the planner: the walkway, what is kept clear, a bed
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await page.getByRole("button", { name: "Show 2D plan in main" }).click();
+  await page.locator(".agent-plan > summary").click();
   const health = page
     .locator(".agent")
     .getByRole("list", { name: "Room health" });
@@ -2988,14 +2999,11 @@ test("Eva's extras: who answers, Brainstorm, a pinned answer, Refine, follow-ups
   await expect(pinned).toContainText("Three directions");
   await pinned.getByRole("button", { name: "Unpin" }).click();
   await expect(pinned).toHaveCount(0);
-  // Refine, only on the latest answer: Shorter makes it so
-  await expect(agent.getByRole("button", { name: "Refine reply" })).toHaveCount(
-    1,
-  );
+  // a long answer offers itself shorter, as a chip under it
   const long = (await evaSaid.last().textContent())!;
-  await agent.getByRole("button", { name: "Refine reply" }).click();
   await agent
-    .getByRole("group", { name: "Refine" })
+    .getByRole("group", { name: "Next" })
+    .last()
     .getByRole("button", { name: "Shorter" })
     .click();
   await expect(evaSaid).toHaveCount(3);
@@ -3012,19 +3020,18 @@ test("Eva's extras: who answers, Brainstorm, a pinned answer, Refine, follow-ups
   await expect(agent.getByRole("group", { name: "Next" }).last()).toContainText(
     /Compare two sofas|More options/,
   );
-  // Insights: a kept preference goes back to Eva for review; an open one
-  // is asked about
+  // Review my preferences: what is kept, and a chip for each block still
+  // open, which asks Eva about it
+  await agent.getByRole("button", { name: "Review my preferences" }).click();
+  await expect(evaSaid).toHaveCount(5);
+  await expect(evaSaid.last()).toContainText("Japandi, Minimalist");
   await agent
-    .getByRole("button", { name: "Refine design style with Eva" })
+    .getByRole("group", { name: "Next" })
+    .last()
+    .getByRole("button", { name: "Budget range" })
     .click();
-  await expect(box).toHaveValue(
-    /^Review my style direction \(Japandi, Minimalist\)/,
-  );
-  await agent
-    .getByRole("button", { name: "Ask Eva about budget range" })
-    .click();
-  await expect(box).toHaveValue(/^Help me set a realistic budget/);
-  await box.fill("");
+  await expect(evaSaid).toHaveCount(6);
+  await expect(evaSaid.last()).toContainText("budget range");
   // Stop: a slow model is cut off and nothing arrives
   await page.route("**/api/chat", async (route) => {
     await new Promise((r) => setTimeout(r, 4000));
@@ -3049,7 +3056,7 @@ test("Eva's extras: who answers, Brainstorm, a pinned answer, Refine, follow-ups
   await expect(stop).toHaveCount(0);
   await expect(agent.locator(".agent-thinking")).toHaveCount(0);
   await page.waitForTimeout(4500);
-  await expect(evaSaid).toHaveCount(4);
+  await expect(evaSaid).toHaveCount(6);
   // the persona travels with the project and reaches the route
   await page.getByRole("button", { name: /; choose Eva$/ }).click();
   await choice.getByRole("radio", { name: /Eva · Plan/ }).click();
@@ -3070,6 +3077,7 @@ test("a piece turns freely: the handle drags round it in steps of 15, Shift free
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await page.getByRole("button", { name: "Show 2D plan in main" }).click();
+  await page.locator(".agent-plan > summary").click();
   const stage = page.locator(".stage-pieces");
   const sofa = stage.locator(".stage-piece", {
     has: page.getByRole("button", { name: "Sofa", exact: true }),
@@ -3164,6 +3172,7 @@ test("the room is its outline: a notch is a wall, the layouts keep out of it, th
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await page.getByRole("button", { name: "Show 2D plan in main" }).click();
+  await page.locator(".agent-plan > summary").click();
   await page.getByRole("tab", { name: "Room", exact: true }).click();
   await page
     .getByRole("radiogroup", { name: "Start from" })
@@ -3657,6 +3666,7 @@ test("a piece may stand past the walls; near a wall the magnet draws it flush, i
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await page.getByRole("button", { name: "Show 2D plan in main" }).click();
+  await page.locator(".agent-plan > summary").click();
   await page
     .locator(".plan")
     .evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));

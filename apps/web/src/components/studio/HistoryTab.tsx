@@ -9,10 +9,10 @@ import { useDismiss } from "./useDismiss";
 /**
  * Past conversations, newest first, under the day they were last touched.
  * A row is the playground's: title, the last line, how many turns. The
- * open one sits in orange. Hover shows a three-dot button whose menu
- * holds what can be done with the row: open, rename, delete;
- * double-click renames, as the archive did. No input box here: this tab
- * is for finding a conversation, not continuing one.
+ * open one sits in orange; a click on a row opens it. Hover shows a
+ * three-dot button whose menu renames or deletes the row; double-click
+ * renames too. No input box here: this tab is for finding a
+ * conversation, not continuing one.
  */
 export function HistoryTab({ onOpen }: { onOpen?: () => void }) {
   const conversations = useEva((s) => s.conversations);
@@ -122,18 +122,6 @@ export function HistoryTab({ onOpen }: { onOpen?: () => void }) {
                       role="menu"
                       aria-label={`${c.title} actions`}
                     >
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className="shell-menu-row"
-                        onClick={() => {
-                          setMenuFor(null);
-                          select(c.id);
-                          onOpen?.();
-                        }}
-                      >
-                        <MessageIcon /> Open
-                      </button>
                       <button
                         type="button"
                         role="menuitem"

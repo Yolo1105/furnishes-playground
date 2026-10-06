@@ -1,11 +1,13 @@
 import type { Product } from "./catalogue";
 import type { ChatMode, Chip } from "./eva-brain";
+import type { RoomId } from "./room-data";
 
 /**
- * What Eva's History and Preference tabs show. Placeholder conversations
- * until the chat is wired; the preference catalogue is the five blocks of
- * the playground's design (room, budget, style, colour, furniture), each
- * with the choices Eva can hear or the visitor can pick.
+ * What Eva's History and Preference tabs show: the shape of a
+ * conversation and a message, and the preference catalogue, the four
+ * blocks of the playground's design (budget, style, colour, furniture),
+ * each with the choices Eva can hear or the visitor can pick. The room
+ * itself is the Room tab's: Eva hears a room as a proposal to change it.
  */
 
 export type Conversation = {
@@ -22,12 +24,10 @@ export type Message = {
   id: string;
   who: "you" | "eva";
   text: string;
-  /** the name of a picture sent along, if any */
-  image?: string;
   at: number;
   /** preferences Eva heard, to accept or set aside; each is settled once */
   proposals?: {
-    cat: PreferenceCategory;
+    cat: ProposalCat;
     values: string[];
     budget?: [number, number];
     settled?: "accepted" | "dismissed";
@@ -53,49 +53,8 @@ export const PROMPTS = [
 ] as const;
 
 const h = 60 * 60 * 1000;
-const now = Date.now();
 /** the first minute of today, by the clock here */
 const dayStart = (t: number) => new Date(t).setHours(0, 0, 0, 0);
-
-export const conversations: Conversation[] = [
-  {
-    id: "c-1",
-    title: "Reading nook by the window",
-    snippet:
-      "…a low bookwall under the sill, the armchair turned to the light.",
-    // earlier today: two hours ago, or midnight when the day is younger
-    at: Math.max(now - 2 * h, dayStart(now)),
-    turns: 14,
-  },
-  {
-    id: "c-2",
-    title: "Entry storage for two",
-    snippet: "Shoes below, a tray for keys, hooks at hand height.",
-    at: now - 7 * h,
-    turns: 6,
-  },
-  {
-    id: "c-3",
-    title: "Dividing the living room",
-    snippet: "Two segments, four tiers: a room inside the room.",
-    at: now - 30 * h,
-    turns: 22,
-  },
-  {
-    id: "c-4",
-    title: "Work cart under the desk",
-    snippet: "The printer and the paper, rolled away when you are done.",
-    at: now - 4 * 24 * h,
-    turns: 9,
-  },
-  {
-    id: "c-5",
-    title: "First look at the flat",
-    snippet: "4-room HDB, north-facing, two of us and a cat.",
-    at: now - 12 * 24 * h,
-    turns: 31,
-  },
-];
 
 /** "Today", "Yesterday", then the date, by the calendar days here */
 export function dayLabel(at: number, ref = Date.now()) {
@@ -115,10 +74,15 @@ export function timeLabel(at: number) {
   });
 }
 
-/* ---------- preferences: the five blocks ---------- */
+/* ---------- preferences: the four blocks ---------- */
 
-export type PreferenceCategory =
-  "room" | "budget" | "style" | "color" | "furniture";
+export type PreferenceCategory = "budget" | "style" | "color" | "furniture";
+/** what Eva can hear and propose: a preference, or the room itself,
+    which goes to the Room tab when kept */
+export type ProposalCat = PreferenceCategory | "room";
+/** how a proposal is headed */
+export const proposalLabel = (cat: ProposalCat) =>
+  cat === "room" ? "Room" : PREFERENCE_BLOCKS.find((b) => b.id === cat)!.label;
 
 type Swatch = { id: string; name: string; hex: string };
 
@@ -131,50 +95,45 @@ export const PREFERENCE_BLOCKS: {
   multi: boolean;
 }[] = [
   {
-    id: "room",
-    index: "01",
-    label: "Room type",
-    hint: "Where this is for",
-    multi: false,
-  },
-  {
     id: "budget",
-    index: "02",
+    index: "01",
     label: "Budget range",
     hint: "What the pieces may come to",
     multi: false,
   },
   {
     id: "style",
-    index: "03",
+    index: "02",
     label: "Design style",
     hint: "How it should feel",
     multi: true,
   },
   {
     id: "color",
-    index: "04",
+    index: "03",
     label: "Colour preferences",
     hint: "What you lean towards",
     multi: true,
   },
   {
     id: "furniture",
-    index: "05",
+    index: "04",
     label: "Furniture needs",
     hint: "What has to be in it",
     multi: true,
   },
 ];
 
-export const ROOMS = [
-  "Living room",
-  "Bedroom",
-  "Study",
-  "Kitchen",
-  "Children's room",
-  "Hallway",
-] as const;
+/** the rooms Eva can hear, each the studio's own room kind: a kept
+    room proposal sets the active room to it */
+export const ROOM_KIND = {
+  "Living room": "living",
+  Bedroom: "master",
+  "Children's room": "bedroom-1",
+  Study: "study",
+  Kitchen: "kitchen",
+} as const satisfies Record<string, RoomId>;
+export const ROOMS = Object.keys(ROOM_KIND) as (keyof typeof ROOM_KIND)[];
 
 export const STYLES = [
   "Scandinavian",
@@ -211,7 +170,6 @@ export const FURNITURE = [
 export const CUSTOM_OPTIONS: Partial<
   Record<PreferenceCategory, readonly string[]>
 > = {
-  room: ROOMS,
   style: STYLES,
   color: SWATCHES.map((s) => s.name),
   furniture: FURNITURE,
@@ -341,43 +299,21 @@ export const personaOf = (id: PersonaId) =>
 
 /* ---------- what might be said next ---------- */
 
-/** the chatbot's Insights: for a kept preference, how to have Eva
-    review it; for one still open, how to ask her */
-export const INSIGHTS: Record<
-  PreferenceCategory,
-  { openHint: string; ask: string; review: (value: string) => string }
-> = {
-  room: {
-    openHint: "Which space are we designing?",
-    ask: "Help me choose which room to design first, and what matters most about that space.",
-    review: (v) =>
-      `Review my room direction (${v}). Flag anything important we're still missing.`,
-  },
-  budget: {
-    openHint: "No spend range yet",
-    ask: "Help me set a realistic budget for this project — overall cap and where to save vs splurge.",
-    review: (v) =>
-      `Review my budget (${v}). Does it fit the room and furniture needs we've discussed?`,
-  },
-  style: {
-    openHint: "Look and mood still open",
-    ask: "Help me name a clear design style for this project — references, mood, and what to avoid.",
-    review: (v) =>
-      `Review my style direction (${v}). Keep what's strong and tighten anything vague.`,
-  },
-  color: {
-    openHint: "No colours locked yet",
-    ask: "Help me build a colour palette for this room — base, accent, and materials that carry it.",
-    review: (v) =>
-      `Review my palette (${v}). Suggest refinements that stay cohesive with the style.`,
-  },
-  furniture: {
-    openHint: "Needs list is empty",
-    ask: "Help me list the furniture this room actually needs, prioritised from must-have to nice-to-have.",
-    review: (v) =>
-      `Review my furniture needs (${v}). What's essential, and what can wait?`,
-  },
+/** how to ask Eva about a preference still open, under her review of
+    what is kept */
+export const ASKS: Record<PreferenceCategory, string> = {
+  budget:
+    "Help me set a realistic budget for this project: an overall cap, and what to save on and what to splurge on.",
+  style:
+    "Help me name a clear design style for this project — references, mood, and what to avoid.",
+  color:
+    "Help me build a colour palette for this room — base, accent, and materials that carry it.",
+  furniture:
+    "Help me list the furniture this room actually needs, prioritised from must-have to nice-to-have.",
 };
+/** what Review my preferences asks: Eva says what she keeps to and what
+    is still open */
+export const PREF_REVIEW = "Review my preferences";
 
 /** the chatbot's follow-ups, read from what Eva just said */
 export const followupsFor = (text: string): string[] => {
@@ -394,11 +330,7 @@ export const followupsFor = (text: string): string[] => {
   return ["Tell me more", "What would you pick?"];
 };
 
-/** the ways to refine Eva's latest answer */
-export const REFINES = [
-  { label: "Shorter", send: "Make that shorter." },
-  { label: "More options", send: "Give me two more options." },
-  { label: "Cheaper", send: "What's a cheaper alternative?" },
-] as const;
+/** the chip under a long answer: the same, shorter */
+export const SHORTER: Chip = { label: "Shorter", send: "Make that shorter." };
 /** what Brainstorm for me asks */
 export const BRAINSTORM = "Brainstorm a direction for this room with me.";

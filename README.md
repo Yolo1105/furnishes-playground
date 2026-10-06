@@ -247,23 +247,31 @@ browser, can be starred, and a tile puts another into the room.
 Eva speaks through Claude when `ANTHROPIC_API_KEY` is set (`/api/chat`,
 with the chatbot's rules and a fixed answer shape); without a key her rule
 brain answers from the room's facts and the catalogue. Either way she
-keeps to the order of the work (room, preferences, pieces, refine,
-order), asks for the room's size before a layout and a budget before a
-list, proposes the preferences she hears or that a quiz works out (style,
-budget, room) for you to keep or set aside, picks catalogue pieces with
-why each fits, and reads the room plan's readiness, budget and health
-(walkways, the door's swing, the window, clashes), each finding with a
-Fix. Eva comes four ways, as the chatbot had her (balanced, Style, Plan,
+keeps to the order of the work (the room's walls first, then
+preferences, pieces, refining, ordering), asks for the room's size
+before a layout and a budget before a list, proposes the preferences she
+hears or that a quiz works out (style, budget, colours, needs) for you to
+keep or set aside, and a room she hears is a proposal to change the
+active room (the room itself is the Room tab's, never a preference),
+picks catalogue pieces with why each fits, and reads the room plan,
+folded under one line that says the most urgent of it: what is still to
+decide, the room's health (walkways, the door's swing, the window,
+clashes) each finding with a Fix, three layouts to inspect and apply,
+and where the budget should go once one is kept. Her tab opens with
+what she has read in one line and the prompts to start from, the room's
+own first. Eva comes four ways, as the chatbot had her (balanced, Style, Plan,
 Budget), chosen from the one chip in the box and kept with the project;
 each says what she leads with, and the choice steers what the box asks
 for (Style picks pieces, Plan lays the room out, the others let the
 words decide; a greeting stays a greeting); the model gets her lean,
-the rules end a plain answer in it. Her latest
-answer can be refined (shorter, more options, cheaper), any answer
-pinned to the project, Brainstorm for me brings three directions to go
-with, follow-up chips are read from what she said, a kept preference
-can be sent back for review and an open one asked about, and Stop cuts
-an answer off. The Room tab's Rules set what the planner holds to: the walkway's
+the rules end a plain answer in it. A long
+answer offers itself shorter as a chip, more options and cheaper are
+chips under her picks, any answer can be pinned to the project,
+Brainstorm for me brings three directions to go with, Review my
+preferences has her say what she keeps to and offer a chip for each
+block still open, follow-up chips are read from what she said, and
+Stop cuts an answer off. History starts empty and holds only
+conversations that were had. The Room tab's Rules set what the planner holds to: the walkway's
 width, whether the door's swing and the window are kept clear, a bed
 against a wall (preferred, required or off), what the room must have
 (a missing thing gets an Add), how far apart a layout spreads the

@@ -1,9 +1,9 @@
 import { create } from "zustand";
 import {
   BRAINSTORM,
-  conversations as seed,
   followupsFor,
-  REFINES,
+  ROOM_KIND,
+  SHORTER,
   type Conversation,
   type Message,
   type PersonaId,
@@ -11,6 +11,7 @@ import {
 } from "./eva-data";
 import { sgd } from "./assets-data";
 import {
+  isLong,
   recommend,
   reply,
   shorter,
@@ -74,7 +75,7 @@ type EvaState = {
   newConversation: () => string;
   /** say something in the open conversation (a new one if none): the
       model answers when one is connected, the rules otherwise */
-  send: (text: string, image?: string, mode?: ChatMode) => Promise<void>;
+  send: (text: string, mode?: ChatMode) => Promise<void>;
   /** a thumb on one of Eva's answers; the same thumb again takes it off */
   rate: (msgId: string, rating: "up" | "down") => void;
   setPersona: (persona: PersonaId) => void;
@@ -126,49 +127,24 @@ const contextOf = (
   };
 };
 
-/** the three ways to refine the latest answer, answered by the rules
-    from the thread when no model is connected */
-const refined = (
-  text: string,
-  thread: Message[],
-  ctx: Context,
-): Reply | null => {
-  const which = REFINES.find((r) => r.send === text)?.label;
-  if (!which) return null;
+/** Shorter, answered by the rules from the thread when no model is
+    connected: the latest answer's first sentence or two */
+const refined = (text: string, thread: Message[]): Reply | null => {
+  if (text !== SHORTER.send) return null;
   const last = [...thread].reverse().find((m) => m.who === "eva");
-  if (which === "Shorter")
-    return {
-      text: last ? shorter(last.text) : "There is nothing to shorten yet.",
-      proposals: [],
-      cards: [],
-      chips: [],
-    };
-  const shown = thread.flatMap((m) => m.cards?.map((c) => c.product.id) ?? []);
-  const asked =
-    [...thread]
-      .reverse()
-      .find((m) => m.who === "you" && !REFINES.some((r) => r.send === m.text))
-      ?.text ?? "";
-  const cards = recommend(ctx, asked, {
-    skip: which === "More options" ? shown : [],
-    cheaper: which === "Cheaper",
-  });
   return {
-    text: cards.length
-      ? which === "Cheaper"
-        ? "The same, from the least dear up."
-        : "Two more that would fit."
-      : "That is everything in the catalogue that fits for now.",
+    text: last ? shorter(last.text) : "There is nothing to shorten yet.",
     proposals: [],
-    cards: which === "More options" ? cards.slice(0, 2) : cards,
+    cards: [],
     chips: [],
   };
 };
 
-/** Eva's own state: the conversations and the confirmed preferences. The
-    seed is placeholder; two preferences arrive as if Eva heard them. */
+/** Eva's own state: the conversations and the confirmed preferences.
+    No conversation until one is started; a style arrives as if Eva
+    heard it, so her first picks have a lean. */
 export const useEva = create<EvaState>((set, get) => ({
-  conversations: seed,
+  conversations: [],
   messages: {},
   draft: "",
   thinking: false,
@@ -176,9 +152,8 @@ export const useEva = create<EvaState>((set, get) => ({
   persona: "eva",
   turn: null,
   exploration: false,
-  activeId: seed[0]?.id ?? null,
+  activeId: null,
   preferences: {
-    room: { values: ["Living room"] },
     style: { values: ["Japandi", "Minimalist"] },
   },
   custom: {},
@@ -194,14 +169,13 @@ export const useEva = create<EvaState>((set, get) => ({
     set((s) => ({ conversations: [c, ...s.conversations], activeId: c.id }));
     return c.id;
   },
-  send: async (text, image, mode = "ask") => {
+  send: async (text, mode = "ask") => {
     const body = text.trim();
-    if (!body && !image) return;
+    if (!body) return;
     const id = get().activeId ?? get().newConversation();
     const now = Date.now();
     const you: Message = { id: newId("m"), who: "you", text: body, at: now };
-    if (image) you.image = image;
-    const asked = body || `the picture ${image}`;
+    const asked = body;
     set((s) => ({
       thinking: true,
       messages: { ...s.messages, [id]: [...(s.messages[id] ?? []), you] },
@@ -210,10 +184,8 @@ export const useEva = create<EvaState>((set, get) => ({
           ? {
               ...c,
               title:
-                c.title === "New conversation" && body
-                  ? body.slice(0, 48)
-                  : c.title,
-              snippet: body || `Picture: ${image}`,
+                c.title === "New conversation" ? body.slice(0, 48) : c.title,
+              snippet: body,
               at: now,
               turns: c.turns + 1,
             }
@@ -230,7 +202,7 @@ export const useEva = create<EvaState>((set, get) => ({
     let r: Reply;
     let source: Message["source"] = "rules";
     const own = () =>
-      refined(asked, whole.slice(0, -1), ctx) ?? reply(asked, ctx, mode);
+      refined(asked, whole.slice(0, -1)) ?? reply(asked, ctx, mode);
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -251,10 +223,13 @@ export const useEva = create<EvaState>((set, get) => ({
       r = own();
     }
     if (turn.signal.aborted) return;
-    // what might be said next, when the answer offers nothing itself
-    const chips = r.chips.length
-      ? r.chips
+    // what might be said next, when the answer offers nothing itself; a
+    // long answer offers itself shorter
+    const chips: Chip[] = r.chips.length
+      ? [...r.chips]
       : followupsFor(r.text).map((label) => ({ label, send: label }));
+    if (isLong(r.text) && !chips.some((c) => c.label === SHORTER.label))
+      chips.push(SHORTER);
     const eva: Message = {
       id: newId("m"),
       who: "eva",
@@ -326,14 +301,17 @@ export const useEva = create<EvaState>((set, get) => ({
     const p = msg?.proposals?.[i];
     if (!msg || !p || p.settled) return;
     if (take) {
-      if (p.budget) get().setBudget(p.budget[0], p.budget[1]);
+      if (p.cat === "room") {
+        // the room is the Room tab's: a kept room becomes the active room
+        const kind = ROOM_KIND[p.values[0] as keyof typeof ROOM_KIND];
+        if (kind) useRoom.getState().setRoom(kind);
+      } else if (p.budget) get().setBudget(p.budget[0], p.budget[1]);
       else {
-        const multi = p.cat !== "room";
         for (const v of p.values) {
           const known = (CUSTOM_OPTIONS[p.cat] ?? []).includes(v);
           if (known || p.cat === "color" || p.cat === "furniture")
-            get().toggleValue(p.cat, v, multi);
-          else get().addCustom(p.cat, v, multi);
+            get().toggleValue(p.cat, v, true);
+          else get().addCustom(p.cat, v, true);
         }
       }
     }
