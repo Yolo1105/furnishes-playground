@@ -41,9 +41,10 @@ import {
   ZoomOutIcon,
   ShareIcon,
 } from "./icons";
+import { useEva } from "./eva-store";
 import { orderedIds, useOrders } from "./order-store";
 import { useRoom } from "./room-store";
-import type { PieceProps } from "./piece-detail";
+import { colourHex, type PieceProps } from "./piece-detail";
 import { PlanSymbol } from "./plan-symbols";
 import { propsOf, topLevelOf, useScene, useTopLevel } from "./scene-store";
 import {
@@ -73,8 +74,40 @@ import { useFixedMenu } from "./useFixedMenu";
  * that is up and rests the tools.
  */
 
+/** the stages of the work along the top, in the order a room is made:
+    the room itself, its layout, what furnishes it, and the review, which
+    renders it. Each stands for a panel tab or the render; the current
+    one is read back from them */
+const STAGE_TABS = [
+  { id: "room", label: "Room", tip: "The room: its shape, size and openings" },
+  { id: "layout", label: "Layout", tip: "The pieces, laid out on the plan" },
+  { id: "furnish", label: "Furnish", tip: "The catalogue: pieces to add" },
+  { id: "review", label: "Review", tip: "Render the room" },
+] as const;
+type StageId = (typeof STAGE_TABS)[number]["id"];
+
 export function MainTopBar({ leading }: { leading?: ReactNode }) {
   const mode = useStudio((s) => s.mode);
+  const panelTab = useStudio((s) => s.panelTab);
+  const stage: StageId =
+    mode === "preview"
+      ? "review"
+      : panelTab === "room"
+        ? "room"
+        : panelTab === "products"
+          ? "furnish"
+          : "layout";
+  const goStage = (id: StageId) => {
+    const { setPanelTab } = useStudio.getState();
+    if (id === "review") {
+      setMode("preview");
+      return;
+    }
+    if (mode === "preview") setMode("edit");
+    setPanelTab(
+      id === "room" ? "room" : id === "furnish" ? "products" : "assets",
+    );
+  };
   const tool = useStudio((s) => s.tool);
   const { setMode, setTool, setUiHidden } = useStudio.getState();
   const startTour = useGuide((s) => s.startTour);
@@ -145,24 +178,25 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
       <div className="glass main-top" role="toolbar" aria-label="Studio tools">
         <div className="main-top-side main-top-left">
           {leading}
-          <div className="main-seg" role="group" aria-label="Mode">
-            {(
-              [
-                ["edit", "Edit"],
-                ["preview", "Render"],
-              ] as const
-            ).map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                className="main-seg-btn"
-                aria-pressed={mode === id}
-                onClick={() => setMode(id)}
-              >
-                {label}
-              </button>
+          <ol className="main-stages" aria-label="Stage">
+            {STAGE_TABS.map((s, i) => (
+              <li key={s.id}>
+                <button
+                  type="button"
+                  className="main-stage"
+                  aria-current={stage === s.id ? "step" : undefined}
+                  aria-label={s.label}
+                  data-tooltip={s.tip}
+                  onClick={() => goStage(s.id)}
+                >
+                  <span className="main-stage-n f-num">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <span className="main-stage-label">{s.label}</span>
+                </button>
+              </li>
             ))}
-          </div>
+          </ol>
         </div>
 
         <div className="main-top-mid">
@@ -630,6 +664,31 @@ export function MainShelf() {
   const t = pieceTotals(pieces);
   const inCart = pieces.filter((n) => cart.includes(n.id));
   const c = pieceTotals(inCart);
+  const labels = useScene((s) => s.labels);
+  const budget = useEva((s) => s.preferences.budget?.budget);
+  // the selector hands back the kept array itself, or nothing: a fresh
+  // array each render would never settle
+  const style = useEva((s) => s.preferences.style?.values);
+  const { setPanelTab, setEvaTab } = useStudio.getState();
+  // the room's palette: each colour in it once, and its finishes
+  const palette = [
+    ...new Map(
+      pieces.map((n) => {
+        const p = propsOf(n, overrides);
+        return [p.colour, colourHex(p.colour)] as const;
+      }),
+    ),
+  ];
+  const finishes = [
+    ...new Set(pieces.map((n) => propsOf(n, overrides).texture.toLowerCase())),
+  ];
+  const words = [...(style ?? []), ...finishes].join(" · ");
+  // how much of the room is decided: the pieces in the cart, of those in
+  // the room; the budget, when one is kept, against what the cart holds
+  const ready = pieces.length
+    ? Math.round((100 * inCart.length) / pieces.length)
+    : 0;
+  const spent = budget ? Math.min(1, c.total / Math.max(1, budget[1])) : 0;
 
   // a pick anywhere brings its card into view, unfolding the shelf first
   useEffect(
@@ -728,6 +787,21 @@ export function MainShelf() {
               onClose={() => setCheckout(false)}
             />
           )}
+          {tab === "saved" && pieces.length > 0 && (
+            <aside className="shelf-palette" aria-label="The room's palette">
+              <div className="shelf-swatches">
+                {palette.map(([name, hex]) => (
+                  <span
+                    key={name}
+                    className="shelf-swatch"
+                    style={{ background: hex }}
+                    title={name}
+                  />
+                ))}
+              </div>
+              <p className="shelf-palette-words">{words}</p>
+            </aside>
+          )}
           {shown.map((n) => (
             <ShelfCard
               key={n.id}
@@ -737,11 +811,55 @@ export function MainShelf() {
               selected={selected === n.id}
               inCart={cart.includes(n.id)}
               ordered={ordered.has(n.id)}
+              labelled={labels.includes(n.id)}
               onSelect={() => select(n.id)}
               onCart={() => toggleCart(n.id)}
             />
           ))}
+          {tab === "saved" && (
+            <button
+              type="button"
+              className="shelf-catalogue"
+              onClick={() => setPanelTab("products")}
+            >
+              <PlusIcon size={14} />
+              <b>Open catalogue</b>
+              <span>drag pieces in</span>
+            </button>
+          )}
         </div>
+        {pieces.length > 0 && (
+          <aside className="shelf-ready" aria-label="Ready to order">
+            <span className="shelf-ready-label">ready to order</span>
+            <span className="shelf-ready-pct f-num">
+              {ready}
+              <small>%</small>
+            </span>
+            <span
+              className="shelf-ready-bar"
+              role="progressbar"
+              aria-label={budget ? "Budget spent" : "Pieces decided"}
+              aria-valuenow={budget ? Math.round(spent * 100) : ready}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
+              <span style={{ width: `${budget ? spent * 100 : ready}%` }} />
+            </span>
+            {budget ? (
+              <span className="shelf-ready-sum f-num">
+                {sgd(c.total)} of {sgd(budget[1])} budget
+              </span>
+            ) : (
+              <button
+                type="button"
+                className="shelf-ready-set"
+                onClick={() => setEvaTab("preference")}
+              >
+                {sgd(t.total)} in the room · set a budget
+              </button>
+            )}
+          </aside>
+        )}
       </div>
     </div>
   );
@@ -754,6 +872,7 @@ function ShelfCard({
   selected,
   inCart,
   ordered,
+  labelled,
   onSelect,
   onCart,
 }: {
@@ -765,10 +884,21 @@ function ShelfCard({
   inCart: boolean;
   /** in an order that stands: nothing more to put in the cart */
   ordered: boolean;
+  /** labelled for Eva */
+  labelled: boolean;
   onSelect: () => void;
   onCart: () => void;
 }) {
   const piece = n.kind === "piece";
+  // where the piece stands in the work: ordered, decided (in the cart),
+  // with Eva (labelled), or placed in the room
+  const status = ordered
+    ? "ordered"
+    : inCart
+      ? "decided"
+      : labelled
+        ? "with Eva"
+        : "placed";
   const cartLabel = ordered
     ? `${n.name} is ordered`
     : tab === "cart"
@@ -823,6 +953,11 @@ function ShelfCard({
           {piece && n.price !== undefined ? sgd(n.price) : "Room"}
         </span>
       </div>
+      {piece && (
+        <span className="shelf-card-status" data-status={status}>
+          {status}
+        </span>
+      )}
     </article>
   );
 }

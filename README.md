@@ -140,10 +140,17 @@ piece's parts, place and turn in degrees, lock, hide, remove, colour,
 texture and size). A piece turns a quarter with a click on its handle or
 the R key, and freely with a drag round it, in steps of 15 degrees
 unless Shift is held; Square brings it back to the walls. On the slant
-a clash is read from the turned outline, not the box round it. The main column has a toolbar (Edit/Render, Select, which drags
-and turns pieces on the plan and in 3D, Inspect, Add, an eye that hides
-every panel, Undo/Redo, Guide, Export as SVG/PNG/JSON)
-and a shelf with Saved and Cart. Checkout takes a delivery address and
+a clash is read from the turned outline, not the box round it. The
+main column has a toolbar (the four stages of the work, Room, Layout,
+Furnish and Review, each opening its panel tab and the last rendering
+the room; Select, which drags and turns pieces on the plan and in 3D,
+Inspect, Add, an eye that hides every panel, Undo/Redo, Guide, Export
+as SVG/PNG/JSON) and a shelf with Saved and Cart: the room's palette
+(each colour in it once, the kept style and the finishes), the pieces as
+cards each saying where it stands (placed, with Eva, decided, ordered),
+a tile that opens the catalogue, and how ready the room is to order
+(the share of its pieces in the cart, the cart against the budget when
+one is kept). Checkout takes a delivery address and
 places an order in a ledger (awaiting payment, paid, delivered,
 cancelled, refunded) listed under the gear; no payment provider is wired,
 and `/api/checkout` says so rather than pretend. The right rail shows the
@@ -212,8 +219,8 @@ walks the camera through them at a slow pace with its eye on the
 pieces, a progress bar and Stop; a round of the room clear of the
 pieces when there are no stops),
 and View settings (edges on every piece, the names, a floor
-grid, shadows, daylight or evening light), kept with the view. Render
-grades whichever view is up, the 3D room (its shadows on, its handles
+grid, shadows, daylight or evening light), kept with the view. Review
+renders whichever view is up, the 3D room (its shadows on, its handles
 away) or the plan, sweeps it in and, with the panels hidden, offers a
 before/after divider. The studio opens in 3D on each visit and keeps
 the view and angle for the tab. A piece can stand past the walls; a

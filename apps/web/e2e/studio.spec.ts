@@ -606,9 +606,17 @@ test("the toolbar reads mode · select, add, wall · undo, guide, export", async
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   const bar = page.getByRole("toolbar", { name: "Studio tools" });
-  await expect(bar.getByRole("button", { name: "Edit" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
+  // the four stages along the top: the outliner open, the work is at Layout
+  const stages = bar.getByRole("list", { name: "Stage" });
+  await expect(stages.getByRole("button")).toHaveText([
+    "01Room",
+    "02Layout",
+    "03Furnish",
+    "04Review",
+  ]);
+  await expect(bar.getByRole("button", { name: "Layout" })).toHaveAttribute(
+    "aria-current",
+    "step",
   );
   await expect(
     bar.getByRole("group", { name: "Tools" }).getByRole("button"),
@@ -644,14 +652,29 @@ test("the toolbar reads mode · select, add, wall · undo, guide, export", async
     "aria-pressed",
     "false",
   );
-  await bar.getByRole("button", { name: "Render" }).click();
-  await expect(bar.getByRole("button", { name: "Render" })).toHaveAttribute(
-    "aria-pressed",
+  await bar.getByRole("button", { name: "Review" }).click();
+  await expect(bar.getByRole("button", { name: "Review" })).toHaveAttribute(
+    "aria-current",
+    "step",
+  );
+  await bar.getByRole("button", { name: "Layout" }).click();
+  await expect(bar.getByRole("button", { name: "Review" })).not.toHaveAttribute(
+    "aria-current",
+    "step",
+  );
+  // the other stages open their panel tab: Room the room, Furnish the catalogue
+  await bar.getByRole("button", { name: "Room" }).click();
+  await expect(
+    page.getByRole("tab", { name: "Room", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await bar.getByRole("button", { name: "Furnish" }).click();
+  await expect(page.getByRole("tab", { name: "Products" })).toHaveAttribute(
+    "aria-selected",
     "true",
   );
-  await bar.getByRole("button", { name: "Edit" }).click();
+  await bar.getByRole("button", { name: "Layout" }).click();
   const [edit, tools, exp] = await Promise.all([
-    bar.getByRole("button", { name: "Edit" }).boundingBox(),
+    bar.getByRole("button", { name: "Layout" }).boundingBox(),
     bar.getByRole("group", { name: "Tools" }).boundingBox(),
     bar.getByRole("button", { name: "Export" }).boundingBox(),
   ]);
@@ -722,7 +745,7 @@ test("Render runs a line along the top, sweeps the render in over the view, then
     content: ":root{--preview-generate:6s;--preview-reveal:.3s}",
   });
   const bar = page.getByRole("toolbar", { name: "Studio tools" });
-  await bar.getByRole("button", { name: "Render" }).click();
+  await bar.getByRole("button", { name: "Review" }).click();
   const line = page.getByRole("progressbar", { name: "Rendering the room" });
   await expect(line).toBeAttached();
   await expect
@@ -802,7 +825,7 @@ test("Render runs a line along the top, sweeps the render in over the view, then
   await page.getByRole("button", { name: "Show panels" }).click();
   await expect(page.locator(".preview")).toHaveAttribute("data-status", "done");
   await expect(handle).toHaveAttribute("aria-valuenow", "100");
-  await bar.getByRole("button", { name: "Edit" }).click();
+  await bar.getByRole("button", { name: "Layout" }).click();
   await expect(page.locator(".preview")).toHaveCount(0);
   await expect(bar.getByRole("button", { name: "Select" })).toBeEnabled();
 });
@@ -1019,8 +1042,26 @@ test("the shelf's Saved cards go to the Cart from a hover button", async ({
   await expect(button).toHaveCSS("opacity", "0");
   await card.hover();
   await expect(button).toHaveCSS("opacity", "1");
+  // placed, then decided once in the cart; the shelf's ends: the room's
+  // palette, and how much of the room is decided
+  await expect(card.locator(".shelf-card-status")).toHaveText("placed");
+  const ready = shelf.getByRole("complementary", { name: "Ready to order" });
+  await expect(ready.locator(".shelf-ready-pct")).toHaveText("0%");
+  await expect(
+    shelf
+      .getByRole("complementary", { name: "The room's palette" })
+      .locator(".shelf-swatch")
+      .first(),
+  ).toBeVisible();
   await button.click();
   await expect(card).toHaveAttribute("data-in-cart", "true");
+  await expect(card.locator(".shelf-card-status")).toHaveText("decided");
+  await expect(ready.locator(".shelf-ready-pct")).toHaveText(
+    `${Math.round(100 / totals.pieces)}%`,
+  );
+  await expect(
+    ready.getByRole("button", { name: /set a budget/ }),
+  ).toBeVisible();
   await expect(cart).toHaveText("Cart1");
   await expect(
     shelf
@@ -1047,6 +1088,13 @@ test("the shelf's Saved cards go to the Cart from a hover button", async ({
   await expect(shelf.locator(".shelf-card")).toHaveCount(0);
   await expect(shelf.locator(".main-shelf-empty")).toBeVisible();
   await expect(cart).toHaveText("Cart0");
+  // Open catalogue, on the Saved tab, brings the Products tab up
+  await shelf.getByRole("tab", { name: /Saved/ }).click();
+  await shelf.getByRole("button", { name: /Open catalogue/ }).click();
+  await expect(page.getByRole("tab", { name: "Products" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
 });
 
 test("a view swap runs the quick line; the Agent tab hands prompts to the input", async ({

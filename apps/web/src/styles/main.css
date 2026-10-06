@@ -24,6 +24,7 @@
   top: 0;
   display: grid;
   grid-template-columns: 1fr auto 1fr;
+  container-type: inline-size;
   align-items: center;
   gap: 8px;
   height: 44px;
@@ -128,6 +129,9 @@
 .main-shelf-body {
   display: grid;
   grid-template-rows: 1fr;
+  /* the cards scroll; how ready the room is stands at the right end */
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 12px;
   overflow: hidden;
   /* the cards must not size the folded tab: ignore them for inline size */
   contain: inline-size;
@@ -2029,4 +2033,198 @@
 .plan-floor[data-carries="true"] {
   pointer-events: all;
   cursor: grab;
+}
+
+/* the stages of the work along the top: numbered, the current one
+   underlined in the accent, as a drawing set's sheets are indexed */
+.main-stages {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: inline-flex;
+  gap: 2px;
+}
+.main-stage {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px 5px;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: rgb(from var(--color-ink) r g b / 0.55);
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+.main-stage:hover {
+  color: rgb(from var(--color-ink) r g b / 0.85);
+}
+.main-stage-n {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: rgb(from var(--color-ink) r g b / 0.4);
+}
+.main-stage[aria-current="step"] {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
+}
+.main-stage[aria-current="step"] .main-stage-n {
+  color: var(--color-accent);
+}
+/* a narrower toolbar keeps the current stage's name and the others'
+   numbers, so the stages and the tools never meet */
+@container (max-width: 1040px) {
+  .main-stage:not([aria-current="step"]) .main-stage-label {
+    display: none;
+  }
+  .main-stage {
+    padding-inline: 6px;
+  }
+}
+
+/* the shelf's ends: the room's palette first, the catalogue and how
+   ready the room is to order last */
+.shelf-palette,
+.shelf-ready {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  width: 150px;
+  padding: 8px 10px;
+  scroll-snap-align: start;
+}
+.shelf-ready {
+  width: 140px;
+  padding-right: 4px;
+  border-left: 1px solid var(--line);
+}
+.shelf-swatches {
+  display: flex;
+  gap: 6px;
+}
+.shelf-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid rgb(from var(--color-ink) r g b / 0.12);
+}
+.shelf-palette-words {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.4;
+  color: rgb(from var(--color-ink) r g b / 0.6);
+}
+.shelf-card-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: rgb(from var(--color-ink) r g b / 0.5);
+}
+.shelf-card-status::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgb(from var(--color-ink) r g b / 0.25);
+}
+.shelf-card-status[data-status="decided"]::before,
+.shelf-card-status[data-status="ordered"]::before {
+  background: var(--color-accent);
+}
+.shelf-card-status[data-status="with Eva"] {
+  color: var(--color-accent);
+}
+.shelf-card-status[data-status="with Eva"]::before {
+  background: var(--color-accent);
+}
+.shelf-catalogue {
+  appearance: none;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 4px;
+  width: 132px;
+  height: 108px;
+  padding: 14px;
+  border-radius: var(--r-card);
+  border: 1px dashed rgb(from var(--color-accent) r g b / 0.5);
+  background: rgb(from var(--color-accent) r g b / 0.08);
+  color: var(--color-accent);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  scroll-snap-align: start;
+  transition: background 0.15s ease;
+}
+.shelf-catalogue:hover {
+  background: rgb(from var(--color-accent) r g b / 0.14);
+}
+.shelf-catalogue b {
+  font-size: 13px;
+  font-weight: 600;
+}
+.shelf-catalogue span {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: rgb(from var(--color-ink) r g b / 0.55);
+}
+.shelf-ready-label {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(from var(--color-ink) r g b / 0.5);
+}
+.shelf-ready-pct {
+  font-size: 30px;
+  line-height: 1;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+.shelf-ready-pct small {
+  font-size: 14px;
+  margin-left: 2px;
+}
+.shelf-ready-bar {
+  display: block;
+  height: 4px;
+  border-radius: 999px;
+  background: rgb(from var(--color-ink) r g b / 0.1);
+  overflow: hidden;
+}
+.shelf-ready-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--color-accent);
+  transition: width 0.3s var(--ease);
+}
+.shelf-ready-sum,
+.shelf-ready-set {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: rgb(from var(--color-ink) r g b / 0.6);
+}
+.shelf-ready-set {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  text-align: left;
+  color: var(--color-accent);
+  cursor: pointer;
 }
