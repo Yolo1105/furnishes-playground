@@ -1755,6 +1755,52 @@ test("projects: a new one starts clean, the first keeps its room, rename and del
   await expect(page.getByRole("menuitem", { name: "Delete" })).toBeDisabled();
 });
 
+test("a project kept by an earlier studio comes up to the catalogue as it is read", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  await arrived(page);
+  // a change, so the project is kept; then its snapshot is put back
+  // as the studio kept it before the catalogue was real: no recipe on
+  // the pieces, the old prices, no shape version
+  const card = page.locator(`.shelf-card[data-id="${first.id}"]`);
+  await card.hover();
+  await card
+    .getByRole("button", { name: `Add ${first.name} to the cart` })
+    .click();
+  await page.waitForTimeout(900);
+  const price = await page.evaluate(() => {
+    const kept = JSON.parse(localStorage.getItem("furnishes.projects")!);
+    const open = kept.projects.find(
+      (p: { id: string }) => p.id === kept.activeId,
+    );
+    delete open.data.v;
+    for (const g of open.data.scene.groups)
+      for (const n of g.items)
+        if (n.kind === "piece") {
+          delete n.productId;
+          n.price = 1;
+          for (const c of n.children ?? []) c.price = 1;
+        }
+    localStorage.setItem("furnishes.projects", JSON.stringify(kept));
+    return 1;
+  });
+  expect(price).toBe(1);
+  await page.reload();
+  await arrived(page);
+  // read back, the pieces are the catalogue's again: the recipe's price
+  // in the outliner, the product page in the Detail tab
+  const tree = page.getByRole("tree", { name: "Assets" });
+  await expect(
+    tree.getByRole("treeitem", { name: first.name, exact: true }),
+  ).toContainText(sgd(first.price!));
+  await tree.getByRole("treeitem", { name: first.name, exact: true }).click();
+  await page.getByRole("tab", { name: "Detail", exact: true }).click();
+  await expect(page.getByRole("region", { name: "In the box" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: /^Cart/ })).toHaveText("Cart1");
+});
+
 test("with a model connected Eva's answer comes through the route; the thumbs and edit work", async ({
   page,
 }) => {
@@ -2581,7 +2627,7 @@ test("the flat has rooms: one added stands beside the active room, a click on it
   ).toHaveCount(0);
 });
 
-test("Generate makes a room item from a few words; it stands as a shape without a provider", async ({
+test("Generate makes a room item from a few words; without a provider a stock mesh stands in, or a shape", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -2597,17 +2643,21 @@ test("Generate makes a room item from a few words; it stands as a shape without 
     .click();
   const words = strip.getByRole("textbox", { name: "Describe a room item" });
   await expect(words).toBeVisible();
-  // no key on this server: the item still arrives, as a shape, with a note
+  // no key on this server: the item still arrives, with a note; an
+  // armchair has a stock mesh to stand in for it
   await words.fill("a rattan armchair");
   await strip.locator("form").getByRole("button", { name: "Generate" }).click();
   await expect(
     strip.getByText("No image or mesh provider is connected"),
   ).toBeVisible();
+  await expect(
+    strip.getByText("a stock rattan armchair stands in"),
+  ).toBeVisible();
   const tile = strip.locator(".add-tile-gen").filter({
     hasText: "Rattan armchair",
   });
   await expect(tile).toHaveCount(1);
-  await expect(tile.locator(".add-tile-price")).toHaveText("shape");
+  await expect(tile.locator(".add-tile-price")).toHaveText("stock mesh");
   // the room has it, as a room item (not for sale, no price), selected
   const row = page.getByRole("treeitem", { name: "Rattan armchair" });
   await expect(row).toHaveAttribute("aria-selected", "true");
@@ -2617,9 +2667,16 @@ test("Generate makes a room item from a few words; it stands as a shape without 
   await expect(
     tile.getByRole("button", { name: "Unstar Rattan armchair" }),
   ).toHaveAttribute("aria-pressed", "true");
-  await words.fill("a tall fiddle-leaf fig");
+  await words.fill("a brass orrery");
   await words.press("Enter");
   await expect(strip.locator(".add-tile-gen")).toHaveCount(2);
+  // nothing in stock looks like that: a shape
+  await expect(
+    strip
+      .locator(".add-tile-gen")
+      .filter({ hasText: "Brass orrery" })
+      .locator(".add-tile-price"),
+  ).toHaveText("shape");
   await strip.getByRole("button", { name: "Starred" }).click();
   await expect(strip.locator(".add-tile-gen")).toHaveCount(1);
   await expect(strip.locator(".add-gen-label")).toHaveText("Starred · 1");
@@ -2637,12 +2694,10 @@ test("Generate makes a room item from a few words; it stands as a shape without 
     .getByRole("button", { name: "Generate" })
     .click();
   await expect(strip.locator(".add-tile-gen")).toHaveCount(2);
-  await strip
-    .getByRole("button", { name: "Forget Tall fiddle-leaf fig" })
-    .click();
+  await strip.getByRole("button", { name: "Forget Brass orrery" }).click();
   await expect(strip.locator(".add-tile-gen")).toHaveCount(1);
   await expect(
-    page.getByRole("treeitem", { name: "Tall fiddle-leaf fig" }),
+    page.getByRole("treeitem", { name: "Brass orrery" }),
   ).toHaveCount(1);
   // the route itself: no key says so, a bad body is refused
   const res = await page.request.post("/api/generate-item", {

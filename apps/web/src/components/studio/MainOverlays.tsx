@@ -1,5 +1,6 @@
 "use client";
 
+import { Portrait } from "./Portrait";
 import {
   useEffect,
   useLayoutEffect,
@@ -44,6 +45,7 @@ import {
 import { useEva } from "./eva-store";
 import { orderedIds, useOrders } from "./order-store";
 import { useRoom } from "./room-store";
+import { portraitOf } from "./catalogue";
 import { colourHex, type PieceProps } from "./piece-detail";
 import { PlanSymbol } from "./plan-symbols";
 import { propsOf, topLevelOf, useScene, useTopLevel } from "./scene-store";
@@ -890,6 +892,7 @@ function ShelfCard({
   onCart: () => void;
 }) {
   const piece = n.kind === "piece";
+  const portrait = portraitOf(n);
   // where the piece stands in the work: ordered, decided (in the cart),
   // with Eva (labelled), or placed in the room
   const status = ordered
@@ -923,7 +926,11 @@ function ShelfCard({
         aria-pressed={selected}
         onClick={onSelect}
       >
-        <PlanSymbol node={n} props={props} turn={0} />
+        {portrait ? (
+          <Portrait productId={n.productId!} />
+        ) : (
+          <PlanSymbol node={n} props={props} turn={0} />
+        )}
       </button>
       {piece && (
         <button

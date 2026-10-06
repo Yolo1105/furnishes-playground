@@ -1,5 +1,6 @@
 "use client";
 
+import { Portrait } from "./Portrait";
 import { useEffect, useRef, useState } from "react";
 import {
   CATEGORY_NAMES,
@@ -16,7 +17,8 @@ import { useRoom } from "./room-store";
 import { useScene } from "./scene-store";
 
 /**
- * The catalogue as a grid of cards: a picture, the name, the price. One
+ * The catalogue as a grid of cards: a portrait (a part's plan mark), the
+ * name, the price. One
  * press puts the piece into the room; it appears in the outliner, on the
  * shelf and in the count at once. A card can also be dragged onto the
  * room and dropped where it should stand.
@@ -82,11 +84,15 @@ export function ProductsTab({
                 onPointerCancel={endTileDrag}
               >
                 <div className="product-pic" aria-hidden="true">
-                  <PlanSymbol
-                    node={asNode(p)}
-                    props={defaultProps(asNode(p))}
-                    turn={0}
-                  />
+                  {p.recipe ? (
+                    <Portrait productId={p.id} />
+                  ) : (
+                    <PlanSymbol
+                      node={asNode(p)}
+                      props={defaultProps(asNode(p))}
+                      turn={0}
+                    />
+                  )}
                 </div>
                 <div className="product-row">
                   <span className="product-name">{p.name}</span>

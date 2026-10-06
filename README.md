@@ -111,7 +111,11 @@ PGlite otherwise, a Postgres inside the server process that keeps its
 files under `apps/web/.data/pglite`, so a checkout runs and tests with
 no account anywhere; the migrations under `apps/web/drizzle` run when
 the server first touches the database, and `pnpm db:generate` writes a
-new one from a change to the schema. `BETTER_AUTH_SECRET` signs the
+new one from a change to the schema. A project's snapshot carries the
+version of its shape (`SNAPSHOT_VERSION` in the project store); one
+kept by an earlier studio, in the browser, the account's mirror or a
+share link, is brought up to the current shape as it is read, step by
+step, so nothing kept is ever stale. `BETTER_AUTH_SECRET` signs the
 sessions in production (a development run uses the library's own and
 says so).
 
@@ -229,9 +233,9 @@ move never shifts another piece, nor does a piece coming in (it takes
 the first clear spot, or the nearest inside the walls), and two pieces
 standing over each other read in the warning red on the plan and in
 3D, and are listed in one card at the top left of the stage, each with
-a pick and a Fix, which shows only while something overlaps. Until the
-catalogue has photographs, a product card and a shelf card carry the
-piece's plan mark. The catalogue itself is real: the thirteen Furnishes
+a pick and a Fix, which shows only while something overlaps. A Furnishes
+piece's card, tile and product page carry its portrait, cut out on
+nothing (a room item's carry its plan mark). The catalogue itself is real: the thirteen Furnishes
 recipes from the house site's storefront live in `packages/domain`
 (each a body of 18 mm birch panels on the 600 × 400 × 400 unit, with
 its tiers, bays, rooms, what it lets you do, its add-ons and its status
@@ -253,7 +257,11 @@ dragged there too, and the 3D room follows.
 Add also makes room items: things that set the scene and are not for
 sale (an armchair, a plant, a pendant) from a few words. With `FAL_KEY`
 set, `/api/generate-item` has Flux draw a product shot and Hunyuan 3D
-turn it into a mesh that stands in the room; without a key the item
+turn it into a mesh that stands in the room; without a key a stock mesh
+of the thing stands in when there is one (fifteen CC0 Poly Haven models
+under `public/props`: a sofa, an armchair, a chair, a stool, a coffee
+table, a cabinet, a lamp, a plant, a planter, a vase, a basket, books,
+pillows, a box, a laptop), and otherwise the item
 stands as a shape and the strip says so. Generations are kept in the
 browser, can be starred, and a tile puts another into the room.
 

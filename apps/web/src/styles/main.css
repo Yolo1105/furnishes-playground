@@ -195,7 +195,7 @@
   width: 100%;
   height: 108px;
   padding: 14px 18px;
-  /* the piece's plan mark, until a photograph stands here */
+  /* a Furnishes piece's portrait; a room item's plan mark */
   --plan-ink: rgb(from var(--color-ink) r g b / 0.6);
   border-radius: var(--r-card);
   background: rgba(255, 255, 255, 0.55);
@@ -989,9 +989,18 @@
 .add-tile:active {
   cursor: grabbing;
 }
+.shelf-card-pic img,
+.add-tile-pic img,
+.product-pic img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
 .add-tile-pic {
   display: block;
   height: 72px;
+  padding: 6px;
   border-radius: var(--r-card);
   background: rgba(255, 255, 255, 0.55);
   border: 1px solid rgb(from var(--color-line) r g b / 0.14);

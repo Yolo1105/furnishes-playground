@@ -11,6 +11,8 @@ import {
 import type { Point } from "./room-templates";
 import { type RoomSpec, useRoom } from "./room-store";
 import { useScene } from "./scene-store";
+import type { AssetNode } from "./assets-data";
+import { products } from "./catalogue";
 
 /**
  * The projects: each holds a room (its walls, size and finishes), what
@@ -23,9 +25,14 @@ import { useScene } from "./scene-store";
  * opens the project a link names (?project=id, from the account page)
  * once what was kept is back. A room is shared as a snapshot without
  * Eva's side, shown read-only on the share page, and taken in from
- * there as a project of one's own.
+ * there as a project of one's own. A snapshot carries the version of
+ * its shape; one kept by an earlier studio is brought up to the current
+ * shape as it is read, so nothing kept is ever stale.
  */
 const KEY = "furnishes.projects";
+/** the shape of a snapshot: raised when the shape changes, with a step
+    in `upgrade` that brings the older shape up */
+export const SNAPSHOT_VERSION = 1;
 const SAVE_AFTER = 600; // ms after the last change
 
 type RoomData = ReturnType<typeof useRoom.getState>;
@@ -33,6 +40,8 @@ type SceneData = ReturnType<typeof useScene.getState>;
 type EvaData = ReturnType<typeof useEva.getState>;
 
 export type Snapshot = {
+  /** the shape it was saved in; none before the shape was versioned */
+  v?: number;
   room: Omit<RoomData, keyof FunctionsOf<RoomData>>;
   scene: Pick<SceneData, "groups" | "cart" | "labels" | "overrides">;
   eva: Pick<
@@ -90,6 +99,7 @@ const snapshot = (): Snapshot => {
   const sc = useScene.getState();
   const ev = useEva.getState();
   return {
+    v: SNAPSHOT_VERSION,
     room: dataOnly(useRoom.getState()),
     scene: {
       groups: sc.groups,
@@ -114,6 +124,7 @@ const fresh = (): Snapshot => {
   const sc = useScene.getInitialState();
   const ev = useEva.getInitialState();
   return {
+    v: SNAPSHOT_VERSION,
     room: dataOnly(useRoom.getInitialState()),
     scene: {
       groups: sc.groups,
@@ -181,8 +192,54 @@ const roomsOf = (data: Snapshot["room"]): Snapshot["room"] => {
   };
 };
 
-/** put a project's contents into the stores */
-const load = (data: Snapshot) => {
+/* ---------- the shape's history ---------- */
+
+const recipesByName = new Map(
+  products.filter((p) => p.recipe).map((p) => [p.name.toLowerCase(), p]),
+);
+/** "Three-bay sideboard 2" is a three-bay sideboard */
+const plainName = (name: string) => name.replace(/\s+\d+$/, "").toLowerCase();
+
+/** to 1: a piece saved before the catalogue was real takes the recipe
+    its name says, with the recipe's price; its parts share that price */
+const toV1 = (node: AssetNode): AssetNode => {
+  if (node.kind !== "piece" || node.productId) return node;
+  const p = recipesByName.get(plainName(node.name));
+  if (!p) return node;
+  const children = node.children?.map((c) => ({
+    ...c,
+    price: Math.round(p.price / node.children!.length),
+  }));
+  return {
+    ...node,
+    productId: p.id,
+    price: p.price,
+    ...(children ? { children } : {}),
+  };
+};
+
+/** a snapshot brought up to the current shape, step by step */
+export const upgrade = (data: Snapshot): Snapshot => {
+  const v = data.v ?? 0;
+  if (v >= SNAPSHOT_VERSION) return data;
+  let out = data;
+  if (v < 1)
+    out = {
+      ...out,
+      scene: {
+        ...out.scene,
+        groups: out.scene.groups.map((g) => ({
+          ...g,
+          items: g.items.map(toV1),
+        })),
+      },
+    };
+  return { ...out, v: SNAPSHOT_VERSION };
+};
+
+/** put a project's contents into the stores, brought up to shape */
+const load = (raw: Snapshot) => {
+  const data = upgrade(raw);
   useRoom.setState(roomsOf(data.room));
   useScene.setState({
     ...data.scene,

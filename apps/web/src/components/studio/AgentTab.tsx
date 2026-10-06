@@ -1,5 +1,6 @@
 "use client";
 
+import { Portrait } from "./Portrait";
 import { CATEGORY_NAMES, pieceTotals, sgd } from "./assets-data";
 import { planOf, stageOf, type Chip } from "./eva-brain";
 import {
@@ -490,6 +491,12 @@ export function AgentTab() {
                         data-added={added}
                       >
                         <div className="agent-card-row">
+                          {product.recipe && (
+                            <Portrait
+                              className="agent-card-pic"
+                              productId={product.id}
+                            />
+                          )}
                           <span className="agent-card-name">
                             {product.name}
                           </span>

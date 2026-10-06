@@ -703,8 +703,15 @@
 .agent-card[data-added="true"] {
   background: rgb(from var(--color-accent) r g b / 0.06);
 }
+.agent-card-pic {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
 .agent-card-row {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
   font-size: 12.5px;

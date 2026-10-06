@@ -398,7 +398,7 @@
 .product-pic {
   position: relative;
   aspect-ratio: 1;
-  padding: 14%;
+  padding: 10%;
   border-radius: var(--r-card);
   background: rgba(255, 255, 255, 0.55);
   border: 1px solid rgb(from var(--color-line) r g b / 0.14);
@@ -780,6 +780,12 @@
   box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.6) inset;
   background-size: cover;
   background-position: center;
+}
+.detail-pic[data-portrait="true"] {
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-origin: content-box;
+  padding: 6px;
 }
 .detail-title {
   min-width: 0;

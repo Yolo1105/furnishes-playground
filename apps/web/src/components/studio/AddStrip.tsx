@@ -1,5 +1,6 @@
 "use client";
 
+import { Portrait } from "./Portrait";
 import { useMemo, useState } from "react";
 import { CATEGORY_NAMES, sgd, type AssetCategory } from "./assets-data";
 import { products } from "./catalogue";
@@ -17,6 +18,7 @@ import { OPENING_KINDS } from "./room-data";
 import { useRoom } from "./room-store";
 import {
   describeItem,
+  propFor,
   useGenerations,
   type Generation,
 } from "./generation-store";
@@ -130,11 +132,15 @@ export function AddStrip({ onAdded }: { onAdded: (id: string) => void }) {
               aria-label={`Add ${p.name}, ${sgd(p.price)}`}
             >
               <span className="add-tile-pic" aria-hidden="true">
-                <PlanSymbol
-                  node={{ ...p, kind: "piece" }}
-                  props={defaultProps({ ...p, kind: "piece" })}
-                  turn={0}
-                />
+                {p.recipe ? (
+                  <Portrait productId={p.id} />
+                ) : (
+                  <PlanSymbol
+                    node={{ ...p, kind: "piece" }}
+                    props={defaultProps({ ...p, kind: "piece" })}
+                    turn={0}
+                  />
+                )}
               </span>
               <span className="add-tile-name">{p.name}</span>
               <span className="add-tile-price f-num">{sgd(p.price)}</span>
@@ -192,6 +198,24 @@ function Generate({
     setBusy(true);
     setNote("");
     const { name, category } = describeItem(words);
+    // without a provider's answer: a stock mesh of the thing when there
+    // is one, else a shape
+    const prop = propFor(words);
+    const stand = (why: string) => {
+      made = add({
+        prompt: words,
+        name,
+        category,
+        ...(prop
+          ? { modelUrl: prop, source: "prop" as const }
+          : { source: "shape" as const }),
+      });
+      setNote(
+        prop
+          ? `${why}; a stock ${name.toLowerCase()} stands in for it.`
+          : `${why}; it stands as a shape.`,
+      );
+    };
     let made: Generation | null = null;
     try {
       const res = await fetch("/api/generate-item", {
@@ -214,19 +238,16 @@ function Generate({
         });
         if (!data.modelUrl)
           setNote("The picture came, the mesh did not: it stands as a shape.");
-      } else {
-        made = add({ prompt: words, name, category, source: "shape" });
-        setNote(
+      } else
+        stand(
           res.status === 503
-            ? "No image or mesh provider is connected on this server, so it stands as a shape."
+            ? "No image or mesh provider is connected on this server"
             : res.status === 429
-              ? "That is the hour's share of generations; this one stands as a shape."
-              : "The provider did not answer; it stands as a shape.",
+              ? "That is the hour's share of generations"
+              : "The provider did not answer",
         );
-      }
     } catch {
-      made = add({ prompt: words, name, category, source: "shape" });
-      setNote("The provider could not be reached; it stands as a shape.");
+      stand("The provider could not be reached");
     }
     setBusy(false);
     setPrompt("");
@@ -318,7 +339,13 @@ function Generate({
             </button>
             <span className="add-tile-name">{g.name}</span>
             <span className="add-tile-price">
-              {g.source === "shape" ? "shape" : g.modelUrl ? "mesh" : "picture"}
+              {g.source === "shape"
+                ? "shape"
+                : g.source === "prop"
+                  ? "stock mesh"
+                  : g.modelUrl
+                    ? "mesh"
+                    : "picture"}
             </span>
           </div>
         ))}

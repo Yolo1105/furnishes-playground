@@ -223,9 +223,14 @@ const seedOf = (s: string) => {
   return n;
 };
 
-/** a generated mesh fitted into the item's size, standing on the floor */
+/** where the Draco decoder is served from: the studio's own copy, so a
+    compressed mesh never reaches out to a third party for it */
+const DRACO = "/draco/";
+
+/** a generated or stock mesh fitted into the item's size, standing on
+    the floor */
 function Model({ src, size }: { src: string; size: Vector3Tuple }) {
-  const { scene } = useGLTF(src);
+  const { scene } = useGLTF(src, DRACO);
   const box = new Box3().setFromObject(scene);
   const dims = box.getSize(new Vector3());
   const k = Math.min(

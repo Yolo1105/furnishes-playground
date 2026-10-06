@@ -54,6 +54,13 @@ export const productOf = (id: string) => products.find((p) => p.id === id);
 export const recipeOf = (n: Pick<AssetNode, "productId">) =>
   n.productId ? productOf(n.productId)?.recipe : undefined;
 
+/** a Furnishes piece's portrait, cut out on nothing: one per recipe,
+    under public/catalogue by the recipe's id */
+export const portraitOf = (n: Pick<AssetNode, "productId">) =>
+  n.productId && productOf(n.productId)?.recipe
+    ? `/catalogue/${n.productId}.webp`
+    : undefined;
+
 /** a recipe's size as a piece in the room, mm: width, depth, height */
 export const recipeSize = (r: Recipe): [number, number, number] => [
   r.width,

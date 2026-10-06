@@ -24,7 +24,7 @@ import {
   ROTATE_SNAP,
   squared,
 } from "./piece-detail";
-import { recipeOf } from "./catalogue";
+import { portraitOf, recipeOf } from "./catalogue";
 import { ProductPage } from "./ProductPage";
 import { findNode, propsOf, useScene } from "./scene-store";
 import { useStudio } from "./studio-store";
@@ -74,6 +74,7 @@ export function DetailTab() {
     targets.forEach((t) => setProps(t.id, patch));
   const inCart = cart.includes(piece.id);
   const recipe = recipeOf(piece);
+  const portrait = portraitOf(piece);
   const label = labels.indexOf(piece.id);
   const labelsFull = label < 0 && labels.length >= LABEL_MAX;
   // where the whole piece stands: its own place, or the layout's
@@ -110,9 +111,10 @@ export function DetailTab() {
         <div
           className="detail-pic"
           aria-hidden="true"
+          data-portrait={!piece.image && portrait !== undefined}
           style={
-            piece.image
-              ? { backgroundImage: `url("${piece.image}")` }
+            piece.image || portrait
+              ? { backgroundImage: `url("${piece.image ?? portrait}")` }
               : undefined
           }
         />
