@@ -1,7 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { ACCOUNT_MODES, GOOGLE_SIGN_IN, useAccountForm } from "./account-form";
+import {
+  ACCOUNT_MODES,
+  GOOGLE_SIGN_IN,
+  useAccountForm,
+} from "@/components/studio/account-form";
 import { PASSWORD_MIN } from "@/lib/account-rules";
 
 /**

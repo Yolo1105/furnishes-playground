@@ -6,13 +6,15 @@ import "@/styles/main.css";
 import "@/styles/assets.css";
 import "@/styles/eva.css";
 import "@/styles/home.css";
+import "@/styles/landing.css";
 import { SITE } from "@/lib/site";
 
 /**
  * Syne is the studio's typeface, exposed as --font-syne and aliased to
  * --font-app in globals.css so every surface reads one variable. The
- * home page is set as the production account page is: Archivo along
- * its width axis (compressed) and Space Mono for the caps labels.
+ * landing and the inner pages are set as the production pages are:
+ * Archivo along its width axis (compressed) and Space Mono for the
+ * caps labels.
  */
 const syne = Syne({
   subsets: ["latin"],

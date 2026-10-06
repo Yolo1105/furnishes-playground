@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { HomeRail } from "@/components/studio/HomeRail";
+import { HomeRail } from "@/components/site/HomeRail";
 
 /**
  * A page that failed: said plainly in the home page's language, with a

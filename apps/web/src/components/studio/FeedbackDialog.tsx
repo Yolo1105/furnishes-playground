@@ -2,6 +2,14 @@
 
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import {
+  EMAIL,
+  HELP_KINDS,
+  MESSAGE_MIN,
+  helpMailto,
+  sendHelp,
+  type HelpKind,
+} from "@/lib/help-client";
 import { SITE } from "@/lib/site";
 import { Dialog } from "./Dialog";
 import { CheckIcon } from "./icons";
@@ -9,16 +17,9 @@ import { useProjects } from "./project-store";
 
 /**
  * A word to the studio, from the gear: a problem, an idea or a question,
- * in a few lines, with an email when not signed in. It goes to the
- * studio's own table (api/help); should that fail, the same words can
- * go by mail.
+ * in a few lines, with an email when not signed in, sent with the page
+ * and the project it came from (lib/help-client does the sending).
  */
-const KINDS = [
-  { id: "problem", label: "Something is wrong" },
-  { id: "idea", label: "An idea" },
-  { id: "question", label: "A question" },
-] as const;
-type Kind = (typeof KINDS)[number]["id"];
 
 export function FeedbackDialog({
   email,
@@ -32,46 +33,31 @@ export function FeedbackDialog({
   const projectName = useProjects(
     (s) => s.projects.find((p) => p.id === s.activeId)?.name,
   );
-  const [kind, setKind] = useState<Kind>("problem");
+  const [kind, setKind] = useState<HelpKind>("problem");
   const [message, setMessage] = useState("");
   const [from, setFrom] = useState("");
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
   const address = email ?? from.trim();
-  const ready =
-    message.trim().length >= 5 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address);
+  const ready = message.trim().length >= MESSAGE_MIN && EMAIL.test(address);
   const context = `${path}${projectName ? ` · ${projectName}` : ""}`;
+  const word = {
+    kind,
+    message,
+    context,
+    ...(email ? {} : { email: address }),
+  };
   const send = async () => {
     if (!ready || busy) return;
     setBusy(true);
     setFailed(null);
-    try {
-      const res = await fetch("/api/help", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          category: kind,
-          message: message.trim(),
-          context,
-          ...(email ? {} : { email: address }),
-        }),
-      });
-      if (res.ok) setSent(true);
-      else
-        setFailed(
-          res.status === 429
-            ? "That is the day's share of messages from here; send it by mail instead."
-            : "It did not go through; send it by mail instead.",
-        );
-    } catch {
-      setFailed("The studio could not be reached; send it by mail instead.");
-    }
+    const problem = await sendHelp(word);
+    if (problem) setFailed(problem);
+    else setSent(true);
     setBusy(false);
   };
-  const mailto = `mailto:${SITE.contact}?subject=${encodeURIComponent(
-    `${SITE.name}: ${KINDS.find((k) => k.id === kind)!.label.toLowerCase()}`,
-  )}&body=${encodeURIComponent(`${message.trim()}\n\n(${context})`)}`;
+  const mailto = helpMailto(word);
   return (
     <Dialog title="Feedback" onClose={onClose}>
       {sent ? (
@@ -99,7 +85,7 @@ export function FeedbackDialog({
           }}
         >
           <div className="eva-chips" role="radiogroup" aria-label="What it is">
-            {KINDS.map((k) => (
+            {HELP_KINDS.map((k) => (
               <button
                 key={k.id}
                 type="button"

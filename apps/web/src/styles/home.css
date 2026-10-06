@@ -62,8 +62,11 @@
   overflow: hidden;
 }
 .home-brand {
+  display: block;
   flex: 0 0 auto;
   padding-top: 24px;
+  color: inherit;
+  text-decoration: none;
   font-weight: 550;
   font-size: 18.4px;
   letter-spacing: 0.015em;
@@ -449,4 +452,26 @@
   .home-keeps {
     margin: 20px var(--gut) 0;
   }
+}
+
+/* ───────────── Ask us, on the help page ───────────── */
+.home-ask {
+  margin-top: 36px;
+  padding: 0 var(--gut);
+  max-width: 68ch;
+}
+.home-ask .home-form {
+  margin: 10px calc(-1 * var(--gut)) 0;
+}
+.home-ask .home-sub {
+  margin-top: 10px;
+}
+.home-textarea {
+  height: auto;
+  padding: 6px 2px;
+  resize: vertical;
+  line-height: 1.45;
+}
+.home-ask .home-row {
+  align-items: flex-start;
 }

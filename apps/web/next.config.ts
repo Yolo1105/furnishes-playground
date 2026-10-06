@@ -14,10 +14,6 @@ const nextConfig: NextConfig = {
   // rather than bundled; the migrations ride along with every route
   serverExternalPackages: ["@electric-sql/pglite"],
   outputFileTracingIncludes: { "/**": ["./drizzle/**/*"] },
-  // the account lives on the home page now; old links still arrive
-  redirects: async () => [
-    { source: "/account", destination: "/", permanent: false },
-  ],
   // what every response says about itself: no type sniffing, a referrer
   // trimmed to the origin across sites, the microphone for Eva alone,
   // and HTTPS kept for two years once seen

@@ -1,14 +1,6 @@
-import { Suspense } from "react";
-import { Home } from "@/components/studio/Home";
+import { Landing } from "@/components/site/Landing";
 
-/** Where the site opens: the account's home, the way in, and the doors
-    to the studio. */
+/** Where the site opens: the landing, and every way in from it. */
 export default function Page() {
-  // the page reads the address (which studio to open, a view), so it
-  // renders inside a boundary while the page itself stays static
-  return (
-    <Suspense>
-      <Home />
-    </Suspense>
-  );
+  return <Landing />;
 }

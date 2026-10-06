@@ -2,50 +2,53 @@ import Link from "next/link";
 import { SITE } from "@/lib/site";
 
 /**
- * The rail of the home pages (the way in, the privacy page, a page that
- * failed): the brand, the Workspace switch with its indices, and the
- * footer with the tagline, the year and the privacy link.
+ * The rail of the inner pages (the account's way in, help, privacy,
+ * terms, a page that failed): the brand, which goes home, the pages
+ * with their indices, and the footer with the tagline and the year.
  */
+const PAGES = [
+  ["account", "/account", "Account"],
+  ["help", "/help", "Help"],
+  ["privacy", "/privacy", "Privacy"],
+  ["terms", "/terms", "Terms & refunds"],
+] as const;
+export type RailPage = (typeof PAGES)[number][0];
 export function HomeRail({
   current,
   studio = "/rounded",
 }: {
   /** which entry is this page */
-  current: "account" | "privacy" | null;
+  current: RailPage | null;
   studio?: string;
 }) {
-  const entry = (
-    id: "account" | "privacy",
-    href: string,
-    label: string,
-    ix: string,
-  ) =>
+  const entry = (id: RailPage, href: string, label: string, ix: string) =>
     current === id ? (
-      <span className="home-mode" aria-current="page">
+      <span key={id} className="home-mode" aria-current="page">
         <span>{label}</span>
         <span className="home-ix">{ix}</span>
       </span>
     ) : (
-      <Link className="home-mode" href={href}>
+      <Link key={id} className="home-mode" href={href}>
         <span>{label}</span>
         <span className="home-ix">{ix}</span>
       </Link>
     );
   return (
-    <aside className="home-rail" aria-label="Account">
-      <div className="home-brand">
+    <aside className="home-rail" aria-label="Pages">
+      <Link className="home-brand" href="/">
         FURNISHES <b>「</b>STUDIO<b>」</b>
-      </div>
+      </Link>
       <div className="home-scroll">
         <div className="home-group">
           <p className="home-group-h">Workspace</p>
-          <nav className="home-modes" aria-label="Workspace">
+          <nav className="home-modes" aria-label="Pages">
             <Link className="home-mode" href={studio}>
               <span>Studio</span>
               <span className="home-ix">[01]</span>
             </Link>
-            {entry("account", "/", "Account", "[02]")}
-            {entry("privacy", "/privacy", "Privacy & terms", "[03]")}
+            {PAGES.map(([id, href, label], i) =>
+              entry(id, href, label, `[0${i + 2}]`),
+            )}
           </nav>
         </div>
       </div>

@@ -3583,19 +3583,14 @@ const account = async (
   return dialog;
 };
 
-test("the site opens on the home page: the way in, and a sign-in goes straight into the studio", async ({
+test("the account page is the way in, and a sign-in goes straight into the studio", async ({
   page,
 }) => {
   // an account made, left and entered again: a long way for one test
   test.slow();
   await page.setViewportSize({ width: 1440, height: 900 });
-  // the old address still arrives
   await page.goto("/account?from=rounded");
-  await expect(page).toHaveURL(/\/\?from=rounded$/);
-  const rail = page.getByRole("complementary", {
-    name: "Account",
-    exact: true,
-  });
+  const rail = page.getByRole("complementary", { name: "Pages", exact: true });
   await expect(rail.getByRole("link", { name: /^Studio/ })).toHaveAttribute(
     "href",
     "/rounded",
@@ -3625,10 +3620,14 @@ test("the site opens on the home page: the way in, and a sign-in goes straight i
   await expect(page).toHaveURL(/\/rounded$/, { timeout: 20_000 });
   const bar = page.locator(".user-bar");
   await expect(bar).toContainText("Mei Tan");
-  // signed in, the home page passes straight on to the studio
-  await page.goto("/");
+  // signed in, the account page passes straight on to the studio, and
+  // the landing's bar says Studio
+  await page.goto("/account");
   await expect(page).toHaveURL(/\/rounded$/);
+  await page.goto("/");
+  await expect(page.locator(".ld-bar-cta")).toHaveText("Studio");
   // the gear's Account: the email, Sign out; then the way in again
+  await page.goto("/rounded");
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page
     .getByRole("menu")
@@ -3638,7 +3637,7 @@ test("the site opens on the home page: the way in, and a sign-in goes straight i
   await expect(dialog).toContainText(email);
   await dialog.getByRole("button", { name: "Sign out" }).click();
   await expect(bar).toContainText("Guest");
-  await page.goto("/");
+  await page.goto("/account");
   await expect(page.getByText("Sign in to keep your projects")).toBeVisible();
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(PASSWORD);
@@ -3647,7 +3646,7 @@ test("the site opens on the home page: the way in, and a sign-in goes straight i
   await expect(bar).toContainText("Mei Tan");
 });
 
-test("the site's edges: the privacy page, the gear's Feedback, the headers, robots and the sitemap", async ({
+test("the site's edges: the privacy and terms pages, the help page's Ask us, the gear's Feedback, the headers, robots and the sitemap", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -3661,30 +3660,44 @@ test("the site's edges: the privacy page, the gear's Feedback, the headers, robo
     page.getByRole("heading", { name: "What the studio keeps." }),
   ).toBeVisible();
   // the page is longer than the screen: its stage scrolls to the end
-  const terms = page.getByRole("heading", { name: "Terms" });
-  await terms.scrollIntoViewIfNeeded();
+  const last = page.getByRole("heading", { name: "Questions" });
+  await last.scrollIntoViewIfNeeded();
   expect(
-    await terms.evaluate(
+    await last.evaluate(
       (el) => el.getBoundingClientRect().bottom <= window.innerHeight,
     ),
   ).toBe(true);
   await expect(page.getByText("hello@furnish-es.com")).toBeVisible();
-  // the rail: the way in and the studio a link away, this page current
-  const rail = page.getByRole("complementary", { name: "Account" });
+  // the rail: every page a link away, this one current, the brand home
+  const rail = page.getByRole("complementary", { name: "Pages" });
   await expect(rail.getByRole("link", { name: /^Account/ })).toHaveAttribute(
+    "href",
+    "/account",
+  );
+  await expect(rail.locator('[aria-current="page"]')).toContainText("Privacy");
+  await expect(rail.getByRole("link", { name: /^FURNISHES/ })).toHaveAttribute(
     "href",
     "/",
   );
-  await expect(rail.locator('[aria-current="page"]')).toContainText(
-    "Privacy & terms",
-  );
-  // the home rail links here
-  await page.goto("/");
-  await page
-    .getByRole("complementary", { name: "Account" })
-    .getByRole("link", { name: /^Privacy/ })
-    .click();
-  await expect(page).toHaveURL(/\/privacy$/);
+  // the terms, with the refunds inside them
+  await rail.getByRole("link", { name: /^Terms/ }).click();
+  await expect(page).toHaveURL(/\/terms$/);
+  await expect(
+    page.getByRole("heading", { name: "Cancelling, returns and refunds" }),
+  ).toBeVisible();
+  // help: the sections, and Ask us writing to the studio as a guest
+  await rail.getByRole("link", { name: /^Help/ }).click();
+  await expect(page).toHaveURL(/\/help$/);
+  await expect(
+    page.getByRole("heading", { name: "One panel, one unit, two bases" }),
+  ).toBeVisible();
+  const ask = page.getByRole("region", { name: "Ask us" });
+  await ask.getByRole("radio", { name: "An idea" }).click();
+  await expect(ask.getByRole("button", { name: "Send" })).toBeDisabled();
+  await ask.getByLabel("Your words").fill("A bench for the balcony.");
+  await ask.getByLabel("Your email").fill(`ask-${Date.now()}@example.com`);
+  await ask.getByRole("button", { name: "Send" }).click();
+  await expect(ask).toContainText("Thank you. We read every one");
   // the gear's Feedback writes to the site
   await page.goto("/rounded");
   await page.getByRole("button", { name: "Settings", exact: true }).click();
@@ -3698,7 +3711,87 @@ test("the site's edges: the privacy page, the gear's Feedback, the headers, robo
   const robots = await page.request.get("/robots.txt");
   expect(await robots.text()).toContain("Disallow: /api/");
   const sitemap = await page.request.get("/sitemap.xml");
-  expect(await sitemap.text()).toContain("https://furnish-es.com/privacy");
+  const listed = await sitemap.text();
+  for (const path of ["/", "/account", "/help", "/privacy", "/terms"])
+    expect(listed).toContain(`https://furnish-es.com${path}`);
+});
+
+test("the landing: the band, the spot that changes under a drag, the rail and the menu, a piece into the studio, the waitlist and the cookie note", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveAttribute(
+    "aria-label",
+    "Rooms off-template",
+  );
+  // the spot: a drag moves the line; the dots move between spots
+  const pair = page.locator(".ld-pair");
+  await expect(pair).toHaveAttribute("data-cut", /0\.(3|4|5|6)/);
+  const box = (await pair.boundingBox())!;
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.8, box.y + box.height * 0.5, {
+    steps: 4,
+  });
+  await page.mouse.up();
+  await expect(pair).toHaveAttribute("data-cut", "0.80");
+  await expect(page.locator(".ld-say")).toHaveText(
+    "Coats pile up on the chair by the door",
+  );
+  await page.getByRole("button", { name: "Next spot" }).click();
+  await expect(page.locator(".ld-say")).toHaveText(
+    "Phone and book on the floor by the bed",
+  );
+  await expect(page.locator(".ld-build")).toContainText("parts");
+  await expect(
+    page.getByRole("link", { name: "See it in the studio" }),
+  ).toHaveAttribute("href", "/rounded?piece=bedside");
+  // the rail follows the scroll; the menu lists the pages and sections
+  const rail = page.getByRole("navigation", { name: "Section" });
+  await expect(rail.locator("[aria-current]")).toContainText("Home");
+  await rail.getByRole("button", { name: "Pieces" }).click();
+  await expect(rail.locator("[aria-current]")).toContainText("Pieces");
+  await expect(page.locator(".ld-bar")).toHaveClass(/is-solid/);
+  await page.getByRole("button", { name: "Menu" }).click();
+  const menu = page.getByRole("dialog", { name: "Menu" });
+  await expect(menu.getByRole("link", { name: "Help" })).toHaveAttribute(
+    "href",
+    "/help",
+  );
+  await menu.getByRole("button", { name: /Waitlist/ }).click();
+  // closed, the menu leaves the accessibility tree
+  await expect(page.locator("#ld-menu")).toHaveAttribute("aria-hidden", "true");
+  await expect(rail.locator("[aria-current]")).toContainText("Waitlist");
+  // the pieces: every recipe, priced, each a door into the studio
+  const cards = page.locator(".ld-piece");
+  await expect(cards).toHaveCount(13);
+  await expect(cards.first()).toContainText("S$");
+  // the waitlist, once; the cookie note, once
+  const email = `door-${Date.now()}@example.com`;
+  await page.getByLabel("Email address").fill(email);
+  await page.getByRole("button", { name: "Join the list" }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "on the list" }),
+  ).toBeVisible();
+  const note = page.locator(".ld-cookie");
+  await expect(note).toHaveClass(/is-in/);
+  await note.getByRole("button", { name: "Understood" }).click();
+  await expect(note).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator(".ld-cookie")).toHaveCount(0);
+  // the landing's Sign in goes to the account page; a piece link puts
+  // the piece in the room and opens its Detail
+  await expect(page.locator(".ld-bar-cta")).toHaveAttribute("href", "/account");
+  await page.goto("/rounded?piece=bedside");
+  await expect(page).toHaveURL(/\/rounded$/);
+  await expect(page.getByRole("tab", { name: "Detail" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(
+    page.locator(".detail-title, .detail-name").first(),
+  ).toContainText("Bedside");
 });
 
 test("an account: created with an email and a password, signed out, signed in again; a wrong password is said", async ({
@@ -3783,7 +3876,7 @@ test("an account: created with an email and a password, signed out, signed in ag
     page.getByRole("heading", { name: "Password changed." }),
   ).toBeVisible();
   await page.getByRole("link", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/account$/);
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(`${PASSWORD}-3`);
   await page.getByRole("button", { name: "Sign in" }).click();

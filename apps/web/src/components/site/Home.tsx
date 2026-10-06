@@ -7,9 +7,9 @@ import { HomeSignIn } from "./HomeSignIn";
 import { useSession } from "@/lib/auth-client";
 
 /**
- * The home page, where the site opens: the way in. A rail in the
- * production account page's language beside a stage that holds the
- * account form (HomeSignIn). Whoever is signed in, or has just signed
+ * The account page: the way in. A rail in the production account
+ * page's language beside a stage that holds the account form
+ * (HomeSignIn). Whoever is signed in, or has just signed
  * in, goes straight on into the studio; `from` says which, the square
  * or the rounded one.
  */

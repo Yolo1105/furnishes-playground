@@ -19,6 +19,9 @@ import { toast, useAccountSync } from "./account-sync";
 import { useGenerationsSync } from "./generation-store";
 import { refreshOrder, STATUS_NAMES, useOrdersSync } from "./order-store";
 import { useProjectSync } from "./project-store";
+import { productOf } from "./catalogue";
+import { useRoom } from "./room-store";
+import { useScene } from "./scene-store";
 import { ProjectSwitcher } from "./ProjectSwitcher";
 import { useShortcuts } from "./shortcuts";
 import { useArrival } from "./useArrival";
@@ -68,6 +71,19 @@ export function StudioShell({
   useEffect(() => {
     if (wanted) router.replace(pathname);
   }, [wanted, router, pathname]);
+  // a link with a piece (?piece=id, from the landing) puts that piece in
+  // the room, picks it and opens its Detail; then the address is plain
+  const piece = params.get("piece");
+  useEffect(() => {
+    if (!piece) return;
+    const product = productOf(piece);
+    if (product) {
+      const { addProduct, select } = useScene.getState();
+      select(addProduct(product, useRoom.getState().activeId), true);
+      useStudio.getState().setPanelTab("detail");
+    }
+    router.replace(pathname);
+  }, [piece, router, pathname]);
   useOrdersSync();
   // back from the payment page (?checkout=success|cancelled&order=&key=):
   // the order's state is asked of the server and said

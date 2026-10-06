@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { ResetPassword } from "@/components/studio/ResetPassword";
+import { ResetPassword } from "@/components/site/ResetPassword";
 
 export const metadata: Metadata = {
   title: "A new password",

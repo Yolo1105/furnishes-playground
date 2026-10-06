@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Privacy } from "@/components/studio/Privacy";
+import { Privacy } from "@/components/site/Privacy";
 
 export const metadata: Metadata = { title: "Privacy & terms" };
 

@@ -1,0 +1,13 @@
+import type { Metadata } from "next";
+import { Terms } from "@/components/site/Terms";
+
+export const metadata: Metadata = {
+  title: "Terms & refunds",
+  description:
+    "The terms of the Furnishes studio: prices as estimates, orders, cancelling, returns and refunds, accounts, and what you make.",
+};
+
+/** The terms, and the refund policy inside them. */
+export default function Page() {
+  return <Terms />;
+}

@@ -88,7 +88,7 @@ export function ResetPassword() {
             </form>
           ) : (
             <div className="home-acts">
-              <Link className="home-btn home-btn-primary" href="/">
+              <Link className="home-btn home-btn-primary" href="/account">
                 {done ? "Sign in" : "Back to sign in"}
                 <span aria-hidden="true"> →</span>
               </Link>

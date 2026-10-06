@@ -80,14 +80,30 @@ Chromium only, so those two engines run on your machine.
 
 ## Status
 
-A working studio on the real catalogue. The site opens on the home page
-(`/`): the way in, in the production account page's design, a rail
-beside a cream stage set in Archivo and Space Mono, with Sign in or
-Create account and a quiet link to look around without one. Whoever is
-signed in, or has just signed in, goes straight on into the studio.
-`/rounded` is the studio with floating panels and `/studio` the
-square-cornered one; Settings switches between them, and the old
-`/account` address goes to the home page. Projects
+A working studio on the real catalogue. The site opens on the landing
+(`/`), in the approved design: the red-orange band with the compressed
+title and its fading echoes, a cream main whose hero is a spot in a room
+as it is and with the piece we would put there (one picture, a line you
+drag; five spots captioned in the visitor's words, each with the piece's
+parts, bolts, minutes and estimated price from the catalogue and a link
+that opens the studio with that piece placed and its Detail shown,
+`/rounded?piece=<id>`), the thirteen pieces with their sizes and
+estimated prices, how a piece is built, what the studio does, the list
+for the day ordering opens (`/api/waitlist`), and the accent footer. A
+Menu opens the full-screen menu of pages and sections, a section rail
+bottom-left follows the scroll, and a one-line cookie note, dismissed
+once, says that the session is the only cookie. The inner pages share
+one design, a rail beside a cream stage set in Archivo and Space Mono:
+the account's way in (`/account`, with Sign in or Create account and a
+quiet link to look around without one; whoever is signed in, or has
+just signed in, goes straight on into the studio), help (`/help`: how a
+piece is made, delivered and built, returns, where a price comes from,
+and Ask us, which writes to the studio's help table), privacy
+(`/privacy`) and the terms with the refund policy inside them
+(`/terms`); every word of those pages is in
+`apps/web/src/components/site/copy.ts`. `/rounded` is the studio with
+floating panels and `/studio` the square-cornered one; Settings
+switches between them. Projects
 (new, rename, delete, switch) each hold a room, its pieces and Eva's
 side, autosaved in the browser.
 
@@ -134,7 +150,7 @@ says so).
 
 Deploying to furnish-es.com: the site's name, address and contact are
 in `apps/web/src/lib/site.ts`, which the titles, the sitemap, the
-auth's trusted origins, the privacy page (`/privacy`) and the gear's
+auth's trusted origins, the landing, the inner pages and the gear's
 Feedback all read. On Vercel, import the repository with `apps/web` as
 the root directory (the build command and output are Next's own), add
 the domain, and set four variables: `DATABASE_URL` from a Neon project
