@@ -2110,9 +2110,7 @@
   }
 }
 
-/* the shelf's ends: the room's palette first, the catalogue and how
-   ready the room is to order last */
-.shelf-palette,
+/* the shelf's end: how ready the room is to order */
 .shelf-ready {
   flex: 0 0 auto;
   display: flex;
@@ -2127,23 +2125,6 @@
   width: 140px;
   padding-right: 4px;
   border-left: 1px solid var(--line);
-}
-.shelf-swatches {
-  display: flex;
-  gap: 6px;
-}
-.shelf-swatch {
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  border: 1px solid rgb(from var(--color-ink) r g b / 0.12);
-}
-.shelf-palette-words {
-  margin: 0;
-  font-family: var(--mono);
-  font-size: 11px;
-  line-height: 1.4;
-  color: rgb(from var(--color-ink) r g b / 0.6);
 }
 .shelf-card-status {
   display: inline-flex;

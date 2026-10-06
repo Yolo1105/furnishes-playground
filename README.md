@@ -222,9 +222,8 @@ main column has a toolbar (the four stages of the work, Room, Layout,
 Furnish and Review, each opening its panel tab and the last rendering
 the room; Select, which drags and turns pieces on the plan and in 3D,
 Inspect, Add, an eye that hides every panel, Undo/Redo, Guide, Export
-as SVG/PNG/JSON) and a shelf with Saved and Cart: the room's palette
-(each colour in it once, the kept style and the finishes), the pieces as
-cards each saying where it stands (placed, with Eva, decided, ordered),
+as SVG/PNG/JSON) and a shelf with Saved and Cart: the pieces as cards
+each saying where it stands (placed, with Eva, decided, ordered),
 a tile that opens the catalogue, and how ready the room is to order
 (the share of its pieces in the cart, the cart against the budget when
 one is kept). Checkout takes a delivery address and

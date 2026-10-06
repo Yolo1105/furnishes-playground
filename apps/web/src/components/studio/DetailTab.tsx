@@ -227,7 +227,7 @@ export function DetailTab() {
         </div>
         <div className="room-dims detail-place">
           <label className="room-dim">
-            <span className="room-dim-label">From west</span>
+            <span className="room-dim-label">West</span>
             <input
               type="number"
               className="room-dim-input f-num"
@@ -240,7 +240,7 @@ export function DetailTab() {
             <span className="room-dim-unit">mm</span>
           </label>
           <label className="room-dim">
-            <span className="room-dim-label">From north</span>
+            <span className="room-dim-label">North</span>
             <input
               type="number"
               className="room-dim-input f-num"
@@ -272,9 +272,11 @@ export function DetailTab() {
             />
             <span className="room-dim-unit">°</span>
           </label>
+        </div>
+        <div className="detail-acts detail-place-acts">
           <button
             type="button"
-            className="main-btn detail-turn"
+            className="main-btn"
             disabled={whole_.locked}
             onClick={() =>
               setProps(piece.id, { rotation: turned(whole_.rotation) })
@@ -286,7 +288,7 @@ export function DetailTab() {
           {!isSquare(whole_.rotation) && (
             <button
               type="button"
-              className="main-btn detail-turn"
+              className="main-btn"
               disabled={whole_.locked}
               aria-label="Square to the walls"
               onClick={() =>
@@ -296,8 +298,6 @@ export function DetailTab() {
               <span>Square</span>
             </button>
           )}
-        </div>
-        <div className="detail-acts detail-place-acts">
           <button
             type="button"
             className="main-btn"

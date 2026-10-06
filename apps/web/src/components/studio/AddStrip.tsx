@@ -12,8 +12,7 @@ import {
   startTileDrag,
 } from "./dnd";
 import { OpeningGlyph } from "./opening-glyphs";
-import { defaultProps } from "./piece-detail";
-import { PlanSymbol } from "./plan-symbols";
+import { ComponentGlyph } from "./component-glyphs";
 import { OPENING_KINDS } from "./room-data";
 import { useRoom } from "./room-store";
 import {
@@ -136,11 +135,7 @@ export function AddStrip({ onAdded }: { onAdded: (id: string) => void }) {
                 {p.recipe ? (
                   <Portrait productId={p.id} />
                 ) : (
-                  <PlanSymbol
-                    node={{ ...p, kind: "piece" }}
-                    props={defaultProps({ ...p, kind: "piece" })}
-                    turn={0}
-                  />
+                  <ComponentGlyph id={p.id} />
                 )}
               </span>
               <span className="add-tile-name">{p.name}</span>

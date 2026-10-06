@@ -1055,17 +1055,11 @@ test("the shelf's Saved cards go to the Cart from a hover button", async ({
   await expect(button).toHaveCSS("opacity", "0");
   await card.hover();
   await expect(button).toHaveCSS("opacity", "1");
-  // placed, then decided once in the cart; the shelf's ends: the room's
-  // palette, and how much of the room is decided
+  // placed, then decided once in the cart; the shelf's end: how much of
+  // the room is decided
   await expect(card.locator(".shelf-card-status")).toHaveText("placed");
   const ready = shelf.getByRole("complementary", { name: "Ready to order" });
   await expect(ready.locator(".shelf-ready-pct")).toHaveText("0%");
-  await expect(
-    shelf
-      .getByRole("complementary", { name: "The room's palette" })
-      .locator(".shelf-swatch")
-      .first(),
-  ).toBeVisible();
   await button.click();
   await expect(card).toHaveAttribute("data-in-cart", "true");
   await expect(card.locator(".shelf-card-status")).toHaveText("decided");

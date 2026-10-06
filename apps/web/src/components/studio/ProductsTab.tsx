@@ -2,17 +2,11 @@
 
 import { Portrait } from "./Portrait";
 import { useEffect, useRef, useState } from "react";
-import {
-  CATEGORY_NAMES,
-  sgd,
-  type AssetCategory,
-  type AssetNode,
-} from "./assets-data";
-import { products, type Product } from "./catalogue";
+import { CATEGORY_NAMES, sgd, type AssetCategory } from "./assets-data";
+import { products } from "./catalogue";
 import { endTileDrag, moveTileDrag, startTileDrag } from "./dnd";
 import { PlusIcon } from "./icons";
-import { defaultProps } from "./piece-detail";
-import { PlanSymbol } from "./plan-symbols";
+import { ComponentGlyph } from "./component-glyphs";
 import { useRoom } from "./room-store";
 import { useScene } from "./scene-store";
 
@@ -87,11 +81,7 @@ export function ProductsTab({
                   {p.recipe ? (
                     <Portrait productId={p.id} />
                   ) : (
-                    <PlanSymbol
-                      node={asNode(p)}
-                      props={defaultProps(asNode(p))}
-                      turn={0}
-                    />
+                    <ComponentGlyph id={p.id} />
                   )}
                 </div>
                 <div className="product-row">
@@ -117,11 +107,3 @@ export function ProductsTab({
 }
 
 /** a catalogue product as the piece it would be in the room, for its mark */
-const asNode = (p: Product): AssetNode => ({
-  id: p.id,
-  name: p.name,
-  kind: "piece",
-  category: p.category,
-  price: p.price,
-  productId: p.id,
-});

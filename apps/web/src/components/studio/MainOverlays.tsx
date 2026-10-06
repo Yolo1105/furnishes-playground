@@ -46,8 +46,9 @@ import { useEva } from "./eva-store";
 import { orderedIds, useOrders } from "./order-store";
 import { useRoom } from "./room-store";
 import { portraitOf } from "./catalogue";
-import { colourHex, type PieceProps } from "./piece-detail";
+import type { PieceProps } from "./piece-detail";
 import { PlanSymbol } from "./plan-symbols";
+import { ComponentGlyph } from "./component-glyphs";
 import { propsOf, topLevelOf, useScene, useTopLevel } from "./scene-store";
 import {
   type ShelfTab,
@@ -687,23 +688,7 @@ export function MainShelf() {
   const c = pieceTotals(inCart);
   const labels = useScene((s) => s.labels);
   const budget = useEva((s) => s.preferences.budget?.budget);
-  // the selector hands back the kept array itself, or nothing: a fresh
-  // array each render would never settle
-  const style = useEva((s) => s.preferences.style?.values);
   const { setPanelTab, setEvaTab } = useStudio.getState();
-  // the room's palette: each colour in it once, and its finishes
-  const palette = [
-    ...new Map(
-      pieces.map((n) => {
-        const p = propsOf(n, overrides);
-        return [p.colour, colourHex(p.colour)] as const;
-      }),
-    ),
-  ];
-  const finishes = [
-    ...new Set(pieces.map((n) => propsOf(n, overrides).texture.toLowerCase())),
-  ];
-  const words = [...(style ?? []), ...finishes].join(" · ");
   // how much of the room is decided: the pieces in the cart, of those in
   // the room; the budget, when one is kept, against what the cart holds
   const ready = pieces.length
@@ -807,21 +792,6 @@ export function MainShelf() {
               total={c.total}
               onClose={() => setCheckout(false)}
             />
-          )}
-          {tab === "saved" && pieces.length > 0 && (
-            <aside className="shelf-palette" aria-label="The room's palette">
-              <div className="shelf-swatches">
-                {palette.map(([name, hex]) => (
-                  <span
-                    key={name}
-                    className="shelf-swatch"
-                    style={{ background: hex }}
-                    title={name}
-                  />
-                ))}
-              </div>
-              <p className="shelf-palette-words">{words}</p>
-            </aside>
           )}
           {shown.map((n) => (
             <ShelfCard
@@ -947,6 +917,8 @@ function ShelfCard({
       >
         {portrait ? (
           <Portrait productId={n.productId!} />
+        ) : n.productId ? (
+          <ComponentGlyph id={n.productId} />
         ) : (
           <PlanSymbol node={n} props={props} turn={0} />
         )}
