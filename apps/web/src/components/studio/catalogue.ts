@@ -1,48 +1,62 @@
-import type { AssetCategory } from "./assets-data";
+import {
+  depthOf,
+  partPrice,
+  priceOf,
+  products as recipes,
+  type Product as Recipe,
+} from "@furnishes/domain";
+import type { AssetCategory, AssetNode } from "./assets-data";
 
-/** A product from the catalogue, as the Products tab lists it. */
+/** A product from the catalogue, as the Products tab and the + strip
+    list it: a Furnishes recipe with its price counted from its parts, or
+    one part on its own. Every price is an estimate, and says so. */
 export type Product = {
   id: string;
   name: string;
   category: AssetCategory;
-  /** S$ */
+  /** S$, an estimate from the parts */
   price: number;
+  /** the recipe behind a piece: its body, parts, steps and price lines */
+  recipe?: Recipe;
 };
 
-/** Placeholder catalogue until the product pages are wired. The parts a
-    piece is built from come first: they are what the + in the toolbar
-    offers to click or drag into the room. */
+/** the parts a piece is built from, sold on their own: what the + in
+    the toolbar offers to click or drag into the room. Each is priced as
+    the one part it is. */
+const PARTS: [string, string, Parameters<typeof partPrice>[0], string][] = [
+  ["c-shelf", "Shelf", "panel", "564 × 380 × 18 mm"],
+  ["c-divider", "Divider", "panel", "400 × 400 × 18 mm"],
+  ["c-back", "Back panel", "panel", "564 × 400 × 18 mm"],
+  ["c-drawer", "Drawer", "door", "564 × 380 × 18 mm"],
+  ["c-door", "Door", "door", "564 × 382 × 18 mm"],
+];
+
 export const products: Product[] = [
-  { id: "c-shelf", name: "Shelf", category: "components", price: 45 },
-  { id: "c-divider", name: "Divider", category: "components", price: 38 },
-  { id: "c-back", name: "Back panel", category: "components", price: 60 },
-  { id: "c-drawer", name: "Drawer", category: "components", price: 85 },
-  { id: "c-door", name: "Door", category: "components", price: 70 },
-  { id: "p-entry", name: "Entry organiser", category: "storage", price: 180 },
-  {
-    id: "p-desk",
-    name: "Desk-side organiser",
-    category: "storage",
-    price: 190,
-  },
-  { id: "p-bedside", name: "Bedside cabinet", category: "storage", price: 150 },
-  {
-    id: "p-sideboard",
-    name: "Three-bay sideboard",
-    category: "storage",
-    price: 360,
-  },
-  { id: "p-bookwall", name: "Bookwall", category: "storage", price: 540 },
-  { id: "p-coat", name: "Coat stand", category: "storage", price: 210 },
-  { id: "p-bench", name: "Storage bench", category: "seating", price: 240 },
-  { id: "p-kitchen", name: "Kitchen trolley", category: "tables", price: 230 },
-  { id: "p-cart", name: "Work cart", category: "tables", price: 220 },
-  {
-    id: "p-island",
-    name: "Preparation island",
-    category: "tables",
-    price: 520,
-  },
-  { id: "p-screen", name: "Mobile screen", category: "decor", price: 320 },
-  { id: "p-folding", name: "Folding screen", category: "decor", price: 280 },
+  ...PARTS.map(([id, name, kind, spec]) => ({
+    id,
+    name,
+    category: "components" as const,
+    price: partPrice(kind, spec),
+  })),
+  ...recipes.map((r) => ({
+    id: r.id,
+    name: r.name,
+    category: r.category,
+    price: priceOf(r).sgd,
+    recipe: r,
+  })),
+];
+
+export const productOf = (id: string) => products.find((p) => p.id === id);
+
+/** the recipe a piece in the room was made from, if it is a Furnishes
+    piece: its parts and its size come from it */
+export const recipeOf = (n: Pick<AssetNode, "productId">) =>
+  n.productId ? productOf(n.productId)?.recipe : undefined;
+
+/** a recipe's size as a piece in the room, mm: width, depth, height */
+export const recipeSize = (r: Recipe): [number, number, number] => [
+  r.width,
+  depthOf(r),
+  r.height,
 ];

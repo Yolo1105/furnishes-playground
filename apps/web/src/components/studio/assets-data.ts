@@ -9,8 +9,11 @@
  * Groups follow how furniture relates (storage, seating, tables…), never
  * what can be edited: that is a mark on the row, not a folder.
  *
- * Placeholder data until the domain model and the catalogue are wired.
+ * The pieces the first room starts with are made from the catalogue's
+ * recipes, so their size and price are the recipe's; the room items are
+ * the things a room has.
  */
+import { productOf } from "./catalogue";
 export type AssetKind = "piece" | "decor" | "fixed";
 
 export type AssetCategory =
@@ -18,6 +21,7 @@ export type AssetCategory =
   | "storage"
   | "seating"
   | "tables"
+  | "screens"
   | "lighting"
   | "decor"
   | "architecture";
@@ -26,7 +30,8 @@ export const CATEGORY_NAMES: Record<AssetCategory, string> = {
   components: "Components",
   storage: "Storage",
   seating: "Seating",
-  tables: "Tables",
+  tables: "Tables & desks",
+  screens: "Screens & dividers",
   lighting: "Lighting",
   decor: "Plants & décor",
   architecture: "Architecture",
@@ -37,8 +42,10 @@ export type AssetNode = {
   name: string;
   kind: AssetKind;
   category: AssetCategory;
-  /** S$, only pieces carry one */
+  /** S$, only pieces carry one: an estimate counted from the parts */
   price?: number;
+  /** the catalogue recipe a Furnishes piece was made from */
+  productId?: string;
   /** a piece built from parts, or a set that stands together */
   children?: AssetNode[];
   /** a generated room item's picture and mesh, when a provider made them */
@@ -52,20 +59,32 @@ export type AssetGroup = {
   items: AssetNode[];
 };
 
+/** a Furnishes piece in the room, made from a catalogue recipe: its
+    category and price are the recipe's; its bays can be named as parts,
+    each a share of the price */
 const piece = (
-  id: string,
-  name: string,
-  category: AssetCategory,
-  price: number,
-  children?: AssetNode[],
-): AssetNode => ({
-  id,
-  name,
-  kind: "piece",
-  category,
-  price,
-  ...(children ? { children } : {}),
-});
+  productId: string,
+  id = productId,
+  bays?: string[],
+): AssetNode => {
+  const p = productOf(productId)!;
+  const children = bays?.map((name, i) => ({
+    id: `${id}-${"abc"[i]}`,
+    name,
+    kind: "piece" as const,
+    category: p.category,
+    price: Math.round(p.price / bays.length),
+  }));
+  return {
+    id,
+    name: p.name,
+    kind: "piece",
+    category: p.category,
+    price: p.price,
+    productId,
+    ...(children ? { children } : {}),
+  };
+};
 const decor = (
   id: string,
   name: string,
@@ -88,12 +107,9 @@ export const assetGroups: AssetGroup[] = [
     id: "storage",
     name: CATEGORY_NAMES.storage,
     items: [
-      piece("bookwall", "Bookwall", "storage", 540, [
-        piece("bookwall-a", "Segment A", "storage", 270),
-        piece("bookwall-b", "Segment B", "storage", 270),
-      ]),
-      piece("sideboard", "Three-bay sideboard", "storage", 360),
-      piece("entry", "Entry organiser", "storage", 180),
+      piece("bookwall", "bookwall", ["Segment A", "Segment B"]),
+      piece("sideboard"),
+      piece("entry"),
     ],
   },
   {
@@ -102,7 +118,7 @@ export const assetGroups: AssetGroup[] = [
     items: [
       decor("sofa", "Sofa", "seating"),
       decor("armchair", "Armchair", "seating"),
-      piece("bench", "Storage bench", "seating", 240),
+      piece("bench"),
     ],
   },
   {
@@ -110,7 +126,7 @@ export const assetGroups: AssetGroup[] = [
     name: CATEGORY_NAMES.tables,
     items: [
       decor("coffee-table", "Coffee table", "tables"),
-      piece("work-cart", "Work cart", "tables", 220),
+      piece("work-cart"),
     ],
   },
   {

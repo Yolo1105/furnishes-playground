@@ -78,7 +78,7 @@ Chromium only, so those two engines run on your machine.
 
 ## Status
 
-A working studio on placeholder data. The site opens on the home page
+A working studio on the real catalogue. The site opens on the home page
 (`/`): the way in, in the production account page's design, a rail
 beside a cream stage set in Archivo and Space Mono, with Sign in or
 Create account and a quiet link to look around without one. Whoever is
@@ -231,7 +231,20 @@ standing over each other read in the warning red on the plan and in
 3D, and are listed in one card at the top left of the stage, each with
 a pick and a Fix, which shows only while something overlaps. Until the
 catalogue has photographs, a product card and a shelf card carry the
-piece's plan mark. In 3D no names show until View
+piece's plan mark. The catalogue itself is real: the thirteen Furnishes
+recipes from the house site's storefront live in `packages/domain`
+(each a body of 18 mm birch panels on the 600 × 400 × 400 unit, with
+its tiers, bays, rooms, what it lets you do, its add-ons and its status
+tier), with the parts each is built from, the steps to build it, the
+boxes it comes in and its price, an estimate counted from those parts
+by one table of rates in Singapore dollars, so no price is typed in and
+none can drift. A piece in the room is the size its recipe draws it and
+is built in 3D as its recipe has it. The Detail tab is its product page:
+what it is and what to check in the room, what comes in the box (every
+part counted, every box weighed), how it is built (the steps, the
+minutes, the bolts), where the price comes from line by line, and the
+pieces worth a look beside it, each a press from the room. The five
+parts the + strip sells on their own are priced from the same rates. In 3D no names show until View
 settings asks for them; the piece under the pointer shows its own, with
 an outline and a hand (or a finger, when it can only be picked). The
 small plan in the view panel is the plan itself: a piece is picked and

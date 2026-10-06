@@ -11,6 +11,7 @@ import {
   type Vector3Tuple,
 } from "three";
 import type { AssetNode } from "./assets-data";
+import { recipeOf } from "./catalogue";
 import { ACCENT_HEX, DANGER_HEX, FOLIAGE_HEX } from "./piece-detail";
 import { shade, woodTexture } from "./textures";
 
@@ -332,11 +333,20 @@ function Form(p: Props) {
     return <Slab f={own} at={[0, h / 2, 0]} dims={[w, h, d]} />; // a drawer
   }
 
-  if (/cart|trolley/.test(name)) return <Cart w={w} h={h} d={d} f={own} />;
-  if (/bench/.test(name)) return <Bench w={w} h={h} d={d} f={own} />;
+  // a Furnishes piece is built as its recipe has it; another piece by
+  // what it is called
+  const r = recipeOf(p.node);
+  const shape = r?.shape;
+  if (shape === "trolley" || shape === "island" || /cart|trolley/.test(name))
+    return <Cart w={w} h={h} d={d} f={own} />;
+  if (shape === "bench" || /bench/.test(name))
+    return <Bench w={w} h={h} d={d} f={own} />;
 
   // a carcass of panels: storage, a desk's pedestal, a wardrobe
-  if (p.node.kind === "piece" && cat !== "decor")
+  if (
+    p.node.kind === "piece" &&
+    (r ? shape !== "folding" : cat !== "decor" && cat !== "screens")
+  )
     return (
       <Carcass
         w={w}
@@ -344,9 +354,19 @@ function Form(p: Props) {
         d={d}
         f={own}
         bays={p.parts.length ? p.parts : [p.colour]}
-        doors={/sideboard|cabinet|wardrobe|drawer/.test(name)}
-        books={/bookwall|bookcase|shelf|shelves/.test(name)}
-        hooks={/entry|organiser|organizer|coat|hall/.test(name)}
+        doors={
+          r
+            ? r.door && r.shape === "cabinet"
+            : /sideboard|cabinet|wardrobe|drawer/.test(name)
+        }
+        books={
+          r ? shape === "shelf" : /bookwall|bookcase|shelf|shelves/.test(name)
+        }
+        hooks={
+          r
+            ? shape === "organiser" || shape === "desk"
+            : /entry|organiser|organizer|coat|hall/.test(name)
+        }
         seed={seed}
       />
     );

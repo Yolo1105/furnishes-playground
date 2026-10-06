@@ -6,6 +6,7 @@ import {
 } from "../src/components/studio/assets-data";
 import { products } from "../src/components/studio/catalogue";
 import { GUIDE_STORAGE_KEY } from "../src/components/studio/guide-store";
+import { defaultProps } from "../src/components/studio/piece-detail";
 import { ROOM_TEMPLATES } from "../src/components/studio/room-templates";
 
 /* expectations come from the same data the app renders */
@@ -1774,10 +1775,10 @@ test("with a model connected Eva's answer comes through the route; the thumbs an
           cards: [
             {
               product: {
-                id: "p-sideboard",
+                id: "sideboard",
                 name: "Three-bay sideboard",
                 category: "storage",
-                price: 360,
+                price: 1000,
               },
               why: "in keeping with Japandi · fits the 6.5 m wall",
             },
@@ -2152,8 +2153,10 @@ test("the planner's rules: the door's swing, the window, a walkway, each with a 
   await expect(health).toContainText(`${first.name} blocks the window`);
   await health.getByRole("button", { name: /^Fix: .*window/ }).click();
   await expect(health.getByText(/blocks the window/)).toHaveCount(0);
-  // too close to a neighbour for a walkway: 300 mm between two pieces
+  // too close to a neighbour for a walkway: 300 mm between two pieces,
+  // the second stood at 2000 and the first past its width
   const second = top.filter((a) => a.kind === "piece")[1]!;
+  const gapX = String(2000 + defaultProps(second).width + 300);
   await page.getByRole("tab", { name: "Assets", exact: true }).click();
   await page.getByRole("treeitem", { name: second.name, exact: true }).click();
   await page.getByRole("tab", { name: "Detail", exact: true }).click();
@@ -2170,7 +2173,7 @@ test("the planner's rules: the door's swing, the window, a walkway, each with a 
   await page.getByRole("tab", { name: "Assets", exact: true }).click();
   await page.getByRole("treeitem", { name: first.name, exact: true }).click();
   await page.getByRole("tab", { name: "Detail", exact: true }).click();
-  await x.fill("3500");
+  await x.fill(gapX);
   await x.press("Tab");
   await y.fill("2600");
   await y.press("Tab");
@@ -2737,7 +2740,11 @@ test("the room's rules shape the planner: the walkway, what is kept clear, a bed
     await sy.press("Tab");
   };
   await place(second.name, "2000", "2600");
-  await place(first.name, "4000", "2600");
+  await place(
+    first.name,
+    String(2000 + defaultProps(second).width + 800),
+    "2600",
+  );
   await expect(health.getByText(/Only 800 mm/)).toHaveCount(0);
   await page.getByRole("tab", { name: "Room", exact: true }).click();
   await walkway.fill("1000");
@@ -3636,8 +3643,8 @@ test("a room shared by link: read-only for anyone, taken into a studio as a proj
   await expect(b.locator(".stage-3d canvas")).toHaveCount(1);
   const inRoom = b.getByRole("list").last();
   await expect(inRoom).toContainText("Bookwall");
-  await expect(inRoom).toContainText("5 pieces");
-  await expect(inRoom).toContainText("S$1,540");
+  await expect(inRoom).toContainText(`${totals.pieces} pieces`);
+  await expect(inRoom).toContainText(sgd(totals.total));
   // into a studio of their own, as a new project
   await b.getByRole("button", { name: "Open in my studio" }).click();
   await expect(b.locator(".shell-project-name")).toHaveText(

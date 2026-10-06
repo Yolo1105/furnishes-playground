@@ -1,3 +1,4 @@
+import { recipeOf, recipeSize } from "./catalogue";
 import type { AssetCategory, AssetNode } from "./assets-data";
 
 /**
@@ -85,6 +86,7 @@ const SIZES: Record<AssetCategory, [number, number, number]> = {
   storage: [1200, 400, 900],
   seating: [1800, 900, 800],
   tables: [1200, 600, 750],
+  screens: [1500, 300, 1700],
   lighting: [300, 300, 1500],
   decor: [400, 400, 400],
   architecture: [1000, 100, 2600],
@@ -118,8 +120,12 @@ export const isSmall = (p: Pick<PieceProps, "width" | "depth">) =>
   Math.max(p.width, p.depth) < 500;
 
 export const defaultProps = (n: AssetNode): PieceProps => {
-  const [width, depth, height] =
-    SIZES_BY_NAME.find(([re]) => re.test(n.name))?.[1] ?? SIZES[n.category];
+  // a Furnishes piece is the size its recipe draws it; anything else is
+  // sized by what it is called, then by its kind
+  const recipe = recipeOf(n);
+  const [width, depth, height] = recipe
+    ? recipeSize(recipe)
+    : (SIZES_BY_NAME.find(([re]) => re.test(n.name))?.[1] ?? SIZES[n.category]);
   return {
     colour: "oak",
     texture: "Matte",

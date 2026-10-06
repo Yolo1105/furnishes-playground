@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import fc from "fast-check";
-import { DOMAIN_PACKAGE, mm } from "./index.js";
+import { DOMAIN_PACKAGE, mm } from "./index";
 
 describe("@furnishes/domain", () => {
   it("names itself", () => {

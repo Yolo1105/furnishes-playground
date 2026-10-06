@@ -321,20 +321,34 @@ type Recommendation = {
   why: string;
 };
 
+/** what a need asks of a piece, read from its recipe: what it does and
+    what it is */
 const NEEDS: Record<string, (p: Product) => boolean> = {
   Storage: (p) => p.category === "storage",
-  Shelving: (p) => /bookwall|shelf|sideboard/i.test(p.name),
-  Desk: (p) => /desk|cart/i.test(p.name),
+  Shelving: (p) =>
+    p.recipe ? p.recipe.does.includes("display") : /shelf/i.test(p.name),
+  Desk: (p) =>
+    p.recipe ? p.recipe.does.includes("work") : /desk|cart/i.test(p.name),
   Seating: (p) => p.category === "seating",
-  Divider: (p) => /screen|divider/i.test(p.name),
-  Wardrobe: (p) => /organiser|coat/i.test(p.name),
+  Divider: (p) =>
+    p.recipe
+      ? p.recipe.does.includes("divide")
+      : /screen|divider/i.test(p.name),
+  Wardrobe: (p) =>
+    p.recipe
+      ? p.recipe.does.includes("hang") && p.recipe.height >= 1200
+      : /organiser|coat|wardrobe/i.test(p.name),
   Bedside: (p) => /bedside/i.test(p.name),
 };
 
-/** the pieces that run along a wall, so its length is a reason they fit */
+/** a piece that runs along a wall, so its length is a reason it fits:
+    a recipe a bay or more wide, or a thing called so */
 const ALONG_A_WALL = /sofa|sideboard|bookwall|wardrobe|desk|bench|shelv/i;
-/** the pieces that close, for a style that asks for closed storage */
+const alongAWall = (p: Product) =>
+  p.recipe ? p.recipe.width >= 1200 : ALONG_A_WALL.test(p.name);
+/** a piece that closes, for a style that asks for closed storage */
 const CLOSED = /cabinet|sideboard|wardrobe|drawer|cupboard/i;
+const closes = (p: Product) => (p.recipe ? p.recipe.door : CLOSED.test(p.name));
 
 export const recommend = (
   c: Context,
@@ -388,10 +402,9 @@ export const recommend = (
           : `${sgd(product.price - remaining)} over what is left of your budget`,
       );
     // the wall's length is a reason only for a piece that runs along it
-    if (ALONG_A_WALL.test(product.name))
-      why.push(`fits the ${metres(long)} wall`);
+    if (alongAWall(product)) why.push(`fits the ${metres(long)} wall`);
     const tip = c.prefs.style?.values.map((s) => DESIGN_TIPS[s]).find(Boolean);
-    if (tip && CLOSED.test(product.name) && /closed|hide/i.test(tip.do))
+    if (tip && closes(product) && /closed|hide/i.test(tip.do))
       why.push("closed storage, as the style asks");
     return { product, why: why.join(" · ") };
   });

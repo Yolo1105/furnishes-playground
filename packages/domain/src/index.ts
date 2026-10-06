@@ -1,12 +1,8 @@
 /**
- * @furnishes/domain — the product model.
- *
- * Project → Room → Scheme → FurnitureInstance → Component, with the six
- * instance attributes (type, source, ownership, editability,
- * purchasability, lock), candidates vs decisions, and Eva memory axes.
- *
- * Nothing is modelled yet: this package exists so the workspace, type
- * checking and tests are wired end to end before any domain code lands.
+ * @furnishes/domain — the product model: the catalogue of Furnishes
+ * recipes, the parts each is built from, the steps to build it and its
+ * price, an estimate counted from those parts. Framework-free; the
+ * studio and the server both read it.
  */
 export const DOMAIN_PACKAGE = "@furnishes/domain" as const;
 
@@ -14,3 +10,8 @@ export const DOMAIN_PACKAGE = "@furnishes/domain" as const;
 export type Millimetres = number;
 
 export const mm = (value: number): Millimetres => Math.round(value);
+
+export * from "./catalogue";
+export * from "./parts";
+export * from "./steps";
+export * from "./price";

@@ -52,7 +52,11 @@ ${products
   .filter((p) => p.category !== "components")
   .map(
     (p) =>
-      `${p.id} · ${p.name} · ${CATEGORY_NAMES[p.category]} · ${sgd(p.price)}`,
+      `${p.id} · ${p.name} · ${CATEGORY_NAMES[p.category]} · ${sgd(p.price)} (estimate)${
+        p.recipe
+          ? ` · ${p.recipe.width} × ${p.recipe.depth ?? 300} × ${p.recipe.height} mm · ${p.recipe.use} ${p.recipe.fit}`
+          : ""
+      }`,
   )
   .join("\n")}`;
 

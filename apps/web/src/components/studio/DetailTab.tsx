@@ -24,13 +24,16 @@ import {
   ROTATE_SNAP,
   squared,
 } from "./piece-detail";
+import { recipeOf } from "./catalogue";
+import { ProductPage } from "./ProductPage";
 import { findNode, propsOf, useScene } from "./scene-store";
 import { useStudio } from "./studio-store";
 
 /**
  * The piece in hand, as a product page in the panel: its picture, name
- * and price, what it is, and what can be done with it (cart, a label for
- * Eva, a look at it alone). A piece built from parts lists them under
+ * and price (an estimate, counted from its parts), what it is, and what
+ * can be done with it (cart, a label for Eva, a look at it alone); for
+ * a Furnishes piece, its product page (see ProductPage). A piece built from parts lists them under
  * "Whole piece": editing the whole piece changes every part; picking a
  * part changes that part. Then where it stands and which way it turns
  * (locked, it stays put; hidden, it leaves the stage but not the room;
@@ -70,6 +73,7 @@ export function DetailTab() {
   const apply = (patch: Parameters<typeof setProps>[1]) =>
     targets.forEach((t) => setProps(t.id, patch));
   const inCart = cart.includes(piece.id);
+  const recipe = recipeOf(piece);
   const label = labels.indexOf(piece.id);
   const labelsFull = label < 0 && labels.length >= LABEL_MAX;
   // where the whole piece stands: its own place, or the layout's
@@ -121,7 +125,10 @@ export function DetailTab() {
           </p>
         </div>
         {piece.price !== undefined && (
-          <span className="detail-price f-num">{sgd(piece.price)}</span>
+          <span className="detail-price f-num">
+            {sgd(piece.price)}
+            {recipe && <small>estimate</small>}
+          </span>
         )}
       </section>
       <div className="detail-acts">
@@ -162,6 +169,8 @@ export function DetailTab() {
           <ExpandIcon size={14} />
         </button>
       </div>
+
+      {recipe && whole && <ProductPage recipe={recipe} />}
 
       {parts.length > 0 && (
         <section className="eva-pref">

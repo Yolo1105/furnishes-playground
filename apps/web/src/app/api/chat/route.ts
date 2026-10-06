@@ -61,6 +61,7 @@ const Body = z.object({
             "storage",
             "seating",
             "tables",
+            "screens",
             "lighting",
             "decor",
             "architecture",
