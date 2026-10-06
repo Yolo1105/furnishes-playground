@@ -107,14 +107,14 @@ export const PRIVACY: Section[] = [
     id: "browser",
     head: "Without an account",
     body: [
-      "The studio works in your browser. Your projects, the rooms in them, your orders and the room items you make are kept in this browser's own storage and nowhere else. Nothing about you is sent anywhere until you ask something of a service below.",
+      "The studio works in your browser. Your projects, the rooms in them, your orders, the room items you make and the pictures on your board are kept in this browser's own storage and nowhere else. Nothing about you is sent anywhere until you ask something of a service below.",
     ],
   },
   {
     id: "account",
     head: "With an account",
     body: [
-      "An account holds your name, your email address, a hash of your password (never the password itself), whether the email is confirmed, and the sessions you have open, each with the browser it was opened from. Signed in, the studio mirrors your projects, orders, room items and what the guide has shown you to the account, so they are there on every device you sign in on. The browser stays the truth; the account is its mirror.",
+      "An account holds your name, your email address, a hash of your password (never the password itself), whether the email is confirmed, and the sessions you have open, each with the browser it was opened from. Signed in, the studio mirrors your projects, orders, room items, board and what the guide has shown you to the account, so they are there on every device you sign in on. The browser stays the truth; the account is its mirror.",
       "You can change your name and your password, sign the other devices out, download everything the account holds, and end the account from the studio's gear, under Account. Ending it deletes everything the account holds, including any rooms you shared by link. What is in your browser stays there.",
     ],
   },

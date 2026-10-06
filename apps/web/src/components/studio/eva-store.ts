@@ -2,7 +2,9 @@ import { create } from "zustand";
 import {
   BRAINSTORM,
   followupsFor,
+  FURNISH,
   ROOM_KIND,
+  ROOM_REVIEW,
   SHORTER,
   type Conversation,
   type Message,
@@ -19,12 +21,18 @@ import {
   type Chip,
   type Context,
   type Reply,
+  type Standing,
 } from "./eva-brain";
 import { CUSTOM_OPTIONS } from "./eva-data";
 import { FLOW_NAMES, type Flow } from "./quiz-data";
 import type { QuizResult } from "./quiz-engine";
-import { activeOf, useRoom } from "./room-store";
-import { inRoom, useScene } from "./scene-store";
+import { footprint, type PieceProps } from "./piece-detail";
+import { layoutsOf } from "./piece-actions";
+import { describeItem } from "./generation-store";
+import { products } from "./catalogue";
+import { healthOf } from "./room-health";
+import { activeOf, footprintOf, openingsOf, useRoom } from "./room-store";
+import { inRoom, propsOf, standingOf, useScene } from "./scene-store";
 import { newId } from "./ids";
 import { useStudio } from "./studio-store";
 
@@ -89,6 +97,12 @@ type EvaState = {
   fromQuiz: (flow: Flow, result: QuizResult) => void;
   /** take up, or set aside, a preference Eva heard */
   settleProposal: (msgId: string, i: number, take: boolean) => void;
+  /** do what Eva's changes say, as one undo step, or set them aside */
+  applyChanges: (msgId: string, take: boolean) => void;
+  /** Furnish this room: what it lacks, laid out by the book */
+  furnish: () => Promise<void>;
+  /** Review this room: what Eva notices about it as it stands */
+  reviewRoom: () => Promise<void>;
   /** a chip under one of Eva's messages: say it, or do it */
   pickChip: (msgId: string, chip: Chip) => void;
   /** what Eva knows right now, for the room plan */
@@ -102,6 +116,50 @@ const contextOf = (
   const st = useRoom.getState();
   const r = activeOf(st);
   const sc = useScene.getState();
+  // what stands in the active room, not the whole flat, each where it
+  // stands: placed by hand, or where the room laid it out
+  const pieces: Standing[] = sc.groups
+    .flatMap((g) => g.items)
+    .filter(
+      (n) =>
+        n.kind !== "fixed" &&
+        inRoom(sc.overrides[n.id] ?? {}, r.id, st.rooms[0]!.id),
+    )
+    .map((n): Standing => {
+      const p = propsOf(n, sc.overrides);
+      const spot =
+        p.x !== undefined && p.y !== undefined
+          ? { x: p.x, y: p.y }
+          : standingOf(n.id);
+      if (!spot || p.hidden) return n;
+      const f = footprint(p);
+      return { ...n, at: { ...spot, w: f.w, d: f.d, rotation: p.rotation } };
+    });
+  // what the planner flags, in its words: the same findings the plan shows
+  const findings = healthOf(
+    pieces.flatMap((n) =>
+      n.at
+        ? [
+            {
+              id: n.id,
+              name: n.name,
+              ...n.at,
+              h: propsOf(n, sc.overrides).height,
+            },
+          ]
+        : [],
+    ),
+    {
+      W: r.width,
+      D: r.depth,
+      outline: footprintOf(r),
+      openings: openingsOf(st, r),
+      rules: r.rules,
+    },
+  )
+    .filter((i) => i.kind !== "missing")
+    .map((i) => i.text)
+    .slice(0, 8);
   return {
     room: {
       id: r.room,
@@ -111,15 +169,9 @@ const contextOf = (
       height: r.height,
       sized: r.start !== null,
     },
-    // what stands in the active room, not the whole flat
-    pieces: sc.groups
-      .flatMap((g) => g.items)
-      .filter(
-        (n) =>
-          n.kind !== "fixed" &&
-          inRoom(sc.overrides[n.id] ?? {}, r.id, st.rooms[0]!.id),
-      ),
+    pieces,
     cart: sc.cart,
+    findings,
     prefs: s.preferences,
     exploration: s.exploration,
     rules: r.rules,
@@ -203,11 +255,18 @@ export const useEva = create<EvaState>((set, get) => ({
     let source: Message["source"] = "rules";
     const own = () =>
       refined(asked, whole.slice(0, -1)) ?? reply(asked, ctx, mode);
+    // a review is its own route, with a day's share; past it, or
+    // without a key, the rules review the room
+    const review = asked === ROOM_REVIEW;
     try {
-      const res = await fetch("/api/chat", {
+      const res = await fetch(review ? "/api/suggestions" : "/api/chat", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ message: asked, thread, context: ctx, mode }),
+        body: JSON.stringify(
+          review
+            ? { context: ctx }
+            : { message: asked, thread, context: ctx, mode },
+        ),
         signal: turn.signal,
       });
       if (res.ok) {
@@ -216,6 +275,11 @@ export const useEva = create<EvaState>((set, get) => ({
       } else {
         if (res.status === 503) set({ offline: true });
         r = own();
+        if (review && res.status === 429)
+          r = {
+            ...r,
+            text: `That is the day's share of reviews from the model; the studio's own rules looked instead. ${r.text}`,
+          };
       }
     } catch {
       // stopped: nothing arrives
@@ -238,6 +302,8 @@ export const useEva = create<EvaState>((set, get) => ({
       source,
       ...(r.proposals.length ? { proposals: r.proposals } : {}),
       ...(r.cards.length ? { cards: r.cards } : {}),
+      ...(r.changes ? { changes: r.changes } : {}),
+      ...(r.observations?.length ? { observations: r.observations } : {}),
       chips,
     };
     set((s) => ({
@@ -251,6 +317,94 @@ export const useEva = create<EvaState>((set, get) => ({
     set({ turn: null, thinking: false });
   },
   brainstorm: () => get().send(BRAINSTORM),
+  furnish: () => get().send(FURNISH, "layout"),
+  reviewRoom: () => get().send(ROOM_REVIEW),
+  applyChanges: (msgId, take) => {
+    const { activeId, messages } = get();
+    if (!activeId) return;
+    const msg = messages[activeId]?.find((m) => m.id === msgId);
+    const ch = msg?.changes;
+    if (!msg || !ch || ch.settled) return;
+    if (take) {
+      const st = useRoom.getState();
+      const r = activeOf(st);
+      const roomId = r.id;
+      const adds = ch.adds.flatMap((a) => {
+        const product = products.find((p) => p.id === a.id);
+        return product ? [{ product, roomId }] : [];
+      });
+      useScene.getState().change(
+        {
+          removes: ch.removes.map((x) => x.id),
+          adds,
+          items: ch.items.map((it) => ({
+            item: describeItem(it.words),
+            roomId,
+          })),
+        },
+        (added) => {
+          // the spots Eva named, then the layout she asked for over
+          // everything in the room
+          const places: Record<string, Partial<PieceProps>> = {};
+          for (const m of ch.moves)
+            places[m.id] = { x: m.x, y: m.y, rotation: m.rotation };
+          ch.adds.forEach((a, i) => {
+            const node = added[i];
+            if (node && a.x !== undefined && a.y !== undefined)
+              places[node.id] = { x: a.x, y: a.y };
+          });
+          ch.items.forEach((it, i) => {
+            const node = added[ch.adds.length + i];
+            if (node && it.x !== undefined && it.y !== undefined)
+              places[node.id] = { x: it.x, y: it.y };
+          });
+          if (ch.layout) {
+            const sc = useScene.getState();
+            const gone = new Set(ch.removes.map((x) => x.id));
+            const standing = [
+              ...sc.groups
+                .flatMap((g) => g.items)
+                .filter(
+                  (n) =>
+                    !gone.has(n.id) &&
+                    n.kind !== "fixed" &&
+                    inRoom(sc.overrides[n.id] ?? {}, roomId, st.rooms[0]!.id),
+                ),
+              ...added,
+            ];
+            const overrides = { ...sc.overrides };
+            for (const [id, patch] of Object.entries(places))
+              overrides[id] = { ...overrides[id], ...patch };
+            for (const n of added)
+              overrides[n.id] = { ...overrides[n.id], roomId };
+            const plan = layoutsOf(r, st.joins, standing, overrides).plans.find(
+              (p) => p.id === ch.layout,
+            );
+            if (plan)
+              standing.forEach((n, i) => {
+                const at = plan.places[i]!;
+                if (!propsOf(n, overrides).locked)
+                  places[n.id] = { ...places[n.id], ...at };
+              });
+          }
+          return places;
+        },
+      );
+    }
+    set((s) => ({
+      messages: {
+        ...s.messages,
+        [activeId]: s.messages[activeId]!.map((m) =>
+          m.id === msgId
+            ? {
+                ...m,
+                changes: { ...ch, settled: take ? "applied" : "dismissed" },
+              }
+            : m,
+        ),
+      },
+    }));
+  },
   setPersona: (persona) => set({ persona }),
   pin: (msgId) => {
     const { activeId } = get();

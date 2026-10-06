@@ -1,6 +1,7 @@
 import type { Product } from "./catalogue";
 import type { ChatMode, Chip } from "./eva-brain";
 import type { RoomId } from "./room-data";
+import type { PlanId } from "./room-layout";
 
 /**
  * What Eva's History and Preference tabs show: the shape of a
@@ -34,6 +35,10 @@ export type Message = {
   }[];
   /** pieces Eva picked, with why each fits */
   cards?: { product: Product; why: string }[];
+  /** what Eva would do to the room, to apply or set aside */
+  changes?: Changes;
+  /** what Eva noticed about the room as it stands */
+  observations?: Observation[];
   /** what can be said or done next */
   chips?: Chip[];
   /** whether a model answered, or the studio's own rules */
@@ -314,6 +319,34 @@ export const ASKS: Record<PreferenceCategory, string> = {
 /** what Review my preferences asks: Eva says what she keeps to and what
     is still open */
 export const PREF_REVIEW = "Review my preferences";
+/** what Furnish this room asks, on the layout lens */
+export const FURNISH = "Furnish this room for me";
+/** what Review this room asks: observations, not a conversation */
+export const ROOM_REVIEW = "Review this room";
+
+/**
+ * What Eva would do to the room: pieces moved or turned (mm from the
+ * room's north-west corner), pieces taken out, catalogue pieces brought
+ * in and room items made from a few words (each with a spot when she
+ * named one), and a layout to run over everything once that is done.
+ * Apply does all of it as one undo step; each is settled once.
+ */
+export type Changes = {
+  moves: { id: string; name: string; x: number; y: number; rotation: number }[];
+  removes: { id: string; name: string }[];
+  adds: { id: string; name: string; x?: number; y?: number }[];
+  items: { words: string; name: string; x?: number; y?: number }[];
+  layout?: PlanId;
+  settled?: "applied" | "dismissed";
+};
+/** one thing Eva noticed: a title, a line, and a piece to add or a
+    thing to ask her when one follows from it */
+export type Observation = {
+  title: string;
+  body: string;
+  pick?: Product;
+  act?: { label: string; send: string };
+};
 
 /** the chatbot's follow-ups, read from what Eva just said */
 export const followupsFor = (text: string): string[] => {

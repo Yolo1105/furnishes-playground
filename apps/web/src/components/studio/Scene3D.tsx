@@ -1023,6 +1023,7 @@ export default function Scene3D() {
       data-labels={labels}
       data-grid={grid}
       data-light={scene.light}
+      data-sky={scene.sky}
     >
       <Canvas
         // a frame only when something moves: the orbit, a glide, a walk, a
@@ -1072,7 +1073,7 @@ export default function Scene3D() {
           shadow-radius={4}
           shadow-bias={-0.0004}
         />
-        <RoomLight evening={scene.light === "evening"} />
+        <RoomLight evening={scene.light === "evening"} sky={scene.sky} />
         {grid && !a.focus && (
           <gridHelper
             args={[

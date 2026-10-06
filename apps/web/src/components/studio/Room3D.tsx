@@ -14,6 +14,7 @@ import {
 import { edgesOf, type Edge } from "./room-geometry";
 import { openingCentre } from "./room-health";
 import type { Point } from "./room-templates";
+import type { Sky } from "./studio-store";
 import { floorTexture, shade, TILE_M } from "./textures";
 
 /**
@@ -502,8 +503,18 @@ export function RoomShell({
 
 /** the soft light of a room: panels baked once into the surroundings,
     which every surface then reflects a little */
-export function RoomLight({ evening }: { evening: boolean }) {
+/** what lights the room from outside: the studio's own panels (a warm
+    set in the evening), or a surroundings map, which the glass and the
+    plywood then reflect; the sun and the room's own light stay */
+export function RoomLight({ evening, sky }: { evening: boolean; sky: Sky }) {
   const warm = evening ? "#ffd9b8" : "#ffffff";
+  if (sky !== "panels")
+    return (
+      <Environment
+        files={`/sky/${sky}.hdr`}
+        environmentIntensity={evening ? 0.9 : 1.1}
+      />
+    );
   return (
     <Environment resolution={128} frames={1} environmentIntensity={1.3}>
       <Lightformer

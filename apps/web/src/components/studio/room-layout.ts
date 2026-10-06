@@ -5,9 +5,17 @@ import {
   PLACE_SNAP,
   type PieceProps,
 } from "./piece-detail";
-import { edgesOf, rectInside, WALL_MM } from "./room-geometry";
-import { keepOff, meets, zonesOf, type Room, type Zone } from "./room-health";
-import type { Rules } from "./room-data";
+import { ARCHETYPES, type Placement, type Rule } from "./archetypes";
+import { edgesOf, rectInside, WALL_MM, type Edge } from "./room-geometry";
+import {
+  keepOff,
+  meets,
+  openingCentre,
+  zonesOf,
+  type Room,
+  type Zone,
+} from "./room-health";
+import { isWindow, type RoomId, type Rules, type Wall } from "./room-data";
 
 /**
  * Where the pieces stand. A piece placed by hand stands where it was
@@ -16,13 +24,14 @@ import type { Rules } from "./room-data";
  * things (lamps, vases, plants) and rugs then take the first clear spot
  * on a coarse grid, since they are no obstacle to walking.
  *
- * The room can also be laid out afresh three ways, for the plan's
- * Layouts: rows across the width, rows down the depth, and along the
+ * The room can also be laid out afresh four ways, for the plan's
+ * Layouts: rows across the width, rows down the depth, along the
  * walls (the middle left open, starting on the wall facing the door,
- * each piece turned to run along its wall). A locked piece keeps its
- * place in all three. Everything in millimetres of the room; the plan
- * and the 3D view both read this, so a piece stands in the same place
- * in each.
+ * each piece turned to run along its wall), and by the book (the
+ * room kind's archetype rules place the anchors, the rest go along
+ * the walls). A locked piece keeps its place in all four. Everything
+ * in millimetres of the room; the plan and the 3D view both read
+ * this, so a piece stands in the same place in each.
  */
 const MARGIN = 250;
 const GRID = 100;
@@ -149,9 +158,9 @@ export const layoutRoom = (
   return spots as Spot[];
 };
 
-/* ---------- the three layouts ---------- */
+/* ---------- the four layouts ---------- */
 
-export type PlanId = "rows" | "across" | "walls";
+export type PlanId = "rows" | "across" | "walls" | "book";
 type LayoutPlan = {
   id: PlanId;
   label: string;
@@ -300,11 +309,244 @@ const wallsPlan = (
   });
 };
 
-/** the three layouts of the room's pieces; a locked piece stays put */
+/* ---------- by the book: the archetype's anchors ---------- */
+
+const OPPOSITE: Record<Wall, Wall> = {
+  north: "south",
+  south: "north",
+  east: "west",
+  west: "east",
+};
+const horizontal = (wall: Wall) => wall === "north" || wall === "south";
+/** the turn that puts a piece's back to the wall: its width along it */
+const backTo = (wall: Wall) => (horizontal(wall) ? 0 : 90);
+const spanOf = (e: Edge) =>
+  horizontal(e.wall) ? Math.abs(e.b[0] - e.a[0]) : Math.abs(e.b[1] - e.a[1]);
+/** a rect flush to the edge, its middle at `c` along it */
+const flushTo = (e: Edge, c: number, f: Size): Rect =>
+  e.wall === "north"
+    ? { x: c - f.w / 2, y: e.a[1], ...f }
+    : e.wall === "south"
+      ? { x: c - f.w / 2, y: e.a[1] - f.d, ...f }
+      : e.wall === "west"
+        ? { x: e.a[0], y: c - f.d / 2, ...f }
+        : { x: e.a[0] - f.w, y: c - f.d / 2, ...f };
+const onGrid = (v: number) => Math.round(v / GRID) * GRID;
+/** where a placed anchor stands, for the rules that build on it */
+type Anchor = { rect: Rect; wall: Wall | null; rotation: number };
+
+/**
+ * The archetype's rules placed in order, each on the first clear spot
+ * at or near where the rule says, shifted along its wall a grid step
+ * at a time; a rule that cannot be met places nothing, and the piece
+ * goes along the walls with the rest. Returns the anchors' spots by
+ * item index.
+ */
+const bookAnchors = (
+  items: readonly Item[],
+  r: Room,
+  kept: (Placed | null)[],
+  room: RoomId,
+): Map<number, Placed> => {
+  const gap = gapOf(r.rules);
+  const zones = zonesOf(r);
+  const edges = edgesOf(r.outline);
+  const longest = [...edges].sort((a, b) => spanOf(b) - spanOf(a));
+  const edgeOf = (wall: Wall) => longest.find((e) => e.wall === wall) ?? null;
+  const window = r.openings.find(isWindow) ?? null;
+  const taken: Rect[] = items.flatMap((p, i) =>
+    kept[i] ? [{ ...kept[i]!, ...footprint({ ...p, ...kept[i]! }) }] : [],
+  );
+  const used = new Set<Wall>();
+  const anchors = new Map<string, Anchor>();
+  const out = new Map<number, Placed>();
+  /** clear of what stands, a walkway apart; a piece may touch its
+      target (the bedside the bed, the coffee table the sofa's gap) */
+  const clear = (rect: Rect, avoid: Zone[], touch: Rect | null = null) =>
+    rectInside(rect, r.outline) &&
+    !taken.some((t) =>
+      t === touch ? meets(rect, t) : meets(grown(rect, gap), t),
+    ) &&
+    !avoid.some((z) => meets(rect, z));
+  /** the first clear rect at the spot or shifted along the axis */
+  const settle = (
+    make: (shift: number) => Rect,
+    avoid: Zone[],
+    reach: number,
+    touch: Rect | null = null,
+  ): Rect | null => {
+    for (let s = 0; s <= reach; s += GRID)
+      for (const sign of s === 0 ? [1] : [1, -1]) {
+        const rect = make(sign * s);
+        if (clear(rect, avoid, touch)) return rect;
+      }
+    return null;
+  };
+  const place = (
+    i: number,
+    rect: Rect,
+    rotation: number,
+    wall: Wall | null,
+  ) => {
+    const spot = { x: onGrid(rect.x), y: onGrid(rect.y) };
+    const at = { ...spot, w: rect.w, d: rect.d };
+    taken.push(at);
+    out.set(i, { ...spot, rotation });
+    return { rect: at, wall, rotation };
+  };
+  const alongWall = (p: Item, e: Edge, c: number, avoid: Zone[]) => {
+    const rotation = backTo(e.wall);
+    const f = footprint({ ...p, rotation });
+    const rect = settle(
+      (shift) => flushTo(e, c + shift, f),
+      avoid,
+      spanOf(e) / 2,
+    );
+    return rect ? { rect, rotation } : null;
+  };
+  const centreOf = (e: Edge) =>
+    horizontal(e.wall) ? (e.a[0] + e.b[0]) / 2 : (e.a[1] + e.b[1]) / 2;
+  const candidates = (rule: Rule) =>
+    items
+      .map((p, i) => i)
+      .filter(
+        (i) =>
+          !kept[i] &&
+          !out.has(i) &&
+          big(items[i]!) &&
+          rule.what.test(items[i]!.name),
+      );
+  const byRule = (rule: Rule, i: number): Anchor | null => {
+    const p = items[i]!;
+    const avoid = keepOff({ h: p.height }, r, zones);
+    const target = rule.target ? anchors.get(rule.target) : undefined;
+    const onWall = (e: Edge | null, c?: number) => {
+      if (!e) return null;
+      const got = alongWall(p, e, c ?? centreOf(e), avoid);
+      if (!got) return null;
+      used.add(e.wall);
+      return place(i, got.rect, got.rotation, e.wall);
+    };
+    switch (rule.place as Placement) {
+      case "longest-wall":
+        return onWall(longest[0] ?? null);
+      case "free-wall":
+        return onWall(longest.find((e) => !used.has(e.wall)) ?? null);
+      case "opposite":
+        return target?.wall ? onWall(edgeOf(OPPOSITE[target.wall])) : null;
+      case "window": {
+        if (!window) return null;
+        const e = edgeOf(window.wall);
+        return e ? onWall(e, openingCentre(r, window).centre) : null;
+      }
+      case "flanking": {
+        if (!target?.wall) return null;
+        const e = edgeOf(target.wall);
+        if (!e) return null;
+        const rotation = backTo(e.wall);
+        const f = footprint({ ...p, rotation });
+        const h = horizontal(e.wall);
+        const t = target.rect;
+        const g = rule.gap ?? 0;
+        // the near side first, then the far side of the target
+        for (const side of [-1, 1]) {
+          const c = h
+            ? side < 0
+              ? t.x - g - f.w / 2
+              : t.x + t.w + g + f.w / 2
+            : side < 0
+              ? t.y - g - f.d / 2
+              : t.y + t.d + g + f.d / 2;
+          const rect = settle((shift) => flushTo(e, c + shift, f), avoid, 0, t);
+          if (rect) return place(i, rect, rotation, e.wall);
+        }
+        return null;
+      }
+      case "facing":
+      case "in-front": {
+        if (!target) return null;
+        const t = target.rect;
+        const g = rule.gap ?? 0;
+        // away from the target's wall, or toward the room's middle
+        const wall =
+          target.wall ??
+          (t.y + t.d / 2 < r.D / 2
+            ? "north"
+            : t.x + t.w / 2 < r.W / 2
+              ? "west"
+              : t.y + t.d / 2 > r.D / 2
+                ? "south"
+                : "east");
+        const rotation = backTo(wall);
+        const f = footprint({ ...p, rotation });
+        const make = (shift: number): Rect =>
+          wall === "north"
+            ? { x: t.x + t.w / 2 - f.w / 2 + shift, y: t.y + t.d + g, ...f }
+            : wall === "south"
+              ? { x: t.x + t.w / 2 - f.w / 2 + shift, y: t.y - g - f.d, ...f }
+              : wall === "west"
+                ? { x: t.x + t.w + g, y: t.y + t.d / 2 - f.d / 2 + shift, ...f }
+                : {
+                    x: t.x - g - f.w,
+                    y: t.y + t.d / 2 - f.d / 2 + shift,
+                    ...f,
+                  };
+        const rect = settle(make, avoid, 600, t);
+        return rect ? place(i, rect, rotation, null) : null;
+      }
+      case "middle": {
+        const rotation = kept[i]?.rotation ?? p.rotation;
+        const f = footprint({ ...p, rotation });
+        const rect = settle(
+          (shift) => ({
+            x: r.W / 2 - f.w / 2 + shift,
+            y: r.D / 2 - f.d / 2,
+            ...f,
+          }),
+          avoid,
+          r.W / 4,
+        );
+        return rect ? place(i, rect, rotation, null) : null;
+      }
+    }
+  };
+  for (const rule of ARCHETYPES[room].rules) {
+    // flanking seats a pair; every other rule seats one
+    const want = rule.place === "flanking" ? 2 : 1;
+    let seated = 0;
+    for (const i of candidates(rule)) {
+      if (seated >= want) break;
+      const a = byRule(rule, i);
+      if (!a) continue;
+      seated += 1;
+      if (seated === 1) anchors.set(rule.name, a);
+    }
+  }
+  return out;
+};
+
+/** by the book: the archetype's anchors where the rules put them, the
+    rest along the walls */
+const bookPlan = (
+  items: readonly Item[],
+  r: Room,
+  kept: (Placed | null)[],
+  room: RoomId,
+): Placed[] => {
+  const anchors = bookAnchors(items, r, kept, room);
+  return wallsPlan(
+    items,
+    r,
+    items.map((p, i) => kept[i] ?? anchors.get(i) ?? null),
+  );
+};
+
+/** the four layouts of the room's pieces; a locked piece stays put */
 export const layoutPlans = (
   items: readonly Item[],
   r: Room,
   now: readonly Spot[],
+  room: RoomId,
 ): LayoutPlan[] => {
   const kept = items.map((p, i) =>
     p.locked ? { ...now[i]!, rotation: p.rotation } : null,
@@ -330,6 +572,12 @@ export const layoutPlans = (
         return d ? `, facing the ${d.wall} door` : "";
       })()}`,
       places: wallsPlan(items, r, kept),
+    },
+    {
+      id: "book",
+      label: "By the book",
+      note: ARCHETYPES[room].name,
+      places: bookPlan(items, r, kept, room),
     },
   ];
 };

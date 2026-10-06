@@ -1480,3 +1480,90 @@ body > .shell-menu {
     bottom: calc(var(--shell-edge) + 68px + env(safe-area-inset-bottom));
   }
 }
+
+/* ---- the Board: pictures with a title and a note, the starred beside ---- */
+.board-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.board-upload {
+  position: relative;
+  flex: 0 0 auto;
+  overflow: hidden;
+}
+.board-upload input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.board-note {
+  margin-top: 6px;
+}
+.board-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.board-card {
+  position: relative;
+  display: grid;
+  gap: 6px;
+}
+.board-pic {
+  aspect-ratio: 4 / 3;
+  border-radius: var(--r-card);
+  background: rgba(255, 255, 255, 0.5) center / cover no-repeat;
+}
+.board-title {
+  font-weight: 600;
+}
+.board-text {
+  height: auto;
+  resize: none;
+  line-height: 1.4;
+}
+.board-x {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  left: auto;
+}
+.board-sub {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 16px;
+}
+.board-strip {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  overflow-x: auto;
+}
+.board-item {
+  display: grid;
+  gap: 4px;
+  width: 88px;
+  flex: 0 0 auto;
+}
+.board-item-pic {
+  display: block;
+  width: 88px;
+  height: 66px;
+  border-radius: var(--r-card);
+  background: rgba(255, 255, 255, 0.5) center / cover no-repeat;
+}
+.board-item-blank {
+  background: rgb(from var(--color-accent) r g b / 0.08);
+}
+.add-tile-keep {
+  right: 28px;
+}

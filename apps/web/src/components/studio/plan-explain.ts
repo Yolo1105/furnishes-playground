@@ -60,7 +60,10 @@ export const scoreOf = (issues: Issue[], plan: PlanId, rules: Rules) => {
           : 0;
     s += WEIGHT[i.kind] + lean;
   }
-  s += plan === "walls" ? (0.5 - open) * 1.5 : (open - 0.5) * 0.75;
+  s +=
+    plan === "walls" || plan === "book"
+      ? (0.5 - open) * 1.5
+      : (open - 0.5) * 0.75;
   return s;
 };
 
@@ -100,7 +103,7 @@ export const travel = (moves: readonly Move[]) =>
 export const metresOf = (mm: number) => `${(mm / 1000).toFixed(1)} m`;
 
 /** the lines that say why a layout stands where it does among the
-    three: what it does, what the priorities ask, what it would leave */
+    four: what it does, what the priorities ask, what it would leave */
 export const whyLines = (
   plan: PlanId,
   e: Explained,
@@ -110,6 +113,10 @@ export const whyLines = (
 ): string[] => {
   const out: string[] = [];
   if (plan === "walls") out.push("The middle stays open to walk and sit.");
+  else if (plan === "book")
+    out.push(
+      "The anchors stand where a designer would start them; the rest go along the walls.",
+    );
   else
     out.push(
       plan === "rows"
@@ -118,13 +125,13 @@ export const whyLines = (
     );
   if (rules.open >= LEANS)
     out.push(
-      plan === "walls"
+      plan === "walls" || plan === "book"
         ? "You asked for an open room, which this gives."
         : "You asked for an open room, which rows give less of.",
     );
   else if (rules.open <= 100 - LEANS)
     out.push(
-      plan === "walls"
+      plan === "walls" || plan === "book"
         ? "You asked for a cosy room, which an open middle gives less of."
         : "You asked for a cosy room, which rows give.",
     );

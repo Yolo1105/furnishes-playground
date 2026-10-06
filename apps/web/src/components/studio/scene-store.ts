@@ -20,6 +20,8 @@ type Spot = { x: number; y: number };
     drew them (the layout hook notes it after each render) */
 let standing: ReadonlyMap<string, Spot> = new Map();
 const standingByRoom = new Map<string, ReadonlyMap<string, Spot>>();
+/** where a piece the room laid out stands right now, mm */
+export const standingOf = (id: string) => standing.get(id);
 export const noteStanding = (
   room: string,
   spots: ReadonlyMap<string, Spot>,
@@ -81,6 +83,17 @@ type SceneState = {
   placeAll: (places: Record<string, Partial<PieceProps>>) => void;
   /** take a piece out of the room altogether */
   removeNode: (id: string) => void;
+  /** Eva's changes as one undo step: pieces taken out, catalogue
+      pieces and room items brought in, then every piece placed as
+      `placesFor` says once the new nodes are known */
+  change: (
+    c: {
+      removes: string[];
+      adds: { product: Product; roomId: string }[];
+      items: { item: Parameters<SceneState["addItem"]>[0]; roomId: string }[];
+    },
+    placesFor: (added: AssetNode[]) => Record<string, Partial<PieceProps>>,
+  ) => void;
   /** a drag writes many positions; only the whole of it is one undo step;
       the pieces not dragged are held where they stand */
   dragStart: () => void;
@@ -96,6 +109,58 @@ type SceneState = {
   /** a room left the flat: what stood in it goes too */
   removeRoomPieces: (roomId: string, firstId: string) => void;
 };
+
+/** a catalogue product as a new node: numbered after the ones of its
+    name already there */
+const productNode = (groups: AssetGroup[], p: Product): AssetNode => {
+  const n = groups
+    .flatMap((g) => g.items)
+    .filter((a) => a.name === p.name).length;
+  return {
+    id: `${p.id}-${n + 1}`,
+    name: n === 0 ? p.name : `${p.name} ${n + 1}`,
+    kind: "piece",
+    category: p.category,
+    price: p.price,
+    productId: p.id,
+  };
+};
+/** a room item as a new node, numbered the same way */
+const itemNode = (
+  groups: AssetGroup[],
+  item: {
+    name: string;
+    category: AssetCategory;
+    image?: string;
+    model?: string;
+  },
+): AssetNode => {
+  const n = groups
+    .flatMap((g) => g.items)
+    .filter((a) => a.name === item.name).length;
+  return {
+    id: newId("item"),
+    name: n === 0 ? item.name : `${item.name} ${n + 1}`,
+    kind: "decor",
+    category: item.category,
+    ...(item.image ? { image: item.image } : {}),
+    ...(item.model ? { model: item.model } : {}),
+  };
+};
+/** the node into its category's group, which is made when new */
+const into = (groups: AssetGroup[], node: AssetNode): AssetGroup[] =>
+  groups.some((g) => g.id === node.category)
+    ? groups.map((g) =>
+        g.id === node.category ? { ...g, items: [...g.items, node] } : g,
+      )
+    : [
+        {
+          id: node.category,
+          name: CATEGORY_NAMES[node.category],
+          items: [node],
+        },
+        ...groups,
+      ];
 
 /** What stands in the room right now: the outliner, the shelf and the
     counts all read this one store, so they always agree. */
@@ -161,73 +226,57 @@ export const useScene = create<SceneState>((set, get) => {
         };
       }),
     addProduct: (p, roomId) => {
-      const n = get()
-        .groups.flatMap((g) => g.items)
-        .filter((a) => a.name === p.name).length;
-      const node: AssetNode = {
-        id: `${p.id}-${n + 1}`,
-        name: n === 0 ? p.name : `${p.name} ${n + 1}`,
-        kind: "piece",
-        category: p.category,
-        price: p.price,
-        productId: p.id,
-      };
-      set((s) => {
-        const has = s.groups.some((g) => g.id === p.category);
-        const groups = has
-          ? s.groups.map((g) =>
-              g.id === p.category ? { ...g, items: [...g.items, node] } : g,
-            )
-          : [
-              {
-                id: p.category,
-                name: CATEGORY_NAMES[p.category],
-                items: [node],
-              },
-              ...s.groups,
-            ];
-        return {
-          groups,
-          overrides: { ...held(s), [node.id]: { roomId } },
-          ...remember(s),
-        };
-      });
+      const node = productNode(get().groups, p);
+      set((s) => ({
+        groups: into(s.groups, node),
+        overrides: { ...held(s), [node.id]: { roomId } },
+        ...remember(s),
+      }));
       return node.id;
     },
     addItem: (item, roomId) => {
-      const n = get()
-        .groups.flatMap((g) => g.items)
-        .filter((a) => a.name === item.name).length;
-      const node: AssetNode = {
-        id: newId("item"),
-        name: n === 0 ? item.name : `${item.name} ${n + 1}`,
-        kind: "decor",
-        category: item.category,
-        ...(item.image ? { image: item.image } : {}),
-        ...(item.model ? { model: item.model } : {}),
-      };
-      set((s) => {
-        const has = s.groups.some((g) => g.id === item.category);
-        const groups = has
-          ? s.groups.map((g) =>
-              g.id === item.category ? { ...g, items: [...g.items, node] } : g,
-            )
-          : [
-              {
-                id: item.category,
-                name: CATEGORY_NAMES[item.category],
-                items: [node],
-              },
-              ...s.groups,
-            ];
-        return {
-          groups,
-          overrides: { ...held(s), [node.id]: { roomId } },
-          ...remember(s),
-        };
-      });
+      const node = itemNode(get().groups, item);
+      set((s) => ({
+        groups: into(s.groups, node),
+        overrides: { ...held(s), [node.id]: { roomId } },
+        ...remember(s),
+      }));
       return node.id;
     },
+    change: (c, placesFor) =>
+      set((s) => {
+        const gone = new Set(c.removes);
+        let groups = s.groups
+          .map((g) => ({ ...g, items: g.items.filter((n) => !gone.has(n.id)) }))
+          .filter((g) => g.items.length > 0);
+        const overrides = { ...held(s) };
+        for (const id of gone) delete overrides[id];
+        const added: AssetNode[] = [];
+        for (const a of c.adds) {
+          const node = productNode(groups, a.product);
+          groups = into(groups, node);
+          overrides[node.id] = { roomId: a.roomId };
+          added.push(node);
+        }
+        for (const it of c.items) {
+          const node = itemNode(groups, it.item);
+          groups = into(groups, node);
+          overrides[node.id] = { roomId: it.roomId };
+          added.push(node);
+        }
+        for (const [id, patch] of Object.entries(placesFor(added)))
+          if (overrides[id] || added.some((n) => n.id === id))
+            overrides[id] = { ...overrides[id], ...patch };
+        return {
+          groups,
+          overrides,
+          cart: s.cart.filter((x) => !gone.has(x)),
+          labels: s.labels.filter((x) => !gone.has(x)),
+          selectedId:
+            s.selectedId && gone.has(s.selectedId) ? null : s.selectedId,
+          ...remember(s),
+        };
+      }),
     select: (id, reveal = true) =>
       set((s) => ({
         selectedId: id,

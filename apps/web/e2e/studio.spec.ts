@@ -1428,7 +1428,7 @@ test("the gear opens Settings, Help and the Guide; keys drive the tools", async 
   await page.goto("/rounded");
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   const menu = page.getByRole("menu");
-  await expect(menu.getByRole("menuitem")).toHaveCount(6);
+  await expect(menu.getByRole("menuitem")).toHaveCount(7);
   await expect(menu.getByRole("menuitem", { name: "Feedback" })).toHaveCount(1);
   await expect(menu.getByRole("menuitem", { name: "Sign in" })).toHaveCount(1);
   await expect(menu.getByRole("menuitem", { name: "Sign out" })).toHaveCount(0);
@@ -2901,7 +2901,7 @@ test("a connected provider's picture shows on the tile and the item carries it",
   ).toHaveAttribute("aria-selected", "true");
 });
 
-test("the room's rules shape the planner: the walkway, what is kept clear, a bed against a wall, what the room must have; three layouts to apply", async ({
+test("the room's rules shape the planner: the walkway, what is kept clear, a bed against a wall, what the room must have; four layouts to apply", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -2974,7 +2974,7 @@ test("the room's rules shape the planner: the walkway, what is kept clear, a bed
   const layouts = page
     .locator(".agent")
     .getByRole("group", { name: "Layouts" });
-  await expect(layouts.locator(".agent-layout")).toHaveCount(3);
+  await expect(layouts.locator(".agent-layout")).toHaveCount(4);
   await expect(layouts.locator(".agent-layout-pick")).toHaveCount(1);
   const walls = layouts.locator(".agent-layout", {
     hasText: "Along the walls",
@@ -2989,7 +2989,7 @@ test("the room's rules shape the planner: the walkway, what is kept clear, a bed
   await expect(inspected).toContainText(/would move|would stay|No piece/);
   await walls.getByRole("button", { name: "Apply" }).click();
   await expect(walls.getByRole("button", { name: "Applied" })).toBeDisabled();
-  await expect(layouts.getByRole("button", { name: "Apply" })).toHaveCount(2);
+  await expect(layouts.getByRole("button", { name: "Apply" })).toHaveCount(3);
   await expect(inspected).toContainText("Every piece stands as this layout");
   // the priorities lean on Eva's pick; a preset sets the rules whole
   await page.getByRole("tab", { name: "Room", exact: true }).click();
@@ -3481,6 +3481,10 @@ test("View settings: edges, names, a floor grid, shadows and the light, kept for
   await expect(stage).toHaveAttribute("data-shadows", "false");
   await menu.getByRole("menuitemradio", { name: "Evening" }).click();
   await expect(stage).toHaveAttribute("data-light", "evening");
+  // the surroundings: a map lights and reflects in the room
+  await expect(stage).toHaveAttribute("data-sky", "panels");
+  await menu.getByRole("menuitemradio", { name: "A sunset" }).click();
+  await expect(stage).toHaveAttribute("data-sky", "sunset");
   // none of it shows on the plan, all of it comes back next time
   await page.keyboard.press("Escape");
   await page.keyboard.press("2");
@@ -4083,4 +4087,108 @@ test("a piece may stand past the walls; near a wall the magnet draws it flush, i
   b = await dragTo(sheet.x + 100 * ppm);
   expect(Math.abs(b.x - (sheet.x + 100 * ppm))).toBeLessThan(2);
   expect(Math.abs(b.x - sheet.x)).toBeGreaterThan(4);
+});
+
+test("Eva furnishes the room by the book, reviews it, applies her changes as one undo step, and explains a layout", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  const eva = page.locator(".agent");
+  // before the walls are set, Eva asks for them
+  await eva.getByRole("button", { name: "Furnish this room for me" }).click();
+  await expect(eva).toContainText("room's size first");
+  // the room sized from a template: the review reads the room as it stands
+  await page.getByRole("tab", { name: "Room" }).click();
+  await page.getByRole("radio", { name: "Template" }).click();
+  await eva.getByRole("button", { name: "Review this room" }).click();
+  const noticed = eva.getByRole("list", { name: "What Eva noticed" }).last();
+  await expect(noticed).toBeVisible();
+  await expect(noticed.getByRole("listitem").first()).toContainText(
+    /stands away from every wall|No budget yet|The planner flags/,
+  );
+  // furnished: what the living room lacks, and By the book over it all
+  await eva.getByRole("button", { name: "Furnish this room for me" }).click();
+  const changes = eva.getByRole("group", { name: "Eva's changes" }).last();
+  await expect(changes).toContainText("dining table");
+  await expect(changes).toContainText("By the book");
+  await changes.getByRole("button", { name: "Apply" }).click();
+  await expect(changes).toContainText("Applied");
+  // the dining table stands in the room; one Undo takes everything back
+  const outliner = page.locator(".assets");
+  await expect(outliner).toContainText("Dining table");
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(outliner).not.toContainText("Dining table");
+  // the layouts: four, By the book among them, with Ask Eva why
+  await page.locator(".agent-plan > summary").click();
+  const layouts = eva.getByRole("group", { name: "Layouts" });
+  await expect(layouts.locator(".agent-layout")).toHaveCount(4);
+  await expect(layouts).toContainText("By the book");
+  await layouts.getByRole("button", { name: "Inspect By the book" }).click();
+  await layouts.getByRole("button", { name: "Ask Eva why" }).click();
+  await expect(eva.locator(".agent-turn[data-who='you']").last()).toContainText(
+    "Why would the By the book layout suit this room?",
+  );
+});
+
+test("the Board keeps uploaded pictures with a title and a note, sized down, and takes them off again", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rounded");
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Board" }).click();
+  const board = page.getByRole("dialog", { name: "Board" });
+  await expect(board).toContainText("Nothing on the board yet");
+  // a picture made in the browser, larger than the board keeps them
+  const png = await page.evaluate(() => {
+    const c = document.createElement("canvas");
+    c.width = 2048;
+    c.height = 1536;
+    const g = c.getContext("2d")!;
+    g.fillStyle = "#d9b58c";
+    g.fillRect(0, 0, c.width, c.height);
+    return c.toDataURL("image/png").split(",")[1]!;
+  });
+  await board.getByLabel("Add a picture").setInputFiles({
+    name: "the-wall.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(png, "base64"),
+  });
+  const card = board.getByRole("list", { name: "Pictures on the board" });
+  await expect(card.getByRole("listitem")).toHaveCount(1);
+  await expect(board.getByLabel("Title")).toHaveValue("the-wall");
+  await board.getByLabel("Note").fill("The wall by the door, as it is.");
+  // sized down: the kept picture is a JPEG no wider than 1024
+  const size = await page.evaluate(async () => {
+    const kept = JSON.parse(localStorage.getItem("furnishes.board")!) as {
+      pictures: { src: string; note: string }[];
+    };
+    const img = new Image();
+    img.src = kept.pictures[0]!.src;
+    await img.decode();
+    return { w: img.width, jpeg: img.src.startsWith("data:image/jpeg") };
+  });
+  expect(size.w).toBe(1024);
+  expect(size.jpeg).toBe(true);
+  // the same picture is refused twice; the note survives a reload
+  await board.getByLabel("Add a picture").setInputFiles({
+    name: "again.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(png, "base64"),
+  });
+  await expect(board).toContainText("on the board already");
+  await page.reload();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Board" }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Board" }).getByLabel("Note"),
+  ).toHaveValue("The wall by the door, as it is.");
+  await page
+    .getByRole("dialog", { name: "Board" })
+    .getByRole("button", { name: /Take the-wall off the board/ })
+    .click();
+  await expect(page.getByRole("dialog", { name: "Board" })).toContainText(
+    "Nothing on the board yet",
+  );
 });

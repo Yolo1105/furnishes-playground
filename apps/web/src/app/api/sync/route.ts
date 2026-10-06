@@ -7,14 +7,14 @@ import { sync } from "@/lib/db/schema";
 
 /**
  * The account's mirror of what the browser keeps: the projects (with
- * what was deleted), the orders, the generations and the guide's
- * record, one row per kind. GET hands them back; PUT takes the merged
+ * what was deleted), the orders, the generations, the guide's record
+ * and the board, one row per kind. GET hands them back; PUT takes the merged
  * whole from the browser and keeps it, with the time. The browser does
- * the merging, so this stays a store of four documents per person.
+ * the merging, so this stays a store of five documents per person.
  */
 export const runtime = "nodejs";
 
-const KINDS = ["projects", "orders", "generations", "guides"] as const;
+const KINDS = ["projects", "orders", "generations", "guides", "board"] as const;
 type Kind = (typeof KINDS)[number];
 /** bytes of JSON one kind may hold */
 const LIMIT = 2_000_000;
@@ -24,6 +24,7 @@ const Body = z.object({
   orders: z.unknown().optional(),
   generations: z.unknown().optional(),
   guides: z.unknown().optional(),
+  board: z.unknown().optional(),
 });
 
 export async function GET(req: Request) {

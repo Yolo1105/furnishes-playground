@@ -22,7 +22,8 @@ import {
   useGenerations,
   type Generation,
 } from "./generation-store";
-import { CloseIcon, StarIcon } from "./icons";
+import { BoardIcon, CloseIcon, StarIcon } from "./icons";
+import { useBoard } from "./board-store";
 import { useScene } from "./scene-store";
 
 /**
@@ -184,6 +185,10 @@ function Generate({
 }) {
   const generations = useGenerations((s) => s.generations);
   const { add, star, remove } = useGenerations.getState();
+  // the board's own array, read here: a fresh array from the selector
+  // would never settle
+  const pictures = useBoard((s) => s.pictures);
+  const kept = pictures.map((p) => p.src);
   const [prompt, setPrompt] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
@@ -337,6 +342,26 @@ function Generate({
             >
               <CloseIcon size={11} />
             </button>
+            {g.imageUrl && (
+              <button
+                type="button"
+                className="add-tile-star add-tile-keep"
+                aria-label={`Keep the picture of ${g.name} on the board`}
+                aria-pressed={kept.includes(g.imageUrl)}
+                disabled={kept.includes(g.imageUrl)}
+                onClick={() => {
+                  const why = useBoard.getState().add({
+                    src: g.imageUrl!,
+                    title: g.name,
+                    note: g.prompt,
+                    from: "item",
+                  });
+                  setNote(why ?? `${g.name} is on the board.`);
+                }}
+              >
+                <BoardIcon size={11} />
+              </button>
+            )}
             <span className="add-tile-name">{g.name}</span>
             <span className="add-tile-price">
               {g.source === "shape"

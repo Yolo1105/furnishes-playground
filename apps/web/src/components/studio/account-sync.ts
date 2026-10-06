@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { create } from "zustand";
+import { useBoard, type Picture } from "./board-store";
 import { useGenerations, type Generation } from "./generation-store";
 import { useGuide, type Dismissed } from "./guide-store";
 import { useOrders, type Order } from "./order-store";
@@ -13,7 +14,8 @@ import { useProjects, type Project } from "./project-store";
  * and stays gone where either side deleted it later than it changed;
  * an order keeps the state that moved on from "awaiting payment"; a
  * generation stays gone where either side removed it, and is otherwise
- * this browser's; the guide's record is the union of what was seen.
+ * this browser's, as a picture on the board is (the newer copy of its
+ * words wins); the guide's record is the union of what was seen.
  * The view and the wheel are the device's own and are not mirrored.
  */
 type Gone = Record<string, number>;
@@ -22,6 +24,7 @@ type SyncBody = {
   orders: Order[];
   generations: { generations: Generation[]; gone: Gone };
   guides: Dismissed;
+  board: { pictures: Picture[]; gone: Gone };
 };
 const PUSH_AFTER = 1500; // ms after the last change
 
@@ -96,6 +99,24 @@ const mergeGenerations = (
   };
 };
 
+const mergeBoard = (
+  mine: SyncBody["board"],
+  theirs: SyncBody["board"],
+): SyncBody["board"] => {
+  const gone = laterGone(mine.gone, theirs.gone);
+  const byId = new Map<string, Picture>();
+  for (const p of [...theirs.pictures, ...mine.pictures]) {
+    const cur = byId.get(p.id);
+    if (!cur || p.at > cur.at) byId.set(p.id, p);
+  }
+  return {
+    pictures: [...byId.values()]
+      .filter((p) => (gone[p.id] ?? -1) < p.at)
+      .sort((a, b) => b.at - a.at),
+    gone,
+  };
+};
+
 const mergeGuides = (mine: Dismissed, theirs: Dismissed): Dismissed => {
   const out: Dismissed = { ...mine };
   for (const [id, seen] of Object.entries(theirs))
@@ -107,11 +128,13 @@ const mergeGuides = (mine: Dismissed, theirs: Dismissed): Dismissed => {
 const collect = (): SyncBody => {
   const p = useProjects.getState();
   const g = useGenerations.getState();
+  const b = useBoard.getState();
   return {
     projects: { projects: p.projects, gone: p.gone },
     orders: useOrders.getState().orders,
     generations: { generations: g.generations, gone: g.gone },
     guides: useGuide.getState().dismissed,
+    board: { pictures: b.pictures, gone: b.gone },
   };
 };
 
@@ -147,6 +170,7 @@ const pull = async () => {
     );
   if (data.guides)
     useGuide.getState().adoptDismissed(mergeGuides(mine.guides, data.guides));
+  if (data.board) useBoard.getState().adopt(mergeBoard(mine.board, data.board));
   return true;
 };
 
@@ -190,6 +214,9 @@ export function useAccountSync(userId: string | null) {
         }),
         useGuide.subscribe((s, prev) => {
           if (s.dismissed !== prev.dismissed) soon();
+        }),
+        useBoard.subscribe((s, prev) => {
+          if (s.pictures !== prev.pictures || s.gone !== prev.gone) soon();
         }),
       );
     });

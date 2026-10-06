@@ -18,15 +18,27 @@ import type { WheelMode } from "./input";
  */
 export type Mode = "edit" | "preview";
 export type Tool = "select" | "inspect" | "wall" | "measure" | "tour";
+/** what lights and reflects in the room from outside it: the studio's
+    own light panels, or one of four surroundings (Poly Haven environment
+    maps under public/sky, see its LICENSES.md) */
+export type Sky = "panels" | "apartment" | "studio" | "sunset" | "night";
+export const SKIES: { id: Sky; label: string }[] = [
+  { id: "panels", label: "Light panels" },
+  { id: "apartment", label: "An apartment" },
+  { id: "studio", label: "A photo studio" },
+  { id: "sunset", label: "A sunset" },
+  { id: "night", label: "Night" },
+];
 /** how the 3D room is looked at: edges on every piece, shadows (auto
-    follows the pointer: off under a finger), names, a floor grid, and
-    the light */
+    follows the pointer: off under a finger), names, a floor grid, the
+    light and the surroundings */
 export type SceneLook = {
   edges: boolean;
   shadows: "auto" | "on" | "off";
   labels: boolean;
   grid: boolean;
   light: "day" | "evening";
+  sky: Sky;
 };
 export const SCENE_DEFAULT: SceneLook = {
   edges: false,
@@ -34,6 +46,7 @@ export const SCENE_DEFAULT: SceneLook = {
   labels: false,
   grid: false,
   light: "day",
+  sky: "panels",
 };
 /** how far the plan can be zoomed, and by how much a step zooms */
 export const ZOOM = { min: 0.5, max: 4, step: 1.15 };

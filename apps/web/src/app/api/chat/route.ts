@@ -10,6 +10,7 @@ import type { Context } from "@/components/studio/eva-brain";
 import { pickDocs } from "@/components/studio/design-docs";
 import {
   contextText,
+  layoutText,
   personaText,
   EVA_RULES,
   ReplySchema,
@@ -32,6 +33,75 @@ export const runtime = "nodejs";
 const MODEL = process.env.EVA_MODEL ?? "claude-opus-5-5";
 const TURNS_PER_HOUR = 40;
 
+/** the studio's facts, as every route that asks the model takes them */
+export const ContextBody = z.object({
+  room: z.object({
+    id: z.enum([
+      "living",
+      "master",
+      "bedroom-1",
+      "bedroom-2",
+      "kitchen",
+      "study",
+    ]),
+    flat: z.string().max(20),
+    width: z.number(),
+    depth: z.number(),
+    height: z.number(),
+    sized: z.boolean(),
+  }),
+  pieces: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string().max(80),
+        kind: z.enum(["piece", "decor", "fixed"]),
+        category: z.enum([
+          "components",
+          "storage",
+          "seating",
+          "tables",
+          "screens",
+          "lighting",
+          "decor",
+          "architecture",
+        ]),
+        price: z.number().optional(),
+        at: z
+          .object({
+            x: z.number(),
+            y: z.number(),
+            w: z.number(),
+            d: z.number(),
+            rotation: z.number(),
+          })
+          .optional(),
+      }),
+    )
+    .max(200),
+  cart: z.array(z.string()).max(200),
+  findings: z.array(z.string().max(200)).max(20).default([]),
+  prefs: z.record(
+    z.string(),
+    z.object({
+      values: z.array(z.string()),
+      budget: z.tuple([z.number(), z.number()]).optional(),
+    }),
+  ),
+  exploration: z.boolean(),
+  rules: z.object({
+    walkway: z.number(),
+    doorClear: z.boolean(),
+    windowClear: z.boolean(),
+    bedWall: z.enum(["prefer", "required", "off"]),
+    mustHave: z.array(z.string().max(40)).max(20),
+    spacing: z.number(),
+    flow: z.number().min(0).max(100).default(50),
+    open: z.number().min(0).max(100).default(50),
+  }),
+  persona: z.enum(["eva", "style", "plan", "budget"]).default("eva"),
+});
+
 const Body = z.object({
   message: z.string().trim().min(1).max(2000),
   mode: z.enum(["ask", "furniture", "layout"]).default("ask"),
@@ -40,63 +110,7 @@ const Body = z.object({
       z.object({ who: z.enum(["you", "eva"]), text: z.string().max(4000) }),
     )
     .max(12),
-  context: z.object({
-    room: z.object({
-      id: z.enum([
-        "living",
-        "master",
-        "bedroom-1",
-        "bedroom-2",
-        "kitchen",
-        "study",
-      ]),
-      flat: z.string().max(20),
-      width: z.number(),
-      depth: z.number(),
-      height: z.number(),
-      sized: z.boolean(),
-    }),
-    pieces: z
-      .array(
-        z.object({
-          id: z.string(),
-          name: z.string().max(80),
-          kind: z.enum(["piece", "decor", "fixed"]),
-          category: z.enum([
-            "components",
-            "storage",
-            "seating",
-            "tables",
-            "screens",
-            "lighting",
-            "decor",
-            "architecture",
-          ]),
-          price: z.number().optional(),
-        }),
-      )
-      .max(200),
-    cart: z.array(z.string()).max(200),
-    prefs: z.record(
-      z.string(),
-      z.object({
-        values: z.array(z.string()),
-        budget: z.tuple([z.number(), z.number()]).optional(),
-      }),
-    ),
-    exploration: z.boolean(),
-    rules: z.object({
-      walkway: z.number(),
-      doorClear: z.boolean(),
-      windowClear: z.boolean(),
-      bedWall: z.enum(["prefer", "required", "off"]),
-      mustHave: z.array(z.string().max(40)).max(20),
-      spacing: z.number(),
-      flow: z.number().min(0).max(100).default(50),
-      open: z.number().min(0).max(100).default(50),
-    }),
-    persona: z.enum(["eva", "style", "plan", "budget"]).default("eva"),
-  }),
+  context: ContextBody,
 });
 
 const fallback = (reason: string, status: number) =>
@@ -144,7 +158,7 @@ export async function POST(req: Request) {
                 text:
                   mode === "furniture"
                     ? "The person set the box to Furniture: answer with picks from the catalogue, up to three, with why each fits."
-                    : "The person set the box to Room layout: answer about where things should stand in this room, in millimetres from its walls, and pick a piece only if one is missing.",
+                    : layoutText(ctx),
               },
             ]),
       ],

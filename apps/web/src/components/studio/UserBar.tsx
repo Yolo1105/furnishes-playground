@@ -8,11 +8,13 @@ import { authClient, useSession } from "@/lib/auth-client";
 import { usePathname } from "next/navigation";
 import { useRef, useState } from "react";
 import { AccountDialog } from "./AccountDialog";
+import { BoardDialog } from "./BoardDialog";
 import { Dialog } from "./Dialog";
 import { FeedbackDialog } from "./FeedbackDialog";
 import { HelpDialog } from "./HelpDialog";
 import { useGuide } from "./guide-store";
 import {
+  BoardIcon,
   CartIcon,
   CompassIcon,
   GearIcon,
@@ -28,11 +30,18 @@ import { useDismiss } from "./useDismiss";
  * The foot of the project rail: who is in the studio (the account's
  * name and email, or a guest), and one gear that opens settings (the
  * panels' corners, the wheel), the orders, Help (mouse, touch and
- * keyboard), Feedback (a word to the studio), the guide again, and
+ * keyboard), Board (the pictures kept), Feedback (a word to the studio), the guide again, and
  * signing in or out.
  */
 type Sheet =
-  "settings" | "help" | "orders" | "account" | "profile" | "feedback" | null;
+  | "settings"
+  | "help"
+  | "orders"
+  | "board"
+  | "account"
+  | "profile"
+  | "feedback"
+  | null;
 
 export function UserBar() {
   const { data: session } = useSession();
@@ -92,6 +101,14 @@ export function UserBar() {
             onClick={() => pick(() => setSheet("orders"))}
           >
             <CartIcon /> Orders
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="shell-menu-row"
+            onClick={() => pick(() => setSheet("board"))}
+          >
+            <BoardIcon /> Board
           </button>
           <button
             type="button"
@@ -162,6 +179,7 @@ export function UserBar() {
         />
       )}
       {sheet === "orders" && <OrdersDialog onClose={() => setSheet(null)} />}
+      {sheet === "board" && <BoardDialog onClose={() => setSheet(null)} />}
       {sheet === "feedback" && (
         <FeedbackDialog
           {...(session ? { email: session.user.email } : {})}

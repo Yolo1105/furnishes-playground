@@ -17,6 +17,7 @@ import { ViewCube } from "./ViewCube";
 import { other, useStudio } from "./studio-store";
 import { toast, useAccountSync } from "./account-sync";
 import { useGenerationsSync } from "./generation-store";
+import { useBoardSync } from "./board-store";
 import { refreshOrder, STATUS_NAMES, useOrdersSync } from "./order-store";
 import { useProjectSync } from "./project-store";
 import { productOf } from "./catalogue";
@@ -103,6 +104,7 @@ export function StudioShell({
     router.replace(pathname);
   }, [back, backOrder, backKey, router, pathname]);
   useGenerationsSync();
+  useBoardSync();
   const { data: session } = useSession();
   useAccountSync(session?.user.id ?? null);
   const [keys, setKeys] = useState(false);

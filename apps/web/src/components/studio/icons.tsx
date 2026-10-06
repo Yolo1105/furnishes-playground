@@ -464,6 +464,24 @@ export function WalkIcon({ size = 16 }: IconProps) {
   );
 }
 
+export function BoardIcon({ size = 16 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      aria-hidden="true"
+    >
+      <rect x="2" y="2" width="5" height="7" rx="1" />
+      <rect x="9" y="2" width="5" height="4" rx="1" />
+      <rect x="9" y="8" width="5" height="6" rx="1" />
+      <rect x="2" y="11" width="5" height="3" rx="1" />
+    </svg>
+  );
+}
 export function StarIcon({ size = 16 }: IconProps) {
   return (
     <svg {...svg(size)}>

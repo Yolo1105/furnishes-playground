@@ -4,11 +4,13 @@ import { Portrait } from "./Portrait";
 import { CATEGORY_NAMES, pieceTotals, sgd } from "./assets-data";
 import { planOf, stageOf, type Chip } from "./eva-brain";
 import {
+  FURNISH,
   personaOf,
   PREF_REVIEW,
   PREFERENCE_BLOCKS,
   PROMPTS,
   proposalLabel,
+  ROOM_REVIEW,
 } from "./eva-data";
 import { useEva } from "./eva-store";
 import {
@@ -31,16 +33,19 @@ import { inRoom as standsIn, useScene, useTopLevel } from "./scene-store";
 
 /**
  * The Agent tab: Eva, what she has read from the room in one line, and
- * two things to ask her straight away (Brainstorm for me, Review my
- * preferences). Under that the room plan, folded to one line that says
- * the most urgent of it: what is still to decide, the room's health
- * with a Fix for each finding, three layouts to inspect and apply, and
- * where the budget should go once one is kept. Then the thread of the
- * open conversation, you on the right and Eva on the left: her messages
- * carry the preferences she heard (to take up or set aside), the pieces
- * she picked with why each fits (and a way to add them), and what to say
- * next. Any answer can be pinned to the project (the pinned stand above
- * the thread). Before the first message, prompts to start from.
+ * four things to ask her straight away (Brainstorm for me, Furnish this
+ * room, Review this room, Review my preferences). Under that the room
+ * plan, folded to one line that says the most urgent of it: what is
+ * still to decide, the room's health with a Fix for each finding, four
+ * layouts to inspect and apply (and to ask Eva why), and where the
+ * budget should go once one is kept. Then the thread of the open
+ * conversation, you on the right and Eva on the left: her messages
+ * carry the preferences she heard (to take up or set aside), the
+ * changes she would make to the room (to apply as one undo step or set
+ * aside), what she noticed about it, the pieces she picked with why
+ * each fits (and a way to add them), and what to say next. Any answer
+ * can be pinned to the project (the pinned stand above the thread).
+ * Before the first message, prompts to start from.
  */
 export function AgentTab() {
   const room = useActiveRoom();
@@ -65,8 +70,18 @@ export function AgentTab() {
   const thinking = useEva((s) => s.thinking);
   const offline = useEva((s) => s.offline);
   const persona = personaOf(useEva((s) => s.persona));
-  const { send, settleProposal, pickChip, rate, pin, brainstorm, context } =
-    useEva.getState();
+  const {
+    send,
+    settleProposal,
+    applyChanges,
+    pickChip,
+    rate,
+    pin,
+    brainstorm,
+    furnish,
+    reviewRoom,
+    context,
+  } = useEva.getState();
   // the layout opened to see what it would do
   const [inspecting, setInspecting] = useState<string | null>(null);
   const { addProduct, select } = useScene.getState();
@@ -141,6 +156,22 @@ export function AgentTab() {
           >
             <LightbulbIcon size={14} />
             <span>{thinking ? "Thinking…" : "Brainstorm for me"}</span>
+          </button>
+          <button
+            type="button"
+            className="main-btn"
+            disabled={thinking}
+            onClick={() => void furnish()}
+          >
+            <span>{FURNISH}</span>
+          </button>
+          <button
+            type="button"
+            className="main-btn"
+            disabled={thinking}
+            onClick={() => void reviewRoom()}
+          >
+            <span>{ROOM_REVIEW}</span>
           </button>
           <button
             type="button"
@@ -292,6 +323,25 @@ export function AgentTab() {
                           ))}
                         </ul>
                       )}
+                      <button
+                        type="button"
+                        className="agent-fix agent-why-btn"
+                        disabled={thinking}
+                        onClick={() =>
+                          void send(
+                            `Why would the ${p.label} layout suit this room? The planner says: ${whyLines(
+                              p.id,
+                              p,
+                              stage.room.rules,
+                              i === stage.pick,
+                              stage.tied,
+                            ).join(" ")}`,
+                            "layout",
+                          )
+                        }
+                      >
+                        Ask Eva why
+                      </button>
                       <p className="agent-inspect-sum f-num">
                         {p.applied
                           ? "Every piece stands as this layout has it."
@@ -480,6 +530,121 @@ export function AgentTab() {
                   )}
                 </div>
               ))}
+              {m.changes && (
+                <div
+                  className="agent-changes"
+                  data-settled={m.changes.settled}
+                  role="group"
+                  aria-label="Eva's changes"
+                >
+                  <span className="agent-proposal-cat">Eva&apos;s changes</span>
+                  <ul className="agent-changes-list">
+                    {m.changes.removes.map((x) => (
+                      <li key={`out-${x.id}`}>
+                        Take out the {x.name.toLowerCase()}
+                      </li>
+                    ))}
+                    {m.changes.adds.map((x) => (
+                      <li key={`add-${x.id}`}>
+                        Bring in the {x.name.toLowerCase()}
+                      </li>
+                    ))}
+                    {m.changes.items.map((x) => (
+                      <li key={`item-${x.words}`}>
+                        Make {x.words.toLowerCase()} as a room item
+                      </li>
+                    ))}
+                    {m.changes.moves.map((x) => (
+                      <li key={`move-${x.id}`} className="f-num">
+                        Move the {x.name.toLowerCase()} to {metres(x.x)} ×{" "}
+                        {metres(x.y)}, turned {x.rotation}°
+                      </li>
+                    ))}
+                    {m.changes.layout && (
+                      <li>
+                        Lay everything out:{" "}
+                        {stage.plans.find((p) => p.id === m.changes!.layout)
+                          ?.label ?? m.changes.layout}
+                      </li>
+                    )}
+                  </ul>
+                  {m.changes.settled ? (
+                    <span className="agent-proposal-state">
+                      {m.changes.settled === "applied"
+                        ? "Applied"
+                        : "Set aside"}
+                    </span>
+                  ) : (
+                    <span className="agent-proposal-acts">
+                      <button
+                        type="button"
+                        className="main-btn main-btn-primary"
+                        onClick={() => applyChanges(m.id, true)}
+                      >
+                        <span>Apply</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="main-btn"
+                        onClick={() => applyChanges(m.id, false)}
+                      >
+                        <span>Not now</span>
+                      </button>
+                    </span>
+                  )}
+                </div>
+              )}
+              {m.observations && (
+                <ul className="agent-cards" aria-label="What Eva noticed">
+                  {m.observations.map((o) => {
+                    const added = o.pick ? inRoom.has(o.pick.name) : false;
+                    return (
+                      <li key={o.title} className="agent-card agent-obs">
+                        <span className="agent-card-row">
+                          <span className="agent-card-name">{o.title}</span>
+                        </span>
+                        <p className="agent-card-why">{o.body}</p>
+                        {o.pick && (
+                          <button
+                            type="button"
+                            className="main-btn agent-card-add"
+                            aria-pressed={added}
+                            disabled={added}
+                            onClick={() =>
+                              select(addProduct(o.pick!, room.id), false)
+                            }
+                          >
+                            {added ? (
+                              <CheckIcon size={13} />
+                            ) : (
+                              <PlusIcon size={13} />
+                            )}
+                            <span>
+                              {added
+                                ? "In the room"
+                                : `Add the ${o.pick.name.toLowerCase()}`}
+                            </span>
+                          </button>
+                        )}
+                        {o.act && !o.pick && (
+                          <button
+                            type="button"
+                            className="main-btn agent-card-add"
+                            disabled={thinking}
+                            onClick={() =>
+                              o.act!.send === FURNISH
+                                ? void furnish()
+                                : void send(o.act!.send, "layout")
+                            }
+                          >
+                            <span>{o.act.label}</span>
+                          </button>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
               {m.cards && (
                 <div className="agent-cards" aria-label="Pieces Eva picked">
                   {m.cards.map(({ product, why }) => {

@@ -7,12 +7,17 @@ import {
   type AssetNode,
 } from "./assets-data";
 import { products, type Product } from "./catalogue";
+import { ARCHETYPES } from "./archetypes";
 import {
   BUDGET,
+  FURNISH,
   FURNITURE,
+  ROOM_REVIEW,
   ROOMS,
   STYLES,
   SWATCHES,
+  type Changes,
+  type Observation,
   type PreferenceCategory,
   type ProposalCat,
   personaOf,
@@ -50,6 +55,12 @@ export type Preferences = Partial<
   Record<PreferenceCategory, { values: string[]; budget?: [number, number] }>
 >;
 
+/** a piece and where it stands: mm from the room's north-west corner,
+    its box on the floor, its turn */
+export type Standing = AssetNode & {
+  at?: { x: number; y: number; w: number; d: number; rotation: number };
+};
+
 export type Context = {
   room: {
     id: RoomId;
@@ -60,9 +71,12 @@ export type Context = {
     /** false until the walls are drawn or a template picked */
     sized: boolean;
   };
-  /** the pieces and room items standing in the room */
-  pieces: AssetNode[];
+  /** the pieces and room items standing in the room, each where it
+      stands when that is known */
+  pieces: Standing[];
   cart: string[];
+  /** what the planner flags about the room as it stands, in its words */
+  findings: string[];
   prefs: Preferences;
   exploration: boolean;
   /** the planner's rules for the room */
@@ -425,6 +439,10 @@ export type Reply = {
   proposals: Proposal[];
   cards: Recommendation[];
   chips: Chip[];
+  /** what Eva would do to the room, when she was asked to do something */
+  changes?: Changes;
+  /** what Eva noticed, from Review this room */
+  observations?: Observation[];
 };
 
 const roomLine = (c: Context) =>
@@ -486,6 +504,167 @@ export const brainstorm = (c: Context): Reply => {
   };
 };
 
+/** the room's size before anything is placed */
+const sizeGate = (proposals: Proposal[] = []): Reply => ({
+  text: "Could you give me the room's size first? Draw its walls or pick a template in the Room tab, and I'll plan around the real walls.",
+  proposals,
+  cards: [],
+  chips: [{ label: "Open the Room tab", act: "room-tab" }],
+});
+
+/** Furnish this room: what the room kind's archetype asks for that
+    is not in the room yet, the catalogue piece that is it or a room
+    item from a few words, and the By the book layout over it all */
+export const furnish = (c: Context): Reply => {
+  if (!c.room.sized) return sizeGate();
+  const a = ARCHETYPES[c.room.id];
+  const names = c.pieces.map((n) => n.name);
+  const adds: Changes["adds"] = [];
+  const items: Changes["items"] = [];
+  for (const rule of a.rules) {
+    if (names.some((n) => rule.what.test(n))) continue;
+    const product = products.find(
+      (p) =>
+        p.category !== "components" &&
+        rule.what.test(p.name) &&
+        !names.includes(p.name),
+    );
+    if (product) adds.push({ id: product.id, name: product.name });
+    else if (rule.item)
+      items.push({ words: rule.item, name: rule.item.replace(/^an? /i, "") });
+  }
+  const brought = [
+    ...adds.map((x) => `the ${x.name.toLowerCase()}`),
+    ...items.map((x) => x.words.toLowerCase()),
+  ];
+  const cost = adds.reduce(
+    (t, x) => t + (products.find((p) => p.id === x.id)?.price ?? 0),
+    0,
+  );
+  return {
+    text: `${
+      brought.length
+        ? `For the ${roomLine(c)} I'd bring in ${brought.join(", ")}${cost ? ` (${sgd(cost)} of Furnishes pieces)` : ""}, and`
+        : `The ${ROOM_NAMES[c.room.id]} has its anchors; I'd`
+    } stand everything by the book: ${a.name.toLowerCase()}. Apply it and look; Undo takes it back.`,
+    proposals: [],
+    cards: [],
+    chips: [
+      { label: "Why this layout?", send: "Why lay the room out this way?" },
+      { label: "Something cheaper", send: "Furnish it for less." },
+    ],
+    changes: { moves: [], removes: [], adds, items, layout: "book" },
+  };
+};
+
+/** how far apart two standing pieces are, edge to edge, mm */
+const apart = (
+  a: NonNullable<Standing["at"]>,
+  b: NonNullable<Standing["at"]>,
+) =>
+  Math.max(
+    0,
+    Math.max(a.x - (b.x + b.w), b.x - (a.x + a.w)),
+    Math.max(a.y - (b.y + b.d), b.y - (a.y + a.d)),
+  );
+/** within this of a wall is on it, mm */
+const ON_WALL = 150;
+
+/** Review this room: three to five things about the room as it stands,
+    read from the planner's findings, the archetype's rules, what is
+    still missing and the budget */
+export const reviewRoom = (c: Context): Reply => {
+  const out: Observation[] = [];
+  const plan = planOf(c);
+  if (!c.room.sized)
+    out.push({
+      title: "The walls first",
+      body: "Nothing can be judged until the room has its size. Draw the walls or pick a template in the Room tab.",
+    });
+  else if (c.pieces.length === 0)
+    out.push({
+      title: "An empty room",
+      body: `Nothing stands in the ${ROOM_NAMES[c.room.id]} yet. I can furnish it from the catalogue and lay it out by the book.`,
+      act: { label: "Furnish this room", send: FURNISH },
+    });
+  for (const f of c.findings.slice(0, 2))
+    out.push({ title: "The planner flags", body: f });
+  // the archetype: the anchor on a wall, its flankers beside it
+  const a = ARCHETYPES[c.room.id];
+  const standing = c.pieces.filter((n) => n.at);
+  const anchor = a.rules.find((r) => r.place === "longest-wall");
+  const bed = anchor && standing.find((n) => anchor.what.test(n.name));
+  if (anchor && bed?.at) {
+    const t = bed.at;
+    const onWall =
+      t.x <= ON_WALL ||
+      t.y <= ON_WALL ||
+      t.x + t.w >= c.room.width - ON_WALL ||
+      t.y + t.d >= c.room.depth - ON_WALL;
+    if (!onWall)
+      out.push({
+        title: `The ${anchor.name} stands away from every wall`,
+        body: `A ${anchor.name} usually sits with its back to the longest wall; the By the book layout puts it there.`,
+        act: {
+          label: "Lay it out by the book",
+          send: "Lay the room out by the book.",
+        },
+      });
+    const flank = a.rules.find(
+      (r) => r.place === "flanking" && r.target === anchor.name,
+    );
+    const far = flank
+      ? standing.filter((n) => flank.what.test(n.name) && apart(n.at!, t) > 300)
+      : [];
+    if (far.length)
+      out.push({
+        title: `The ${far[0]!.name.toLowerCase()} is far from the ${anchor.name}`,
+        body: `A ${flank!.name} belongs within reach of the ${anchor.name}, touching it; it stands ${Math.round(apart(far[0]!.at!, t) / 100) / 10} m away.`,
+        act: {
+          label: "Lay it out by the book",
+          send: "Lay the room out by the book.",
+        },
+      });
+  }
+  // what is still to decide, with the piece that would settle it
+  for (const cat of plan.missing.slice(0, 2)) {
+    const pick = products.find(
+      (p) =>
+        p.category === cat &&
+        (plan.remaining === undefined || p.price <= plan.remaining),
+    );
+    out.push({
+      title: `No ${CATEGORY_NAMES[cat].toLowerCase()} yet`,
+      body: pick
+        ? `${pick.name} at ${sgd(pick.price)} would settle it${plan.remaining !== undefined ? ` and leave ${sgd(plan.remaining - pick.price)} of the budget` : ""}.`
+        : `Nothing in the catalogue fits what is left of the budget; the room may do without.`,
+      ...(pick ? { pick } : {}),
+    });
+  }
+  if (plan.to === undefined)
+    out.push({
+      title: "No budget yet",
+      body: "With a range I can say where the money should go and keep the picks inside it.",
+      act: { label: "Set a budget", send: ASKS.budget },
+    });
+  else if (plan.remaining! < 0)
+    out.push({
+      title: `${sgd(-plan.remaining!)} over budget`,
+      body: `The Furnishes pieces come to ${sgd(plan.total)} against ${sgd(plan.to)}. I can swap the dearest for something cheaper.`,
+      act: { label: "Furnish it for less", send: "Furnish it for less." },
+    });
+  const observations = out.slice(0, 5);
+  return {
+    text: observations.length
+      ? `${observations.length === 1 ? "One thing" : `${observations.length} things`} I'd look at in the ${ROOM_NAMES[c.room.id]}.`
+      : `The ${ROOM_NAMES[c.room.id]} is in good order: nothing flagged, nothing missing, inside the budget.`,
+    proposals: [],
+    cards: [],
+    chips: [],
+    observations,
+  };
+};
+
 export const reply = (
   text: string,
   c: Context,
@@ -493,6 +672,8 @@ export const reply = (
 ): Reply => {
   if (text.trim() === BRAINSTORM) return brainstorm(c);
   if (text.trim() === PREF_REVIEW) return review(c);
+  if (text.trim() === FURNISH) return furnish(c);
+  if (text.trim() === ROOM_REVIEW) return reviewRoom(c);
   const proposals = hear(text, c.prefs);
   // the lens steers what is asked for, not small talk: a greeting gets
   // an answer, not a layout
@@ -528,13 +709,7 @@ export const reply = (
       ],
     };
   // the gates: the room's size before a layout, the budget before a list
-  if (intent === "layout" && !c.room.sized)
-    return {
-      text: "Could you give me the room's size first? Draw its walls or pick a template in the Room tab, and I'll plan around the real walls.",
-      proposals,
-      cards: [],
-      chips: [{ label: "Open the Room tab", act: "room-tab" }],
-    };
+  if (intent === "layout" && !c.room.sized) return sizeGate(proposals);
   if (
     intent === "shopping" &&
     !c.prefs.budget?.budget &&

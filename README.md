@@ -107,6 +107,37 @@ switches between them. Projects
 (new, rename, delete, switch) each hold a room, its pieces and Eva's
 side, autosaved in the browser.
 
+Eva can change the room. When she is asked to furnish, lay out, move
+or add things, her answer carries changes (pieces moved or turned,
+taken out, catalogue pieces brought in, room items made from a few
+words, each with a spot, and a layout to run over everything), shown
+under her message as Eva's changes with Apply and Not now; Apply is one
+undo step. The chat context tells the model where every piece stands
+and how big it is, and what the planner flags. Two actions sit beside
+Brainstorm in the Agent tab: Furnish this room (what the room kind's
+archetype asks for that is not there yet, from the catalogue or as a
+room item, laid out by the book) and Review this room (three to five
+observations, each with a piece to add or a thing to ask; the route
+`/api/suggestions` gives a caller so many a day, counted in the
+database, and without a key or past the day's share the studio's own
+rules review the room from the planner's findings, the archetype, what
+is missing and the budget). The planner's Layouts gained a fourth, By
+the book, from archetype rules per room kind
+(`apps/web/src/components/studio/archetypes.ts`: the bed centred on the
+longest wall with the bedsides flanking it, the wardrobe opposite, the
+desk at the window, the sofa facing the sideboard with the coffee table
+in front, the bookwall along the longest free wall, the dining table in
+the middle); the same rules are the model's guidance on the layout lens,
+and each layout's Inspect has Ask Eva why. View settings gained
+Surroundings: the studio's own light panels, or one of four Poly Haven
+environment maps (an apartment, a photo studio, a sunset, night) under
+`public/sky`, which light and reflect in the room. The gear's Board
+keeps pictures with a title and a note, uploaded (sized down in the
+browser first) or saved from a generated room item's tile, with the
+starred room items beside them; it is mirrored to the account as a
+fifth document and is in the data export. `docs/` holds the research
+notes and the Chinese product brief.
+
 Accounts are Better Auth over Drizzle: an email and a password from the
 gear's Sign in (or Google, when `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
 and `NEXT_PUBLIC_AUTH_GOOGLE=1` are set), the name and email in the

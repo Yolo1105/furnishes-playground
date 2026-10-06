@@ -9,7 +9,13 @@ import { explainPlan, travel } from "./plan-explain";
 import { healthOf, type Issue, type Room } from "./room-health";
 import { gapOf, layoutPlans, layoutRoom, type Placed } from "./room-layout";
 import { MUST_HAVE_CHOICES } from "./room-data";
-import { footprintOf, openingsOf, useRoom } from "./room-store";
+import {
+  footprintOf,
+  openingsOf,
+  useRoom,
+  type Join,
+  type RoomSpec,
+} from "./room-store";
 import {
   inRoom,
   noteStanding,
@@ -18,6 +24,35 @@ import {
   useTopLevel,
 } from "./scene-store";
 import { useStudio } from "./studio-store";
+
+/**
+ * The room as the planner reads it, where its pieces stand, and the
+ * four layouts of them: a pure reading, so Eva's store can lay a room
+ * out the same way the hook below shows it.
+ */
+export const layoutsOf = (
+  spec: RoomSpec,
+  joins: Join[],
+  pieces: AssetNode[],
+  overrides: Record<string, Partial<PieceProps>>,
+) => {
+  const room: Room = {
+    W: spec.width,
+    D: spec.depth,
+    outline: footprintOf(spec),
+    openings: openingsOf({ joins }, spec),
+    rules: spec.rules,
+  };
+  const props = new Map(pieces.map((n) => [n.id, propsOf(n, overrides)]));
+  const named = pieces.map((n) => ({ ...props.get(n.id)!, name: n.name }));
+  const laid = layoutRoom(named, room, gapOf(spec.rules));
+  return {
+    room,
+    props,
+    laid,
+    plans: layoutPlans(named, room, laid, spec.room),
+  };
+};
 
 /**
  * What a piece on the stage can do, shared by the plan (DOM) and the
@@ -46,15 +81,7 @@ export function usePieceActions(roomId?: string) {
   const spec = rooms.find((r) => r.id === (roomId ?? activeId)) ?? rooms[0]!;
   const firstId = rooms[0]!.id;
   const joins = useRoom((s) => s.joins);
-  const { width: W, depth: D, rules } = spec;
-  const room: Room = {
-    W,
-    D,
-    outline: footprintOf(spec),
-    openings: openingsOf({ joins }, spec),
-    rules,
-  };
-
+  const { rules } = spec;
   // what stands in this room: the pieces and the room items, never the
   // architecture (that is the room itself); a hidden piece keeps its
   // place in the rows but is not drawn
@@ -62,9 +89,8 @@ export function usePieceActions(roomId?: string) {
     (n) =>
       n.kind !== "fixed" && inRoom(overrides[n.id] ?? {}, spec.id, firstId),
   );
-  const props = new Map(pieces.map((n) => [n.id, propsOf(n, overrides)]));
-  const named = pieces.map((n) => ({ ...props.get(n.id)!, name: n.name }));
-  const laid = layoutRoom(named, room, gapOf(rules));
+  const read = layoutsOf(spec, joins, pieces, overrides);
+  const { room, props, laid } = read;
   const spots = new Map(laid.map((s, i) => [pieces[i]!.id, s]));
   // the store holds the laid-out pieces here before any one of them is
   // changed, so a move never shifts the rest
@@ -106,7 +132,7 @@ export function usePieceActions(roomId?: string) {
   );
   // the three layouts, each read against the same rules, costed by the
   // priorities and explained: what each would leave and move
-  const plans = layoutPlans(named, room, laid).map((plan) => {
+  const plans = read.plans.map((plan) => {
     const e = explainPlan(
       plan.id,
       plan.places,
@@ -202,7 +228,7 @@ export function usePieceActions(roomId?: string) {
       if (i.add) add(i.add);
       else if (i.fix && i.pieceId) setProps(i.pieceId, i.fix);
     },
-    /** the room laid out three ways, and which Eva would pick */
+    /** the room laid out four ways, and which Eva would pick */
     plans,
     pick,
     /** more than one layout costs the same: the pick is the one that moves least */

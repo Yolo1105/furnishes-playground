@@ -1167,3 +1167,35 @@
 .chat-eva {
   white-space: nowrap;
 }
+
+/* ---- Eva's changes: what she would do to the room, to apply or set aside ---- */
+.agent-changes {
+  display: grid;
+  gap: 6px;
+  max-width: 92%;
+  padding: 8px 10px;
+  border-radius: var(--r-card);
+  background: rgb(from var(--color-accent) r g b / 0.07);
+  font-size: 12px;
+  color: var(--color-ink);
+}
+.agent-changes[data-settled="dismissed"] {
+  background: rgba(255, 255, 255, 0.4);
+  color: rgb(from var(--color-ink) r g b / 0.5);
+}
+.agent-changes-list {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0 0 0 14px;
+  line-height: 1.4;
+}
+.agent-changes .agent-proposal-acts {
+  justify-self: start;
+}
+.agent-obs .agent-card-row {
+  font-size: 12.5px;
+}
+.agent-why-btn {
+  justify-self: start;
+}

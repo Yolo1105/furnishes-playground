@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { brainstorm, isLong, reply, type Context } from "./eva-brain";
-import { BRAINSTORM, PREF_REVIEW } from "./eva-data";
+import { BRAINSTORM, FURNISH, PREF_REVIEW, ROOM_REVIEW } from "./eva-data";
 import { rulesFor } from "./room-data";
 
 /**
@@ -21,6 +21,7 @@ const living = (over: Partial<Context> = {}): Context => ({
   },
   pieces: [],
   cart: [],
+  findings: [],
   prefs: { style: { values: ["Japandi"] } },
   exploration: false,
   rules: rulesFor("living"),
@@ -99,5 +100,87 @@ describe("the rules take no instruction", () => {
     expect(r.text).toMatch(/^I'm reading the Living & dining/);
     expect(r.cards).toHaveLength(0);
     expect(r.text).not.toMatch(/password/);
+  });
+});
+
+describe("furnishing and reviewing the room", () => {
+  const bedroom = (over: Partial<Context> = {}): Context =>
+    living({
+      room: { ...living().room, id: "master", width: 3600, depth: 3300 },
+      rules: rulesFor("master"),
+      ...over,
+    });
+  it("furnishes an empty bedroom from the archetype: catalogue pieces where it has them, room items where not, laid out by the book", () => {
+    const r = reply(FURNISH, bedroom());
+    expect(r.changes).toBeDefined();
+    expect(r.changes!.layout).toBe("book");
+    expect(r.changes!.items.map((x) => x.words)).toContain("A double bed");
+    expect(r.changes!.adds.map((x) => x.id)).toContain("bedside");
+    expect(r.text).toMatch(/by the book/);
+  });
+  it("furnishes nothing twice: what stands in the room is not brought in again", () => {
+    const r = reply(
+      FURNISH,
+      bedroom({
+        pieces: [
+          { id: "bed", name: "Double bed", kind: "decor", category: "decor" },
+          {
+            id: "bedside-1",
+            name: "Bedside cabinet",
+            kind: "piece",
+            category: "storage",
+            price: 230,
+            productId: "bedside",
+          },
+        ],
+      }),
+    );
+    expect(r.changes!.items.map((x) => x.words)).not.toContain("A double bed");
+    expect(r.changes!.adds.map((x) => x.id)).not.toContain("bedside");
+  });
+  it("asks for the room's size before furnishing", () => {
+    const r = reply(
+      FURNISH,
+      bedroom({ room: { ...bedroom().room, sized: false } }),
+    );
+    expect(r.changes).toBeUndefined();
+    expect(r.chips.some((c) => c.act === "room-tab")).toBe(true);
+  });
+  it("reviews the room from the planner's findings, the archetype and what is missing", () => {
+    const r = reply(
+      ROOM_REVIEW,
+      bedroom({
+        findings: ["The bed blocks the door."],
+        pieces: [
+          {
+            id: "bed",
+            name: "Double bed",
+            kind: "decor",
+            category: "decor",
+            at: { x: 1000, y: 1000, w: 1500, d: 2000, rotation: 0 },
+          },
+          {
+            id: "bedside-1",
+            name: "Bedside cabinet",
+            kind: "piece",
+            category: "storage",
+            price: 230,
+            productId: "bedside",
+            at: { x: 100, y: 100, w: 600, d: 400, rotation: 0 },
+          },
+        ],
+      }),
+    );
+    const titles = r.observations!.map((o) => o.title);
+    expect(titles).toContain("The planner flags");
+    expect(titles).toContain("The bed stands away from every wall");
+    expect(titles.some((t) => /far from the bed/.test(t))).toBe(true);
+    expect(titles).toContain("No budget yet");
+    expect(r.observations!.length).toBeLessThanOrEqual(5);
+  });
+  it("says an empty room is empty, and offers to furnish it", () => {
+    const r = reply(ROOM_REVIEW, bedroom());
+    expect(r.observations![0]!.title).toBe("An empty room");
+    expect(r.observations![0]!.act?.send).toBe(FURNISH);
   });
 });

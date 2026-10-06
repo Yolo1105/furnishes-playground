@@ -20,7 +20,9 @@ import {
   type Context,
   type Reply,
 } from "./eva-brain";
+import { archetypeText } from "./archetypes";
 import { HDB_CONVENTIONS, metres, ROOM_NAMES } from "./room-data";
+import type { Changes } from "./eva-data";
 
 /**
  * What the model is told and what it must answer with. The rules are the
@@ -40,6 +42,8 @@ The order of the work, which you keep to:
 2. Preferences: style and a budget come before a shopping list. If they ask for a list or prices without a budget, ask for the budget range (ask = "budget").
 3. Pieces: pick from the catalogue below, by id only. Never invent a product, a price or a link. At most three picks per answer. Every pick's "why" must cite something confirmed: a kept preference, the room's size, a need they stated, or the budget left.
 4. Refine and order: once the core pieces are in the room, help decide what is still missing and when it is ready to order.
+
+Changing the room: when the person asks you to furnish, lay out, move, turn, add or remove things, answer with "changes" (moves of pieces by id to x, y in mm of their north-west corner with a turn of 0, 90, 180 or 270; removes by id; adds from the catalogue by id, with a spot; items from a few words, such as "a double bed", with a spot) and say in the text what you did and why. Keep every piece inside the room, a walkway apart, and the door's swing clear. Otherwise leave "changes" null.
 
 Hearing preferences: when the person states a room type, style, colour, furniture need or budget, propose it (do not treat it as kept until they keep it). Use only these names: rooms ${ROOMS.join(", ")}; styles ${STYLES.join(", ")}; colours ${SWATCHES.map((s) => s.name).join(", ")}; needs ${FURNITURE.join(", ")}. A budget is a range in Singapore dollars between ${BUDGET.min} and ${BUDGET.max}, in steps of ${BUDGET.step}.
 
@@ -73,14 +77,18 @@ export const contextText = (c: Context) => {
     .join("; ");
   return `Room: ${ROOM_NAMES[c.room.id]} in a ${c.room.flat} HDB flat, ${metres(c.room.width)} × ${metres(c.room.depth)}, ${metres(c.room.height)} high. Walls ${c.room.sized ? "set" : "NOT set yet"}.
 Stage: ${STAGES.find((s) => s.id === stage)?.label} (${stage}). Readiness ${plan.score}%: ${plan.label}. Still to decide: ${plan.missing.map((k) => CATEGORY_NAMES[k]).join(", ") || "nothing"}.
-In the room: ${
+In the room (id · name · where it stands, mm from the north-west corner, x east and y south · its box on the floor · its turn): ${
     c.pieces
       .map(
         (n) =>
-          `${n.name}${n.kind === "piece" && n.price !== undefined ? ` (${sgd(n.price)})` : " (room item)"}`,
+          `${n.id} · ${n.name}${n.kind === "piece" && n.price !== undefined ? ` (${sgd(n.price)})` : " (room item)"}${
+            n.at
+              ? ` · at ${n.at.x},${n.at.y} · ${n.at.w} × ${n.at.d} · ${n.at.rotation}°`
+              : ""
+          }`,
       )
-      .join(", ") || "nothing yet"
-  }. Furnishes pieces total ${sgd(plan.total)}${plan.to !== undefined ? `, budget ${sgd(plan.to)}, ${plan.remaining! >= 0 ? `${sgd(plan.remaining!)} left` : `${sgd(-plan.remaining!)} over`}` : ""}.
+      .join("; ") || "nothing yet"
+  }. ${c.findings.length ? `The planner flags: ${c.findings.join(" ")} ` : ""}Furnishes pieces total ${sgd(plan.total)}${plan.to !== undefined ? `, budget ${sgd(plan.to)}, ${plan.remaining! >= 0 ? `${sgd(plan.remaining!)} left` : `${sgd(-plan.remaining!)} over`}` : ""}.
 In the cart: ${c.cart.length} piece(s).
 Kept preferences: ${prefs || "none yet"}. Exploration: ${c.exploration ? "on" : "off"}.
 The room's rules: walkways ${c.rules.walkway} mm; the door's swing ${c.rules.doorClear ? "kept clear" : "may be stood in"}; the window ${c.rules.windowClear ? "kept clear of tall pieces" : "may be stood in front of"}; a bed against a wall ${c.rules.bedWall === "off" ? "not asked" : c.rules.bedWall}; must have ${c.rules.mustHave.join(", ") || "nothing in particular"}; layouts ${c.rules.walkway + c.rules.spacing} mm apart; priorities ${c.rules.flow >= 70 ? "flow over storage" : c.rules.flow <= 30 ? "storage over flow" : "flow and storage balanced"}, ${c.rules.open >= 70 ? "an open middle" : c.rules.open <= 30 ? "a cosy room" : "neither open nor cosy in particular"}.
@@ -114,6 +122,33 @@ export const ReplySchema = z.object({
   ),
   picks: z.array(z.object({ id: z.string(), why: z.string() })),
   chips: z.array(z.object({ label: z.string(), send: z.string() })),
+  changes: z
+    .object({
+      moves: z.array(
+        z.object({
+          id: z.string(),
+          x: z.number(),
+          y: z.number(),
+          rotation: z.number(),
+        }),
+      ),
+      removes: z.array(z.string()),
+      adds: z.array(
+        z.object({
+          id: z.string(),
+          x: z.number().nullable(),
+          y: z.number().nullable(),
+        }),
+      ),
+      items: z.array(
+        z.object({
+          words: z.string(),
+          x: z.number().nullable(),
+          y: z.number().nullable(),
+        }),
+      ),
+    })
+    .nullable(),
 });
 type ModelReply = z.infer<typeof ReplySchema>;
 
@@ -166,5 +201,89 @@ export const toReply = (m: ModelReply, c: Context): Reply => {
       { label: "More options", act: "more" },
       { label: "Cheaper", act: "cheaper" },
     );
-  return { text: m.text, proposals, cards, chips: chips.slice(0, 5) };
+  const changes = m.changes ? toChanges(m.changes, c) : undefined;
+  return {
+    text: m.text,
+    proposals,
+    cards,
+    chips: chips.slice(0, 5),
+    ...(changes ? { changes } : {}),
+  };
 };
+
+/** a spot kept inside the room, on the placing grid */
+const inside = (
+  x: number,
+  y: number,
+  box: { w: number; d: number },
+  c: Context,
+) => ({
+  x: Math.round(Math.min(Math.max(0, x), c.room.width - box.w) / 50) * 50,
+  y: Math.round(Math.min(Math.max(0, y), c.room.depth - box.d) / 50) * 50,
+});
+/** the model's changes as the studio can do them: ids it knows, spots
+    inside the room, turns on the quarter; nothing left means none */
+const toChanges = (
+  m: NonNullable<ModelReply["changes"]>,
+  c: Context,
+): Changes | undefined => {
+  const byId = new Map(c.pieces.map((n) => [n.id, n]));
+  const inRoom = new Set(c.pieces.map((n) => n.name));
+  const moves = m.moves.flatMap((mv) => {
+    const n = byId.get(mv.id);
+    if (!n) return [];
+    const rotation = (((Math.round(mv.rotation / 90) * 90) % 360) + 360) % 360;
+    const box = n.at
+      ? rotation % 180 === n.at.rotation % 180
+        ? { w: n.at.w, d: n.at.d }
+        : { w: n.at.d, d: n.at.w }
+      : { w: 0, d: 0 };
+    return [
+      { id: n.id, name: n.name, ...inside(mv.x, mv.y, box, c), rotation },
+    ];
+  });
+  const removes = m.removes.flatMap((id) => {
+    const n = byId.get(id);
+    return n ? [{ id: n.id, name: n.name }] : [];
+  });
+  const adds = m.adds.flatMap((a) => {
+    const p = products.find(
+      (x) => x.id === a.id && x.category !== "components",
+    );
+    if (!p || inRoom.has(p.name)) return [];
+    const spot =
+      a.x !== null && a.y !== null
+        ? inside(
+            a.x,
+            a.y,
+            { w: p.recipe?.width ?? 600, d: p.recipe?.depth ?? 400 },
+            c,
+          )
+        : {};
+    return [{ id: p.id, name: p.name, ...spot }];
+  });
+  const items = m.items.flatMap((it) => {
+    const words = it.words.trim().slice(0, 60);
+    if (words.length < 2) return [];
+    const spot =
+      it.x !== null && it.y !== null
+        ? inside(it.x, it.y, { w: 600, d: 600 }, c)
+        : {};
+    return [
+      {
+        words,
+        name: words
+          .replace(/^(a|an|the)\s+/i, "")
+          .replace(/^\w/, (ch) => ch.toUpperCase()),
+        ...spot,
+      },
+    ];
+  });
+  if (!moves.length && !removes.length && !adds.length && !items.length)
+    return undefined;
+  return { moves, removes, adds, items };
+};
+
+/** the layout lens's guidance: how a room of this kind is laid out */
+export const layoutText = (c: Context) =>
+  `The person set the box to Room layout: answer about where things should stand in this room, in millimetres from its walls, and pick a piece only if one is missing. When they ask you to lay out, furnish or move things, answer with changes. ${archetypeText(c.room.id)}`;

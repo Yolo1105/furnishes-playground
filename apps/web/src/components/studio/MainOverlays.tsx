@@ -51,6 +51,7 @@ import { PlanSymbol } from "./plan-symbols";
 import { propsOf, topLevelOf, useScene, useTopLevel } from "./scene-store";
 import {
   type ShelfTab,
+  SKIES,
   type Tool,
   useStudio,
   viewName,
@@ -340,6 +341,24 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
                             aria-hidden="true"
                           />
                           {label}
+                        </button>
+                      ))}
+                      <div className="shell-menu-sep" role="separator" />
+                      <p className="main-prefs-title">Surroundings</p>
+                      {SKIES.map((sky) => (
+                        <button
+                          key={sky.id}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={scene.sky === sky.id}
+                          className="shell-menu-row"
+                          onClick={() => setScene({ sky: sky.id })}
+                        >
+                          <span
+                            className="main-prefs-check"
+                            aria-hidden="true"
+                          />
+                          {sky.label}
                         </button>
                       ))}
                     </div>
