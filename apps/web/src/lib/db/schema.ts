@@ -1,6 +1,7 @@
 import {
   bigint,
   boolean,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -19,7 +20,10 @@ import {
  * account's mirror of the browser, one JSON document per kind (see
  * api/sync); `share` holds the rooms shared by link (see api/share);
  * `orders` and `payment_event` are the shop's ledger (api/checkout,
- * api/orders, api/webhooks/stripe).
+ * api/orders, api/webhooks/stripe); `help_request` and `waitlist` are
+ * what people write to the studio (api/help, api/waitlist);
+ * `rate_limit` and `cost_log` are the bounds on the providers
+ * (lib/rate-limit, lib/cost).
  * `drizzle-kit generate` turns a change here into a migration under
  * drizzle/.
  */
@@ -167,3 +171,50 @@ export const paymentEvent = pgTable("payment_event", {
   orderId: text(),
   at: bigint({ mode: "number" }).notNull(),
 });
+
+export const helpRequest = pgTable(
+  "help_request",
+  {
+    id: text().primaryKey(),
+    userId: text().references(() => user.id, { onDelete: "set null" }),
+    email: text().notNull(),
+    /** problem, idea or question */
+    category: text().notNull(),
+    message: text().notNull(),
+    /** where they were: the page and the project */
+    context: text(),
+    at: bigint({ mode: "number" }).notNull(),
+  },
+  (t) => [index("help_request_user_id_idx").on(t.userId)],
+);
+
+export const waitlist = pgTable("waitlist", {
+  email: text().primaryKey(),
+  at: bigint({ mode: "number" }).notNull(),
+});
+
+/** a caller's goes in a fixed window, by what they are doing */
+export const rateLimit = pgTable("rate_limit", {
+  key: text().primaryKey(),
+  windowStart: bigint({ mode: "number" }).notNull(),
+  count: integer().notNull(),
+});
+
+/** what a provider's call cost, counted as it is spent */
+export const costLog = pgTable(
+  "cost_log",
+  {
+    id: text().primaryKey(),
+    caller: text().notNull(),
+    userId: text(),
+    /** chat or item */
+    kind: text().notNull(),
+    model: text(),
+    inputTokens: integer().notNull(),
+    outputTokens: integer().notNull(),
+    /** US dollars, as the providers bill */
+    usd: doublePrecision().notNull(),
+    at: bigint({ mode: "number" }).notNull(),
+  },
+  (t) => [index("cost_log_at_idx").on(t.at)],
+);

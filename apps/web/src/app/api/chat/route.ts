@@ -2,7 +2,10 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { callerOf, perHour } from "@/lib/rate-limit";
+import { userIdOf } from "@/lib/auth";
+import { costOfTokens, logCost, overCap } from "@/lib/cost";
+import { refuse, sanitize } from "@/lib/guard";
+import { allow, callerOf } from "@/lib/rate-limit";
 import type { Context } from "@/components/studio/eva-brain";
 import { pickDocs } from "@/components/studio/design-docs";
 import {
@@ -18,8 +21,11 @@ import {
  * and the studio's facts go to Claude with the chatbot's rules, and one
  * answer of a fixed shape comes back as the studio's reply. Without an
  * API key the route says so (503) and the studio answers from its rule
- * brain instead; so it does on any failure here. A browser gets a
- * bounded number of turns an hour.
+ * brain instead; so it does on any failure here, and on a message that
+ * tries to talk the model out of its rules (400), which the rules
+ * answer without taking instruction. A caller gets a bounded number of
+ * turns an hour and a bounded spend a day, counted in the cost log;
+ * what the model says is read without any line that plays a role.
  */
 export const runtime = "nodejs";
 
@@ -93,18 +99,20 @@ const Body = z.object({
   }),
 });
 
-const allowed = perHour(TURNS_PER_HOUR);
-
 const fallback = (reason: string, status: number) =>
   NextResponse.json({ fallback: true, reason }, { status });
 
 export async function POST(req: Request) {
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return fallback("bad-request", 400);
+  const { message, thread, context, mode } = parsed.data;
+  const refused = refuse(message);
+  if (refused) return fallback(refused, 400);
   if (!process.env.ANTHROPIC_API_KEY) return fallback("no-key", 503);
   const key = callerOf(req);
-  if (!allowed(key)) return fallback("rate-limit", 429);
-  const { message, thread, context, mode } = parsed.data;
+  if (!(await allow(`chat:${key}`, TURNS_PER_HOUR)))
+    return fallback("rate-limit", 429);
+  if (await overCap(key)) return fallback("cost-cap", 429);
   const ctx = context as Context;
 
   const docs = pickDocs(message, ctx.prefs.style?.values ?? []);
@@ -148,10 +156,23 @@ export async function POST(req: Request) {
         { role: "user", content: message },
       ],
     });
+    await logCost({
+      caller: key,
+      userId: await userIdOf(req),
+      kind: "chat",
+      model: response.model,
+      inputTokens: response.usage.input_tokens,
+      outputTokens: response.usage.output_tokens,
+      usd: costOfTokens(
+        response.usage.input_tokens,
+        response.usage.output_tokens,
+      ),
+    });
     if (response.stop_reason === "refusal" || !response.parsed_output)
       return fallback("no-answer", 502);
+    const reply = toReply(response.parsed_output, ctx);
     return NextResponse.json({
-      reply: toReply(response.parsed_output, ctx),
+      reply: { ...reply, text: sanitize(reply.text) },
       model: response.model,
     });
   } catch (error) {

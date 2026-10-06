@@ -9,8 +9,9 @@ import { authClient } from "@/lib/auth-client";
 /**
  * The account, from the studio's gear: the name (editable), the email,
  * when the account last took the browser's mirror with Save now, Sign
- * out, the rooms shared by link (open one, take a link down), and the
- * end of the account with its confirmation.
+ * out, the rooms shared by link (open one, take a link down), a copy
+ * of everything the account holds to download, and the end of the
+ * account with its confirmation.
  */
 type Share = { id: string; name: string; at: number };
 const when = (at: number) =>
@@ -149,6 +150,17 @@ export function ProfileDialog({
           ))}
         </ul>
       )}
+      <h2 className="eva-pref-title">Your data</h2>
+      <p className="account-text">
+        Everything the account holds, as one file: the mirror of this browser,
+        the rooms shared by link, the orders placed and what you wrote to the
+        studio.
+      </p>
+      <div className="shell-dialog-acts">
+        <a className="main-btn" href="/api/account/export" download>
+          Download my data
+        </a>
+      </div>
       <h2 className="eva-pref-title">Deleting the account</h2>
       <p className="account-text">
         Deleting the account takes what it holds with it: the projects, orders,

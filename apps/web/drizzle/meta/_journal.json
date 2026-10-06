@@ -29,6 +29,13 @@
       "when": 1791252641795,
       "tag": "0003_orders",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791253381573,
+      "tag": "0004_bounds",
+      "breakpoints": true
     }
   ]
 }

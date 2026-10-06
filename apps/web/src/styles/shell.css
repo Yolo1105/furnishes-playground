@@ -1313,6 +1313,13 @@ body > .shell-menu {
   font-size: 11px;
   color: var(--color-accent);
 }
+.feedback-text {
+  height: auto;
+  min-height: 96px;
+  resize: vertical;
+  line-height: 1.45;
+  padding: 8px 10px;
+}
 .order-note {
   margin: 12px 0 0;
   font-size: 12px;

@@ -137,7 +137,18 @@ intent and charge events); the migrations run on the first request. Every respon
 `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` and
 HSTS; `/robots.txt` keeps crawlers out of the API and `/sitemap.xml`
 lists the pages. A page that fails says so in the home page's design,
-with Try again and a way into the studio. Not built, as each needs a mail sender or a payment provider
+with Try again and a way into the studio. The providers are bounded:
+each caller gets so many turns and items an hour, counted in the
+database so a fleet of servers counts as one, and what each call cost
+goes into a cost log with a day's share per caller and for the site
+(the rates and the shares are set in the environment; see
+`.env.example`); a message that tries to talk the model out of its rules
+is refused and the studio's own rules answer it, and what the model
+says is read without any line that plays a role. The gear's Feedback
+writes to the studio's own table (`/api/help`, with the page and
+project it came from), `/api/waitlist` keeps an email once, and the
+gear's Account offers everything the account holds as one file
+(`/api/account/export`). Not built, as each needs a mail sender or a payment provider
 that is not connected: forgotten-password mail, email verification, and
 payment itself (an order waits at awaiting payment).
 

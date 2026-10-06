@@ -30,7 +30,8 @@ export async function POST(req: Request) {
   const event = parseEvent(raw);
   if (!event)
     return NextResponse.json({ error: "bad-payload" }, { status: 400 });
-  const { db } = getDb();
+  const { db, ready } = getDb();
+  await ready;
   const fresh = await db
     .insert(paymentEvent)
     .values({ id: event.id, kind: event.kind, at: Date.now() })

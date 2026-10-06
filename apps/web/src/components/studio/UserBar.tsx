@@ -9,6 +9,7 @@ import { usePathname } from "next/navigation";
 import { useRef, useState } from "react";
 import { AccountDialog } from "./AccountDialog";
 import { Dialog } from "./Dialog";
+import { FeedbackDialog } from "./FeedbackDialog";
 import { HelpDialog } from "./HelpDialog";
 import { useGuide } from "./guide-store";
 import {
@@ -19,7 +20,6 @@ import {
   MessageIcon,
   UserIcon,
 } from "./icons";
-import { SITE } from "@/lib/site";
 import { OrdersDialog } from "./OrdersDialog";
 import { ProfileDialog } from "./ProfileDialog";
 import { useDismiss } from "./useDismiss";
@@ -28,9 +28,11 @@ import { useDismiss } from "./useDismiss";
  * The foot of the project rail: who is in the studio (the account's
  * name and email, or a guest), and one gear that opens settings (the
  * panels' corners, the wheel), the orders, Help (mouse, touch and
- * keyboard), the guide again, and signing in or out.
+ * keyboard), Feedback (a word to the studio), the guide again, and
+ * signing in or out.
  */
-type Sheet = "settings" | "help" | "orders" | "account" | "profile" | null;
+type Sheet =
+  "settings" | "help" | "orders" | "account" | "profile" | "feedback" | null;
 
 export function UserBar() {
   const { data: session } = useSession();
@@ -99,14 +101,14 @@ export function UserBar() {
           >
             <HelpIcon /> Help
           </button>
-          <a
+          <button
+            type="button"
             role="menuitem"
             className="shell-menu-row"
-            href={`mailto:${SITE.contact}?subject=${encodeURIComponent(`${SITE.name} feedback`)}`}
-            onClick={() => setOpen(false)}
+            onClick={() => pick(() => setSheet("feedback"))}
           >
             <MessageIcon /> Feedback
-          </a>
+          </button>
           <button
             type="button"
             role="menuitem"
@@ -160,6 +162,12 @@ export function UserBar() {
         />
       )}
       {sheet === "orders" && <OrdersDialog onClose={() => setSheet(null)} />}
+      {sheet === "feedback" && (
+        <FeedbackDialog
+          {...(session ? { email: session.user.email } : {})}
+          onClose={() => setSheet(null)}
+        />
+      )}
     </div>
   );
 }

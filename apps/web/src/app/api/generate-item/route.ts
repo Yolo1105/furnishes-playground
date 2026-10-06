@@ -1,7 +1,9 @@
 import { fal } from "@fal-ai/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { callerOf, perHour } from "@/lib/rate-limit";
+import { userIdOf } from "@/lib/auth";
+import { logCost, overCap, RATES } from "@/lib/cost";
+import { allow, callerOf } from "@/lib/rate-limit";
 
 /**
  * A room item from a few words, the way the archive made them: Flux
@@ -18,8 +20,6 @@ const MESH_MODEL = "fal-ai/hunyuan-3d/v3.1/rapid/image-to-3d";
 const ITEMS_PER_HOUR = 12;
 
 const Body = z.object({ prompt: z.string().trim().min(2).max(200) });
-
-const allowed = perHour(ITEMS_PER_HOUR);
 
 const fallback = (reason: string, status: number) =>
   NextResponse.json({ fallback: true, reason }, { status });
@@ -40,7 +40,9 @@ export async function POST(req: Request) {
   const key = process.env.FAL_KEY;
   if (!key) return fallback("no-key", 503);
   const who = callerOf(req);
-  if (!allowed(who)) return fallback("rate-limit", 429);
+  if (!(await allow(`item:${who}`, ITEMS_PER_HOUR)))
+    return fallback("rate-limit", 429);
+  if (await overCap(who)) return fallback("cost-cap", 429);
   fal.config({ credentials: key });
   try {
     const image = (await fal.subscribe(IMAGE_MODEL, {
@@ -56,6 +58,13 @@ export async function POST(req: Request) {
       input: { input_image_url: imageUrl, enable_pbr: true },
     })) as { data: Record<string, unknown> };
     const modelUrl = meshUrl(mesh.data);
+    await logCost({
+      caller: who,
+      userId: await userIdOf(req),
+      kind: "item",
+      model: MESH_MODEL,
+      usd: RATES.perItem,
+    });
     return NextResponse.json({ imageUrl, ...(modelUrl ? { modelUrl } : {}) });
   } catch {
     return fallback("provider", 502);
