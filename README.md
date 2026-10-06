@@ -29,7 +29,9 @@ pnpm dev                # http://localhost:3000
 A "Module not found" at start, naming a package under `node_modules/.pnpm`,
 means the install is older than the checkout: run `pnpm install`.
 
-Checks: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm e2e`, `pnpm build`.
+Checks: `pnpm lint`, `pnpm typecheck`, `pnpm test` (vitest: the domain
+package's recipes and prices, the web app's Stripe signing, order
+pricing and Eva's rules), `pnpm e2e`, `pnpm build`.
 
 Notes:
 
@@ -128,8 +130,10 @@ the domain, and set four variables: `DATABASE_URL` from a Neon project
 (a hosted run without one refuses to start rather than lose accounts
 on a wiped disk), `BETTER_AUTH_SECRET` from `openssl rand -base64 32`,
 `BETTER_AUTH_URL=https://furnish-es.com`, and whichever provider keys
-you want on (`ANTHROPIC_API_KEY`, `FAL_KEY`, `STRIPE_SECRET_KEY`); the
-migrations run on the first request. Every response carries
+you want on (`ANTHROPIC_API_KEY`, `FAL_KEY`, `STRIPE_SECRET_KEY` with
+`STRIPE_WEBHOOK_SECRET` from a webhook endpoint at
+`/api/webhooks/stripe` listening to the checkout session, payment
+intent and charge events); the migrations run on the first request. Every response carries
 `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` and
 HSTS; `/robots.txt` keeps crawlers out of the API and `/sitemap.xml`
 lists the pages. A page that fails says so in the home page's design,
@@ -156,8 +160,17 @@ a tile that opens the catalogue, and how ready the room is to order
 (the share of its pieces in the cart, the cart against the budget when
 one is kept). Checkout takes a delivery address and
 places an order in a ledger (awaiting payment, paid, delivered,
-cancelled, refunded) listed under the gear; no payment provider is wired,
-and `/api/checkout` says so rather than pretend. The right rail shows the
+cancelled, refunded) listed under the gear. The order is kept on the
+server too (`/api/checkout` prices its lines again from the catalogue,
+so what is charged is what the studio showed, and keeps it under the
+account when signed in and under a random key either way); with
+`STRIPE_SECRET_KEY` set a hosted Stripe payment page is opened and
+offered, and `/api/webhooks/stripe`, checking Stripe's signature and
+keeping each event's id so a replay does nothing twice, moves the order
+to paid, cancelled when the page lapsed, or refunded; the studio reads
+the order back on the way home (`/api/orders/[id]`) and says so. Without
+a key the order waits as awaiting payment and the route says so rather
+than pretend. The right rail shows the
 other view small over Eva's Agent, History and Preference tabs.
 
 A project is a flat of rooms on one sheet. The Room tab's Rooms row adds

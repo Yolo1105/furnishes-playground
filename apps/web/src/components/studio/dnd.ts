@@ -176,11 +176,7 @@ export const endTileDrag = (e: ReactPointerEvent) => {
     // stood where the pointer let go, its middle under the pointer
     const r = sheet.getBoundingClientRect();
     const f = footprint(
-      defaultProps({
-        ...product,
-        kind: "piece",
-        ...(product.recipe ? { productId: product.id } : {}),
-      }),
+      defaultProps({ ...product, kind: "piece", productId: product.id }),
     );
     const x = ((e.clientX - r.left) / r.width) * room.width - f.w / 2;
     const y = ((e.clientY - r.top) / r.height) * room.depth - f.d / 2;

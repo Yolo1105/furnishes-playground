@@ -123,5 +123,5 @@ const asNode = (p: Product): AssetNode => ({
   kind: "piece",
   category: p.category,
   price: p.price,
-  ...(p.recipe ? { productId: p.id } : {}),
+  productId: p.id,
 });

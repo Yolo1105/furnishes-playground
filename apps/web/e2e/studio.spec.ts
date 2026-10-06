@@ -2133,11 +2133,72 @@ test("an order is placed with a delivery address, waits for payment, is listed a
   await expect(
     card.getByRole("button", { name: `${first.name} is ordered` }),
   ).toBeDisabled();
-  // the route itself says offline
+  // the server has the order too, under the key it handed back: it
+  // stands awaiting payment, is nobody else's, and can be cancelled
+  const kept = await page.evaluate(
+    () =>
+      (
+        JSON.parse(localStorage.getItem("furnishes.orders") ?? "{}") as {
+          orders: { id: string; key?: string }[];
+        }
+      ).orders[0]!,
+  );
+  expect(kept.key).toBeTruthy();
+  const mine = await page.request.get(
+    `/api/orders/${kept.id}?key=${encodeURIComponent(kept.key!)}`,
+  );
+  expect((await mine.json()).status).toBe("pending_payment");
+  expect(
+    (await page.request.get(`/api/orders/${kept.id}?key=wrong`)).status(),
+  ).toBe(404);
+  // the route prices the lines itself: a stale total is said, not charged;
+  // a piece not in the catalogue is refused; without Stripe it is offline
+  const address = {
+    recipient: "Mei Lin",
+    line1: "Blk 123 Bedok North Ave 3 #05-67",
+    postal: "460123",
+    phone: "91234567",
+  };
+  const line = { productId: first.productId!, name: first.name, price: 1 };
+  const stale = await page.request.post("/api/checkout", {
+    data: {
+      orderId: "FN-TEST1",
+      lines: [line],
+      total: 1,
+      address,
+      currency: "SGD",
+    },
+  });
+  expect(stale.status()).toBe(409);
+  expect((await stale.json()).total).toBe(first.price);
+  const unknown = await page.request.post("/api/checkout", {
+    data: {
+      orderId: "FN-TEST2",
+      lines: [{ ...line, productId: "nope" }],
+      total: 1,
+      address,
+      currency: "SGD",
+    },
+  });
+  expect(unknown.status()).toBe(400);
   const res = await page.request.post("/api/checkout", {
-    data: { orderId: "FN-TEST", total: 540, currency: "SGD" },
+    data: {
+      orderId: "FN-TEST3",
+      lines: [line],
+      total: first.price,
+      address,
+      currency: "SGD",
+    },
   });
   expect((await res.json()).mode).toBe("offline");
+  // the webhook wants its secret before anything else
+  expect(
+    (
+      await page.request.post("/api/webhooks/stripe", {
+        data: { id: "evt_x", type: "checkout.session.completed" },
+      })
+    ).status(),
+  ).toBe(503);
   // under the gear: Orders lists it; Cancel takes it back; it survives a reload
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByRole("menuitem", { name: "Orders" }).click();
@@ -2152,6 +2213,18 @@ test("an order is placed with a delivery address, waits for payment, is listed a
   await expect(orders.locator(".order-status")).toHaveText("Cancelled");
   await page.keyboard.press("Escape");
   await expect(card).toHaveAttribute("data-ordered", "false");
+  await expect
+    .poll(
+      async () =>
+        (
+          await (
+            await page.request.get(
+              `/api/orders/${kept.id}?key=${encodeURIComponent(kept.key!)}`,
+            )
+          ).json()
+        ).status,
+    )
+    .toBe("cancelled");
 });
 
 test("the planner's rules: the door's swing, the window, a walkway, each with a Fix", async ({

@@ -39,7 +39,8 @@ export const useSyncState = create<SyncState>(() => ({
 }));
 const NOTE_FOR = 6000; // ms
 let noteTimer: ReturnType<typeof setTimeout> | undefined;
-const say = (note: string) => {
+/** a line said at the foot of the studio for a moment */
+export const toast = (note: string) => {
   useSyncState.setState({ note });
   clearTimeout(noteTimer);
   noteTimer = setTimeout(() => useSyncState.setState({ note: null }), NOTE_FOR);
@@ -137,7 +138,7 @@ const pull = async () => {
     data.projects &&
     useProjects.getState().adopt(mergeProjects(mine.projects, data.projects))
   )
-    say("The open project came up to date from your account");
+    toast("The open project came up to date from your account");
   if (data.orders)
     useOrders.setState({ orders: mergeOrders(mine.orders, data.orders) });
   if (data.generations)

@@ -33,10 +33,11 @@ const kept = globalThis as typeof globalThis & {
 export const getAuth = () => (kept.furnishesAuth ??= make());
 export const authReady = () => getDb().ready;
 
-/** who sent a request, by their session cookie: the user's id, or null
-    for nobody; waits for the database first */
-export const userIdOf = async (req: Request) => {
+/** who sent a request, by their session cookie: the user's id and
+    email, or null for nobody; waits for the database first */
+export const userOf = async (req: Request) => {
   await authReady();
   const s = await getAuth().api.getSession({ headers: req.headers });
-  return s?.user.id ?? null;
+  return s ? { id: s.user.id, email: s.user.email } : null;
 };
+export const userIdOf = async (req: Request) => (await userOf(req))?.id ?? null;

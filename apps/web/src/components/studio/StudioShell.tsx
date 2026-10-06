@@ -15,9 +15,9 @@ import { PreviewStage } from "./PreviewStage";
 import { Tour } from "./Tour";
 import { ViewCube } from "./ViewCube";
 import { other, useStudio } from "./studio-store";
-import { useAccountSync } from "./account-sync";
+import { toast, useAccountSync } from "./account-sync";
 import { useGenerationsSync } from "./generation-store";
-import { useOrdersSync } from "./order-store";
+import { refreshOrder, STATUS_NAMES, useOrdersSync } from "./order-store";
 import { useProjectSync } from "./project-store";
 import { ProjectSwitcher } from "./ProjectSwitcher";
 import { useShortcuts } from "./shortcuts";
@@ -60,7 +60,8 @@ export function StudioShell({
   useArrival();
   // a link into one project (?project=id, from the account page) opens
   // it, and the address is then plain again
-  const wanted = useSearchParams().get("project");
+  const params = useSearchParams();
+  const wanted = params.get("project");
   const router = useRouter();
   const pathname = usePathname();
   useProjectSync(wanted);
@@ -68,6 +69,23 @@ export function StudioShell({
     if (wanted) router.replace(pathname);
   }, [wanted, router, pathname]);
   useOrdersSync();
+  // back from the payment page (?checkout=success|cancelled&order=&key=):
+  // the order's state is asked of the server and said
+  const back = params.get("checkout");
+  const backOrder = params.get("order");
+  const backKey = params.get("key");
+  useEffect(() => {
+    if (!back || !backOrder || !backKey) return;
+    void refreshOrder(backOrder, backKey).then((status) => {
+      if (status)
+        toast(
+          status === "paid"
+            ? `Order ${backOrder} is paid. Thank you.`
+            : `Order ${backOrder} is ${STATUS_NAMES[status].toLowerCase()}.`,
+        );
+    });
+    router.replace(pathname);
+  }, [back, backOrder, backKey, router, pathname]);
   useGenerationsSync();
   const { data: session } = useSession();
   useAccountSync(session?.user.id ?? null);

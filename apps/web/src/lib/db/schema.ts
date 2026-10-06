@@ -2,6 +2,7 @@ import {
   bigint,
   boolean,
   index,
+  integer,
   jsonb,
   pgTable,
   primaryKey,
@@ -16,7 +17,9 @@ import {
  * keys below while the database reads as Postgres usually does. The
  * first four tables are the shape Better Auth asks for; `sync` is the
  * account's mirror of the browser, one JSON document per kind (see
- * api/sync); `share` holds the rooms shared by link (see api/share).
+ * api/sync); `share` holds the rooms shared by link (see api/share);
+ * `orders` and `payment_event` are the shop's ledger (api/checkout,
+ * api/orders, api/webhooks/stripe).
  * `drizzle-kit generate` turns a change here into a migration under
  * drizzle/.
  */
@@ -124,3 +127,43 @@ export const share = pgTable(
   },
   (t) => [index("share_user_id_idx").on(t.userId)],
 );
+
+export const orders = pgTable(
+  "orders",
+  {
+    /** the order number the studio gave it, FN- and five characters */
+    id: text().primaryKey(),
+    /** the account it was placed under, if one; kept when the account
+        goes, as the ledger's record */
+    userId: text().references(() => user.id, { onDelete: "set null" }),
+    /** the shopper's handle on it when not signed in: random, carried
+        by the link back from paying */
+    key: text().notNull(),
+    /** pending_payment, paid, fulfilled, cancelled or refunded */
+    status: text().notNull(),
+    /** the pieces, each priced from the catalogue */
+    lines: jsonb().notNull(),
+    /** S$ */
+    total: integer().notNull(),
+    address: jsonb().notNull(),
+    /** Stripe's Checkout Session, once one was opened; the intent it
+        came to, once the webhook said */
+    paymentRef: text(),
+    paymentIntentRef: text(),
+    at: bigint({ mode: "number" }).notNull(),
+    updatedAt: bigint({ mode: "number" }).notNull(),
+  },
+  (t) => [
+    index("orders_user_id_idx").on(t.userId),
+    index("orders_payment_ref_idx").on(t.paymentRef),
+  ],
+);
+
+export const paymentEvent = pgTable("payment_event", {
+  /** Stripe's own event id: one row each, so a replay does nothing */
+  id: text().primaryKey(),
+  kind: text().notNull(),
+  /** the order it moved, once applied */
+  orderId: text(),
+  at: bigint({ mode: "number" }).notNull(),
+});

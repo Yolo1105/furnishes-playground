@@ -17,10 +17,11 @@ import { useScene } from "./scene-store";
 /**
  * Checkout in three steps: the order read back piece by piece with its
  * total; where it goes (a name, an address, a six-digit postal code, a
- * Singapore phone number); then the order placed. Paying is not connected
- * in this build, so the order waits at "awaiting payment" and the dialog
- * says so plainly; the list can still be downloaded. The pieces stay in
- * the room and read as ordered; the cart empties.
+ * Singapore phone number); then the order placed, on the server too.
+ * With Stripe connected the dialog offers the payment page; without it
+ * the order waits at "awaiting payment" and the dialog says so plainly.
+ * The list can still be downloaded. The pieces stay in the room and
+ * read as ordered; the cart empties.
  */
 const EMPTY: Address = { recipient: "", line1: "", postal: "", phone: "" };
 
@@ -40,6 +41,7 @@ export function CheckoutDialog({
   const [touched, setTouched] = useState(false);
   const [placed, setPlaced] = useState<Order | null>(null);
   const [note, setNote] = useState<string>("");
+  const [payUrl, setPayUrl] = useState<string | null>(null);
   const ok = validAddress(address);
   const allOk = Object.values(ok).every(Boolean);
 
@@ -49,6 +51,7 @@ export function CheckoutDialog({
     const order = useOrders.getState().place(
       pieces.map((n) => ({
         pieceId: n.id,
+        ...(n.productId ? { productId: n.productId } : {}),
         name: n.name,
         category: n.category,
         price: n.price ?? 0,
@@ -64,12 +67,31 @@ export function CheckoutDialog({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           orderId: order.id,
+          lines: order.lines.map((l) => ({
+            productId: l.productId ?? l.pieceId,
+            name: l.name,
+            price: l.price,
+          })),
           total: order.total,
+          address,
           currency: "SGD",
         }),
       });
-      const data = (await res.json()) as { mode: string; message?: string };
-      setNote(data.message ?? "");
+      const data = (await res.json()) as {
+        mode: string;
+        message?: string;
+        key?: string;
+        url?: string;
+      };
+      if (data.key || data.url)
+        useOrders.getState().setPayment(order.id, {
+          ...(data.key ? { key: data.key } : {}),
+          ...(data.url ? { payUrl: data.url } : {}),
+        });
+      if (data.mode === "redirect" && data.url) {
+        setPayUrl(data.url);
+        setNote("The payment page is ready: pay there, and the order follows.");
+      } else setNote(data.message ?? "");
     } catch {
       setNote(
         "Payment could not be reached. The order is kept as awaiting payment.",
@@ -162,8 +184,9 @@ export function CheckoutDialog({
             </div>
           </div>
           <p className="order-note">
-            Paying is not connected on this server yet: the order is kept as
-            awaiting payment and you can cancel it under Orders.
+            The order is kept as awaiting payment until it is paid, and can be
+            cancelled under Orders meanwhile. Prices are estimates until the
+            first run is costed.
           </p>
           <div className="shell-dialog-acts">
             <button
@@ -202,11 +225,16 @@ export function CheckoutDialog({
           <div className="shell-dialog-acts">
             <button
               type="button"
-              className="main-btn main-btn-primary"
+              className={payUrl ? "main-btn" : "main-btn main-btn-primary"}
               onClick={onClose}
             >
-              <span>Done</span>
+              <span>{payUrl ? "Pay later" : "Done"}</span>
             </button>
+            {payUrl && (
+              <a className="main-btn main-btn-primary" href={payUrl}>
+                <span>Pay now · {sgd(placed.total)}</span>
+              </a>
+            )}
           </div>
         </>
       )}

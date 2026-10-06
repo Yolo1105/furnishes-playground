@@ -4,7 +4,8 @@ import { sgd } from "./assets-data";
 import { STATUS_NAMES, useOrders } from "./order-store";
 
 /** Every order placed from the studio, newest first, with its state; an
-    order awaiting payment can be cancelled. */
+    order awaiting payment can be paid, while its page is open, or
+    cancelled. */
 export function OrderList() {
   const orders = useOrders((s) => s.orders);
   const { cancel } = useOrders.getState();
@@ -39,13 +40,20 @@ export function OrderList() {
             {o.address.postal}
           </p>
           {o.status === "pending_payment" && (
-            <button
-              type="button"
-              className="main-btn order-cancel"
-              onClick={() => cancel(o.id)}
-            >
-              <span>Cancel order</span>
-            </button>
+            <div className="shell-dialog-acts order-acts">
+              {o.payUrl && (
+                <a className="main-btn main-btn-primary" href={o.payUrl}>
+                  <span>Pay now</span>
+                </a>
+              )}
+              <button
+                type="button"
+                className="main-btn order-cancel"
+                onClick={() => cancel(o.id)}
+              >
+                <span>Cancel order</span>
+              </button>
+            </div>
           )}
         </li>
       ))}

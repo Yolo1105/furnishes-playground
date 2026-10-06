@@ -170,7 +170,7 @@ export const useScene = create<SceneState>((set, get) => {
         kind: "piece",
         category: p.category,
         price: p.price,
-        ...(p.recipe ? { productId: p.id } : {}),
+        productId: p.id,
       };
       set((s) => {
         const has = s.groups.some((g) => g.id === p.category);
