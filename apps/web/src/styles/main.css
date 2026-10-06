@@ -350,6 +350,18 @@
   cursor: pointer;
   outline: none;
 }
+/* in 3D the cube turns with the camera and a drag on it turns the
+   camera: the hand says so; a click on a face still snaps to it */
+.view-cube-svg[data-turns="true"] {
+  touch-action: none;
+  cursor: grab;
+}
+.view-cube-svg[data-turns="true"]:active {
+  cursor: grabbing;
+}
+.view-cube-svg[data-turns="true"] .view-cube-face {
+  cursor: inherit;
+}
 .view-cube-face polygon,
 .view-cube-face rect,
 .view-cube-face circle {

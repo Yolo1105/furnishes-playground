@@ -66,6 +66,15 @@ type StudioState = {
   uiHidden: boolean;
   /** walking the room in 3D at eye height */
   walk: boolean;
+  /** where the 3D camera stands about the room: its azimuth (0 looks in
+      from the front, a quarter turn to the right from the right) and
+      its height above the floor, radians; the view cube turns with it */
+  cam: { yaw: number; pitch: number };
+  /** the camera sent somewhere by the cube's drag: counted, so the same
+      place sent twice still moves it */
+  turn: { yaw: number; pitch: number; n: number } | null;
+  /** the camera was turned by hand since the last named angle */
+  free: boolean;
   /** where the toolbar's eye was when the panels were hidden, so the peek
       bar's eye stands in the same place */
   peekAt: { top: number; left: number } | null;
@@ -105,6 +114,10 @@ type StudioState = {
   setTool: (tool: Tool) => void;
   setView: (view: View) => void;
   setAngle: (angle: Angle) => void;
+  /** the scene says where the camera stands */
+  reportCam: (cam: { yaw: number; pitch: number }) => void;
+  /** turn the camera to an azimuth and height, as the cube is dragged */
+  turnTo: (to: { yaw: number; pitch: number }) => void;
   setWalk: (walk: boolean) => void;
   setUiHidden: (hidden: boolean, at?: { top: number; left: number }) => void;
   setFocus: (id: string | null) => void;
@@ -144,6 +157,9 @@ export const useStudio = create<StudioState>((set, get) => ({
   tool: "select",
   view: "3d",
   angle: "Perspective",
+  cam: { yaw: Math.PI / 4, pitch: Math.PI / 5 },
+  turn: null,
+  free: false,
   uiHidden: false,
   walk: false,
   peekAt: null,
@@ -208,7 +224,19 @@ export const useStudio = create<StudioState>((set, get) => ({
               : {}),
           },
     ),
-  setAngle: (angle) => set({ angle, walk: false }),
+  setAngle: (angle) => set({ angle, walk: false, free: false }),
+  reportCam: (cam) =>
+    set((s) =>
+      Math.abs(s.cam.yaw - cam.yaw) > 0.004 ||
+      Math.abs(s.cam.pitch - cam.pitch) > 0.004
+        ? { cam }
+        : {},
+    ),
+  turnTo: (to) =>
+    set((s) => ({
+      turn: { ...to, n: (s.turn?.n ?? 0) + 1 },
+      free: true,
+    })),
   setWalk: (walk) => set(walk ? { walk } : { walk, touring: false }),
   setUiHidden: (uiHidden, at) =>
     set((s) => ({

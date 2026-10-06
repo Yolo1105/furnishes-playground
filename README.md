@@ -213,7 +213,8 @@ on when that finish is chosen. A move in either view is the move in the
 other. A piece may stand anywhere, past the walls too; with the magnet
 on (Settings), a side within 150 mm of a wall or of another piece goes
 flush to it, inside or out, and the room's rules say when a piece
-stands past a wall. Clashes are outlined, a view cube glides the camera, and there is a
+stands past a wall. Clashes are outlined; a view cube turned as the camera is glides it to
+a named angle from a face and turns it to any angle by a drag; there is a
 walk mode, a tour (stops set on the plan, numbered and joined; Play
 walks the camera through them at a slow pace with its eye on the
 pieces, a progress bar and Stop; a round of the room clear of the

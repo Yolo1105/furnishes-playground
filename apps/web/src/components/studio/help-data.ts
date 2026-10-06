@@ -64,7 +64,7 @@ export const HELP_TABS: readonly HelpTab[] = [
         rows: [
           {
             does: "Turn the view",
-            how: "Drag on the floor or the walls; the view cube picks an angle.",
+            how: "Drag on the floor or the walls, or drag the view cube itself, which turns as the camera does; a click on one of its faces snaps to that angle.",
           },
           { does: "Zoom", how: "The wheel, or a pinch on the trackpad." },
           {

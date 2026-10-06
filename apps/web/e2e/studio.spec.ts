@@ -1881,6 +1881,30 @@ test("in 3D a piece is dragged over the floor, the camera glides between angles,
     .getByRole("radio", { name: "Perspective" })
     .click();
   await page.waitForTimeout(800);
+  // the cube turns as the camera does, and a drag on it turns the
+  // camera: the angle reads Free, no face is the current one, and the
+  // camera has moved; a face snaps it back to a named angle
+  const cube = page.locator(".view-cube-svg");
+  await expect(cube).toHaveAttribute("data-turns", "true");
+  const before = (await stage.getAttribute("data-cam"))!;
+  const cb = (await cube.boundingBox())!;
+  await page.mouse.move(cb.x + cb.width / 2, cb.y + cb.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(cb.x + cb.width / 2 + 40, cb.y + cb.height / 2, {
+    steps: 4,
+  });
+  await page.mouse.move(cb.x + cb.width / 2 + 80, cb.y + cb.height / 2, {
+    steps: 4,
+  });
+  await page.mouse.up();
+  await expect(page.locator(".view-cube-name")).toHaveText("Free");
+  await expect(cube.getByRole("radio", { checked: true })).toHaveCount(0);
+  await expect
+    .poll(async () => stage.getAttribute("data-cam"))
+    .not.toBe(before);
+  await cube.getByRole("radio", { name: "Perspective" }).click();
+  await expect(page.locator(".view-cube-name")).toHaveText("Perspective");
+  await page.waitForTimeout(800);
   // a drag on a piece moves it over the floor, snapped to 50 mm; the
   // rest are held where they stood, so no other piece shifts: every
   // piece is read back from the kept project with a place on the grid

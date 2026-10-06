@@ -178,6 +178,7 @@ const cameraFor = (
 };
 
 type Controls = { target: Vector3; update: () => void } | null;
+const ORIGIN = new Vector3();
 
 /** the camera glides to the angle's place */
 function Rig({
@@ -207,7 +208,11 @@ function Rig({
     toAt: Vector3;
     t: number;
   } | null>(null);
+  const free = useStudio((s) => s.free);
   useEffect(() => {
+    // turned by hand: the camera stays where the cube or the canvas put
+    // it; the angle picked again, free cleared, glides back to it
+    if (free) return;
     const { pos, at } = cameraFor(angle, w, d, h, centre);
     // a tall screen (a phone, a tablet upright) sees less across: the
     // camera stands further back so the room still fits
@@ -223,7 +228,23 @@ function Rig({
       t: reduced() ? 1 : 0,
     };
     invalidate();
-  }, [angle, w, d, h, centre, camera, controls, invalidate, size]);
+  }, [angle, free, w, d, h, centre, camera, controls, invalidate, size]);
+  // the cube's drag: the camera goes round its target at its distance
+  const turn = useStudio((s) => s.turn);
+  useEffect(() => {
+    if (!turn) return;
+    const at = controls?.target.clone() ?? new Vector3(0, h / 2, 0);
+    const dist = camera.position.distanceTo(at);
+    glide.current = null;
+    camera.position.set(
+      at.x + dist * Math.sin(turn.yaw) * Math.cos(turn.pitch),
+      at.y + dist * Math.sin(turn.pitch),
+      at.z + dist * Math.cos(turn.yaw) * Math.cos(turn.pitch),
+    );
+    camera.lookAt(at);
+    controls?.update();
+    invalidate();
+  }, [turn, camera, controls, h, invalidate]);
   useFrame((_, raw) => {
     // the clock runs while the scene rests: a frame after a pause steps
     // no further than a tenth of a second
@@ -241,6 +262,15 @@ function Rig({
       else invalidate();
     }
     report(stage, camera.position);
+    // where the camera stands about its target, for the cube
+    const at = controls?.target ?? ORIGIN;
+    const dx = camera.position.x - at.x;
+    const dy = camera.position.y - at.y;
+    const dz = camera.position.z - at.z;
+    useStudio.getState().reportCam({
+      yaw: Math.atan2(dx, dz),
+      pitch: Math.atan2(dy, Math.hypot(dx, dz)),
+    });
   });
   return null;
 }
