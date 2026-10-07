@@ -4,10 +4,10 @@ import { Edges, RoundedBox, useGLTF } from "@react-three/drei";
 import { Component, Suspense, type ReactNode } from "react";
 import {
   Box3,
+  type CanvasTexture,
   DoubleSide,
   Vector2,
   Vector3,
-  type Texture,
   type Vector3Tuple,
 } from "three";
 import type { AssetNode } from "./assets-data";
@@ -20,7 +20,7 @@ import {
   LIGHT_WOOD_HEX,
   ROOM_ITEM_HEX,
 } from "./piece-detail";
-import { shade, woodTexture } from "./textures";
+import { reliefOf, shade, woodTexture } from "./textures";
 
 /**
  * A piece's form in 3D, built from what it is, at the size the Detail
@@ -94,7 +94,7 @@ const roughnessOf = (texture: string) =>
 type Finish = {
   colour: string;
   rough: number;
-  map?: Texture | undefined;
+  map?: CanvasTexture | undefined;
   /** cloth: a soft sheen across the weave */
   sheen?: number;
   /** glaze: a clear coat over the colour */
@@ -127,15 +127,22 @@ function Mat({ f, colour }: { f: Finish; colour?: string | undefined }) {
         clearcoatRoughness={0.25}
       />
     );
+  const map = f.map && colour === undefined ? f.map : null;
+  const relief = map ? reliefOf(map) : null;
   return (
     <meshStandardMaterial
       color={f.map ? shade(c, 0.02) : c}
-      map={f.map && colour === undefined ? f.map : null}
+      map={map}
+      normalMap={relief?.normalMap ?? null}
+      normalScale={RELIEF_SCALE}
+      roughnessMap={relief?.roughnessMap ?? null}
       roughness={f.rough}
       metalness={f.metal ?? 0}
     />
   );
 }
+/** how strongly the grain's relief bends the light */
+const RELIEF_SCALE = new Vector2(0.35, 0.35);
 
 /** a square-edged part: a panel, a plinth, a frame member */
 function Slab({

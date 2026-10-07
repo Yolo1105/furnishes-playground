@@ -5,7 +5,15 @@ import { Environment, Lightformer } from "@react-three/drei";
 import { LIGHT_WOOD_HEX } from "./piece-detail";
 import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
-import { DoubleSide, FrontSide, type Group, Path, Shape, Vector3 } from "three";
+import {
+  DoubleSide,
+  FrontSide,
+  type Group,
+  Path,
+  Shape,
+  Vector2,
+  Vector3,
+} from "three";
 import {
   type Floor,
   isWindow,
@@ -17,7 +25,7 @@ import { edgesOf, type Edge } from "./room-geometry";
 import { openingCentre } from "./room-health";
 import type { Point } from "./room-templates";
 import type { Sky } from "./studio-store";
-import { floorTexture, shade, TILE_M } from "./textures";
+import { floorTexture, reliefOf, shade, TILE_M } from "./textures";
 
 /**
  * The room itself in 3D: the floor in its finish, a wall along every
@@ -32,6 +40,8 @@ const SKIRTING = 0.1;
 const FRAME = 0.07;
 const FRAME_HEX = "#f7f3ec";
 const DOOR_HEX = LIGHT_WOOD_HEX;
+/** how strongly the floor's relief bends the light */
+const FLOOR_RELIEF = new Vector2(0.3, 0.3);
 const CEILING_HEX = "#f8f5f0";
 
 const ROUGHNESS: Record<Floor, number> = {
@@ -453,6 +463,7 @@ export function RoomShell({
     [r.floor, r.floorHex],
   );
   map.repeat.set(1 / TILE_M, 1 / TILE_M);
+  const relief = reliefOf(map);
   return (
     <group>
       <mesh
@@ -465,7 +476,13 @@ export function RoomShell({
         }}
       >
         <shapeGeometry args={[shape]} />
-        <meshStandardMaterial map={map} roughness={ROUGHNESS[r.floor]} />
+        <meshStandardMaterial
+          map={map}
+          normalMap={relief.normalMap}
+          normalScale={FLOOR_RELIEF}
+          roughnessMap={relief.roughnessMap}
+          roughness={ROUGHNESS[r.floor]}
+        />
       </mesh>
       {edgesOf(r.outline).flatMap((e, i) =>
         runsOf(e, r.shared ?? []).map(({ e: run, both }, k) => (
@@ -519,11 +536,11 @@ export function RoomLight({ evening, sky }: { evening: boolean; sky: Sky }) {
     return (
       <Environment
         files={`/sky/${sky}.hdr`}
-        environmentIntensity={evening ? 0.9 : 1.1}
+        environmentIntensity={evening ? 1.2 : 1.5}
       />
     );
   return (
-    <Environment resolution={128} frames={1} environmentIntensity={1.3}>
+    <Environment resolution={128} frames={1} environmentIntensity={2}>
       <Lightformer
         form="rect"
         intensity={evening ? 2.2 : 3.4}

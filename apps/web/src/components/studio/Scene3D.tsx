@@ -10,7 +10,7 @@ import {
   type ThreeEvent,
 } from "@react-three/fiber";
 import { useEffect, useRef, useState, type RefObject, useMemo } from "react";
-import { Plane, Vector3, type Vector3Tuple } from "three";
+import { AgXToneMapping, Plane, Vector3, type Vector3Tuple } from "three";
 import { CATEGORY_NAMES, type AssetNode } from "./assets-data";
 import { Furniture3D } from "./Furniture3D";
 import { ArrowLeftIcon, LockIcon, RotateIcon } from "./icons";
@@ -59,21 +59,38 @@ import { useStudio, type Angle } from "./studio-store";
  * A piece in focus stands alone on a blank ground.
  */
 
-/** the light in the room: the day's, or an evening's, warmer and lower */
+/** the sun in the room, the day's or an evening's (warmer and lower),
+    and the sky's fill from above against the floor's from below; the
+    rest comes from the surroundings (RoomLight), never from a flat
+    ambient term */
 const LIGHTS = {
   day: {
-    ambient: 0.75,
     sun: 1.6,
     colour: "#ffffff",
     from: [3, 6, 4] as Vector3Tuple,
+    sky: 0.9,
   },
   evening: {
-    ambient: 0.6,
     sun: 1.1,
     colour: "#ffe3c8",
     from: [-4, 2.5, 3] as Vector3Tuple,
+    sky: 0.6,
   },
 } as const;
+/** what the floor gives back to the undersides */
+const GROUND_HEX = "#c9b9a6";
+
+/** the renderer's exposure follows the look; AgX rolls the window's
+    highlights off instead of clipping them */
+function Exposure({ value }: { value: number }) {
+  const get = useThree((s) => s.get);
+  useEffect(() => {
+    const { gl, invalidate } = get();
+    gl.toneMappingExposure = value;
+    invalidate();
+  }, [get, value]);
+  return null;
+}
 /** the floor grid's lines */
 const GRID_HEX = "#b9a797";
 
@@ -1036,6 +1053,7 @@ export default function Scene3D() {
       data-grid={grid}
       data-light={scene.light}
       data-sky={scene.sky}
+      data-exposure={scene.exposure}
     >
       <Canvas
         // a frame only when something moves: the orbit, a glide, a walk, a
@@ -1051,7 +1069,7 @@ export default function Scene3D() {
           antialias: !coarse,
           preserveDrawingBuffer: true,
           powerPreference: "high-performance",
-          toneMappingExposure: 1.15,
+          toneMapping: AgXToneMapping,
         }}
         camera={{ fov: 42, near: 0.05, far: 100 }}
         onPointerMissed={() => undefined}
@@ -1075,7 +1093,12 @@ export default function Scene3D() {
             stage={stage}
           />
         )}
-        <ambientLight intensity={light.ambient} color={light.colour} />
+        <Exposure value={scene.exposure} />
+        <hemisphereLight
+          intensity={light.sky}
+          color={light.colour}
+          groundColor={GROUND_HEX}
+        />
         <directionalLight
           position={light.from}
           intensity={light.sun}

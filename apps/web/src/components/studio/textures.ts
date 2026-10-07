@@ -1,4 +1,9 @@
-import { CanvasTexture, RepeatWrapping, SRGBColorSpace } from "three";
+import {
+  CanvasTexture,
+  NoColorSpace,
+  RepeatWrapping,
+  SRGBColorSpace,
+} from "three";
 import type { Floor } from "./room-data";
 
 /**
@@ -7,7 +12,10 @@ import type { Floor } from "./room-data";
  * vinyl board, a concrete screed) and wood grain in any colour of the
  * palette. Each is painted once and kept; a tile covers TILE_M metres
  * and repeats. A deterministic noise keeps a surface the same every
- * time it is painted.
+ * time it is painted. From each colour map a relief is read (the
+ * darker grain lies lower): a normal map that catches the light along
+ * the grain and a roughness map that varies with it, so a flat panel
+ * stops reading as paint.
  */
 export const TILE_M = 1.2;
 const SIZE = 512;
@@ -174,3 +182,74 @@ export const woodTexture = (hex: string) =>
     c.globalAlpha = 1;
     grain(c, hex, rnd, 0.08);
   });
+
+/** the maps a surface's relief gives a material: normals from the
+    grain's height and a roughness that follows it; the same wrap and
+    repeat as the colour map, so the three stay in step */
+export type Relief = { normalMap: CanvasTexture; roughnessMap: CanvasTexture };
+const reliefs = new Map<CanvasTexture, Relief>();
+/** how far the grain's light and dark are read as height */
+const RELIEF = 3;
+export const reliefOf = (map: CanvasTexture): Relief => {
+  const had = reliefs.get(map);
+  if (had) return had;
+  const source = map.image as HTMLCanvasElement;
+  const w = source.width;
+  const h = source.height;
+  const px = source.getContext("2d")!.getImageData(0, 0, w, h).data;
+  const height = new Float32Array(w * h);
+  let mean = 0;
+  for (let i = 0; i < w * h; i++) {
+    const v =
+      (0.299 * px[i * 4]! + 0.587 * px[i * 4 + 1]! + 0.114 * px[i * 4 + 2]!) /
+      255;
+    height[i] = v;
+    mean += v;
+  }
+  mean /= w * h;
+  const at = (x: number, y: number) =>
+    height[((y + h) % h) * w + ((x + w) % w)]!;
+  const normal = document.createElement("canvas");
+  normal.width = w;
+  normal.height = h;
+  const rough = document.createElement("canvas");
+  rough.width = w;
+  rough.height = h;
+  const nc = normal.getContext("2d")!;
+  const rc = rough.getContext("2d")!;
+  const nd = nc.createImageData(w, h);
+  const rd = rc.createImageData(w, h);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const dx = (at(x + 1, y) - at(x - 1, y)) * RELIEF;
+      const dy = (at(x, y + 1) - at(x, y - 1)) * RELIEF;
+      const len = Math.hypot(dx, dy, 1);
+      const i = (y * w + x) * 4;
+      nd.data[i] = Math.round((-dx / len) * 127.5 + 127.5);
+      nd.data[i + 1] = Math.round((-dy / len) * 127.5 + 127.5);
+      nd.data[i + 2] = Math.round((1 / len) * 127.5 + 127.5);
+      nd.data[i + 3] = 255;
+      // the lower grain is a little rougher; the map scales the
+      // material's own roughness, so it stays near one
+      const r = Math.max(0, Math.min(1, 0.85 - (at(x, y) - mean) * 0.6));
+      const rv = Math.round(r * 255);
+      rd.data[i] = rv;
+      rd.data[i + 1] = rv;
+      rd.data[i + 2] = rv;
+      rd.data[i + 3] = 255;
+    }
+  nc.putImageData(nd, 0, 0);
+  rc.putImageData(rd, 0, 0);
+  const make = (canvas: HTMLCanvasElement) => {
+    const t = new CanvasTexture(canvas);
+    t.wrapS = map.wrapS;
+    t.wrapT = map.wrapT;
+    t.repeat.copy(map.repeat);
+    t.colorSpace = NoColorSpace;
+    t.anisotropy = map.anisotropy;
+    return t;
+  };
+  const relief = { normalMap: make(normal), roughnessMap: make(rough) };
+  reliefs.set(map, relief);
+  return relief;
+};

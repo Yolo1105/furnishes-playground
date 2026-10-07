@@ -175,6 +175,22 @@ AGPL. `@salusoft89/planegcs` 1.3.0 is the only 2D constraint solver
     for its stability and its worker pattern; brepkit's AGPL turn and
     occt-wasm's browser floor decided it.
 
+## Where the work stands
+
+- R0 is in: `apps/web/e2e/visual.spec.ts` keeps five fixed views of
+  the room (the panels by day, a sunset, the evening, the front
+  elevation, eye level) as pictures and fails on a drift over half a
+  percent; a second run of the same build drifts by nothing. The photo
+  spike waits for a browser with WebGPU, which the sandbox lacks.
+- R1 is in, with one departure: AgX tone mapping with an Exposure
+  slider in View settings, the flat ambient term replaced by the
+  surroundings plus a sky-against-floor light (3xdezine keeps the same
+  low hemisphere light), every texture's colour space set, and a relief
+  (normal and roughness maps) read from each painted grain. The CC0
+  texture sets could not be fetched from the build sandbox, so the
+  panels and floors keep their painted grain with its relief; the
+  photographed sets go in when the assets can be brought in.
+
 ## The order of work
 
 | Step | What ships                                                                                                       | Gate                                                                                   |

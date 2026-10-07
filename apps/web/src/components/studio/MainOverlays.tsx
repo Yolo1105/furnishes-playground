@@ -51,6 +51,7 @@ import { PlanSymbol } from "./plan-symbols";
 import { ComponentGlyph } from "./component-glyphs";
 import { propsOf, topLevelOf, useScene, useTopLevel } from "./scene-store";
 import {
+  EXPOSURE,
   type ShelfTab,
   SKIES,
   type Tool,
@@ -362,6 +363,26 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
                           {sky.label}
                         </button>
                       ))}
+                      <div className="shell-menu-sep" role="separator" />
+                      <label className="shell-menu-row main-prefs-range">
+                        <span>Exposure</span>
+                        <input
+                          type="range"
+                          className="room-range"
+                          min={EXPOSURE.min}
+                          max={EXPOSURE.max}
+                          step={EXPOSURE.step}
+                          value={scene.exposure}
+                          aria-label="Exposure"
+                          aria-valuetext={`${scene.exposure.toFixed(2)}`}
+                          onChange={(e) =>
+                            setScene({ exposure: Number(e.target.value) })
+                          }
+                        />
+                        <span className="main-prefs-sub f-num">
+                          {scene.exposure.toFixed(2)}
+                        </span>
+                      </label>
                     </div>
                   </Floating>
                 )}

@@ -32,7 +32,11 @@ means the install is older than the checkout: run `pnpm install`.
 Checks: `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test`
 (vitest: the domain package's recipes and prices; the web app's Stripe
 signing, order pricing, the guard, the letters, Eva's rules and the
-room layouts), `pnpm e2e`, `pnpm build`. CI runs the same.
+room layouts), `pnpm e2e` (the studio's suite, the touch suite on a
+tablet and a phone, and five fixed views of the room compared with the
+pictures kept under `apps/web/e2e/visual.spec.ts-snapshots`, which
+`--update-snapshots` renews once a change in the look is meant),
+`pnpm build`. CI runs the same.
 
 Notes:
 
@@ -132,7 +136,12 @@ the middle); the same rules are the model's guidance on the layout lens,
 and each layout's Inspect has Ask Eva why. View settings gained
 Surroundings: the studio's own light panels, or one of four Poly Haven
 environment maps (an apartment, a photo studio, a sunset, night) under
-`public/sky`, which light and reflect in the room. The gear's Board
+`public/sky`, which light and reflect in the room, and an Exposure
+slider; the picture is tone-mapped with AgX, the fill comes from the
+surroundings and a sky-against-floor light rather than a flat ambient
+term, and every grained surface (the panels, the floors) carries a
+relief read from its own grain, a normal and a roughness map, so it
+catches the light along the grain. The gear's Board
 keeps pictures with a title and a note, uploaded (sized down in the
 browser first) or saved from a generated room item's tile, with the
 starred room items beside them; it is mirrored to the account as a

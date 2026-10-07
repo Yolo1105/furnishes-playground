@@ -375,7 +375,10 @@ test("the shelf's tab counts the pieces and folds the cards away", async ({
   await page.getByRole("button", { name: "Hide pieces" }).click();
   await expect(shelf).toHaveAttribute("data-collapsed", "true");
   await expect
-    .poll(async () => (await shelf.boundingBox())!.height)
+    .poll(async () => (await shelf.boundingBox())!.height, {
+      // the fold is a transition, slow under a loaded development server
+      timeout: 15_000,
+    })
     .toBeLessThan(tall / 2);
   await expect(saved).toBeVisible();
   await page.getByRole("button", { name: "Show pieces" }).click();
@@ -903,7 +906,10 @@ test("a first visit opens the welcome and the tour; the Guide mark runs it again
   expect(Math.abs(sb.width - rail.width - 8)).toBeLessThan(2);
   const card = page.getByRole("dialog", { name: "The project panel" });
   await expect(card).toBeVisible();
-  expect((await card.boundingBox())!.x).toBeGreaterThan(rail.x + rail.width);
+  // beside the rail: at its edge or past it
+  expect((await card.boundingBox())!.x).toBeGreaterThanOrEqual(
+    rail.x + rail.width,
+  );
   await card.getByRole("button", { name: "Next" }).click();
   await expect(page.getByRole("dialog", { name: "The toolbar" })).toBeVisible();
   await page.getByRole("button", { name: "Back" }).click();
@@ -3443,6 +3449,10 @@ test("View settings: edges, names, a floor grid, shadows and the light, kept for
   await expect(stage).toHaveAttribute("data-sky", "panels");
   await menu.getByRole("menuitemradio", { name: "A sunset" }).click();
   await expect(stage).toHaveAttribute("data-sky", "sunset");
+  // the exposure: a camera's, from dim to bright
+  await expect(stage).toHaveAttribute("data-exposure", "1.2");
+  await menu.getByRole("slider", { name: "Exposure" }).fill("1.4");
+  await expect(stage).toHaveAttribute("data-exposure", "1.4");
   // none of it shows on the plan, all of it comes back next time
   await page.keyboard.press("Escape");
   await page.keyboard.press("2");
@@ -3454,6 +3464,7 @@ test("View settings: edges, names, a floor grid, shadows and the light, kept for
   await expect(stage).toHaveAttribute("data-light", "evening");
   await expect(stage).toHaveAttribute("data-grid", "true");
   await expect(stage).toHaveAttribute("data-labels", "true");
+  await expect(stage).toHaveAttribute("data-exposure", "1.4");
 });
 
 test("the tour: stops on the plan, Play walks the camera through them, Stop and Escape end it, a round when there are none", async ({

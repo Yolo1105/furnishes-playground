@@ -3,9 +3,10 @@ import { defineConfig, devices } from "@playwright/test";
 /**
  * The studio is driven by a mouse, a trackpad, a finger and a pen, in
  * Chrome, Edge, Safari and Firefox. Chromium is always here: the desktop
- * project runs the studio's own suite with a mouse, and two touch
- * projects run the touch suite on an iPad's and a phone's screen with a
- * finger (Chromium emulating both). The WebKit and Firefox engines run
+ * project runs the studio's own suite with a mouse, the visual project
+ * compares five fixed views of the room with their kept pictures, and
+ * two touch projects run the touch suite on an iPad's and a phone's
+ * screen with a finger (Chromium emulating both). The WebKit and Firefox engines run
  * the desktop suite too, where they are installed (`npx playwright
  * install webkit firefox`), with PW_ENGINES=1.
  */
@@ -21,6 +22,16 @@ export default defineConfig({
     {
       name: "desktop",
       testMatch: /studio\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1440, height: 900 },
+        ...chromium,
+      },
+    },
+    {
+      // the five fixed views, compared with their kept pictures
+      name: "visual",
+      testMatch: /visual\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 1440, height: 900 },
