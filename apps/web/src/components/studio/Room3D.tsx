@@ -1,16 +1,19 @@
 "use client";
 
 import { toMetres } from "@furnishes/scene";
-import { Environment, Lightformer } from "@react-three/drei";
+import { HDRLoader } from "three/examples/jsm/loaders/HDRLoader.js";
 import { LIGHT_WOOD_HEX } from "./piece-detail";
-import { useFrame } from "@react-three/fiber";
-import { useMemo, useRef } from "react";
+import { useFrame, useLoader, useThree } from "@react-three/fiber";
+import { useEffect, useMemo, useRef } from "react";
 import {
   DoubleSide,
+  EquirectangularReflectionMapping,
   FrontSide,
   type Group,
   Path,
+  type Scene,
   Shape,
+  type Texture,
   Vector2,
   Vector3,
 } from "three";
@@ -525,46 +528,36 @@ export function RoomShell({
   );
 }
 
-/** the soft light of a room: panels baked once into the surroundings,
-    which every surface then reflects a little */
-/** what lights the room from outside: the studio's own panels (a warm
-    set in the evening), or a surroundings map, which the glass and the
-    plywood then reflect; the sun and the room's own light stay */
+/** what lights the room from outside: the studio's own light panels
+    (a warm set in the evening) or a surroundings map, every one a file
+    under public/sky, which the glass and the plywood then reflect; the
+    sun and the room's own lights stay. The map goes straight onto the
+    scene (the renderer filters it itself) and stays cached once loaded,
+    so a switch never lets go of a texture the renderer still holds. */
+/** the map set as the scene's surroundings, filtered by the renderer */
+const surround = (
+  scene: Scene,
+  map: Texture,
+  intensity: number,
+  invalidate: () => void,
+) => {
+  map.mapping = EquirectangularReflectionMapping;
+  scene.environment = map;
+  scene.environmentIntensity = intensity;
+  invalidate();
+  return () => {
+    if (scene.environment === map) scene.environment = null;
+  };
+};
 export function RoomLight({ evening, sky }: { evening: boolean; sky: Sky }) {
-  const warm = evening ? "#ffd9b8" : "#ffffff";
-  if (sky !== "panels")
-    return (
-      <Environment
-        files={`/sky/${sky}.hdr`}
-        environmentIntensity={evening ? 1.2 : 1.5}
-      />
-    );
-  return (
-    <Environment resolution={128} frames={1} environmentIntensity={2}>
-      <Lightformer
-        form="rect"
-        intensity={evening ? 2.2 : 3.4}
-        color={warm}
-        position={[0, 5, -4]}
-        scale={[10, 5, 1]}
-        target={[0, 0, 0]}
-      />
-      <Lightformer
-        form="rect"
-        intensity={evening ? 1.3 : 1.8}
-        color={warm}
-        position={[-7, 2.5, 0]}
-        rotation-y={Math.PI / 2}
-        scale={[7, 3, 1]}
-      />
-      <Lightformer
-        form="ring"
-        intensity={evening ? 0.8 : 1.1}
-        color={warm}
-        position={[5, 4, 5]}
-        scale={3}
-        target={[0, 0, 0]}
-      />
-    </Environment>
-  );
+  const file = sky === "panels" ? (evening ? "panels-evening" : "panels") : sky;
+  const map = useLoader(HDRLoader, `/sky/${file}.hdr`);
+  const get = useThree((s) => s.get);
+  const intensity =
+    sky === "panels" ? (evening ? 1.6 : 2) : evening ? 1.2 : 1.5;
+  useEffect(() => {
+    const { scene, invalidate } = get();
+    return surround(scene, map, intensity, invalidate);
+  }, [map, get, intensity]);
+  return null;
 }

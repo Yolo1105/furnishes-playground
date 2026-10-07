@@ -1922,6 +1922,9 @@ test("without a model the route says so and Eva answers from the rules, once not
 test("in 3D a piece is dragged over the floor, the camera glides between angles, and Walk puts you in the room", async ({
   page,
 }) => {
+  // four glides and two drags under a software renderer: more than the
+  // usual half minute
+  test.setTimeout(90_000);
   await page.goto("/rounded");
   const stage = page.locator(".stage-3d");
   await expect(stage.locator("canvas")).toHaveCount(1);
@@ -3507,8 +3510,9 @@ test("the tour: stops on the plan, Play walks the camera through them, Stop and 
   const run = page.getByRole("status").filter({ hasText: /^Tour/ });
   await expect(run).toBeVisible();
   const bar = run.getByRole("progressbar", { name: "Tour" });
-  await page.waitForTimeout(1500);
-  expect(Number(await bar.getAttribute("aria-valuenow"))).toBeGreaterThan(0);
+  await expect
+    .poll(async () => Number(await bar.getAttribute("aria-valuenow")))
+    .toBeGreaterThan(0);
   await run.getByRole("button", { name: "Stop the tour" }).click();
   await expect(run).toHaveCount(0);
   await expect(stage).toHaveAttribute("data-walk", "true");

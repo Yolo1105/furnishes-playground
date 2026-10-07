@@ -16,7 +16,12 @@ const chromium = process.env.PLAYWRIGHT_CHROMIUM_PATH
 
 export default defineConfig({
   testDir: "./e2e",
-  timeout: 30_000,
+  // a software GPU draws the room's materials slowly, and the suite's
+  // longer walks through the studio take most of a minute on one
+  timeout: 60_000,
+  // one development server and one software GPU: a second worker only
+  // slows the first
+  workers: 1,
   use: { baseURL: "http://localhost:3000" },
   projects: [
     {

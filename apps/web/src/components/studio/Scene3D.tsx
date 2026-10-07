@@ -1,16 +1,25 @@
 "use client";
 
 import { toMetres } from "@furnishes/scene";
+import { WebGPURenderer } from "three/webgpu";
 import { Html, OrbitControls } from "@react-three/drei";
 import { useShallow } from "zustand/react/shallow";
 import {
   Canvas,
+  type CanvasProps,
+  type ThreeEvent,
   useFrame,
   useThree,
-  type ThreeEvent,
 } from "@react-three/fiber";
-import { useEffect, useRef, useState, type RefObject, useMemo } from "react";
-import { AgXToneMapping, Plane, Vector3, type Vector3Tuple } from "three";
+import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
+import {
+  AgXToneMapping,
+  PCFShadowMap,
+  Plane,
+  Vector3,
+  type Vector3Tuple,
+  type WebGLRenderer,
+} from "three";
 import { CATEGORY_NAMES, type AssetNode } from "./assets-data";
 import { Furniture3D } from "./Furniture3D";
 import { ArrowLeftIcon, LockIcon, RotateIcon } from "./icons";
@@ -58,6 +67,66 @@ import { useStudio, type Angle } from "./studio-store";
  * a drag looks around, a click on the floor goes there, Escape leaves.
  * A piece in focus stands alone on a blank ground.
  */
+
+/** the renderer: three's WebGPU one, on WebGPU where the browser has it
+    and on its WebGL 2 backend elsewhere, made once per canvas and
+    initialised before the first frame (React Three Fiber waits for the
+    promise). On the WebGL backend the drawing buffer is kept, so Export
+    can read the canvas as a picture; on WebGPU it is kept by the
+    platform. Anti-aliasing is the hardware's on a mouse and off under a
+    finger. AgX rolls the window's highlights off instead of clipping. */
+const hasWebGPU = () => typeof navigator !== "undefined" && "gpu" in navigator;
+type RendererProps = Parameters<
+  Extract<NonNullable<CanvasProps["gl"]>, (...args: never[]) => unknown>
+>[0];
+const makeRenderer = async (props: RendererProps, antialias: boolean) => {
+  const canvas = props.canvas as HTMLCanvasElement;
+  // the browser may have the API and no adapter behind it: ask first,
+  // so the WebGL backend gets its own context with the buffer kept
+  const adapter = hasWebGPU()
+    ? await navigator.gpu.requestAdapter().catch(() => null)
+    : null;
+  const webgl = !adapter;
+  const renderer = new WebGPURenderer({
+    canvas,
+    antialias,
+    alpha: true,
+    powerPreference: "high-performance",
+    forceWebGL: webgl,
+    ...(webgl
+      ? {
+          context:
+            canvas.getContext("webgl2", {
+              antialias,
+              alpha: true,
+              depth: true,
+              stencil: false,
+              preserveDrawingBuffer: true,
+              powerPreference: "high-performance",
+            }) ?? undefined,
+        }
+      : {}),
+  });
+  await renderer.init();
+  renderer.toneMapping = AgXToneMapping;
+  return renderer as unknown as WebGLRenderer;
+};
+const makeRendererFine = (props: RendererProps) => makeRenderer(props, true);
+const makeRendererCoarse = (props: RendererProps) => makeRenderer(props, false);
+/** the shadow map the WebGPU renderer keeps (it dropped the soft one) */
+const SHADOWS = { type: PCFShadowMap } as const;
+
+/** which backend the renderer came up on, for the stage to say */
+function Backend({ onKnown }: { onKnown: (backend: string) => void }) {
+  const gl = useThree((s) => s.gl);
+  useEffect(() => {
+    const backend = (
+      gl as unknown as { backend?: { isWebGPUBackend?: boolean } }
+    ).backend;
+    onKnown(backend?.isWebGPUBackend ? "webgpu" : "webgl");
+  }, [gl, onKnown]);
+  return null;
+}
 
 /** the sun in the room, the day's or an evening's (warmer and lower),
     and the sky's fill from above against the floor's from below; the
@@ -1033,6 +1102,7 @@ export default function Scene3D() {
   const grid = scene.grid && !rendered;
   const edges = scene.edges && !rendered;
   const light = LIGHTS[scene.light];
+  const [backend, setBackend] = useState("");
   return (
     <div
       ref={stage}
@@ -1054,23 +1124,17 @@ export default function Scene3D() {
       data-light={scene.light}
       data-sky={scene.sky}
       data-exposure={scene.exposure}
+      data-backend={backend}
     >
       <Canvas
         // a frame only when something moves: the orbit, a glide, a walk, a
         // drag or a change in the room; the rest of the time the GPU rests
         frameloop="demand"
-        shadows={shadows}
+        shadows={shadows ? SHADOWS : false}
         // at most two device pixels per CSS pixel: a phone's screen draws
-        // less than half of what it would, with nothing to see for it;
-        // the buffer is kept so Export can read the canvas as a picture
+        // less than half of what it would, with nothing to see for it
         dpr={[1, 2]}
-        gl={{
-          alpha: true,
-          antialias: !coarse,
-          preserveDrawingBuffer: true,
-          powerPreference: "high-performance",
-          toneMapping: AgXToneMapping,
-        }}
+        gl={coarse ? makeRendererCoarse : makeRendererFine}
         camera={{ fov: 42, near: 0.05, far: 100 }}
         onPointerMissed={() => undefined}
       >
@@ -1094,6 +1158,7 @@ export default function Scene3D() {
           />
         )}
         <Exposure value={scene.exposure} />
+        <Backend onKnown={setBackend} />
         <hemisphereLight
           intensity={light.sky}
           color={light.colour}

@@ -190,6 +190,16 @@ AGPL. `@salusoft89/planegcs` 1.3.0 is the only 2D constraint solver
   texture sets could not be fetched from the build sandbox, so the
   panels and floors keep their painted grain with its relief; the
   photographed sets go in when the assets can be brought in.
+- R2 is in: the room renders with three's `WebGPURenderer`, made in
+  React Three Fiber's async factory, which asks for a WebGPU adapter
+  first and otherwise runs the WebGL 2 backend on a context of its own
+  with the drawing buffer kept (so Export still reads the canvas);
+  shadows are the PCF map the renderer keeps; the light panels are two
+  files drawn by `scripts/make-panels.mjs` (the run-time rig only the
+  WebGL renderer could draw is gone); the stage says which backend came
+  up (`data-backend`). The suite and the five kept pictures run on the
+  WebGL 2 backend, since headless Chromium has no adapter; WebGPU is
+  checked by hand in a browser that has it.
 
 ## The order of work
 

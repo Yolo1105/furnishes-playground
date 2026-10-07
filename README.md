@@ -141,7 +141,10 @@ slider; the picture is tone-mapped with AgX, the fill comes from the
 surroundings and a sky-against-floor light rather than a flat ambient
 term, and every grained surface (the panels, the floors) carries a
 relief read from its own grain, a normal and a roughness map, so it
-catches the light along the grain. The gear's Board
+catches the light along the grain. The room renders with three's WebGPU
+renderer where the browser has an adapter and on its WebGL 2 backend
+elsewhere (the stage says which, `data-backend`); the light panels are
+two surroundings files drawn by `apps/web/scripts/make-panels.mjs`. The gear's Board
 keeps pictures with a title and a note, uploaded (sized down in the
 browser first) or saved from a generated room item's tile, with the
 starred room items beside them; it is mirrored to the account as a
