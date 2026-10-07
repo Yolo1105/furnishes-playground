@@ -5,6 +5,7 @@ import { userIdOf } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { sync } from "@/lib/db/schema";
 import { LIMITS } from "@/lib/limits";
+import { BAD_REQUEST } from "@/lib/schemas";
 
 /**
  * The account's mirror of what the browser keeps: the projects (with
@@ -16,15 +17,13 @@ import { LIMITS } from "@/lib/limits";
 export const runtime = "nodejs";
 
 const KINDS = ["projects", "orders", "generations", "guides", "board"] as const;
-type Kind = (typeof KINDS)[number];
 
-const Body = z.object({
-  projects: z.unknown().optional(),
-  orders: z.unknown().optional(),
-  generations: z.unknown().optional(),
-  guides: z.unknown().optional(),
-  board: z.unknown().optional(),
-});
+const Body = z.object(
+  Object.fromEntries(KINDS.map((k) => [k, z.unknown().optional()])) as Record<
+    (typeof KINDS)[number],
+    z.ZodOptional<z.ZodUnknown>
+  >,
+);
 
 export async function GET(req: Request) {
   const userId = await userIdOf(req);
@@ -43,12 +42,11 @@ export async function PUT(req: Request) {
   const userId = await userIdOf(req);
   if (!userId) return NextResponse.json({ error: "sign in" }, { status: 401 });
   const parsed = Body.safeParse(await req.json().catch(() => null));
-  if (!parsed.success)
-    return NextResponse.json({ error: "bad request" }, { status: 400 });
+  if (!parsed.success) return NextResponse.json(BAD_REQUEST, { status: 400 });
   const at = Date.now();
   const { db } = getDb();
   for (const kind of KINDS) {
-    const data = parsed.data[kind as Kind];
+    const data = parsed.data[kind];
     if (data === undefined) continue;
     if (JSON.stringify(data).length > LIMITS.documentBytes)
       return NextResponse.json({ error: `${kind} too large` }, { status: 413 });

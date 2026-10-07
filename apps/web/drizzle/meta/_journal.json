@@ -43,6 +43,13 @@
       "when": 1791403613203,
       "tag": "0005_ops",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791406141493,
+      "tag": "0006_cost_user",
+      "breakpoints": true
     }
   ]
 }

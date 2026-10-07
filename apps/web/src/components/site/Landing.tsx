@@ -10,6 +10,7 @@ import { useSession } from "@/lib/auth-client";
 import { SITE } from "@/lib/site";
 import { CookieNote } from "./CookieNote";
 import { HELP, LANDING } from "./copy";
+import { copyright, SITE_PAGES } from "./pages";
 import { Swaps } from "./Swap";
 import { SWAPS } from "./swaps";
 import { Waitlist } from "./Waitlist";
@@ -20,7 +21,7 @@ import { Waitlist } from "./Waitlist";
  * cream main, bracketed caps labels, a section rail on the left, a
  * full-screen menu, reveals on scroll, the accent footer) around the
  * studio's own content: a spot as it is and with the piece, the
- * thirteen pieces with their estimated prices, how a piece is built,
+ * pieces with their estimated prices, how a piece is built,
  * what the studio does, and the list for the day ordering opens. The
  * page scrolls inside itself (the body does not scroll), so the rail,
  * the reveals and the bar's shade read this element's scroll.
@@ -28,21 +29,18 @@ import { Waitlist } from "./Waitlist";
 const SECTIONS = [
   { id: "home", label: "Home", desc: "A spot as it is, and with the piece." },
   { id: "pieces", label: "Pieces", desc: "Every piece, one panel." },
-  { id: "how", label: "Built", desc: "Flat, in boxes, built where it stands." },
-  { id: "eva", label: "Studio", desc: "Plan it with Eva, at your size." },
+  { id: "how", label: "Built", desc: LANDING.how.head },
+  { id: "eva", label: "Studio", desc: LANDING.eva.head },
   { id: "waitlist", label: "Waitlist", desc: "One note when ordering opens." },
 ] as const;
 type SectionId = (typeof SECTIONS)[number]["id"];
 
+/** the menu's and the footer's pages: the studio first, then the site's */
 const PAGES = [
-  { href: "/rounded", label: "Open the studio" },
-  { href: "/account", label: "Account" },
-  { href: "/help", label: "Help" },
-] as const;
-const LEGAL = [
-  { href: "/privacy", label: "Privacy" },
-  { href: "/terms", label: "Terms & refunds" },
-] as const;
+  { href: SITE.studio, label: LANDING.eva.studio },
+  ...SITE_PAGES.filter((p) => !p.legal),
+];
+const LEGAL = SITE_PAGES.filter((p) => p.legal);
 
 const ECHOES = [0.9, 0.65, 0.4, 0.15];
 const pieces = products.filter((p) => p.recipe);
@@ -149,7 +147,6 @@ export function Landing() {
     if (!el || top === null) return;
     el.scrollTo({ top: id === "home" ? 0 : top - 8, behavior: "smooth" });
   };
-  const year = new Date().getFullYear();
   const railLight = active === "home" && !past;
 
   return (
@@ -169,7 +166,7 @@ export function Landing() {
         </button>
         <Link
           className="ld-bar-cta ld-label"
-          href={session ? "/rounded" : "/account"}
+          href={session ? SITE.studio : "/account"}
         >
           {session ? "Studio" : "Sign in"}
         </Link>
@@ -183,9 +180,10 @@ export function Landing() {
         aria-modal="true"
         aria-label="Menu"
         aria-hidden={!menu}
+        inert={!menu}
       >
         <div className="ld-menu-grid">
-          <div className="ld-menu-left">
+          <div>
             <p className="ld-eye ld-menu-eye">[ Studio ]</p>
             <p className="ld-menu-h">{SITE.name}</p>
             <div className="ld-menu-items">
@@ -201,7 +199,7 @@ export function Landing() {
               ))}
             </div>
           </div>
-          <div className="ld-menu-right">
+          <div>
             {SECTIONS.map((s, i) => (
               <button
                 key={s.id}
@@ -236,7 +234,7 @@ export function Landing() {
         {SECTIONS.map((s) => {
           const on = active === s.id;
           return (
-            <div key={s.id} className="ld-rail-item">
+            <div key={s.id}>
               <button
                 type="button"
                 className="ld-rail-btn"
@@ -244,7 +242,7 @@ export function Landing() {
                 onClick={() => goTo(s.id)}
               >
                 {on && <span aria-hidden="true">[</span>}
-                <span className="ld-rail-lb">{s.label}</span>
+                <span>{s.label}</span>
                 {on && <span aria-hidden="true">]</span>}
               </button>
               {on && <p className="ld-rail-desc">{s.desc}</p>}
@@ -282,7 +280,7 @@ export function Landing() {
           </header>
           <div className="ld-main">
             <Swaps swaps={SWAPS} />
-            <Link className="ld-tag" href="/rounded">
+            <Link className="ld-tag" href={SITE.studio}>
               <span className="ld-tagline">{LANDING.tag}</span>
               <span className="ld-mark-bk" aria-hidden="true">
                 [<span className="ld-mark-arrow">↗</span>]
@@ -302,7 +300,7 @@ export function Landing() {
               {pieces.map((p) => (
                 <li key={p.id} className="ld-piece ld-reveal">
                   <Link
-                    href={`/rounded?piece=${p.id}`}
+                    href={`${SITE.studio}?piece=${p.id}`}
                     className="ld-piece-link"
                     aria-label={`${p.name}: ${LANDING.pieces.open}`}
                   >
@@ -329,7 +327,7 @@ export function Landing() {
             <h2 className="ld-h2 ld-reveal">{LANDING.how.head}</h2>
             <div className="ld-how">
               {HELP.slice(0, 3).map((s) => (
-                <div key={s.id} className="ld-how-col ld-reveal">
+                <div key={s.id} className="ld-reveal">
                   <h3 className="ld-h3">{s.head}</h3>
                   <p className="ld-p">{s.body[0]}</p>
                 </div>
@@ -346,7 +344,7 @@ export function Landing() {
             <h2 className="ld-h2 ld-reveal">{LANDING.eva.head}</h2>
             <p className="ld-lede ld-reveal">{LANDING.eva.lede}</p>
             <div className="ld-acts ld-reveal">
-              <Link className="ld-btn" href="/rounded">
+              <Link className="ld-btn" href={SITE.studio}>
                 {LANDING.eva.studio}
                 <span aria-hidden="true"> →</span>
               </Link>
@@ -406,9 +404,7 @@ export function Landing() {
             </ul>
           </div>
         </div>
-        <p className="ld-foot-copy">
-          © {year} {SITE.name}
-        </p>
+        <p className="ld-foot-copy">{copyright()}</p>
       </footer>
 
       <CookieNote past={past} />

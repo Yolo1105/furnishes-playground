@@ -3,14 +3,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { orders } from "@/lib/db/schema";
-import {
-  orderDeliveredMail,
-  orderPaidMail,
-  orderRefundedMail,
-  type OrderMail,
-} from "@/lib/mails";
+import { orderMailOf, orderMovedMail } from "@/lib/mails";
 import { canMove, type OrderStatus } from "@/lib/orders";
 import { adminOf } from "@/lib/ops";
+import { BAD_REQUEST } from "@/lib/schemas";
 
 /**
  * An order moved on by the studio, from the operations page: paid when
@@ -34,8 +30,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
     return NextResponse.json({ error: "not here" }, { status: 404 });
   const { id } = await params;
   const parsed = Patch.safeParse(await req.json().catch(() => null));
-  if (!parsed.success)
-    return NextResponse.json({ error: "bad request" }, { status: 400 });
+  if (!parsed.success) return NextResponse.json(BAD_REQUEST, { status: 400 });
   const { db } = getDb();
   const row = (await db.select().from(orders).where(eq(orders.id, id)))[0];
   if (!row) return NextResponse.json({ error: "not here" }, { status: 404 });
@@ -53,18 +48,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
       updatedAt: Date.now(),
     })
     .where(eq(orders.id, id));
-  if (status) {
-    const mail: OrderMail = {
-      id: row.id,
-      email: row.email,
-      lines: row.lines as OrderMail["lines"],
-      total: row.total,
-      address: row.address as OrderMail["address"],
-    };
-    if (status === "paid") await orderPaidMail(mail);
-    if (status === "fulfilled") await orderDeliveredMail(mail);
-    if (status === "refunded") await orderRefundedMail(mail);
-  }
+  if (status) await orderMovedMail(orderMailOf(row), status);
   return NextResponse.json({
     id,
     status: status ?? row.status,

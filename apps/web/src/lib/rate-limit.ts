@@ -1,6 +1,7 @@
-import { eq } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { getDb } from "./db";
 import { rateLimit } from "./db/schema";
+import { IS_PRODUCTION } from "./env";
 
 /**
  * A bounded number of goes per caller in a window, counted in the
@@ -9,37 +10,31 @@ import { rateLimit } from "./db/schema";
  * The bound is for the deployed site: a development server, where
  * everyone is "local" and the test suites come round and round, counts
  * nothing. The window is fixed, not sliding: it starts with the first
- * go and the count starts again once it has passed.
+ * go and the count starts again once it has passed. One statement
+ * does the counting, so two goes at once cannot both slip under.
  */
-export const HOUR = 60 * 60 * 1000;
+const HOUR = 60 * 60 * 1000;
 export const DAY = 24 * HOUR;
-const BOUNDED = process.env.NODE_ENV === "production";
 
 /** one more go for the key, if its window has room */
 export async function allow(key: string, max: number, windowMs = HOUR) {
-  if (!BOUNDED) return true;
+  if (!IS_PRODUCTION) return true;
   const { db, ready } = getDb();
   await ready;
   const now = Date.now();
-  const row = (
-    await db.select().from(rateLimit).where(eq(rateLimit.key, key))
-  )[0];
-  if (!row || now - row.windowStart >= windowMs) {
-    await db
-      .insert(rateLimit)
-      .values({ key, windowStart: now, count: 1 })
-      .onConflictDoUpdate({
-        target: rateLimit.key,
-        set: { windowStart: now, count: 1 },
-      });
-    return true;
-  }
-  if (row.count >= max) return false;
-  await db
-    .update(rateLimit)
-    .set({ count: row.count + 1 })
-    .where(eq(rateLimit.key, key));
-  return true;
+  // a window that has passed starts again at one; otherwise one more
+  const [row] = await db
+    .insert(rateLimit)
+    .values({ key, windowStart: now, count: 1 })
+    .onConflictDoUpdate({
+      target: rateLimit.key,
+      set: {
+        count: sql`case when ${now} - ${rateLimit.windowStart} >= ${windowMs} then 1 else ${rateLimit.count} + 1 end`,
+        windowStart: sql`case when ${now} - ${rateLimit.windowStart} >= ${windowMs} then ${now} else ${rateLimit.windowStart} end`,
+      },
+    })
+    .returning({ count: rateLimit.count });
+  return (row?.count ?? 1) <= max;
 }
 
 export const callerOf = (req: Request) =>

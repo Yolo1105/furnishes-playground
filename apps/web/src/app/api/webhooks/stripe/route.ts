@@ -2,7 +2,7 @@ import { eq, or } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { orders, paymentEvent } from "@/lib/db/schema";
-import { orderPaidMail, orderRefundedMail, type OrderMail } from "@/lib/mails";
+import { orderMailOf, orderMovedMail } from "@/lib/mails";
 import { canMove, type OrderStatus } from "@/lib/orders";
 import {
   outcomeOf,
@@ -18,8 +18,9 @@ import {
  * does nothing twice. Then, and only then, the order moved on: paid,
  * cancelled when the page lapsed, refunded; a move the order's state
  * does not allow is left alone, and the buyer is written to when it
- * is paid or refunded. A failure answers 5xx, so Stripe sends the event
- * again.
+ * is paid or refunded. A failure while moving the order lets the
+ * event's row go again and answers 5xx, so Stripe sends the event
+ * again and it is applied then.
  */
 export const runtime = "nodejs";
 
@@ -31,7 +32,7 @@ export async function POST(req: Request) {
   if (rejected) return NextResponse.json({ error: rejected }, { status: 400 });
   const event = parseEvent(raw);
   if (!event)
-    return NextResponse.json({ error: "bad-payload" }, { status: 400 });
+    return NextResponse.json({ error: "bad payload" }, { status: 400 });
   const { db, ready } = getDb();
   await ready;
   const fresh = await db
@@ -41,40 +42,47 @@ export async function POST(req: Request) {
     .returning({ id: paymentEvent.id });
   if (fresh.length === 0)
     return NextResponse.json({ received: true, duplicate: true });
-  const outcome = outcomeOf(event);
-  if (!outcome) return NextResponse.json({ received: true, applied: false });
-  const row = (
+  try {
+    const outcome = outcomeOf(event);
+    if (!outcome) return NextResponse.json({ received: true, applied: false });
+    const row = (
+      await db
+        .select()
+        .from(orders)
+        .where(
+          or(
+            eq(orders.paymentRef, event.ref),
+            eq(orders.paymentIntentRef, event.ref),
+          ),
+        )
+    )[0];
+    if (!row || !canMove(row.status as OrderStatus, outcome))
+      return NextResponse.json({ received: true, applied: false });
+    const now = Date.now();
     await db
-      .select()
-      .from(orders)
-      .where(
-        or(
-          eq(orders.paymentRef, event.ref),
-          eq(orders.paymentIntentRef, event.ref),
-        ),
-      )
-  )[0];
-  if (!row || !canMove(row.status as OrderStatus, outcome))
-    return NextResponse.json({ received: true, applied: false });
-  const now = Date.now();
-  await db
-    .update(orders)
-    .set({
-      status: outcome,
-      updatedAt: now,
-      ...(event.intentRef ? { paymentIntentRef: event.intentRef } : {}),
-    })
-    .where(eq(orders.id, row.id));
-  await db
-    .update(paymentEvent)
-    .set({ orderId: row.id })
-    .where(eq(paymentEvent.id, event.id));
-  const mail = {
-    ...row,
-    lines: row.lines as OrderMail["lines"],
-    address: row.address as OrderMail["address"],
-  };
-  if (outcome === "paid") await orderPaidMail(mail);
-  if (outcome === "refunded") await orderRefundedMail(mail);
-  return NextResponse.json({ received: true, applied: true });
+      .update(orders)
+      .set({
+        status: outcome,
+        updatedAt: now,
+        ...(event.intentRef ? { paymentIntentRef: event.intentRef } : {}),
+      })
+      .where(eq(orders.id, row.id));
+    await db
+      .update(paymentEvent)
+      .set({ orderId: row.id })
+      .where(eq(paymentEvent.id, event.id));
+    await orderMovedMail(orderMailOf(row), outcome);
+    return NextResponse.json({ received: true, applied: true });
+  } catch (error) {
+    // the event is not yet done with: let its row go, so the retry
+    // is not read as a replay
+    await db
+      .delete(paymentEvent)
+      .where(eq(paymentEvent.id, event.id))
+      .catch(() => undefined);
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: 500 },
+    );
+  }
 }

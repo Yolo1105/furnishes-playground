@@ -1,6 +1,7 @@
+import { sgd } from "./assets-data";
 import type { Product } from "./catalogue";
 import type { ChatMode, Chip } from "./eva-brain";
-import type { RoomId } from "./room-data";
+import { WALL_TONES, type RoomId } from "./room-data";
 import type { PlanId } from "./room-layout";
 
 /**
@@ -154,7 +155,7 @@ export const SWATCHES: Swatch[] = [
   { id: "warm-neutral", name: "Warm neutrals", hex: "#e9dccb" },
   { id: "birch", name: "Birch", hex: "#dcbd8f" },
   { id: "walnut", name: "Walnut", hex: "#6e4a2f" },
-  { id: "white", name: "Soft white", hex: "#f6f1ea" },
+  { id: "white", name: "Soft white", hex: WALL_TONES[0]!.hex },
   { id: "grey", name: "Cool grey", hex: "#b9bcc2" },
   { id: "sage", name: "Sage", hex: "#a9b59a" },
   { id: "terracotta", name: "Terracotta", hex: "#c8734f" },
@@ -182,6 +183,16 @@ export const CUSTOM_OPTIONS: Partial<
 
 /** budget slider: S$, in steps */
 export const BUDGET = { min: 500, max: 10000, step: 250 } as const;
+/** a budget range as it is shown, the lower end first */
+export const budgetLabel = (a: number, b: number) =>
+  `${sgd(Math.min(a, b))} – ${sgd(Math.max(a, b))}`;
+/** the chips that ask for a budget: three ceilings */
+export const budgetChips = (): Chip[] =>
+  [1500, 3000, 5000].map((n) => ({
+    label: `Under ${sgd(n)}`,
+    act: "budget",
+    budget: [BUDGET.min, n],
+  }));
 /** a sum kept to the budget's steps and range */
 export const snapBudget = (n: number) =>
   Math.min(

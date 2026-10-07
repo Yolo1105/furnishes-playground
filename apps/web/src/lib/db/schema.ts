@@ -107,7 +107,7 @@ export const sync = pgTable(
     userId: text()
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    /** projects, orders, generations or guides */
+    /** projects, orders, generations, guides or board */
     kind: text().notNull(),
     data: jsonb().notNull(),
     /** when the browser pushed it, epoch ms */
@@ -135,7 +135,7 @@ export const share = pgTable(
 export const orders = pgTable(
   "orders",
   {
-    /** the order number the studio gave it, FN- and five characters */
+    /** the order number the studio gave it (lib/orders OrderId) */
     id: text().primaryKey(),
     /** the account it was placed under, if one; kept when the account
         goes, as the ledger's record */
@@ -215,8 +215,9 @@ export const costLog = pgTable(
   {
     id: text().primaryKey(),
     caller: text().notNull(),
-    userId: text(),
-    /** chat or item */
+    /** the account behind the call, if one; let go with the account */
+    userId: text().references(() => user.id, { onDelete: "set null" }),
+    /** chat, item or review */
     kind: text().notNull(),
     model: text(),
     inputTokens: integer().notNull(),

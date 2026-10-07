@@ -9,8 +9,8 @@ donors.
 
 ```
 apps/web          Next.js 16 app (React 19.3 + React Compiler, Tailwind 4, R3F)
-packages/domain   product model (Project → Room → Scheme → Instance → Component)
-packages/scene    one world frame, coordinate adapters, geometry vocabulary
+packages/domain   the catalogue: recipes, parts, steps and prices (framework-free)
+packages/scene    the world frame: the domain's millimetres to the renderers' metres
 ```
 
 pnpm 10 workspace. Any Node 24 (24.21 recommended, see `.nvmrc`). TypeScript 6.
@@ -22,16 +22,17 @@ Use pnpm, not npm: `npm install` will refuse the workspace.
 nvm use                 # Node 24.21.0
 corepack enable         # or: npm i -g pnpm@10
 pnpm install            # again after every pull: the dependencies move
-cp .env.example .env    # fill in keys as features land
+cp apps/web/.env.example apps/web/.env.local   # keys as they land; none needed locally
 pnpm dev                # http://localhost:3000
 ```
 
 A "Module not found" at start, naming a package under `node_modules/.pnpm`,
 means the install is older than the checkout: run `pnpm install`.
 
-Checks: `pnpm lint`, `pnpm typecheck`, `pnpm test` (vitest: the domain
-package's recipes and prices, the web app's Stripe signing, order
-pricing and Eva's rules), `pnpm e2e`, `pnpm build`.
+Checks: `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test`
+(vitest: the domain package's recipes and prices; the web app's Stripe
+signing, order pricing, the guard, the letters, Eva's rules and the
+room layouts), `pnpm e2e`, `pnpm build`. CI runs the same.
 
 Notes:
 
@@ -135,8 +136,8 @@ environment maps (an apartment, a photo studio, a sunset, night) under
 keeps pictures with a title and a note, uploaded (sized down in the
 browser first) or saved from a generated room item's tile, with the
 starred room items beside them; it is mirrored to the account as a
-fifth document and is in the data export. `docs/` holds the research
-notes and the Chinese product brief.
+fifth document and is in the data export. `docs/` holds the deployment
+guide, the research notes and the Chinese product brief.
 
 Accounts are Better Auth over Drizzle: an email and a password from the
 gear's Sign in (or Google, when `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
@@ -170,8 +171,8 @@ and takes a link down. The database is Neon Postgres when `DATABASE_URL` is set 
 PGlite otherwise, a Postgres inside the server process that keeps its
 files under `apps/web/.data/pglite`, so a checkout runs and tests with
 no account anywhere; the migrations under `apps/web/drizzle` run when
-the server first touches the database, and `pnpm db:generate` writes a
-new one from a change to the schema. A project's snapshot carries the
+the server first touches the database, and `pnpm db:generate` (in
+`apps/web`) writes a new one from a change to the schema. A project's snapshot carries the
 version of its shape (`SNAPSHOT_VERSION` in the project store); one
 kept by an earlier studio, in the browser, the account's mirror or a
 share link, is brought up to the current shape as it is read, step by
@@ -180,9 +181,10 @@ sessions in production (a development run uses the library's own and
 says so).
 
 Deploying to furnish-es.com (`docs/DEPLOY.md` has the steps and the
-checks): the site's name, address and contact are
-in `apps/web/src/lib/site.ts`, which the titles, the sitemap, the
-auth's trusted origins, the landing, the inner pages and the gear's
+checks): the site's name, address and contact come from
+`apps/web/src/lib/site.ts` (furnish-es.com's unless the public variables
+in `apps/web/.env.example` say otherwise), which the titles, the sitemap,
+the auth's trusted origins, the landing, the inner pages and the gear's
 Feedback all read. `GET /api/health` says which backends are up (the
 database and its migrations, mail, the model, pictures, payments and
 its webhook, Google, the operations area and the nightly sweep) and
@@ -203,13 +205,13 @@ host with `CRON_SECRET`, sweeps rate-limit windows older than a day and
 cost rows older than ninety days and nothing else. A caller's shares (Eva's turns and reviews, room
 items, waitlist and help requests) and a document's weight have their
 defaults in `apps/web/src/lib/limits.ts` and can each be set in the
-environment; the site's name, address and contact can be set with the
-public variables in `.env.example` for a deployment under another name. On Vercel, import the repository with `apps/web` as
+environment. On Vercel, import the repository with `apps/web` as
 the root directory (the build command and output are Next's own), add
-the domain, and set four variables: `DATABASE_URL` from a Neon project
-(a hosted run without one refuses to start rather than lose accounts
-on a wiped disk), `BETTER_AUTH_SECRET` from `openssl rand -base64 32`,
-`BETTER_AUTH_URL=https://furnish-es.com`, and whichever provider keys
+the domain, and set the variables a hosted site cannot run without:
+`DATABASE_URL` from a Neon project (a hosted run without one refuses to
+start rather than lose accounts on a wiped disk), `BETTER_AUTH_SECRET`
+from `openssl rand -base64 32`, `BETTER_AUTH_URL=https://furnish-es.com`,
+`ADMIN_EMAILS` and `CRON_SECRET`; then whichever provider keys
 you want on (`ANTHROPIC_API_KEY`, `FAL_KEY`, `STRIPE_SECRET_KEY` with
 `STRIPE_WEBHOOK_SECRET` from a webhook endpoint at
 `/api/webhooks/stripe` listening to the checkout session, payment
@@ -222,7 +224,7 @@ each caller gets so many turns and items an hour, counted in the
 database so a fleet of servers counts as one, and what each call cost
 goes into a cost log with a day's share per caller and for the site
 (the rates and the shares are set in the environment; see
-`.env.example`); a message that tries to talk the model out of its rules
+`apps/web/.env.example`); a message that tries to talk the model out of its rules
 is refused and the studio's own rules answer it, and what the model
 says is read without any line that plays a role. The gear's Feedback
 writes to the studio's own table (`/api/help`, with the page and
@@ -292,7 +294,7 @@ each corner moves it, a double-click splits a wall in two, and the bar
 reads the wall's length; what stands in the room keeps to the walls that
 stayed. The Room tab's four sections are Start (how the room begins, the
 flat and room, the size in millimetres), Openings, Rules and Finish. The
-health rules, the three layouts, the 3D floor and walls and the walk all
+health rules, the four layouts, the 3D floor and walls and the walk all
 keep to the outline. The openings are a list on the walls: hinged,
 sliding and double doors, open passages and windows, each on the longest
 real edge of its side, added from the + strip (a tile dropped on the
@@ -380,7 +382,7 @@ active room (the room itself is the Room tab's, never a preference),
 picks catalogue pieces with why each fits, and reads the room plan,
 folded under one line that says the most urgent of it: what is still to
 decide, the room's health (walkways, the door's swing, the window,
-clashes) each finding with a Fix, three layouts to inspect and apply,
+clashes) each finding with a Fix, four layouts to inspect and apply,
 and where the budget should go once one is kept. Her tab opens with
 what she has read in one line and the prompts to start from, the room's
 own first. Eva comes four ways, as the chatbot had her (balanced, Style, Plan,
@@ -403,8 +405,9 @@ pieces, and two priorities, storage or flow and cosy or open; five
 presets (Open plan, Snug storage, Family flow, Reading nook,
 Live-work) set the whole lot for a way of living in the room, and
 Typical brings the room's own back. Under the room's health, Layouts
-lays the room out three ways (rows across the width, rows down the
-depth, along the walls with the middle open), costs each against the
+lays the room out four ways (rows across the width, rows down the
+depth, along the walls with the middle open, and by the book of the
+room's archetype), costs each against the
 rules with the priorities leaning on the walkways, the door and the
 window, marks Eva's pick (the lowest cost; when costs tie, the layout
 that moves the least) and applies one in a single undo step; locked

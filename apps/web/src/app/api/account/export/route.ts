@@ -3,11 +3,12 @@ import { NextResponse } from "next/server";
 import { userIdOf } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { helpRequest, orders, share, sync, user } from "@/lib/db/schema";
+import { SITE } from "@/lib/site";
 
 /**
  * Everything the account holds, as one JSON file to keep: who you are,
  * the mirror of the browser (projects, orders, generations, the guide's
- * record), the rooms shared by link, the orders placed, and what was
+ * record, the board), the rooms shared by link, the orders placed, and what was
  * written to the studio. From the gear's Account, "Download my data".
  */
 export const runtime = "nodejs";
@@ -65,7 +66,7 @@ export async function GET(req: Request) {
     status: 200,
     headers: {
       "content-type": "application/json",
-      "content-disposition": 'attachment; filename="furnishes-account.json"',
+      "content-disposition": `attachment; filename="${SITE.name.toLowerCase().replace(/\s+/g, "-")}-account.json"`,
     },
   });
 }

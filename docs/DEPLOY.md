@@ -21,8 +21,12 @@ hosted deployment is still missing. Nothing in that answer is a secret.
    - `BETTER_AUTH_SECRET`: 32 characters or more, from
      `openssl rand -base64 32`. Signs every session.
    - `BETTER_AUTH_URL`: the site's address, `https://furnish-es.com`.
-4. Add the domain. The site's name, address and contact are in
-   `apps/web/src/lib/site.ts`; a deployment elsewhere changes them there.
+   - `ADMIN_EMAILS` and `CRON_SECRET`: who runs operations and the token
+     the nightly sweep is sent (section 3). A hosted site without them
+     is reported as missing them by `/api/health`.
+4. Add the domain. The site's name, address and contact default to
+   furnish-es.com's (`apps/web/src/lib/site.ts`); a deployment elsewhere
+   sets the three public variables in section 2.
 5. Deploy. The migrations under `apps/web/drizzle` run on the first
    request; `/api/health` then reports `database.kind: "neon"` and the
    migration count, and `missingForHosting: []`.
@@ -94,18 +98,29 @@ the Actions tab, given the address):
 
     pnpm smoke https://furnish-es.com
 
-- `GET /api/health` is 200, `ok: true`, `missingForHosting: []`, and
-  `services.ops` and `services.cron` read `on`.
-- `/ops` is 404 signed out and the operations page signed in as an
-  admin; `GET /api/cron/retention` without the token is 401.
-- The landing opens at `/`; `/account` makes an account; with mail on,
-  the confirmation link arrives; with Google on, the button shows.
-- Every response carries the security headers (`X-Content-Type-Options`,
-  `Referrer-Policy`, `Permissions-Policy`, HSTS); `/robots.txt` keeps
-  crawlers out of `/api/` and `/reset`.
+What the command checks:
+
+- `GET /api/health` is 200, `ok: true`, the database migrated, and on a
+  hosted site `missingForHosting: []` (which covers `ADMIN_EMAILS` and
+  `CRON_SECRET`); it prints which services are on.
+- The landing and the inner pages open; every response carries the
+  security headers (`X-Content-Type-Options`, `Referrer-Policy`,
+  `Permissions-Policy`, HSTS); `/robots.txt` keeps crawlers out of
+  `/api/`, `/reset`, `/ops` and `/s/`; the sitemap lists the pages.
+- The waitlist takes an address once and refuses it twice; Eva answers
+  (from the model with a key, from the rules without).
+- `/ops` and its routes are 404 to a guest; the nightly sweep refuses a
+  call without its token.
+
+What to try by hand after the first deploy:
+
+- `/account` makes an account; with mail on, the confirmation link
+  arrives; with Google on, the button shows.
+- Signed in as an admin, `/ops` lists the orders, the words and the
+  waitlist, and a move on an order sends its letter.
 - With Stripe on, an order from the studio opens the hosted payment page
-  and comes back paid; the webhook row shows in the cost and event
-  tables.
+  and comes back paid; the order then reads paid under `/ops` and the
+  event is in the `payment_event` table.
 
 ## 5. Continuous integration
 

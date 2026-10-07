@@ -21,7 +21,11 @@ export default defineConfig({
     {
       name: "desktop",
       testMatch: /studio\.spec\.ts/,
-      use: { ...devices["Desktop Chrome"], ...chromium },
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1440, height: 900 },
+        ...chromium,
+      },
     },
     {
       name: "tablet",

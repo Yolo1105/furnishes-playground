@@ -5,6 +5,7 @@ import { userIdOf } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { orders } from "@/lib/db/schema";
 import { canMove, type OrderStatus } from "@/lib/orders";
+import { BAD_REQUEST } from "@/lib/schemas";
 import { sessionUrl } from "@/lib/stripe";
 
 /**
@@ -19,9 +20,9 @@ export const runtime = "nodejs";
 type Ctx = { params: Promise<{ id: string }> };
 
 const ownerOf = async (req: Request, id: string) => {
-  const row = (
-    await getDb().db.select().from(orders).where(eq(orders.id, id))
-  )[0];
+  const { db, ready } = getDb();
+  await ready;
+  const row = (await db.select().from(orders).where(eq(orders.id, id)))[0];
   if (!row) return null;
   const key = new URL(req.url).searchParams.get("key");
   if (key && key === row.key) return row;
@@ -54,8 +55,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
   const row = await ownerOf(req, id);
   if (!row) return NextResponse.json({ error: "not yours" }, { status: 404 });
   const parsed = Patch.safeParse(await req.json().catch(() => null));
-  if (!parsed.success)
-    return NextResponse.json({ error: "bad request" }, { status: 400 });
+  if (!parsed.success) return NextResponse.json(BAD_REQUEST, { status: 400 });
   if (!canMove(row.status as OrderStatus, parsed.data.status))
     return NextResponse.json(
       { error: `an order ${row.status} cannot be cancelled` },

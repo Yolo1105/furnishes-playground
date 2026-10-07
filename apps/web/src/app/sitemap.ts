@@ -1,18 +1,9 @@
 import type { MetadataRoute } from "next";
+import { SITEMAP_PATHS } from "@/components/site/pages";
 import { SITE } from "@/lib/site";
 
-/** the pages worth finding: the landing, the two studios, the account's
-    way in, help, privacy and the terms */
+/** the pages worth finding: the landing, the two studios, and the
+    site's pages (components/site/pages) */
 export default function sitemap(): MetadataRoute.Sitemap {
-  return [
-    "/",
-    "/rounded",
-    "/studio",
-    "/account",
-    "/help",
-    "/privacy",
-    "/terms",
-  ].map((path) => ({
-    url: `${SITE.url}${path}`,
-  }));
+  return SITEMAP_PATHS.map((path) => ({ url: `${SITE.url}${path}` }));
 }

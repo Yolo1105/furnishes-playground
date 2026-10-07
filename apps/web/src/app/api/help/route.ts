@@ -1,40 +1,40 @@
-import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { userOf } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { helpRequest } from "@/lib/db/schema";
+import { HELP_CATEGORIES, HELP_MAX, HELP_MIN } from "@/lib/help";
+import { randomId } from "@/lib/id";
 import { LIMITS } from "@/lib/limits";
 import { helpReceivedMail } from "@/lib/mails";
 import { allow, callerOf, DAY } from "@/lib/rate-limit";
+import { BAD_REQUEST, EmailField } from "@/lib/schemas";
 
 /**
  * A word to the studio: a problem, an idea or a question, from the
- * gear's Feedback. Kept as a row with who sent it (the account, or the
- * email given) and where they were, and answered with a mail that says
- * so. Ten a day per caller.
+ * gear's Feedback or the help page's Ask us (lib/help-client). Kept as
+ * a row with who sent it (the account, or the email given) and where
+ * they were, and answered with a mail that says so. A caller gets
+ * LIMITS.helpPerDay a day.
  */
 export const runtime = "nodejs";
 
-export const HELP_CATEGORIES = ["problem", "idea", "question"] as const;
-
 const Body = z.object({
   category: z.enum(HELP_CATEGORIES),
-  message: z.string().trim().min(5).max(4000),
+  message: z.string().trim().min(HELP_MIN).max(HELP_MAX),
   context: z.string().trim().max(200).optional(),
-  email: z.string().trim().toLowerCase().email().max(200).optional(),
+  email: EmailField.optional(),
 });
 
 export async function POST(req: Request) {
   const parsed = Body.safeParse(await req.json().catch(() => null));
-  if (!parsed.success)
-    return NextResponse.json({ error: "bad request" }, { status: 400 });
+  if (!parsed.success) return NextResponse.json(BAD_REQUEST, { status: 400 });
   const who = await userOf(req);
   const email = who?.email ?? parsed.data.email;
   if (!email) return NextResponse.json({ error: "email" }, { status: 400 });
   if (!(await allow(`help:${callerOf(req)}`, LIMITS.helpPerDay, DAY)))
     return NextResponse.json({ error: "rate-limit" }, { status: 429 });
-  const id = randomBytes(8).toString("base64url");
+  const id = randomId();
   await getDb()
     .db.insert(helpRequest)
     .values({

@@ -60,7 +60,7 @@ export const layoutsOf = (
  * click also raises two actions over it, Details (the piece alone, and
  * the Detail tab) and Label (for Eva, five at a time). A piece in focus
  * stands alone. The same hook reads the room's health against its rules
- * and lays the room out three ways for the plan's Layouts.
+ * and lays the room out four ways for the plan's Layouts.
  */
 export function usePieceActions(roomId?: string) {
   const items = useTopLevel();
@@ -130,7 +130,7 @@ export function usePieceActions(roomId?: string) {
       .filter((i) => i.kind === "overlap")
       .flatMap((i) => [i.pieceId!, i.otherId!]),
   );
-  // the three layouts, each read against the same rules, costed by the
+  // the four layouts, each read against the same rules, costed by the
   // priorities and explained: what each would leave and move
   const plans = read.plans.map((plan) => {
     const e = explainPlan(

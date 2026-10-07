@@ -11,6 +11,62 @@ import { ROOM_TEMPLATES } from "../src/components/studio/room-templates";
 
 /* expectations come from the same data the app renders */
 const top = assetGroups.flatMap((g) => g.items);
+
+/** the intro guide opens itself on a first visit; the tests have seen it */
+const seed = (ctx: BrowserContext | Page) =>
+  ctx.addInitScript(({ key, value }) => localStorage.setItem(key, value), {
+    key: GUIDE_STORAGE_KEY,
+    value: JSON.stringify({ intro: true }),
+  });
+
+/** a piece placed by its millimetres from the west and north walls,
+    through the Detail tab */
+const placeByMm = async (page: Page, name: string, x: string, y: string) => {
+  await page.getByRole("tab", { name: "Assets", exact: true }).click();
+  await page.getByRole("treeitem", { name, exact: true }).click();
+  await page.getByRole("tab", { name: "Detail", exact: true }).click();
+  const sx = page.getByRole("spinbutton", {
+    name: `${name} from the west wall in millimetres`,
+  });
+  const sy = page.getByRole("spinbutton", {
+    name: `${name} from the north wall in millimetres`,
+  });
+  await sx.fill(x);
+  await sx.press("Tab");
+  await sy.fill(y);
+  await sy.press("Tab");
+};
+
+/** the mails a development server kept for an address, by subject */
+const keptMail = async (page: Page, to: string, subject: RegExp) => {
+  const r = await page.request.get(
+    `/api/dev/mail?to=${encodeURIComponent(to)}`,
+  );
+  const { mails } = (await r.json()) as {
+    mails: { subject: string; text: string }[];
+  };
+  return mails.filter((m) => subject.test(m.subject));
+};
+
+/** a point of the default living room on the plan's SVG: the plan draws
+    the room with a margin round it */
+const PLAN = { w: 6500, d: 4000, margin: 1100 };
+const planAt = (
+  box: { x: number; y: number; width: number; height: number },
+  x: number,
+  y: number,
+) => ({
+  x: box.x + ((x + PLAN.margin) / (PLAN.w + 2 * PLAN.margin)) * box.width,
+  y: box.y + ((y + PLAN.margin) / (PLAN.d + 2 * PLAN.margin)) * box.height,
+});
+
+/** where the test orders go */
+const ADDRESS = {
+  recipient: "Mei Lin",
+  line1: "Blk 123 Bedok North Ave 3 #05-67",
+  postal: "460123",
+  phone: "91234567",
+};
 const totals = pieceTotals(top);
 const rows =
   assetGroups.length +
@@ -34,13 +90,7 @@ const arrived = (page: Page) =>
       .every((cs) => cs.opacity === "1" && cs.translate === "none");
   });
 
-/* the intro guide opens itself on a first visit; most tests have seen it */
-test.beforeEach(async ({ page }) => {
-  await page.addInitScript(
-    ({ key, value }) => localStorage.setItem(key, value),
-    { key: GUIDE_STORAGE_KEY, value: JSON.stringify({ intro: true }) },
-  );
-});
+test.beforeEach(({ page }) => seed(page));
 
 /** The background is the studio palette: cream→peach gradient + blobs. */
 test("background paints the playground palette", async ({ page }) => {
@@ -84,7 +134,6 @@ for (const [path, corners] of [
   test(`${path} lays out left | main | right (${corners})`, async ({
     page,
   }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(path);
     await arrived(page);
     const shell = page.locator(".shell");
@@ -128,7 +177,6 @@ for (const [path, corners] of [
 test("/rounded has a toolbar on top and a sideways-scrolling shelf below", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await arrived(page);
   const main = (await page.locator(".shell-main").boundingBox())!;
@@ -154,7 +202,6 @@ test("/rounded has a toolbar on top and a sideways-scrolling shelf below", async
 });
 
 test("rails collapse into the toolbar and come back", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await arrived(page);
   const shell = page.locator(".shell");
@@ -226,7 +273,6 @@ test("rails collapse into the toolbar and come back", async ({ page }) => {
 });
 
 test("Eva's input box and the user bar", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await arrived(page);
   // edges line up: toolbar top on the rails' top, shelf bottom on their bottom
@@ -264,7 +310,6 @@ test("Eva's input box and the user bar", async ({ page }) => {
 test("the outliner searches, filters and marks the pieces", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await arrived(page);
   const tree = page.getByRole("tree", { name: "Assets" });
@@ -314,7 +359,6 @@ test("the outliner searches, filters and marks the pieces", async ({
 test("the shelf's tab counts the pieces and folds the cards away", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   const shelf = page.locator(".main-shelf");
   const saved = shelf.getByRole("tab", { name: /Saved/ });
@@ -341,7 +385,6 @@ test("the shelf's tab counts the pieces and folds the cards away", async ({
 test("the right rail holds the other view, and the swap trades them", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await arrived(page);
   const view = page.locator(".shell-panel-view");
@@ -399,7 +442,6 @@ test("the right rail holds the other view, and the swap trades them", async ({
 test("the outliner draws hierarchy lines and the Products tab adds to the room", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   const tree = page.getByRole("tree", { name: "Assets" });
   // a child row carries a guide back to its parent
@@ -464,7 +506,6 @@ test("the outliner draws hierarchy lines and the Products tab adds to the room",
 test("Eva's History lists conversations without an input box", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await expect(
     page.getByRole("textbox", { name: "Message Eva" }),
@@ -514,7 +555,6 @@ test("Eva's History lists conversations without an input box", async ({
 test("Eva's Preference blocks take a budget, styles, colours and needs", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await page.getByRole("tab", { name: "Preference" }).click();
   await expect(page.getByRole("textbox", { name: "Message Eva" })).toHaveCount(
@@ -580,7 +620,6 @@ test("Eva's Preference blocks take a budget, styles, colours and needs", async (
 test("the view panel drags down to give Eva more, and no higher than its third", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await arrived(page);
   const view = page.locator(".shell-panel-view");
@@ -616,7 +655,6 @@ test("the view panel drags down to give Eva more, and no higher than its third",
 test("the toolbar reads mode · select, add, wall · undo, guide, export", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   const bar = page.getByRole("toolbar", { name: "Studio tools" });
   // the four stages along the top: the outliner open, the work is at Layout
@@ -696,7 +734,6 @@ test("the toolbar reads mode · select, add, wall · undo, guide, export", async
 });
 
 test("the catalogue is grouped under titled categories", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await page.getByRole("tab", { name: "Products" }).click();
   const titles = page.locator(".products-title");
@@ -708,7 +745,6 @@ test("the catalogue is grouped under titled categories", async ({ page }) => {
 test("the Room tab starts from the HDB preset and takes a size of your own", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await page.getByRole("tab", { name: "Room", exact: true }).click();
   await expect(page.getByRole("searchbox")).toHaveCount(0);
@@ -750,7 +786,6 @@ test("the Room tab starts from the HDB preset and takes a size of your own", asy
 test("Render runs a line along the top, sweeps the render in over the view, then compares on demand", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   // the run's lengths are tokens; the test shortens them (the line keeps
   // a few seconds: a software renderer's first frame can hold the page)
@@ -847,7 +882,6 @@ test("a first visit opens the welcome and the tour; the Guide mark runs it again
   page,
   browser,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   // from the toolbar: the same welcome, large and in the middle
@@ -891,7 +925,6 @@ test("a first visit opens the welcome and the tour; the Guide mark runs it again
 });
 
 test("the Room tab starts from drawn walls or a template", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await page.getByRole("tab", { name: "Room", exact: true }).click();
   const start = page.getByRole("radiogroup", { name: "Start from" });
@@ -936,7 +969,6 @@ test("the Room tab starts from drawn walls or a template", async ({ page }) => {
 test("a pick on the shelf and in the outliner is the same pick", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   const shelf = page.locator(".main-shelf");
   const tree = page.getByRole("tree", { name: "Assets" });
@@ -985,7 +1017,6 @@ test("a pick on the shelf and in the outliner is the same pick", async ({
 test("the + opens the strip of parts; a click adds, a drag places", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   const shelf = page.locator(".main-shelf");
   const saved = shelf.getByRole("tab", { name: /Saved/ });
@@ -1042,7 +1073,6 @@ test("the + opens the strip of parts; a click adds, a drag places", async ({
 test("the shelf's Saved cards go to the Cart from a hover button", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   const shelf = page.locator(".main-shelf");
   const cart = shelf.getByRole("tab", { name: /Cart/ });
@@ -1107,7 +1137,6 @@ test("the shelf's Saved cards go to the Cart from a hover button", async ({
 test("a view swap runs the quick line; the Agent tab hands prompts to the input", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await page.addStyleTag({ content: ":root{--load-view:1.5s}" });
   await page.getByRole("button", { name: "Show 2D plan in main" }).click();
@@ -1132,7 +1161,6 @@ test("a view swap runs the quick line; the Agent tab hands prompts to the input"
 test("Inspect raises Details and Label over a piece; labels reach Eva, five at most", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   // the 3D view draws the room on a canvas; the plan draws the pieces as
   // buttons, which is where this test clicks them
@@ -1213,7 +1241,6 @@ test("Inspect raises Details and Label over a piece; labels reach Eva, five at m
 test("the Detail tab lists a piece's components and changes one", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await page.getByRole("tab", { name: "Detail" }).click();
   await expect(page.locator(".detail")).toHaveCount(0);
@@ -1267,7 +1294,6 @@ test("the Detail tab lists a piece's components and changes one", async ({
 test("Eva answers a message; New chat opens a thread; suggestions fill the box", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   const box = page.getByRole("textbox", { name: "Message Eva" });
   await box.fill("What sofa suits this room?");
@@ -1290,7 +1316,6 @@ test("Eva answers a message; New chat opens a thread; suggestions fill the box",
 test("the Wall tool traces a room on the plan; Clear forgets it", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await page.getByRole("tab", { name: "Room", exact: true }).click();
   await page
@@ -1325,7 +1350,6 @@ test("the Wall tool traces a room on the plan; Clear forgets it", async ({
 test("the plan reads as a drawing: hatched walls, a door swing, dimensions, a title", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await page.getByRole("button", { name: "Show 2D plan in main" }).click();
   const svg = page.locator(".plan-svg");
@@ -1345,7 +1369,6 @@ test("the plan reads as a drawing: hatched walls, a door swing, dimensions, a ti
 test("Export offers the view and the room as files; Undo and Redo follow the changes", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   const undo = page.getByRole("button", { name: "Undo" });
   const redo = page.getByRole("button", { name: "Redo" });
@@ -1389,7 +1412,6 @@ test("Export offers the view and the room as files; Undo and Redo follow the cha
 test("Checkout reads the order back and hands over the list", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   const pieces = top.filter((a) => a.kind === "piece");
   const first = pieces[0]!;
@@ -1418,7 +1440,6 @@ test("Checkout reads the order back and hands over the list", async ({
 test("the gear opens Settings, Help and the Guide; keys drive the tools", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   const menu = page.getByRole("menu");
@@ -1510,7 +1531,6 @@ test("the gear opens Settings, Help and the Guide; keys drive the tools", async 
 test("the studio arrives with its transitions and remembers the last view", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await expect(page.locator("html")).toHaveAttribute("data-arrived", "true");
   await arrived(page);
@@ -1529,7 +1549,6 @@ test("the studio arrives with its transitions and remembers the last view", asyn
 test("Select drags a piece about the plan, turns it, locks it; the eye hides, Remove takes it out", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await page.getByRole("button", { name: "Show 2D plan in main" }).click();
   const stage = page.locator(".stage-pieces");
@@ -1613,7 +1632,6 @@ test("Select drags a piece about the plan, turns it, locks it; the eye hides, Re
 test("the cube's other 2D angles draw the wall's elevation", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await page.getByRole("button", { name: "Show 2D plan in main" }).click();
   const cube = page.getByRole("radiogroup", { name: "View angle" });
@@ -1642,7 +1660,6 @@ test("the cube's other 2D angles draw the wall's elevation", async ({
 test("Eva keeps to the order of the work: the room's size first, a budget before a list, pieces with why they fit", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   const agent = page.locator(".agent");
   // the room comes first while its walls are not set: the plan's line
@@ -1704,7 +1721,6 @@ test("Eva keeps to the order of the work: the room's size first, a budget before
 test("projects: a new one starts clean, the first keeps its room, rename and delete", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   const name = page.locator(".shell-project-name");
   const saved = page.getByRole("tab", { name: /^Saved/ });
@@ -1752,7 +1768,6 @@ test("projects: a new one starts clean, the first keeps its room, rename and del
 test("a project kept by an earlier studio comes up to the catalogue as it is read", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await arrived(page);
   // a change, so the project is kept; then its snapshot is put back
@@ -1798,7 +1813,6 @@ test("a project kept by an earlier studio comes up to the catalogue as it is rea
 test("with a model connected Eva's answer comes through the route; the thumbs and edit work", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   // the route is stood in for: what a model would answer, in its shape
   await page.route("**/api/chat", async (route) => {
     const body = route.request().postDataJSON() as {
@@ -1859,7 +1873,6 @@ test("with a model connected Eva's answer comes through the route; the thumbs an
 test("without a model the route says so and Eva answers from the rules, once noted", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   const res = await page.request.post("/api/chat", {
     data: {
@@ -1903,7 +1916,6 @@ test("without a model the route says so and Eva answers from the rules, once not
 test("in 3D a piece is dragged over the floor, the camera glides between angles, and Walk puts you in the room", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   const stage = page.locator(".stage-3d");
   await expect(stage.locator("canvas")).toHaveCount(1);
@@ -2027,7 +2039,6 @@ test("in 3D a piece is dragged over the floor, the camera glides between angles,
 test("the quizzes work a result out and hand it to Eva as proposals", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await page.getByRole("tab", { name: "Preference" }).click();
   const quizzes = page.getByRole("group", { name: "Quizzes" });
@@ -2088,7 +2099,6 @@ test("the quizzes work a result out and hand it to Eva as proposals", async ({
 test("Feedback goes to the studio's own table; the waitlist keeps an email once; a message that talks at the model is refused", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   // the gear's Feedback: a kind, a few lines, an email as a guest
   await page.getByRole("button", { name: "Settings", exact: true }).click();
@@ -2163,7 +2173,6 @@ test("Feedback goes to the studio's own table; the waitlist keeps an email once;
 test("an order is placed with a delivery address, waits for payment, is listed and can be cancelled", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   const pieces = top.filter((a) => a.kind === "piece");
   const first = pieces[0]!;
@@ -2223,25 +2232,18 @@ test("an order is placed with a delivery address, waits for payment, is listed a
   expect((await mine.json()).status).toBe("pending_payment");
   // and wrote to the buyer that it is placed (kept on this server)
   await expect
-    .poll(async () => {
-      const r = await page.request.get(
-        `/api/dev/mail?to=${encodeURIComponent(buyer)}`,
-      );
-      const { mails } = (await r.json()) as { mails: { subject: string }[] };
-      return mails.map((m) => m.subject);
-    })
-    .toContain(`Order ${kept.id} is placed`);
+    .poll(
+      async () =>
+        (await keptMail(page, buyer, new RegExp(`^Order ${kept.id} is placed`)))
+          .length,
+    )
+    .toBe(1);
   expect(
     (await page.request.get(`/api/orders/${kept.id}?key=wrong`)).status(),
   ).toBe(404);
   // the route prices the lines itself: a stale total is said, not charged;
   // a piece not in the catalogue is refused; without Stripe it is offline
-  const address = {
-    recipient: "Mei Lin",
-    line1: "Blk 123 Bedok North Ave 3 #05-67",
-    postal: "460123",
-    phone: "91234567",
-  };
+  const address = ADDRESS;
   const line = { productId: first.productId!, name: first.name, price: 1 };
   const stale = await page.request.post("/api/checkout", {
     data: {
@@ -2264,16 +2266,22 @@ test("an order is placed with a delivery address, waits for payment, is listed a
     },
   });
   expect(unknown.status()).toBe(400);
-  const res = await page.request.post("/api/checkout", {
-    data: {
-      orderId: "FN-TEST3",
-      lines: [line],
-      total: first.price,
-      address,
-      currency: "SGD",
-    },
-  });
+  const fresh = `FN-${Date.now().toString(36).toUpperCase().slice(-6)}`;
+  const offline = {
+    orderId: fresh,
+    lines: [line],
+    total: first.price,
+    address,
+    currency: "SGD",
+  };
+  const res = await page.request.post("/api/checkout", { data: offline });
   expect((await res.json()).mode).toBe("offline");
+  // the same number again, from someone who cannot show it is theirs,
+  // is simply taken: nobody learns another's key from here
+  const again = await page.request.post("/api/checkout", { data: offline });
+  expect(again.status()).toBe(409);
+  expect((await again.json()).mode).toBe("taken");
+  expect(JSON.stringify(await again.json())).not.toContain('"key"');
   // the webhook wants its secret before anything else
   expect(
     (
@@ -2313,7 +2321,6 @@ test("an order is placed with a delivery address, waits for payment, is listed a
 test("the planner's rules: the door's swing, the window, a walkway, each with a Fix", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await page.getByRole("button", { name: "Show 2D plan in main" }).click();
   // the room plan, opened: its health is empty to start
@@ -2391,7 +2398,6 @@ test("the planner's rules: the door's swing, the window, a walkway, each with a 
 test("the Eva chosen steers the box: Style asks for pieces, Plan for a layout", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   const box = page.getByRole("textbox", { name: "Message Eva" });
   const agent = page.locator(".agent");
@@ -2421,7 +2427,6 @@ test("the Eva chosen steers the box: Style asks for pieces, Plan for a layout", 
 test("the room knows its flat: what fits, where the door is, a kitchen without a window; Eva says where the money goes", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await page.getByRole("tab", { name: "Room", exact: true }).click();
   await page
@@ -2490,7 +2495,6 @@ test("the room knows its flat: what fits, where the door is, a kitchen without a
 test("openings are a list: the + strip adds them, the Wall tool moves and sizes them, the Room tab names and removes them", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await page.getByRole("button", { name: "Show 2D plan in main" }).click();
   const svg = page.locator(".shell-stage .plan-svg");
@@ -2586,7 +2590,6 @@ test("openings are a list: the + strip adds them, the Wall tool moves and sizes 
 test("the Wall tool reshapes the room: a wall pushed, a corner moved, a wall split; the pieces keep to the walls that stayed", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await page.getByRole("button", { name: "Show 2D plan in main" }).click();
   const svg = page.locator(".shell-stage .plan-svg");
@@ -2659,7 +2662,6 @@ test("the Wall tool reshapes the room: a wall pushed, a corner moved, a wall spl
 test("the flat has rooms: one added stands beside the active room, a click on its floor makes it active, a piece goes into the active room, Remove takes it out", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await page.getByRole("button", { name: "Show 2D plan in main" }).click();
   const svg = page.locator(".shell-stage .plan-svg");
@@ -2786,7 +2788,6 @@ test("the flat has rooms: one added stands beside the active room, a click on it
 test("Generate makes a room item from a few words; without a provider a stock mesh stands in, or a shape", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   const shelf = page.locator(".main-shelf");
   const saved = shelf.getByRole("tab", { name: /Saved/ });
@@ -2870,7 +2871,6 @@ test("Generate makes a room item from a few words; without a provider a stock me
 test("a connected provider's picture shows on the tile and the item carries it", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   const pic =
     "data:image/svg+xml;utf8," +
     encodeURIComponent(
@@ -2912,7 +2912,6 @@ test("a connected provider's picture shows on the tile and the item carries it",
 test("the room's rules shape the planner: the walkway, what is kept clear, a bed against a wall, what the room must have; four layouts to apply", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await page.getByRole("button", { name: "Show 2D plan in main" }).click();
   await page.locator(".agent-plan > summary").click();
@@ -2935,21 +2934,8 @@ test("the room's rules shape the planner: the walkway, what is kept clear, a bed
   // two pieces 800 mm apart: fine at 600, too close at 1000
   const first = top.filter((a) => a.kind === "piece")[0]!;
   const second = top.filter((a) => a.kind === "piece")[1]!;
-  const place = async (name: string, x: string, y: string) => {
-    await page.getByRole("tab", { name: "Assets", exact: true }).click();
-    await page.getByRole("treeitem", { name, exact: true }).click();
-    await page.getByRole("tab", { name: "Detail", exact: true }).click();
-    const sx = page.getByRole("spinbutton", {
-      name: `${name} from the west wall in millimetres`,
-    });
-    const sy = page.getByRole("spinbutton", {
-      name: `${name} from the north wall in millimetres`,
-    });
-    await sx.fill(x);
-    await sx.press("Tab");
-    await sy.fill(y);
-    await sy.press("Tab");
-  };
+  const place = (name: string, x: string, y: string) =>
+    placeByMm(page, name, x, y);
   await place(second.name, "2000", "2600");
   await place(
     first.name,
@@ -2978,7 +2964,7 @@ test("the room's rules shape the planner: the walkway, what is kept clear, a bed
   await doorSwing.click();
   await expect(health).toContainText(`${first.name} blocks the door's swing`);
   await health.getByRole("button", { name: /^Fix: .*door/ }).click();
-  // the three layouts: Along the walls leaves the middle open
+  // the four layouts: Along the walls leaves the middle open
   const layouts = page
     .locator(".agent")
     .getByRole("group", { name: "Layouts" });
@@ -3057,7 +3043,6 @@ test("the room's rules shape the planner: the walkway, what is kept clear, a bed
 test("the plan's tools: the wheel and the keys zoom it, a drag pans it, Fit brings it back, Measure reads a distance", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   // the zoom controls belong to the plan: none in 3D
   await expect(page.getByRole("group", { name: "Plan zoom" })).toHaveCount(0);
@@ -3111,12 +3096,7 @@ test("the plan's tools: the wheel and the keys zoom it, a drag pans it, Fit brin
     "aria-pressed",
     "true",
   );
-  const vw = 6500 + 2 * 1100;
-  const vh = 4000 + 2 * 1100;
-  const at = (x: number, y: number) => ({
-    x: box.x + ((x + 1100) / vw) * box.width,
-    y: box.y + ((y + 1100) / vh) * box.height,
-  });
+  const at = (x: number, y: number) => planAt(box, x, y);
   const a = at(1000, 1000);
   const b = at(4000, 1000);
   await page.mouse.click(a.x, a.y);
@@ -3172,7 +3152,6 @@ test("Eva's extras: who answers, Brainstorm, a pinned answer, Refine, follow-ups
   page,
 }) => {
   test.setTimeout(60_000);
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   const agent = page.locator(".agent");
   const box = page.getByRole("textbox", { name: "Message Eva" });
@@ -3292,7 +3271,6 @@ test("Eva's extras: who answers, Brainstorm, a pinned answer, Refine, follow-ups
 test("a piece turns freely: the handle drags round it in steps of 15, Shift frees it, Square brings it back; turned outlines decide a clash", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await page.getByRole("button", { name: "Show 2D plan in main" }).click();
   await page.locator(".agent-plan > summary").click();
@@ -3339,21 +3317,8 @@ test("a piece turns freely: the handle drags round it in steps of 15, Shift free
   await expect(sofa).toHaveAttribute("data-turn", "180");
   // a clash is read from the turned outline, not the box round it: a vase
   // in the empty corner of a sofa on the slant does not clash
-  const placeAt = async (name: string, x: string, y: string) => {
-    await page.getByRole("tab", { name: "Assets", exact: true }).click();
-    await page.getByRole("treeitem", { name, exact: true }).click();
-    await page.getByRole("tab", { name: "Detail", exact: true }).click();
-    const sx = page.getByRole("spinbutton", {
-      name: `${name} from the west wall in millimetres`,
-    });
-    const sy = page.getByRole("spinbutton", {
-      name: `${name} from the north wall in millimetres`,
-    });
-    await sx.fill(x);
-    await sx.press("Tab");
-    await sy.fill(y);
-    await sy.press("Tab");
-  };
+  const placeAt = (name: string, x: string, y: string) =>
+    placeByMm(page, name, x, y);
   // (the rest of the pieces hold their places, so the sofa goes to the
   // clear floor south of the rug, its turned box past the south wall)
   await placeAt("Sofa", "2500", "2900");
@@ -3387,7 +3352,6 @@ test("a piece turns freely: the handle drags round it in steps of 15, Shift free
 test("the room is its outline: a notch is a wall, the layouts keep out of it, the door sits on a real edge; T, U and a tapped shape", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await page.getByRole("button", { name: "Show 2D plan in main" }).click();
   await page.locator(".agent-plan > summary").click();
@@ -3409,21 +3373,8 @@ test("the room is its outline: a notch is a wall, the layouts keep out of it, th
   const health = page
     .locator(".agent")
     .getByRole("list", { name: "Room health" });
-  const place = async (name: string, x: string, y: string) => {
-    await page.getByRole("tab", { name: "Assets", exact: true }).click();
-    await page.getByRole("treeitem", { name, exact: true }).click();
-    await page.getByRole("tab", { name: "Detail", exact: true }).click();
-    const sx = page.getByRole("spinbutton", {
-      name: `${name} from the west wall in millimetres`,
-    });
-    const sy = page.getByRole("spinbutton", {
-      name: `${name} from the north wall in millimetres`,
-    });
-    await sx.fill(x);
-    await sx.press("Tab");
-    await sy.fill(y);
-    await sy.press("Tab");
-  };
+  const place = (name: string, x: string, y: string) =>
+    placeByMm(page, name, x, y);
   // the L's notch: x past 0.6 of the width, y under 0.45 of the depth
   await place("Work cart", "5000", "500");
   await expect(health).toContainText("Work cart stands past the wall");
@@ -3464,7 +3415,6 @@ test("the room is its outline: a notch is a wall, the layouts keep out of it, th
 test("View settings: edges, names, a floor grid, shadows and the light, kept for next time", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   const stage = page.locator(".shell-stage .stage-3d");
   // no names until asked: the hovered piece alone shows its own
@@ -3509,7 +3459,6 @@ test("View settings: edges, names, a floor grid, shadows and the light, kept for
 test("the tour: stops on the plan, Play walks the camera through them, Stop and Escape end it, a round when there are none", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   // the keys listen once the studio has arrived on the client
   await expect(page.locator("html")).toHaveAttribute("data-arrived", "true");
@@ -3521,12 +3470,7 @@ test("the tour: stops on the plan, Play walks the camera through them, Stop and 
   const strip = page.getByRole("group", { name: "Tour" });
   await expect(strip).toContainText("No stops yet");
   const box = (await svg.boundingBox())!;
-  const vw = 6500 + 2 * 1100;
-  const vh = 4000 + 2 * 1100;
-  const at = (x: number, y: number) => ({
-    x: box.x + ((x + 1100) / vw) * box.width,
-    y: box.y + ((y + 1100) / vh) * box.height,
-  });
+  const at = (x: number, y: number) => planAt(box, x, y);
   const stops = svg.locator(".plan-stop");
   for (const [x, y] of [
     [800, 800],
@@ -3600,7 +3544,6 @@ test("the account page is the way in, and a sign-in goes straight into the studi
 }) => {
   // an account made, left and entered again: a long way for one test
   test.slow();
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/account?from=rounded");
   const rail = page.getByRole("complementary", { name: "Pages", exact: true });
   await expect(rail.getByRole("link", { name: /^Studio/ })).toHaveAttribute(
@@ -3661,7 +3604,6 @@ test("the account page is the way in, and a sign-in goes straight into the studi
 test("the site's edges: the privacy and terms pages, the help page's Ask us, the gear's Feedback, the headers, health, robots and the sitemap", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   const res = await page.goto("/privacy");
   expect(res!.headers()["x-content-type-options"]).toBe("nosniff");
   expect(res!.headers()["referrer-policy"]).toBe(
@@ -3746,7 +3688,6 @@ test("the site's edges: the privacy and terms pages, the help page's Ask us, the
 test("the studio's operations: not here for anyone else; an order moved on with a mail each; a word marked answered; the waitlist's one note; the nightly sweep", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   // nobody: the page and its routes are not here
   expect((await page.goto("/ops"))!.status()).toBe(404);
   await expect(
@@ -3774,13 +3715,7 @@ test("the studio's operations: not here for anyone else; an order moved on with 
     });
     expect(signedIn.status(), await signedIn.text()).toBe(200);
   }
-  const mails = async (to: string, subject: RegExp) => {
-    const r = await page.request.get(
-      `/api/dev/mail?to=${encodeURIComponent(to)}`,
-    );
-    const { mails } = (await r.json()) as { mails: { subject: string }[] };
-    return mails.filter((m) => subject.test(m.subject));
-  };
+  const mails = (to: string, subject: RegExp) => keptMail(page, to, subject);
   // an order under the account, offline: the placed mail goes to it
   const stamp = Date.now().toString(36).toUpperCase();
   const orderId = `FN-${stamp.slice(-6)}`;
@@ -3792,12 +3727,7 @@ test("the studio's operations: not here for anyone else; an order moved on with 
         { productId: first.productId, name: first.name, price: first.price },
       ],
       total: first.price,
-      address: {
-        recipient: "Mei Lin",
-        line1: "Blk 123 Bedok North Ave 3 #05-67",
-        postal: "460123",
-        phone: "91234567",
-      },
+      address: ADDRESS,
       currency: "SGD",
     },
   });
@@ -3910,7 +3840,6 @@ test("the studio's operations: not here for anyone else; an order moved on with 
 test("the landing: the band, the spot that changes under a drag, the rail and the menu, a piece into the studio, the waitlist and the cookie note", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toHaveAttribute(
     "aria-label",
@@ -3988,7 +3917,6 @@ test("the landing: the band, the spot that changes under a drag, the rail and th
 test("an account: created with an email and a password, signed out, signed in again; a wrong password is said", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   const bar = page.locator(".user-bar");
   await expect(bar).toContainText("Guest");
@@ -4007,15 +3935,7 @@ test("an account: created with an email and a password, signed out, signed in ag
   expect((await mine.json()).account.email).toBe(email);
   // the link that confirms the email went by mail (kept on this server);
   // followed, the account reads as confirmed
-  const mails = async (subject: RegExp) => {
-    const r = await page.request.get(
-      `/api/dev/mail?to=${encodeURIComponent(email)}`,
-    );
-    const { mails } = (await r.json()) as {
-      mails: { subject: string; text: string }[];
-    };
-    return mails.filter((m) => subject.test(m.subject));
-  };
+  const mails = (subject: RegExp) => keptMail(page, email, subject);
   await expect.poll(async () => (await mails(/^Confirm/)).length).toBe(1);
   const confirm = (await mails(/^Confirm/))[0]!.text.match(
     /https?:\/\/\S+/,
@@ -4083,11 +4003,6 @@ test("an account: created with an email and a password, signed out, signed in ag
 test("signed in, the projects follow the account to another browser; the account page lists them and opens one; deleting the account takes the mirror", async ({
   browser,
 }) => {
-  const seed = (ctx: BrowserContext) =>
-    ctx.addInitScript(({ key, value }) => localStorage.setItem(key, value), {
-      key: GUIDE_STORAGE_KEY,
-      value: JSON.stringify({ intro: true }),
-    });
   const email = `two-${Date.now()}@example.com`;
   // the first browser: an account, a second project with a name
   const ctxA = await browser.newContext({
@@ -4157,11 +4072,6 @@ test("signed in, the projects follow the account to another browser; the account
 test("a room shared by link: read-only for anyone, taken into a studio as a project, listed and taken down on the account page", async ({
   browser,
 }) => {
-  const seed = (ctx: BrowserContext) =>
-    ctx.addInitScript(({ key, value }) => localStorage.setItem(key, value), {
-      key: GUIDE_STORAGE_KEY,
-      value: JSON.stringify({ intro: true }),
-    });
   const ctxA = await browser.newContext({
     viewport: { width: 1440, height: 900 },
   });
@@ -4172,15 +4082,15 @@ test("a room shared by link: read-only for anyone, taken into a studio as a proj
   const exportBtn = a.getByRole("button", { name: "Export", exact: true });
   await exportBtn.click();
   await a.getByRole("menuitem", { name: /^Share a link/ }).click();
-  const account = a.getByRole("dialog", { name: "Account" });
-  await expect(account).toBeVisible();
-  await account.getByRole("tab", { name: "Create account" }).click();
+  const accountDialog = a.getByRole("dialog", { name: "Account" });
+  await expect(accountDialog).toBeVisible();
+  await accountDialog.getByRole("tab", { name: "Create account" }).click();
   const email = `share-${Date.now()}@example.com`;
-  await account.getByLabel("Name").fill("Mei Tan");
-  await account.getByLabel("Email").fill(email);
-  await account.getByLabel("Password").fill(PASSWORD);
-  await account.getByRole("button", { name: "Create account" }).click();
-  await expect(account).toHaveCount(0, { timeout: 20_000 });
+  await accountDialog.getByLabel("Name").fill("Mei Tan");
+  await accountDialog.getByLabel("Email").fill(email);
+  await accountDialog.getByLabel("Password").fill(PASSWORD);
+  await accountDialog.getByRole("button", { name: "Create account" }).click();
+  await expect(accountDialog).toHaveCount(0, { timeout: 20_000 });
   // signed in, the share goes on by itself and a link comes
   const share = a.getByRole("dialog", { name: "Share the room" });
   await expect(share).toBeVisible();
@@ -4227,7 +4137,6 @@ test("a room shared by link: read-only for anyone, taken into a studio as a proj
 test("a piece may stand past the walls; near a wall the magnet draws it flush, inside or out, until Settings turns it off", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await page.getByRole("button", { name: "Show 2D plan in main" }).click();
   await page.locator(".agent-plan > summary").click();
@@ -4279,7 +4188,6 @@ test("a piece may stand past the walls; near a wall the magnet draws it flush, i
 test("Eva furnishes the room by the book, reviews it, applies her changes as one undo step, and explains a layout", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   const eva = page.locator(".agent");
   // before the walls are set, Eva asks for them
@@ -4321,7 +4229,6 @@ test("Eva furnishes the room by the book, reviews it, applies her changes as one
 test("the Board keeps uploaded pictures with a title and a note, sized down, and takes them off again", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/rounded");
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByRole("menuitem", { name: "Board" }).click();

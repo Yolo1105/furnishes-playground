@@ -2,13 +2,14 @@
 
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { EMAIL } from "@/lib/email";
 import {
-  EMAIL,
   HELP_KINDS,
-  MESSAGE_MIN,
+  HELP_MAX,
+  HELP_MIN,
   helpMailto,
   sendHelp,
-  type HelpKind,
+  type HelpCategory,
 } from "@/lib/help-client";
 import { SITE } from "@/lib/site";
 import { Dialog } from "./Dialog";
@@ -33,17 +34,17 @@ export function FeedbackDialog({
   const projectName = useProjects(
     (s) => s.projects.find((p) => p.id === s.activeId)?.name,
   );
-  const [kind, setKind] = useState<HelpKind>("problem");
+  const [category, setCategory] = useState<HelpCategory>("problem");
   const [message, setMessage] = useState("");
   const [from, setFrom] = useState("");
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
   const address = email ?? from.trim();
-  const ready = message.trim().length >= MESSAGE_MIN && EMAIL.test(address);
+  const ready = message.trim().length >= HELP_MIN && EMAIL.test(address);
   const context = `${path}${projectName ? ` · ${projectName}` : ""}`;
   const word = {
-    kind,
+    category,
     message,
     context,
     ...(email ? {} : { email: address }),
@@ -91,8 +92,8 @@ export function FeedbackDialog({
                 type="button"
                 role="radio"
                 className="assets-chip"
-                aria-checked={kind === k.id}
-                onClick={() => setKind(k.id)}
+                aria-checked={category === k.id}
+                onClick={() => setCategory(k.id)}
               >
                 {k.label}
               </button>
@@ -105,7 +106,7 @@ export function FeedbackDialog({
             <textarea
               className="room-dim-input feedback-text"
               rows={4}
-              maxLength={4000}
+              maxLength={HELP_MAX}
               value={message}
               aria-label="Message"
               onChange={(e) => setMessage(e.target.value)}

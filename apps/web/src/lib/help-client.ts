@@ -1,3 +1,4 @@
+import { HELP_MAX, HELP_MIN, type HelpCategory } from "./help";
 import { SITE } from "./site";
 
 /**
@@ -8,19 +9,15 @@ import { SITE } from "./site";
  * the same words can go by mail, and the failure is said in the page's
  * language.
  */
-export const HELP_KINDS = [
+export const HELP_KINDS: { id: HelpCategory; label: string }[] = [
   { id: "problem", label: "Something is wrong" },
   { id: "idea", label: "An idea" },
   { id: "question", label: "A question" },
-] as const;
-export type HelpKind = (typeof HELP_KINDS)[number]["id"];
-
-export const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-/** the fewest characters a message needs, as the route has it */
-export const MESSAGE_MIN = 5;
+];
+export { HELP_MAX, HELP_MIN, type HelpCategory };
 
 export type HelpWord = {
-  kind: HelpKind;
+  category: HelpCategory;
   message: string;
   /** the page, and the project, it was written from */
   context: string;
@@ -35,7 +32,7 @@ export async function sendHelp(w: HelpWord): Promise<string | null> {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        category: w.kind,
+        category: w.category,
         message: w.message.trim(),
         context: w.context,
         ...(w.email ? { email: w.email } : {}),
@@ -51,7 +48,9 @@ export async function sendHelp(w: HelpWord): Promise<string | null> {
 }
 
 /** the same words as a mail to the studio */
-export const helpMailto = (w: Pick<HelpWord, "kind" | "message" | "context">) =>
+export const helpMailto = (
+  w: Pick<HelpWord, "category" | "message" | "context">,
+) =>
   `mailto:${SITE.contact}?subject=${encodeURIComponent(
-    `${SITE.name}: ${HELP_KINDS.find((k) => k.id === w.kind)!.label.toLowerCase()}`,
+    `${SITE.name}: ${HELP_KINDS.find((k) => k.id === w.category)!.label.toLowerCase()}`,
   )}&body=${encodeURIComponent(`${w.message.trim()}\n\n(${w.context})`)}`;

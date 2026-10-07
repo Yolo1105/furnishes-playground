@@ -96,7 +96,12 @@ say(
   sweep === 503 ? "CRON_SECRET not set" : `${sweep}`,
 );
 const robots = await (await get("/robots.txt")).text();
-say(robots.includes("Disallow: /api/"), "robots keeps crawlers off the API");
+say(
+  ["/api/", "/reset", "/ops", "/s/"].every((p) =>
+    robots.includes(`Disallow: ${p}`),
+  ),
+  "robots keeps crawlers off the API, the reset, ops and shared rooms",
+);
 const sitemap = await (await get("/sitemap.xml")).text();
 say(
   ["/account", "/help", "/privacy", "/terms"].every((p) => sitemap.includes(p)),

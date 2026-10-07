@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { PASSWORD_MIN } from "@/lib/account-rules";
+import { PASSWORD_MIN, passwordShort } from "@/lib/account-rules";
+import { TRY_AGAIN } from "@/components/site/copy";
 import { authClient } from "@/lib/auth-client";
+import { EMAIL } from "@/lib/email";
 
 /**
  * Signing in, or making an account, wherever the form stands (the
@@ -13,13 +15,12 @@ import { authClient } from "@/lib/auth-client";
  * right calls `onDone`. A forgotten password asks for a link by mail;
  * Google is a way in when the site has it (NEXT_PUBLIC_AUTH_GOOGLE).
  */
-export type AccountMode = "in" | "up";
+type AccountMode = "in" | "up";
 export const ACCOUNT_MODES: { id: AccountMode; label: string }[] = [
   { id: "in", label: "Sign in" },
   { id: "up", label: "Create account" },
 ];
 export const GOOGLE_SIGN_IN = process.env.NEXT_PUBLIC_AUTH_GOOGLE === "1";
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function useAccountForm(onDone?: () => void) {
   const [mode, setModeRaw] = useState<AccountMode>("in");
@@ -44,7 +45,7 @@ export function useAccountForm(onDone?: () => void) {
         : !EMAIL.test(email)
           ? "That email does not look right."
           : password.length < PASSWORD_MIN
-            ? `A password needs ${PASSWORD_MIN} characters or more.`
+            ? passwordShort()
             : null;
     if (problem) {
       setError(problem);
@@ -63,7 +64,7 @@ export function useAccountForm(onDone?: () => void) {
         : await authClient.signIn.email({ email, password });
     setBusy(false);
     if (r.error) {
-      setError(r.error.message ?? "That did not work; try again.");
+      setError(r.error.message ?? TRY_AGAIN);
       return;
     }
     onDone?.();

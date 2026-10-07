@@ -12,7 +12,7 @@ import {
 import { useState } from "react";
 import { CUSTOM_MAX, useEva } from "./eva-store";
 import { CompassIcon, LightbulbIcon } from "./icons";
-import { DESIGN_TIPS } from "./design-tips";
+import { tipFor } from "./design-tips";
 import { QuizDialog } from "./QuizDialog";
 import { FLOW_NAMES, type Flow } from "./quiz-data";
 
@@ -232,7 +232,7 @@ export function PreferenceTab() {
             {b.id === "style" && chips("style", STYLES, true, true)}
             {b.id === "style" &&
               (p?.values ?? [])
-                .filter((v) => DESIGN_TIPS[v])
+                .filter((v) => tipFor(v))
                 .map((v) => (
                   <dl
                     key={v}
@@ -240,11 +240,9 @@ export function PreferenceTab() {
                     aria-label={`${v}: what Eva keeps in mind`}
                   >
                     <dt>{v}</dt>
-                    <dd>{DESIGN_TIPS[v]!.do}</dd>
-                    <dd className="eva-tip-dont">
-                      Not: {DESIGN_TIPS[v]!.dont}
-                    </dd>
-                    <dd className="eva-tip-budget">{DESIGN_TIPS[v]!.budget}</dd>
+                    <dd>{tipFor(v)!.do}</dd>
+                    <dd className="eva-tip-dont">Not: {tipFor(v)!.dont}</dd>
+                    <dd className="eva-tip-budget">{tipFor(v)!.budget}</dd>
                   </dl>
                 ))}
             {b.id === "color" && (

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { helpRequest } from "@/lib/db/schema";
 import { adminOf } from "@/lib/ops";
+import { BAD_REQUEST } from "@/lib/schemas";
 
 /**
  * A word to the studio marked answered (or not) from the operations
@@ -21,8 +22,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
     return NextResponse.json({ error: "not here" }, { status: 404 });
   const { id } = await params;
   const parsed = Patch.safeParse(await req.json().catch(() => null));
-  if (!parsed.success)
-    return NextResponse.json({ error: "bad request" }, { status: 400 });
+  if (!parsed.success) return NextResponse.json(BAD_REQUEST, { status: 400 });
   const answeredAt = parsed.data.answered ? Date.now() : null;
   const moved = await getDb()
     .db.update(helpRequest)

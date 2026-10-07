@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { CATEGORY_NAMES, sgd } from "./assets-data";
-import { products } from "./catalogue";
+import { products, recipeSize } from "./catalogue";
+import { squared, PLACE_SNAP } from "./piece-detail";
 import {
   BUDGET,
   FURNITURE,
@@ -22,7 +23,7 @@ import {
 } from "./eva-brain";
 import { archetypeText } from "./archetypes";
 import { HDB_CONVENTIONS, metres, ROOM_NAMES } from "./room-data";
-import type { Changes } from "./eva-data";
+import { budgetChips, budgetLabel, type Changes } from "./eva-data";
 
 /**
  * What the model is told and what it must answer with. The rules are the
@@ -58,7 +59,7 @@ ${products
     (p) =>
       `${p.id} · ${p.name} · ${CATEGORY_NAMES[p.category]} · ${sgd(p.price)} (estimate)${
         p.recipe
-          ? ` · ${p.recipe.width} × ${p.recipe.depth ?? 300} × ${p.recipe.height} mm · ${p.recipe.use} ${p.recipe.fit}`
+          ? ` · ${recipeSize(p.recipe).join(" × ")} mm · ${p.recipe.use} ${p.recipe.fit}`
           : ""
       }`,
   )
@@ -171,7 +172,7 @@ export const toReply = (m: ModelReply, c: Context): Reply => {
       return [
         {
           cat: "budget" as const,
-          values: [`${sgd(from)} – ${sgd(to)}`],
+          values: [budgetLabel(from, to)],
           budget: [Math.min(from, to), Math.max(from, to)] as [number, number],
         },
       ];
@@ -186,11 +187,7 @@ export const toReply = (m: ModelReply, c: Context): Reply => {
     m.ask === "room-size"
       ? [{ label: "Open the Room tab", act: "room-tab" }]
       : m.ask === "budget"
-        ? [1500, 3000, 5000].map((n): Chip => ({
-            label: `Under ${sgd(n)}`,
-            act: "budget",
-            budget: [BUDGET.min, n],
-          }))
+        ? budgetChips()
         : [];
   const chips: Chip[] = [
     ...gate,
@@ -212,14 +209,15 @@ export const toReply = (m: ModelReply, c: Context): Reply => {
 };
 
 /** a spot kept inside the room, on the placing grid */
+const snapTo = (v: number) => Math.round(v / PLACE_SNAP) * PLACE_SNAP;
 const inside = (
   x: number,
   y: number,
   box: { w: number; d: number },
   c: Context,
 ) => ({
-  x: Math.round(Math.min(Math.max(0, x), c.room.width - box.w) / 50) * 50,
-  y: Math.round(Math.min(Math.max(0, y), c.room.depth - box.d) / 50) * 50,
+  x: snapTo(Math.min(Math.max(0, x), c.room.width - box.w)),
+  y: snapTo(Math.min(Math.max(0, y), c.room.depth - box.d)),
 });
 /** the model's changes as the studio can do them: ids it knows, spots
     inside the room, turns on the quarter; nothing left means none */
@@ -232,7 +230,7 @@ const toChanges = (
   const moves = m.moves.flatMap((mv) => {
     const n = byId.get(mv.id);
     if (!n) return [];
-    const rotation = (((Math.round(mv.rotation / 90) * 90) % 360) + 360) % 360;
+    const rotation = squared(mv.rotation);
     const box = n.at
       ? rotation % 180 === n.at.rotation % 180
         ? { w: n.at.w, d: n.at.d }
@@ -256,7 +254,9 @@ const toChanges = (
         ? inside(
             a.x,
             a.y,
-            { w: p.recipe?.width ?? 600, d: p.recipe?.depth ?? 400 },
+            p.recipe
+              ? { w: recipeSize(p.recipe)[0], d: recipeSize(p.recipe)[1] }
+              : { w: 0, d: 0 },
             c,
           )
         : {};

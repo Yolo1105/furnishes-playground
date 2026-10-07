@@ -1,16 +1,19 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { useSession } from "@/lib/auth-client";
+import { EMAIL } from "@/lib/email";
 import {
-  EMAIL,
   HELP_KINDS,
-  MESSAGE_MIN,
+  HELP_MAX,
+  HELP_MIN,
   helpMailto,
   sendHelp,
-  type HelpKind,
+  type HelpCategory,
 } from "@/lib/help-client";
 import { SITE } from "@/lib/site";
+import { ONE_MOMENT } from "./copy";
 
 /**
  * Ask us, on the help page: the same word to the studio as the gear's
@@ -20,18 +23,18 @@ import { SITE } from "@/lib/site";
 export function AskForm() {
   const { data: session } = useSession();
   const email = session?.user.email;
-  const [kind, setKind] = useState<HelpKind>("question");
+  const [category, setCategory] = useState<HelpCategory>("question");
   const [message, setMessage] = useState("");
   const [from, setFrom] = useState("");
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
   const address = email ?? from.trim();
-  const ready = message.trim().length >= MESSAGE_MIN && EMAIL.test(address);
+  const ready = message.trim().length >= HELP_MIN && EMAIL.test(address);
   const word = {
-    kind,
+    category,
     message,
-    context: "/help",
+    context: usePathname(),
     ...(email ? {} : { email: address }),
   };
   const submit = async (e: FormEvent) => {
@@ -62,8 +65,8 @@ export function AskForm() {
                 type="button"
                 role="radio"
                 className="home-mode"
-                aria-checked={kind === k.id}
-                onClick={() => setKind(k.id)}
+                aria-checked={category === k.id}
+                onClick={() => setCategory(k.id)}
               >
                 <span>{k.label}</span>
                 <span className="home-ix">[0{i + 1}]</span>
@@ -81,7 +84,7 @@ export function AskForm() {
               <textarea
                 className="home-input home-textarea"
                 rows={4}
-                maxLength={4000}
+                maxLength={HELP_MAX}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
               />
@@ -111,7 +114,7 @@ export function AskForm() {
               disabled={!ready || busy}
               aria-busy={busy}
             >
-              {busy ? "One moment" : "Send"}
+              {busy ? ONE_MOMENT : "Send"}
               <span aria-hidden="true"> →</span>
             </button>
           </div>

@@ -12,7 +12,14 @@ import {
 } from "three";
 import type { AssetNode } from "./assets-data";
 import { recipeOf } from "./catalogue";
-import { ACCENT_HEX, DANGER_HEX, FOLIAGE_HEX } from "./piece-detail";
+import {
+  ACCENT_HEX,
+  DANGER_HEX,
+  FOLIAGE_HEX,
+  isRug,
+  LIGHT_WOOD_HEX,
+  ROOM_ITEM_HEX,
+} from "./piece-detail";
 import { shade, woodTexture } from "./textures";
 
 /**
@@ -35,7 +42,7 @@ const LEG = 0.1; // m, a sofa's legs
 const CUSHION = 0.65; // m, about one seat
 
 const DARK_WOOD = "#5a4634";
-const LIGHT_WOOD = "#cfae82";
+const LIGHT_WOOD = LIGHT_WOOD_HEX;
 const METAL = "#8d8780";
 const BRASS = "#b59a6a";
 const IRON = "#3a3633";
@@ -421,7 +428,7 @@ function Form(p: Props) {
     case "lighting":
       return <Lamp w={w} h={h} d={d} desk={/desk|table/.test(name)} />;
     default: {
-      if (/rug/.test(name)) return <Rug w={w} d={d} colour={p.colour} />;
+      if (isRug({ name })) return <Rug w={w} d={d} colour={p.colour} />;
       if (/vase|jug|bottle/.test(name)) return <Vase w={w} h={h} d={d} />;
       if (/plant|tree|fig|palm|fern/.test(name))
         return <Plant w={w} h={h} d={d} seed={seed} />;
@@ -642,7 +649,7 @@ function Bench({ w, h, d, f }: { w: number; h: number; d: number; f: Finish }) {
         />
       ))}
       <Soft
-        f={cloth("#d9d2c8")}
+        f={cloth(ROOM_ITEM_HEX)}
         at={[0, seatH + 0.035, 0]}
         dims={[w - 0.02, 0.07, d - 0.02]}
         radius={0.03}

@@ -21,12 +21,18 @@ const order = {
   address: { recipient: "Mei Lin", line1: "Blk 1 Bedok", postal: "460001" },
 };
 
+const was = { dir: process.env.DATA_DIR, key: process.env.RESEND_API_KEY };
+
 describe("mails", () => {
   beforeAll(() => {
     process.env.DATA_DIR = dir;
     delete process.env.RESEND_API_KEY;
   });
-  afterAll(() => rmSync(dir, { recursive: true, force: true }));
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+    process.env.DATA_DIR = was.dir;
+    process.env.RESEND_API_KEY = was.key;
+  });
 
   it("writes to the buyer in the site's voice, with the pieces and the price", async () => {
     expect(await orderPlacedMail(order)).toBe("kept");

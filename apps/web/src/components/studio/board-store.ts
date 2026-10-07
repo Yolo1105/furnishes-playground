@@ -1,5 +1,5 @@
-import { useEffect } from "react";
 import { create } from "zustand";
+import { useLocalMirror } from "./local-mirror";
 import { newId } from "./ids";
 
 /**
@@ -13,10 +13,10 @@ import { newId } from "./ids";
  */
 const KEY = "furnishes.board";
 /** the longest side a kept picture is sized down to, px */
-export const PICTURE_PX = 1024;
+const PICTURE_PX = 1024;
 /** what the whole board may weigh, characters of data, so the mirror
     (which holds two million a document) always takes it */
-export const BOARD_MAX = 1_500_000;
+const BOARD_MAX = 1_500_000;
 export const PICTURES_MAX = 24;
 
 export type Picture = {
@@ -41,7 +41,7 @@ type BoardState = {
 };
 
 /** what the board weighs, characters */
-export const weightOf = (pictures: readonly Picture[]) =>
+const weightOf = (pictures: readonly Picture[]) =>
   pictures.reduce(
     (t, p) => t + p.src.length + p.title.length + p.note.length,
     0,
@@ -102,29 +102,9 @@ export const shrink = (file: File): Promise<string | null> =>
   });
 
 /** the board comes back on arrival and is kept on every change */
-export function useBoardSync() {
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(KEY);
-      if (raw) {
-        const kept = JSON.parse(raw) as Partial<
-          Pick<BoardState, "pictures" | "gone">
-        >;
-        if (Array.isArray(kept.pictures))
-          useBoard.setState({ pictures: kept.pictures, gone: kept.gone ?? {} });
-      }
-    } catch {
-      /* nothing kept, or storage blocked */
-    }
-    return useBoard.subscribe((s) => {
-      try {
-        localStorage.setItem(
-          KEY,
-          JSON.stringify({ pictures: s.pictures, gone: s.gone }),
-        );
-      } catch {
-        /* the board lasts the session */
-      }
-    });
-  }, []);
-}
+const pick = (s: BoardState) => ({ pictures: s.pictures, gone: s.gone });
+const accept = (kept: Partial<ReturnType<typeof pick>>) =>
+  Array.isArray(kept.pictures)
+    ? { pictures: kept.pictures, gone: kept.gone ?? {} }
+    : null;
+export const useBoardSync = () => useLocalMirror(useBoard, KEY, pick, accept);

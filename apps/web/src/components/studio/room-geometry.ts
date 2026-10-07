@@ -1,4 +1,4 @@
-import type { Point } from "./room-templates";
+import { boundsOf, type Point } from "./room-templates";
 import type { Wall } from "./room-data";
 
 /**
@@ -277,16 +277,32 @@ export const isSimple = (poly: readonly Point[]) => {
   return true;
 };
 
+/** two facing wall edges read in one frame: whether the wall runs
+    along x, where an edge stands across the wall, which way is outward
+    from the first room (the other room lies beyond its wall: south of
+    a south wall, and so on), the gap between them measured that way,
+    and each edge's span along the wall */
+const wallFrame = (ea: Edge, eb: Edge) => {
+  const horizontal = ea.wall === "north" || ea.wall === "south";
+  const across = (e: Edge) => (horizontal ? e.a[1] : e.a[0]);
+  const outward = ea.wall === "south" || ea.wall === "east" ? 1 : -1;
+  const span = (e: Edge): [number, number] =>
+    horizontal
+      ? [Math.min(e.a[0], e.b[0]), Math.max(e.a[0], e.b[0])]
+      : [Math.min(e.a[1], e.b[1]), Math.max(e.a[1], e.b[1])];
+  return {
+    horizontal,
+    across,
+    outward,
+    gap: (across(eb) - across(ea)) * outward,
+    span,
+  };
+};
+
 /** the box round some points, mm */
 export const boxOf = (pts: readonly Point[]) => {
-  const xs = pts.map((p) => p[0]);
-  const ys = pts.map((p) => p[1]);
-  return {
-    x: Math.min(...xs),
-    y: Math.min(...ys),
-    w: Math.max(...xs) - Math.min(...xs),
-    h: Math.max(...ys) - Math.min(...ys),
-  };
+  const b = boundsOf(pts);
+  return { x: b.minX, y: b.minY, w: b.maxX - b.minX, h: b.maxY - b.minY };
 };
 
 /** the outline from its top-left corner, and how far it moved to get
@@ -308,7 +324,7 @@ export const normalizeOutline = (poly: readonly Point[]) => {
     the two outlines a wall's thickness apart: the wall between them.
     `from` and `to` run along the sheet's axis the wall lies on, `at` is
     where the first room's outline crosses the other axis */
-export type SharedRun = {
+type SharedRun = {
   wallA: Wall;
   wallB: Wall;
   horizontal: boolean;
@@ -337,17 +353,8 @@ export const sharedRuns = (
   for (const ea of edgesOf(a))
     for (const eb of edgesOf(b)) {
       if (eb.wall !== FACING[ea.wall]) continue;
-      const horizontal = ea.wall === "north" || ea.wall === "south";
-      const across = (e: Edge) => (horizontal ? e.a[1] : e.a[0]);
-      // the other room lies beyond A's wall: south of a south wall, and
-      // so on; the gap is measured that way
-      const outward = ea.wall === "south" || ea.wall === "east" ? 1 : -1;
-      const gap = (across(eb) - across(ea)) * outward;
+      const { gap, span, horizontal, across } = wallFrame(ea, eb);
       if (Math.abs(gap - WALL_MM) > slack) continue;
-      const span = (e: Edge) =>
-        horizontal
-          ? [Math.min(e.a[0], e.b[0]), Math.max(e.a[0], e.b[0])]
-          : [Math.min(e.a[1], e.b[1]), Math.max(e.a[1], e.b[1])];
       const [a0, a1] = span(ea);
       const [b0, b1] = span(eb);
       const from = Math.max(a0!, b0!);
@@ -385,19 +392,12 @@ export const magnetRoom = (
     for (const ea of edgesOf(moving))
       for (const eb of edgesOf(other)) {
         if (eb.wall !== FACING[ea.wall]) continue;
-        const horizontal = ea.wall === "north" || ea.wall === "south";
-        const across = (e: Edge) => (horizontal ? e.a[1] : e.a[0]);
-        const outward = ea.wall === "south" || ea.wall === "east" ? 1 : -1;
-        const gap = (across(eb) - across(ea)) * outward;
+        const { gap, span, outward, horizontal } = wallFrame(ea, eb);
         // within reach of a wall apart, or pushed a little into the
         // neighbour: either way it stands off by a wall
         if (gap > WALL_MM + ROOM_REACH || gap < -ROOM_REACH) continue;
-        const span = (e: Edge) =>
-          horizontal
-            ? [Math.min(e.a[0], e.b[0]), Math.max(e.a[0], e.b[0])]
-            : [Math.min(e.a[1], e.b[1]), Math.max(e.a[1], e.b[1])];
-        const [a0, a1] = span(ea) as [number, number];
-        const [b0, b1] = span(eb) as [number, number];
+        const [a0, a1] = span(ea);
+        const [b0, b1] = span(eb);
         // alongside, or nearly: the runs overlap or come within reach
         if (a1 < b0 - ROOM_REACH || a0 > b1 + ROOM_REACH) continue;
         const shift = (gap - WALL_MM) * outward;

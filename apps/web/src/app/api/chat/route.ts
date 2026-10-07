@@ -2,11 +2,17 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { userIdOf } from "@/lib/auth";
-import { costOfTokens, logCost, overCap } from "@/lib/cost";
-import { refuse, sanitize } from "@/lib/guard";
+import { ContextBody } from "@/lib/context-body";
+import { MESSAGE_MAX, refuse, sanitize } from "@/lib/guard";
 import { LIMITS } from "@/lib/limits";
-import { allow, callerOf } from "@/lib/rate-limit";
+import {
+  admit,
+  anthropicKey,
+  countTokens,
+  fallback,
+  MODEL,
+  providerFailure,
+} from "@/lib/model";
 import type { Context } from "@/components/studio/eva-brain";
 import { pickDocs } from "@/components/studio/design-docs";
 import {
@@ -27,83 +33,13 @@ import {
  * tries to talk the model out of its rules (400), which the rules
  * answer without taking instruction. A caller gets a bounded number of
  * turns an hour and a bounded spend a day, counted in the cost log;
- * what the model says is read without any line that plays a role.
+ * what the model says is read without any line that plays a role. The
+ * studio's facts arrive in the shape of lib/context-body.
  */
 export const runtime = "nodejs";
 
-const MODEL = process.env.EVA_MODEL ?? "claude-opus-5-5";
-
-/** the studio's facts, as every route that asks the model takes them */
-export const ContextBody = z.object({
-  room: z.object({
-    id: z.enum([
-      "living",
-      "master",
-      "bedroom-1",
-      "bedroom-2",
-      "kitchen",
-      "study",
-    ]),
-    flat: z.string().max(20),
-    width: z.number(),
-    depth: z.number(),
-    height: z.number(),
-    sized: z.boolean(),
-  }),
-  pieces: z
-    .array(
-      z.object({
-        id: z.string(),
-        name: z.string().max(80),
-        kind: z.enum(["piece", "decor", "fixed"]),
-        category: z.enum([
-          "components",
-          "storage",
-          "seating",
-          "tables",
-          "screens",
-          "lighting",
-          "decor",
-          "architecture",
-        ]),
-        price: z.number().optional(),
-        at: z
-          .object({
-            x: z.number(),
-            y: z.number(),
-            w: z.number(),
-            d: z.number(),
-            rotation: z.number(),
-          })
-          .optional(),
-      }),
-    )
-    .max(200),
-  cart: z.array(z.string()).max(200),
-  findings: z.array(z.string().max(200)).max(20).default([]),
-  prefs: z.record(
-    z.string(),
-    z.object({
-      values: z.array(z.string()),
-      budget: z.tuple([z.number(), z.number()]).optional(),
-    }),
-  ),
-  exploration: z.boolean(),
-  rules: z.object({
-    walkway: z.number(),
-    doorClear: z.boolean(),
-    windowClear: z.boolean(),
-    bedWall: z.enum(["prefer", "required", "off"]),
-    mustHave: z.array(z.string().max(40)).max(20),
-    spacing: z.number(),
-    flow: z.number().min(0).max(100).default(50),
-    open: z.number().min(0).max(100).default(50),
-  }),
-  persona: z.enum(["eva", "style", "plan", "budget"]).default("eva"),
-});
-
 const Body = z.object({
-  message: z.string().trim().min(1).max(2000),
+  message: z.string().trim().min(1).max(MESSAGE_MAX),
   mode: z.enum(["ask", "furniture", "layout"]).default("ask"),
   thread: z
     .array(
@@ -113,26 +49,22 @@ const Body = z.object({
   context: ContextBody,
 });
 
-const fallback = (reason: string, status: number) =>
-  NextResponse.json({ fallback: true, reason }, { status });
-
 export async function POST(req: Request) {
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return fallback("bad-request", 400);
   const { message, thread, context, mode } = parsed.data;
   const refused = refuse(message);
   if (refused) return fallback(refused, 400);
-  if (!process.env.ANTHROPIC_API_KEY) return fallback("no-key", 503);
-  const key = callerOf(req);
-  if (!(await allow(`chat:${key}`, LIMITS.chatTurnsPerHour)))
-    return fallback("rate-limit", 429);
-  if (await overCap(key)) return fallback("cost-cap", 429);
+  if (!anthropicKey()) return fallback("no-key", 503);
+  const door = await admit(req, "chat", LIMITS.chatTurnsPerHour);
+  if ("refused" in door) return door.refused;
   const ctx = context as Context;
 
   const docs = pickDocs(message, ctx.prefs.style?.values ?? []);
   const client = new Anthropic();
+  let response;
   try {
-    const response = await client.messages.parse({
+    response = await client.messages.parse({
       model: MODEL,
       max_tokens: 2048,
       output_config: { effort: "low", format: zodOutputFormat(ReplySchema) },
@@ -170,32 +102,15 @@ export async function POST(req: Request) {
         { role: "user", content: message },
       ],
     });
-    await logCost({
-      caller: key,
-      userId: await userIdOf(req),
-      kind: "chat",
-      model: response.model,
-      inputTokens: response.usage.input_tokens,
-      outputTokens: response.usage.output_tokens,
-      usd: costOfTokens(
-        response.usage.input_tokens,
-        response.usage.output_tokens,
-      ),
-    });
-    if (response.stop_reason === "refusal" || !response.parsed_output)
-      return fallback("no-answer", 502);
-    const reply = toReply(response.parsed_output, ctx);
-    return NextResponse.json({
-      reply: { ...reply, text: sanitize(reply.text) },
-      model: response.model,
-    });
   } catch (error) {
-    if (error instanceof Anthropic.RateLimitError)
-      return fallback("rate-limit", 429);
-    if (error instanceof Anthropic.AuthenticationError)
-      return fallback("bad-key", 503);
-    if (error instanceof Anthropic.APIError)
-      return fallback(`api-${error.status}`, 502);
-    return fallback("error", 502);
+    return providerFailure(error);
   }
+  await countTokens(req, door.caller, "chat", response);
+  if (response.stop_reason === "refusal" || !response.parsed_output)
+    return fallback("no-answer", 502);
+  const reply = toReply(response.parsed_output, ctx);
+  return NextResponse.json({
+    reply: { ...reply, text: sanitize(reply.text) },
+    model: response.model,
+  });
 }

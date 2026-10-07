@@ -4,6 +4,14 @@ What is here, and where it came from.
 
 - `DEPLOY.md`: how to put the studio on Vercel with Neon behind it, what
   each provider needs, and what to check after a deploy.
+- `plan-realism.md`: the plan for the realistic viewer (the WebGPU
+  renderer with its fallback, colour and textures, ambient occlusion
+  and anti-aliasing, the probe grid, floor reflections, photo mode) and
+  the modelling layer (walls with thickness, a free panel editor,
+  machining and cut lists, free-form parts), decided on 7 October 2026
+  from a reading of the reference repositories' code, type definitions,
+  changelogs and open issues rather than from memory; with what was
+  dropped from the 2 October plan and why.
 
 - `product-brief.zh.md`: the master planning document in Chinese from the
   discussion of 2 October 2026 ("Furnishes 软件与服务全量规划"), covering

@@ -297,8 +297,8 @@ const wallsPlan = (
     const rotation = kept[i]?.rotation ?? p.rotation;
     const f = footprint({ ...p, rotation });
     const middle = {
-      x: Math.round((r.W - f.w) / 2 / 50) * 50,
-      y: Math.round((r.D - f.d) / 2 / 50) * 50,
+      x: Math.round((r.W - f.w) / 2 / PLACE_SNAP) * PLACE_SNAP,
+      y: Math.round((r.D - f.d) / 2 / PLACE_SNAP) * PLACE_SNAP,
     };
     const s =
       isRug(p) && rectInside({ ...middle, ...f }, r.outline)

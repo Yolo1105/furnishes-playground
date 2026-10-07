@@ -1,34 +1,31 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { HomeRail } from "./HomeRail";
 import { HomeSignIn } from "./HomeSignIn";
 import { useSession } from "@/lib/auth-client";
+import { SITE } from "@/lib/site";
 
 /**
- * The account page: the way in. A rail in the production account
- * page's language beside a stage that holds the account form
- * (HomeSignIn). Whoever is signed in, or has just signed
- * in, goes straight on into the studio; `from` says which, the square
- * or the rounded one.
+ * The account page: the way in. The rail beside a stage that holds
+ * the account form (HomeSignIn). Whoever is signed in, or has just
+ * signed in, goes straight on into the studio.
  */
 export function Home() {
   const router = useRouter();
-  const studio =
-    useSearchParams().get("from") === "studio" ? "/studio" : "/rounded";
   const { data: session, isPending } = useSession();
   useEffect(() => {
-    if (session) router.replace(studio);
-  }, [session, router, studio]);
+    if (session) router.replace(SITE.studio);
+  }, [session, router]);
   return (
     <div className="home">
-      <HomeRail current="account" studio={studio} />
+      <HomeRail current="account" />
       <section className="home-stage">
         {isPending || session ? (
           <p className="home-eye home-wait">One moment.</p>
         ) : (
-          <HomeSignIn studio={studio} />
+          <HomeSignIn />
         )}
       </section>
     </div>

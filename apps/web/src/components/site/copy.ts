@@ -46,7 +46,7 @@ export const HELP: Section[] = [
     ],
   },
   {
-    id: "ask",
+    id: "reach",
     head: "We plan it with you",
     body: [
       "Tell us about the spot: the problem in a sentence, or a photo of the wall and two measurements by mail. We draw the piece into your room to scale and answer within a few days, with the parts, the boxes and the build time. No commission, no commitment.",
@@ -208,3 +208,7 @@ export const LANDING = {
       "A design-to-buy studio for modular panel furniture: plan the room, see the pieces in it, build them yourself.",
   },
 } as const;
+
+/** the words every form shares */
+export const ONE_MOMENT = "One moment";
+export const TRY_AGAIN = "That did not work; try again.";

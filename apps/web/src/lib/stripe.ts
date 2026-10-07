@@ -1,4 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { str } from "./env";
+import { CURRENCY } from "./money";
 
 /**
  * Stripe, over its REST API with fetch: a hosted Checkout Session to
@@ -11,11 +13,10 @@ const API = "https://api.stripe.com/v1";
 /** Stripe rejects replays older than five minutes; so does this */
 const TOLERANCE_S = 300;
 
-export const stripeKey = () => process.env.STRIPE_SECRET_KEY?.trim() ?? "";
-export const webhookSecret = () =>
-  process.env.STRIPE_WEBHOOK_SECRET?.trim() ?? "";
+export const stripeKey = () => str("STRIPE_SECRET_KEY");
+export const webhookSecret = () => str("STRIPE_WEBHOOK_SECRET");
 
-export type ChargeLine = { name: string; sgd: number };
+type ChargeLine = { name: string; sgd: number };
 
 export type SessionInput = {
   orderId: string;
@@ -41,7 +42,7 @@ export const sessionBody = (input: SessionInput) => {
   if (input.email) body.set("customer_email", input.email);
   input.lines.forEach((l, i) => {
     body.set(`line_items[${i}][quantity]`, "1");
-    body.set(`line_items[${i}][price_data][currency]`, "sgd");
+    body.set(`line_items[${i}][price_data][currency]`, CURRENCY.toLowerCase());
     body.set(
       `line_items[${i}][price_data][unit_amount]`,
       String(Math.round(l.sgd * 100)),
@@ -51,7 +52,7 @@ export const sessionBody = (input: SessionInput) => {
   return body;
 };
 
-export type Session = { id: string; url: string };
+type Session = { id: string; url: string };
 
 /** a hosted Checkout Session for an order; the order's id is the
     idempotency key, so the same order asked twice is one session */
@@ -99,7 +100,7 @@ export async function sessionUrl(id: string): Promise<string | null> {
 }
 
 export type Rejection =
-  "no-secret" | "no-signature" | "bad-signature" | "stale" | "bad-payload";
+  "no-secret" | "no-signature" | "bad-signature" | "stale";
 
 /** the signature header, `t=<unix>,v1=<hex>`, checked against the raw
     body: the HMAC in constant time, the timestamp within tolerance */

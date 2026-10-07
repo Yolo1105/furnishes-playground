@@ -73,6 +73,8 @@ export const colourHex = (id: string) =>
   COLOURS.find((c) => c.id === id)?.hex ?? COLOURS[0].hex;
 /** a room item there to read the room: quiet, never a piece's colour */
 export const ROOM_ITEM_HEX = "#d9d2c8";
+/** the light wood the props and the door are finished in */
+export const LIGHT_WOOD_HEX = "#cfae82";
 /** the accent as a canvas needs it, a plain hex: the token itself is oklch */
 export const ACCENT_HEX = "#ed5c00";
 /** the warning colour, as `--color-danger` reads in sRGB */

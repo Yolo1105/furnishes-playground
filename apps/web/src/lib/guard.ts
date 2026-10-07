@@ -7,7 +7,7 @@
  * a special token, and no longer than a screen can hold.
  */
 export const MESSAGE_MAX = 2000;
-const ANSWER_MAX = 10_000;
+export const ANSWER_MAX = 10_000;
 
 /** the shapes an attempt to override the rules takes */
 const INJECTION: RegExp[] = [
@@ -24,7 +24,7 @@ const INJECTION: RegExp[] = [
   /pretend\s+you\s+(are|have)\s+(no|a\s+different|new)\s+(rules|restrictions|guidelines|instructions|persona)/i,
 ];
 
-export type Refusal = "empty" | "too-long" | "control-chars" | "injection";
+type Refusal = "empty" | "too-long" | "control-chars" | "injection";
 
 /** why a message may not go to the model, or null when it may */
 export function refuse(message: string): Refusal | null {

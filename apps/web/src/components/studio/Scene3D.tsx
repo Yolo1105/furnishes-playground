@@ -1,6 +1,8 @@
 "use client";
 
+import { toMetres } from "@furnishes/scene";
 import { Html, OrbitControls } from "@react-three/drei";
+import { useShallow } from "zustand/react/shallow";
 import {
   Canvas,
   useFrame,
@@ -37,6 +39,7 @@ import {
   sheetBox,
   useActiveRoom,
   useRoom,
+  type RoomConfig,
 } from "./room-store";
 import { RoomLight, RoomShell } from "./Room3D";
 import { propsOf, useScene } from "./scene-store";
@@ -55,7 +58,6 @@ import { useStudio, type Angle } from "./studio-store";
  * a drag looks around, a click on the floor goes there, Escape leaves.
  * A piece in focus stands alone on a blank ground.
  */
-const m = (mm: number) => mm / 1000;
 
 /** the light in the room: the day's, or an evening's, warmer and lower */
 const LIGHTS = {
@@ -371,8 +373,8 @@ function Walker({
     // the stops are on the sheet; the walk is about the active room's middle
     const [px, pz] = activeOf(useRoom.getState()).pos;
     const toM = ([x, y]: readonly [number, number]) => ({
-      x: (x - px) / 1000 - w / 2,
-      z: (y - pz) / 1000 - d / 2,
+      x: toMetres(x - px) - w / 2,
+      z: toMetres(y - pz) - d / 2,
     });
     const stops = useRoom.getState().stops.map(toM);
     const inset = Math.max(0.5, Math.min(TOUR_INSET, Math.min(w, d) / 2 - 0.3));
@@ -817,16 +819,22 @@ function OtherRoom({
   rendering: boolean;
 }) {
   const a = usePieceActions(rm.id);
-  const st = useRoom();
+  // only the two slices the shell reads, so a point drawn elsewhere
+  // does not redraw the room
+  const st = useRoom(
+    useShallow((s: RoomConfig) => ({ rooms: s.rooms, joins: s.joins })),
+  );
   const outline = footprintOf(rm);
-  const w = m(rm.width);
-  const d = m(rm.depth);
+  const w = toMetres(rm.width);
+  const d = toMetres(rm.depth);
   const wall =
     WALL_TONES.find((t) => t.id === rm.wallTone)?.hex ?? WALL_TONES[0].hex;
   const floor = FLOOR_TONES[rm.floor as Floor] ?? FLOOR_TONES.Vinyl;
   // from the active room's centre to this room's centre
-  const dx = m(rm.pos[0] - from.pos[0]) + w / 2 - m(from.width) / 2;
-  const dz = m(rm.pos[1] - from.pos[1]) + d / 2 - m(from.depth) / 2;
+  const dx =
+    toMetres(rm.pos[0] - from.pos[0]) + w / 2 - toMetres(from.width) / 2;
+  const dz =
+    toMetres(rm.pos[1] - from.pos[1]) + d / 2 - toMetres(from.depth) / 2;
   const rects = a.shown
     .filter((n) => !isRug(n))
     .map((n) => ({
@@ -861,9 +869,13 @@ function OtherRoom({
             portal={portal}
             node={n}
             props={p}
-            at={[-w / 2 + m(at.x + f.w / 2), 0, -d / 2 + m(at.y + f.d / 2)]}
+            at={[
+              -w / 2 + toMetres(at.x + f.w / 2),
+              0,
+              -d / 2 + toMetres(at.y + f.d / 2),
+            ]}
             turn={-(p.rotation * Math.PI) / 180}
-            size={[m(p.width), m(p.height), m(p.depth)]}
+            size={[toMetres(p.width), toMetres(p.height), toMetres(p.depth)]}
             colour={n.kind === "piece" ? colourHex(p.colour) : ROOM_ITEM_HEX}
             parts={(n.children ?? []).map((c) =>
               colourHex(propsOf(c, a.overrides).colour),
@@ -930,8 +942,8 @@ export default function Scene3D() {
             };
       });
     return (x: number, z: number) => {
-      const px = (x + m(room.width) / 2) * 1000 + room.pos[0];
-      const py = (z + m(room.depth) / 2) * 1000 + room.pos[1];
+      const px = (x + toMetres(room.width) / 2) * 1000 + room.pos[0];
+      const py = (z + toMetres(room.depth) / 2) * 1000 + room.pos[1];
       if (roomAt(rooms, [px, py])) return true;
       return gaps.some(
         (g) => px >= g.x0 && px <= g.x1 && py >= g.y0 && py <= g.y1,
@@ -943,8 +955,8 @@ export default function Scene3D() {
   const box = sheetBox(rooms);
   const centre = useMemo(
     (): readonly [number, number] => [
-      m(box.x + box.w / 2 - room.pos[0] - room.width / 2),
-      m(box.y + box.h / 2 - room.pos[1] - room.depth / 2),
+      toMetres(box.x + box.w / 2 - room.pos[0] - room.width / 2),
+      toMetres(box.y + box.h / 2 - room.pos[1] - room.depth / 2),
     ],
     [box.x, box.y, box.w, box.h, room.pos, room.width, room.depth],
   );
@@ -954,9 +966,9 @@ export default function Scene3D() {
   const [hover, setHover] = useState<string | null>(null);
   const hoverOf = (id: string) => (on: boolean) =>
     setHover((cur) => (on ? id : cur === id ? null : cur));
-  const w = m(room.width);
-  const d = m(room.depth);
-  const h = m(room.height);
+  const w = toMetres(room.width);
+  const d = toMetres(room.depth);
+  const h = toMetres(room.height);
   const wall =
     WALL_TONES.find((t) => t.id === room.wallTone)?.hex ?? WALL_TONES[0].hex;
   const floor = FLOOR_TONES[room.floor as Floor] ?? FLOOR_TONES.Vinyl;
@@ -984,10 +996,10 @@ export default function Scene3D() {
           const f = footprint(a.props.get(n.id)!);
           const at = a.spots.get(n.id)!;
           return {
-            x: -w / 2 + m(at.x + f.w / 2),
-            z: -d / 2 + m(at.y + f.d / 2),
-            w: m(f.w),
-            d: m(f.d),
+            x: -w / 2 + toMetres(at.x + f.w / 2),
+            z: -d / 2 + toMetres(at.y + f.d / 2),
+            w: toMetres(f.w),
+            d: toMetres(f.d),
           };
         });
   // a finger means a phone or a tablet: fewer pixels, no shadows unless
@@ -1056,8 +1068,8 @@ export default function Scene3D() {
         ) : (
           <Rig
             angle={angle}
-            w={m(box.w)}
-            d={m(box.h)}
+            w={toMetres(box.w)}
+            d={toMetres(box.h)}
             h={h}
             centre={centre}
             stage={stage}
@@ -1121,12 +1133,20 @@ export default function Scene3D() {
             ))}
         {a.shown.map((n) => {
           const p = a.props.get(n.id)!;
-          const size: Vector3Tuple = [m(p.width), m(p.height), m(p.depth)];
+          const size: Vector3Tuple = [
+            toMetres(p.width),
+            toMetres(p.height),
+            toMetres(p.depth),
+          ];
           const at = a.spots.get(n.id)!;
           const f = footprint(p);
           const pos: Vector3Tuple = a.focus
             ? [0, 0, 0]
-            : [-w / 2 + m(at.x + f.w / 2), 0, -d / 2 + m(at.y + f.d / 2)];
+            : [
+                -w / 2 + toMetres(at.x + f.w / 2),
+                0,
+                -d / 2 + toMetres(at.y + f.d / 2),
+              ];
           const label = a.labelOf(n);
           return (
             <Piece

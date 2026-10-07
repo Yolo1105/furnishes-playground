@@ -4,9 +4,11 @@
  * the Design style block and read by the rule brain. Styles the documents
  * do not cover carry no tip rather than an invented one.
  */
+import { STYLES } from "./eva-data";
+
 type Tip = { do: string; dont: string; budget: string };
 
-export const DESIGN_TIPS: Partial<Record<string, Tip>> = {
+export const DESIGN_TIPS: Partial<Record<(typeof STYLES)[number], Tip>> = {
   Japandi: {
     do: "Low, horizontal silhouettes; one wood plus one accent; closed storage hides clutter; leave the coffee table mostly clear.",
     dont: "Many wood tones, bright primaries, heavy ornament, or a knit on every surface.",
@@ -38,3 +40,7 @@ export const DESIGN_TIPS: Partial<Record<string, Tip>> = {
       "Invest in the sofa and the window sheers; rattan accents and jute rugs stretch the look.",
   },
 };
+
+/** the tip for a style, by the name a preference holds */
+export const tipFor = (style: string) =>
+  (DESIGN_TIPS as Partial<Record<string, Tip>>)[style];

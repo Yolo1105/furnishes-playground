@@ -3,17 +3,14 @@
    the compressed title and its fading echoes, the cream main, Space
    Mono caps in brackets, a section rail bottom-left, a full-screen
    menu, items that come in as their section arrives, an accent footer.
-   Its tokens are the home page's (the deep brown ink, the terracotta,
-   the two creams) plus the studio's accent for the highlighted word;
-   the band's gradient is the design's own. Everything stops at .ld.
+   Its tokens are the inner pages' (declared once in home.css: the
+   deep brown ink, the terracotta, the two creams, the two faces) plus
+   the studio's accent for the highlighted word; the band's gradient
+   is the design's own. Everything stops at .ld.
    ═══════════════════════════════════════════════════════════════════ */
 .ld {
-  --ink: #6b2c12;
   --ink-2: color-mix(in srgb, var(--ink) 62%, transparent);
-  --terra: oklch(0.605 0.176 41);
-  --hi: oklch(0.655 0.196 43);
-  --cream-ui: #fff2e5;
-  --paper: #ffeddf;
+  --hi: var(--color-accent);
   --on-orange: #fbf0dc;
   --band: linear-gradient(
     to bottom,
@@ -26,14 +23,11 @@
     #ff8a10 80%,
     #ff9c18 100%
   );
-  --hair: rgb(from var(--ink) r g b / 0.075);
   --pad: clamp(20px, 3.4vw, 44px);
   /* the content below the band starts at the first column guide, which
      leaves the rail its own column on the left */
   --lead: max(var(--pad), 20vw);
   --maxw: 1320px;
-  --sans: var(--font-archivo), system-ui, sans-serif;
-  --mono: var(--font-mono), ui-monospace, monospace;
   --ease: cubic-bezier(0.16, 0.84, 0.3, 1);
   position: relative;
   z-index: 1;
@@ -42,7 +36,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   scroll-behavior: smooth;
-  background: var(--paper);
+  background: var(--cream-hero);
   color: var(--ink);
   font-family: var(--sans);
   font-stretch: 78%;
@@ -51,7 +45,9 @@
 .ld * {
   box-sizing: border-box;
 }
-.ld button {
+/* the resets of a button's chrome and a link's blue, at no
+   specificity, so a class on either wins */
+.ld :where(button) {
   font: inherit;
   font-stretch: inherit;
   color: inherit;
@@ -60,7 +56,7 @@
   padding: 0;
   cursor: pointer;
 }
-.ld a {
+.ld :where(a) {
   color: inherit;
   text-decoration: none;
 }
@@ -458,8 +454,8 @@
     #ff9c18 0%,
     #fab45c 20%,
     #f2d2a6 37%,
-    var(--paper) 46%,
-    var(--paper) 100%
+    var(--cream-hero) 46%,
+    var(--cream-hero) 100%
   );
 }
 /* the tagline with its [ ] mark, right-aligned under the hero */
@@ -592,7 +588,7 @@
   top: 12px;
   z-index: 2;
   padding: 5px 10px;
-  background: var(--paper);
+  background: var(--cream-hero);
   color: var(--ink);
   font-family: var(--mono);
   font-stretch: normal;
@@ -607,7 +603,7 @@
 .ld-mark-right {
   right: 12px;
   background: var(--ink);
-  color: var(--paper);
+  color: var(--cream-hero);
 }
 .ld-answer {
   grid-column: 1;
@@ -684,7 +680,8 @@
     80% 0;
   background-repeat: no-repeat;
 }
-.ld-block {
+.ld-block,
+.ld-wl {
   width: 100%;
   max-width: var(--maxw);
   margin: 0 auto;
@@ -714,7 +711,7 @@
   transition: background 0.2s;
 }
 .ld-piece-link:hover {
-  background: var(--paper);
+  background: var(--cream-hero);
 }
 .ld-piece-pic {
   display: block;
@@ -767,14 +764,7 @@
   margin: clamp(16px, 2vw, 24px) 0 clamp(22px, 3vw, 36px);
 }
 
-/* ───────────── the waitlist band ───────────── */
-.ld-wl {
-  width: 100%;
-  max-width: var(--maxw);
-  margin: 0 auto;
-  padding: clamp(64px, 11vh, 140px) var(--pad) clamp(64px, 11vh, 140px)
-    var(--lead);
-}
+/* ───────────── the waitlist band (a block, see above) ───────────── */
 .ld-wl-in {
   display: grid;
   grid-template-columns: 1.2fr 1fr;
@@ -1023,19 +1013,14 @@
   .ld {
     --lead: var(--pad);
   }
-  .ld-pair {
-    max-height: none;
-  }
   .ld-swap {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto;
   }
   .ld-pair {
+    max-height: none;
     grid-column: 1;
     grid-row: auto;
-  }
-  .ld-answer {
-    grid-column: 1;
   }
   .ld-how {
     grid-template-columns: 1fr;

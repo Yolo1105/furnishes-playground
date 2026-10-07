@@ -10,7 +10,7 @@ import { LANDING } from "./copy";
  * storage. There are no toggles, because there is nothing to toggle:
  * the session cookie is the only one, and it is set when you sign in.
  */
-export const COOKIE_NOTE_KEY = "furnishes.cookies";
+const COOKIE_NOTE_KEY = "furnishes.cookies";
 
 const listeners = new Set<() => void>();
 const subscribe = (l: () => void) => {
@@ -42,6 +42,7 @@ export function CookieNote({ past }: { past: boolean }) {
       className={`ld-cookie${past ? " is-in" : ""}`}
       role="status"
       aria-hidden={!past}
+      inert={!past}
     >
       <p>
         {LANDING.cookie.text}{" "}

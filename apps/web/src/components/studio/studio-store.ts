@@ -16,7 +16,7 @@ import type { WheelMode } from "./input";
  * hidden, the divider comes in from the left to the middle and can be
  * dragged: the view as edited is left of it, the render right).
  */
-export type Mode = "edit" | "preview";
+type Mode = "edit" | "preview";
 export type Tool = "select" | "inspect" | "wall" | "measure" | "tour";
 /** what lights and reflects in the room from outside it: the studio's
     own light panels, or one of four surroundings (Poly Haven environment

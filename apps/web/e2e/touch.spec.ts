@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { GUIDE_STORAGE_KEY } from "../src/components/studio/guide-store";
 
 /**
  * The studio under a finger, on a tablet's and a phone's screen: targets
@@ -48,8 +49,9 @@ const toPlan = async (page: Page) => {
 
 test.beforeEach(async ({ page }) => {
   // the first visit's welcome is not what these tests are about
-  await page.addInitScript(() =>
-    localStorage.setItem("furnishes.guides", JSON.stringify({ intro: true })),
+  await page.addInitScript(
+    ({ key, value }) => localStorage.setItem(key, value),
+    { key: GUIDE_STORAGE_KEY, value: JSON.stringify({ intro: true }) },
   );
   await page.goto("/rounded");
 });

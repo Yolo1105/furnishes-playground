@@ -7,12 +7,15 @@ import {
   useAccountForm,
 } from "@/components/studio/account-form";
 import { PASSWORD_MIN } from "@/lib/account-rules";
+import { SITE } from "@/lib/site";
+import { ONE_MOMENT } from "./copy";
 
 /**
- * The home page's stage for anyone not signed in: the account form in
- * the page's own language (the mode switch with its indices, rows with
- * a label and a field, one outlined button), and beside it what an
- * account keeps. The studio stays a link away for a look without one.
+ * The account page's stage for anyone not signed in: the account form
+ * in the page's own language (the mode switch with its indices, rows
+ * with a label and a field, the filled button and the quiet links),
+ * and beside it what an account keeps. The studio stays a link away
+ * for a look without one.
  */
 const KEEPS = [
   ["Projects", "Every room you make, on every device you sign in on."],
@@ -23,7 +26,7 @@ const KEEPS = [
   ],
 ] as const;
 
-export function HomeSignIn({ studio }: { studio: string }) {
+export function HomeSignIn() {
   const f = useAccountForm();
   const up = f.mode === "up";
   return (
@@ -64,7 +67,6 @@ export function HomeSignIn({ studio }: { studio: string }) {
                   className="home-input"
                   type="text"
                   autoComplete="name"
-                  required
                   value={f.name}
                   onChange={(e) => f.setName(e.target.value)}
                 />
@@ -114,7 +116,7 @@ export function HomeSignIn({ studio }: { studio: string }) {
               className="home-btn home-btn-primary"
               disabled={f.busy}
             >
-              {f.busy ? "One moment" : up ? "Create account" : "Sign in"}
+              {f.busy ? ONE_MOMENT : up ? "Create account" : "Sign in"}
               <span aria-hidden="true"> →</span>
             </button>
             {GOOGLE_SIGN_IN && (
@@ -137,7 +139,7 @@ export function HomeSignIn({ studio }: { studio: string }) {
                 Forgot your password? →
               </button>
             )}
-            <Link className="home-quiet" href={studio}>
+            <Link className="home-quiet" href={SITE.studio}>
               Look around without an account →
             </Link>
           </div>

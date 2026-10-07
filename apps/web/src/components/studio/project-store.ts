@@ -32,7 +32,7 @@ import { products } from "./catalogue";
 const KEY = "furnishes.projects";
 /** the shape of a snapshot: raised when the shape changes, with a step
     in `upgrade` that brings the older shape up */
-export const SNAPSHOT_VERSION = 1;
+const SNAPSHOT_VERSION = 1;
 const SAVE_AFTER = 600; // ms after the last change
 
 type RoomData = ReturnType<typeof useRoom.getState>;
@@ -219,7 +219,7 @@ const toV1 = (node: AssetNode): AssetNode => {
 };
 
 /** a snapshot brought up to the current shape, step by step */
-export const upgrade = (data: Snapshot): Snapshot => {
+const upgrade = (data: Snapshot): Snapshot => {
   const v = data.v ?? 0;
   if (v >= SNAPSHOT_VERSION) return data;
   let out = data;

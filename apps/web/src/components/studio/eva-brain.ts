@@ -9,26 +9,28 @@ import {
 import { products, type Product } from "./catalogue";
 import { ARCHETYPES } from "./archetypes";
 import {
+  ASKS,
+  BRAINSTORM,
   BUDGET,
+  budgetChips,
+  budgetLabel,
   FURNISH,
   FURNITURE,
+  personaOf,
+  PREF_REVIEW,
+  PREFERENCE_BLOCKS,
   ROOM_REVIEW,
   ROOMS,
+  snapBudget,
   STYLES,
   SWATCHES,
   type Changes,
   type Observation,
+  type PersonaId,
   type PreferenceCategory,
   type ProposalCat,
-  personaOf,
-  type PersonaId,
-  ASKS,
-  BRAINSTORM,
-  PREF_REVIEW,
-  PREFERENCE_BLOCKS,
-  snapBudget,
 } from "./eva-data";
-import { DESIGN_TIPS } from "./design-tips";
+import { tipFor } from "./design-tips";
 import {
   FIT_FOR_ROOM,
   FIT_GUIDANCE,
@@ -51,7 +53,7 @@ import {
 
 /* ---------- what Eva knows ---------- */
 
-export type Preferences = Partial<
+type Preferences = Partial<
   Record<PreferenceCategory, { values: string[]; budget?: [number, number] }>
 >;
 
@@ -266,7 +268,7 @@ const hearBudget = (text: string): [number, number] | null => {
 };
 
 /** the preferences a message carries that are not confirmed yet */
-export const hear = (text: string, prefs: Preferences): Proposal[] => {
+const hear = (text: string, prefs: Preferences): Proposal[] => {
   const out: Proposal[] = [];
   const pick = (cat: ProposalCat, options: readonly string[]) => {
     const kept = cat === "room" ? [] : (prefs[cat]?.values ?? []);
@@ -286,7 +288,7 @@ export const hear = (text: string, prefs: Preferences): Proposal[] => {
     if (!cur || cur[0] !== budget[0] || cur[1] !== budget[1])
       out.push({
         cat: "budget",
-        values: [`${sgd(budget[0])} – ${sgd(budget[1])}`],
+        values: [budgetLabel(budget[0], budget[1])],
         budget,
       });
   }
@@ -417,7 +419,7 @@ export const recommend = (
       );
     // the wall's length is a reason only for a piece that runs along it
     if (alongAWall(product)) why.push(`fits the ${metres(long)} wall`);
-    const tip = c.prefs.style?.values.map((s) => DESIGN_TIPS[s]).find(Boolean);
+    const tip = c.prefs.style?.values.map((s) => tipFor(s)).find(Boolean);
     if (tip && closes(product) && /closed|hide/i.test(tip.do))
       why.push("closed storage, as the style asks");
     return { product, why: why.join(" · ") };
@@ -493,9 +495,9 @@ const review = (c: Context): Reply => {
 export const brainstorm = (c: Context): Reply => {
   const kept = c.prefs.style?.values ?? [];
   const picks = [...kept, ...STYLES.filter((s) => !kept.includes(s))]
-    .filter((s) => DESIGN_TIPS[s])
+    .filter((s) => tipFor(s))
     .slice(0, 3);
-  const lines = picks.map((s) => `${s}: ${DESIGN_TIPS[s]!.do}`);
+  const lines = picks.map((s) => `${s}: ${tipFor(s)!.do}`);
   return {
     text: `Three directions for the ${ROOM_NAMES[c.room.id]}. ${lines.join(" ")} Pick one and I'll keep to it.`,
     proposals: [],
@@ -515,7 +517,7 @@ const sizeGate = (proposals: Proposal[] = []): Reply => ({
 /** Furnish this room: what the room kind's archetype asks for that
     is not in the room yet, the catalogue piece that is it or a room
     item from a few words, and the By the book layout over it all */
-export const furnish = (c: Context): Reply => {
+const furnish = (c: Context): Reply => {
   if (!c.room.sized) return sizeGate();
   const a = ARCHETYPES[c.room.id];
   const names = c.pieces.map((n) => n.name);
@@ -573,7 +575,7 @@ const ON_WALL = 150;
 /** Review this room: three to five things about the room as it stands,
     read from the planner's findings, the archetype's rules, what is
     still missing and the budget */
-export const reviewRoom = (c: Context): Reply => {
+const reviewRoom = (c: Context): Reply => {
   const out: Observation[] = [];
   const plan = planOf(c);
   if (!c.room.sized)
@@ -720,11 +722,7 @@ export const reply = (
       proposals,
       cards: [],
       chips: [
-        ...[1500, 3000, 5000].map((n): Chip => ({
-          label: `Under ${sgd(n)}`,
-          act: "budget",
-          budget: [BUDGET.min, n],
-        })),
+        ...budgetChips(),
         { label: "Flexible", act: "budget", budget: [BUDGET.min, BUDGET.max] },
       ],
     };

@@ -1,5 +1,6 @@
-import { useEffect } from "react";
 import { create } from "zustand";
+import { useLocalMirror } from "./local-mirror";
+import type { Address } from "@/lib/address";
 import { STATUS_NAMES, type OrderStatus } from "@/lib/orders";
 import type { AssetCategory } from "./assets-data";
 
@@ -17,14 +18,7 @@ const KEY = "furnishes.orders";
 
 export { STATUS_NAMES };
 
-export type Address = {
-  recipient: string;
-  line1: string;
-  postal: string;
-  phone: string;
-};
-
-export type OrderLine = {
+type OrderLine = {
   /** the piece's id in the room it was ordered from */
   pieceId: string;
   /** the catalogue product it is, which the server prices it by */
@@ -60,7 +54,8 @@ type OrderState = {
   setPayment: (id: string, p: { key?: string; payUrl?: string }) => void;
 };
 
-/** an order number: FN- and the time in base 36, upper case */
+/** an order number: FN- and the time in base 36, upper case (the
+    route checks the shape as lib/orders OrderId) */
 const nextId = () => `FN-${Date.now().toString(36).slice(-5).toUpperCase()}`;
 
 export const useOrders = create<OrderState>((set) => ({
@@ -146,33 +141,8 @@ export const orderedIds = (orders: Order[]) =>
       .flatMap((o) => o.lines.map((l) => l.pieceId)),
   );
 
-/** the postal code and the phone as Singapore has them */
-export const validAddress = (a: Address) => ({
-  recipient: a.recipient.trim().length >= 2,
-  line1: a.line1.trim().length >= 4,
-  postal: /^\d{6}$/.test(a.postal.trim()),
-  phone: /^(\+65\s?)?[689]\d{7}$/.test(a.phone.replace(/\s/g, "")),
-});
-
 /** the orders come back on arrival and are kept on every change */
-export function useOrdersSync() {
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(KEY);
-      if (raw) {
-        const kept = JSON.parse(raw) as { orders?: Order[] };
-        if (Array.isArray(kept.orders))
-          useOrders.setState({ orders: kept.orders });
-      }
-    } catch {
-      /* nothing kept, or storage blocked */
-    }
-    return useOrders.subscribe((s) => {
-      try {
-        localStorage.setItem(KEY, JSON.stringify({ orders: s.orders }));
-      } catch {
-        /* the orders last the session */
-      }
-    });
-  }, []);
-}
+const pick = (s: OrderState) => ({ orders: s.orders });
+const accept = (kept: Partial<ReturnType<typeof pick>>) =>
+  Array.isArray(kept.orders) ? { orders: kept.orders } : null;
+export const useOrdersSync = () => useLocalMirror(useOrders, KEY, pick, accept);

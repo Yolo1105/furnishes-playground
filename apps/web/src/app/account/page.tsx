@@ -1,16 +1,13 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import { Home } from "@/components/site/Home";
+import { SITE } from "@/lib/site";
 
-export const metadata: Metadata = { title: "Account" };
+export const metadata: Metadata = {
+  title: "Account",
+  description: `Sign in to ${SITE.name}, or make an account: your projects, orders and room items follow you to every device.`,
+};
 
-/** The account's page: the way in, and the doors to the studio. */
+/** The account's page: the way in. */
 export default function Page() {
-  // the page reads the address (which studio to open), so it renders
-  // inside a boundary while the page itself stays static
-  return (
-    <Suspense>
-      <Home />
-    </Suspense>
-  );
+  return <Home />;
 }

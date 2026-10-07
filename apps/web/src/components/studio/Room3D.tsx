@@ -1,6 +1,8 @@
 "use client";
 
+import { toMetres } from "@furnishes/scene";
 import { Environment, Lightformer } from "@react-three/drei";
+import { LIGHT_WOOD_HEX } from "./piece-detail";
 import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import { DoubleSide, FrontSide, type Group, Path, Shape, Vector3 } from "three";
@@ -26,11 +28,10 @@ import { floorTexture, shade, TILE_M } from "./textures";
  * surroundings, a sun from the window's side, and soft shadows under
  * everything on the floor. All in metres about the room's middle.
  */
-const m = (mm: number) => mm / 1000;
 const SKIRTING = 0.1;
 const FRAME = 0.07;
 const FRAME_HEX = "#f7f3ec";
-const DOOR_HEX = "#cfae82";
+const DOOR_HEX = LIGHT_WOOD_HEX;
 const CEILING_HEX = "#f8f5f0";
 
 const ROUGHNESS: Record<Floor, number> = {
@@ -40,7 +41,7 @@ const ROUGHNESS: Record<Floor, number> = {
   Concrete: 0.9,
 };
 
-export type RoomShape = {
+type RoomShape = {
   W: number;
   D: number;
   outline: readonly Point[];
@@ -133,8 +134,8 @@ const floorShape = (
 ) => {
   const s = new Shape();
   outline.forEach(([x, y], i) => {
-    const px = m(x) - w / 2;
-    const py = -(m(y) - d / 2);
+    const px = toMetres(x) - w / 2;
+    const py = -(toMetres(y) - d / 2);
     if (i === 0) s.moveTo(px, py);
     else s.lineTo(px, py);
   });
@@ -166,9 +167,9 @@ const inward = (wall: Wall): [number, number] =>
 const placeOf = (r: RoomShape, o: Opening): [number, number] => {
   const { centre, at } = openingCentre(r, o);
   const horizontal = o.wall === "north" || o.wall === "south";
-  const x = horizontal ? m(centre) : m(at);
-  const z = horizontal ? m(at) : m(centre);
-  return [x - m(r.W) / 2, z - m(r.D) / 2];
+  const x = horizontal ? toMetres(centre) : toMetres(at);
+  const z = horizontal ? toMetres(at) : toMetres(centre);
+  return [x - toMetres(r.W) / 2, z - toMetres(r.D) / 2];
 };
 /** the holes an edge's wall has: each opening on this edge, as a box
     along the wall (metres from the edge's middle) and up it */
@@ -184,14 +185,14 @@ const holesOf = (r: RoomShape, e: Edge, h: number) => {
     .map((o) => ({ o, c: openingCentre(r, o).centre }))
     .filter(({ c }) => c >= lo && c <= hi)
     .map(({ o, c }) => {
-      const sill = isWindow(o) ? m(o.sill ?? OPENINGS.window.sill) : 0;
+      const sill = isWindow(o) ? toMetres(o.sill ?? OPENINGS.window.sill) : 0;
       const top = isWindow(o)
-        ? Math.min(m(o.head ?? OPENINGS.window.head), h - 0.15)
-        : Math.min(m(OPENINGS.door.height), h - 0.1);
+        ? Math.min(toMetres(o.head ?? OPENINGS.window.head), h - 0.15)
+        : Math.min(toMetres(OPENINGS.door.height), h - 0.1);
       return {
         o,
-        x: flip * m(c - mid),
-        w: m(o.width),
+        x: flip * toMetres(c - mid),
+        w: toMetres(o.width),
         y0: sill,
         y1: top,
       };
@@ -216,10 +217,10 @@ function WallRun({
   /** shared with the room beyond: seen from both sides */
   both?: boolean;
 }) {
-  const ax = m(e.a[0]) - w / 2;
-  const az = m(e.a[1]) - d / 2;
-  const bx = m(e.b[0]) - w / 2;
-  const bz = m(e.b[1]) - d / 2;
+  const ax = toMetres(e.a[0]) - w / 2;
+  const az = toMetres(e.a[1]) - d / 2;
+  const bx = toMetres(e.b[0]) - w / 2;
+  const bz = toMetres(e.b[1]) - d / 2;
   const len = Math.hypot(bx - ax, bz - az);
   const yaw = yawOf(e.wall);
   const [nx, nz] = inward(e.wall);
@@ -306,9 +307,12 @@ function Face({
 }
 
 function Window({ r, o }: { r: RoomShape; o: Opening }) {
-  const width = m(o.width);
-  const sill = m(o.sill ?? OPENINGS.window.sill);
-  const head = Math.min(m(o.head ?? OPENINGS.window.head), m(r.height) - 0.15);
+  const width = toMetres(o.width);
+  const sill = toMetres(o.sill ?? OPENINGS.window.sill);
+  const head = Math.min(
+    toMetres(o.head ?? OPENINGS.window.head),
+    toMetres(r.height) - 0.15,
+  );
   const tall = head - sill;
   const mid = sill + tall / 2;
   const [x, z] = placeOf(r, o);
@@ -355,8 +359,11 @@ function Window({ r, o }: { r: RoomShape; o: Opening }) {
     double door's two leaves, a sliding door's two panels, or nothing
     at all for a passage */
 function Door({ r, o }: { r: RoomShape; o: Opening }) {
-  const width = m(o.width);
-  const tall = Math.min(m(OPENINGS.door.height), m(r.height) - 0.1);
+  const width = toMetres(o.width);
+  const tall = Math.min(
+    toMetres(OPENINGS.door.height),
+    toMetres(r.height) - 0.1,
+  );
   const [x, z] = placeOf(r, o);
   const yaw = yawOf(o.wall);
   const leaves =
@@ -437,9 +444,9 @@ export function RoomShell({
   /** a click on the floor while walking: go there */
   onWalkTo: (x: number, z: number) => void;
 }) {
-  const w = m(r.W);
-  const d = m(r.D);
-  const h = m(r.height);
+  const w = toMetres(r.W);
+  const d = toMetres(r.D);
+  const h = toMetres(r.height);
   const shape = useMemo(() => floorShape(r.outline, w, d), [r.outline, w, d]);
   const map = useMemo(
     () => floorTexture(r.floor, r.floorHex),

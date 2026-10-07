@@ -11,14 +11,14 @@ import type { Placed, PlanId } from "./room-layout";
  * findings, so it is the same answer every time and needs no model.
  */
 /** a piece's journey from where it stands to where a layout puts it */
-export type Move = {
+type Move = {
   id: string;
   name: string;
   /** mm, across the floor */
   dist: number;
   turns: boolean;
 };
-export type Explained = {
+type Explained = {
   /** the cost: findings weighed by the priorities, and the room's feel */
   score: number;
   /** what the layout would leave, worst first */
@@ -40,14 +40,14 @@ const WEIGHT: Record<Issue["kind"], number> = {
   missing: 0,
 };
 /** past this a priority is spoken of; under its mirror, the other way */
-export const LEANS = 70;
+const LEANS = 70;
 /** a move under this is standing still (the plan's own grid) */
 const STILL = 50;
 
 /** the cost of a layout: each finding's weight, flow leaning on the
     walkways and the door, light on the window; then the room's feel,
     an open middle favouring Along the walls and a cosy room the rows */
-export const scoreOf = (issues: Issue[], plan: PlanId, rules: Rules) => {
+const scoreOf = (issues: Issue[], plan: PlanId, rules: Rules) => {
   const flow = rules.flow / 100;
   const open = rules.open / 100;
   let s = 0;
@@ -98,9 +98,6 @@ export const explainPlan = (
 /** how far a layout moves the pieces altogether, mm */
 export const travel = (moves: readonly Move[]) =>
   moves.reduce((t, m) => t + m.dist, 0);
-
-/** metres, to a decimal, for a move */
-export const metresOf = (mm: number) => `${(mm / 1000).toFixed(1)} m`;
 
 /** the lines that say why a layout stands where it does among the
     four: what it does, what the priorities ask, what it would leave */

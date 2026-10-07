@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MESSAGE_MAX, refuse, sanitize } from "./guard";
+import { MESSAGE_MAX, refuse, sanitize, ANSWER_MAX } from "./guard";
 
 describe("what may go to the model", () => {
   it("lets a plain message through", () => {
@@ -29,7 +29,7 @@ describe("what comes back", () => {
   });
   it("keeps an answer to a screenful", () => {
     const long = sanitize("x".repeat(20_000));
-    expect(long.length).toBeLessThanOrEqual(10_001);
+    expect(long.length).toBeLessThanOrEqual(ANSWER_MAX + 1);
     expect(long.endsWith("…")).toBe(true);
   });
 });

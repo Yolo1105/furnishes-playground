@@ -1,4 +1,5 @@
 import { sgd } from "./assets-data";
+import { budgetLabel } from "./eva-data";
 import type { ProposalCat } from "./eva-data";
 import {
   budgetOf,
@@ -83,7 +84,7 @@ export const resultOf = (flow: Flow, answers: Answers): QuizResult => {
       proposals: [
         {
           cat: "budget",
-          values: [`${sgd(lo)} – ${sgd(hi)}`],
+          values: [budgetLabel(lo, hi)],
           budget: [lo, hi],
         },
       ],

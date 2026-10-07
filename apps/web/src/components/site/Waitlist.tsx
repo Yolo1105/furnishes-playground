@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { EMAIL } from "@/lib/help-client";
-import { LANDING } from "./copy";
+import { EMAIL } from "@/lib/email";
+import { LANDING, TRY_AGAIN } from "./copy";
 
 /**
  * Be first through the door: an email, kept once by api/waitlist, for
@@ -49,7 +49,7 @@ export function Waitlist() {
       : status === "unavailable"
         ? "The list cannot be reached just now; try again in a while."
         : status === "error"
-          ? "That did not work; try again."
+          ? TRY_AGAIN
           : status === "pending"
             ? "Adding you…"
             : w.note;

@@ -7,6 +7,13 @@ import { BUDGET, ROOMS, snapBudget } from "./eva-data";
  * colour per question, giant type) stays behind; the questions, options
  * and scoring come across. Each answer is a set of option ids.
  */
+/** the five tones the palettes are mixed from */
+const SAND = "#DDD5C4";
+const OAK = "#B09470";
+const SAGE = "#8A9E9A";
+const OLIVE = "#6B7355";
+const RUST = "#B33D0E";
+
 export type Flow = "style" | "budget" | "room";
 export type StyleKey =
   "minimal" | "maximalist" | "organic" | "industrial" | "artisan";
@@ -176,7 +183,7 @@ export const STYLE_PROFILES: Record<
     tagline: "Less is a decision, not a default.",
     description:
       "A room should breathe. Every object earns its place; the edit is the art.",
-    palette: ["#DDD5C4", "#B09470", "#8A9E9A"],
+    palette: [SAND, OAK, SAGE],
     styles: ["Minimalist", "Japandi"],
     colours: ["Soft white", "Warm neutrals"],
   },
@@ -185,7 +192,7 @@ export const STYLE_PROFILES: Record<
     tagline: "A room should tell the whole story.",
     description:
       "Texture, memory and colour layered until a room becomes a world.",
-    palette: ["#B33D0E", "#B09470", "#DDD5C4"],
+    palette: [RUST, OAK, SAND],
     styles: ["Peranakan", "Mid-century"],
     colours: ["Terracotta", "Navy"],
   },
@@ -194,7 +201,7 @@ export const STYLE_PROFILES: Record<
     tagline: "Living things are the best furniture.",
     description:
       "Raw clay, rough linen, trailing green, warm light through leaves.",
-    palette: ["#6B7355", "#B09470", "#DDD5C4"],
+    palette: [OLIVE, OAK, SAND],
     styles: ["Japandi", "Scandinavian"],
     colours: ["Sage", "Birch"],
   },
@@ -203,7 +210,7 @@ export const STYLE_PROFILES: Record<
     tagline: "Honest material. Honest form.",
     description:
       "Exposed structure is the design: steel, wood, concrete, seen holding the room up.",
-    palette: ["#6B7355", "#8A9E9A", "#B09470"],
+    palette: [OLIVE, SAGE, OAK],
     styles: ["Industrial"],
     colours: ["Cool grey", "Walnut"],
   },
@@ -212,7 +219,7 @@ export const STYLE_PROFILES: Record<
     tagline: "The hand is always visible.",
     description:
       "Craft is evidence, not ornament: every object carries the mark of its making.",
-    palette: ["#B09470", "#6B7355", "#DDD5C4"],
+    palette: [OAK, OLIVE, SAND],
     styles: ["Mid-century", "Coastal"],
     colours: ["Walnut", "Warm neutrals"],
   },

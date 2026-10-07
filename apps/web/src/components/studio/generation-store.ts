@@ -1,6 +1,6 @@
-import { useEffect } from "react";
 import { newId } from "./ids";
 import { create } from "zustand";
+import { useLocalMirror } from "./local-mirror";
 import type { AssetCategory } from "./assets-data";
 
 /**
@@ -112,32 +112,13 @@ export const describeItem = (prompt: string) => {
 };
 
 /** the generations come back on arrival and are kept on every change */
-export function useGenerationsSync() {
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(KEY);
-      if (raw) {
-        const kept = JSON.parse(raw) as Partial<
-          Pick<GenerationState, "generations" | "gone">
-        >;
-        if (Array.isArray(kept.generations))
-          useGenerations.setState({
-            generations: kept.generations,
-            gone: kept.gone ?? {},
-          });
-      }
-    } catch {
-      /* nothing kept, or storage blocked */
-    }
-    return useGenerations.subscribe((s) => {
-      try {
-        localStorage.setItem(
-          KEY,
-          JSON.stringify({ generations: s.generations, gone: s.gone }),
-        );
-      } catch {
-        /* the generations last the session */
-      }
-    });
-  }, []);
-}
+const pick = (s: GenerationState) => ({
+  generations: s.generations,
+  gone: s.gone,
+});
+const accept = (kept: Partial<ReturnType<typeof pick>>) =>
+  Array.isArray(kept.generations)
+    ? { generations: kept.generations, gone: kept.gone ?? {} }
+    : null;
+export const useGenerationsSync = () =>
+  useLocalMirror(useGenerations, KEY, pick, accept);

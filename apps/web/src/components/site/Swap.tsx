@@ -1,5 +1,6 @@
 "use client";
 
+import { SITE } from "@/lib/site";
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -126,7 +127,7 @@ export function Swaps({ swaps }: { swaps: Swap[] }) {
               {sgd(now.price)} <small>estimate</small>
             </span>
           </p>
-          <Link className="ld-btn" href={`/rounded?piece=${now.id}`}>
+          <Link className="ld-btn" href={`${SITE.studio}?piece=${now.id}`}>
             See it in the studio
             <span aria-hidden="true"> →</span>
           </Link>

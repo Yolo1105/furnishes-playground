@@ -1,20 +1,25 @@
 /* ═══════════════════════════════════════════════════════════════════
-   The home page: the account's workbench, in the production account
-   page's language. Its tokens are its own and stop at .home: the ink
-   is a deep brown, the terracotta the production midpoint, the cream
-   surfaces solid; Archivo (compressed) sets the words, Space Mono the
-   caps labels.
+   The site's inner pages (the account's way in, help, privacy, the
+   terms, operations, a page that failed or is not here), in the
+   production account page's language, and the tokens the landing
+   shares with them: the ink is a deep brown, the terracotta the
+   production midpoint, the cream surfaces solid; Archivo (compressed)
+   sets the words, Space Mono the caps labels. Everything stops at
+   .home (and .ld for the tokens).
    ═══════════════════════════════════════════════════════════════════ */
-.home {
+.home,
+.ld {
   --ink: #6b2c12;
   --terra: oklch(0.605 0.176 41);
   --cream-ui: #fff2e5;
   --cream-hero: #ffeddf;
   --hair: rgb(from var(--ink) r g b / 0.075);
-  --rail: 244px;
-  --gut: clamp(22px, 2.6vw, 36px);
   --sans: var(--font-archivo), system-ui, sans-serif;
   --mono: var(--font-mono), ui-monospace, monospace;
+}
+.home {
+  --rail: 244px;
+  --gut: clamp(22px, 2.6vw, 36px);
   position: relative;
   z-index: 1;
   display: grid;
@@ -30,7 +35,9 @@
 .home * {
   box-sizing: border-box;
 }
-.home button {
+/* the reset of a button's own font and colour, at no specificity, so
+   a class on the button wins */
+.home :where(button) {
   font: inherit;
   font-stretch: inherit;
   color: inherit;
@@ -95,7 +102,6 @@
   font-size: 11.5px;
   font-weight: 700;
   letter-spacing: 0.08em;
-  color: var(--terra);
 }
 /* the mode switch: one row each, an underline that grows under the
    current one and under the hovered one */
@@ -180,7 +186,6 @@
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
-  background: var(--cream-ui);
 }
 .home-canvas {
   padding: 14px 0 44px;
@@ -196,7 +201,6 @@
   margin: 0;
   font-size: 11.5px;
   letter-spacing: 0.22em;
-  color: var(--terra);
 }
 .home-title {
   margin: 13px 0 0;
@@ -212,7 +216,8 @@
   line-height: 1.55;
   color: color-mix(in srgb, var(--ink) 62%, transparent);
 }
-.home-canvas > .home-sub {
+/* a line the form itself says (a mail sent, a note) sits in the gutter */
+.home-form > .home-sub {
   padding: 0 var(--gut);
 }
 /* a door: what an account keeps, one per row */
@@ -257,7 +262,6 @@
   gap: 3px;
   font-size: 11.5px;
   letter-spacing: 0.13em;
-  color: var(--terra);
   white-space: nowrap;
 }
 .home-row-hint {
@@ -327,6 +331,10 @@
 .home-btn-primary:hover {
   background: color-mix(in srgb, var(--terra) 88%, var(--ink));
 }
+/* a filled button that cannot be pressed yet reads as the outlined one */
+.home-btn-primary:disabled {
+  color: var(--terra);
+}
 .home-acts {
   display: flex;
   align-items: center;
@@ -339,15 +347,20 @@
   color: var(--terra);
 }
 
-/* prose: the privacy page's sections */
-.home-prose {
+/* prose (the help, privacy and terms sections), Ask us under the help
+   sections, and the operations sections: a column of text, each line
+   close under its heading */
+.home-prose,
+.home-ask {
   padding: 0 var(--gut);
   max-width: 68ch;
 }
 .home-prose section + section {
   margin-top: 28px;
 }
-.home-prose .home-sub {
+.home-prose .home-sub,
+.home-ask .home-sub,
+.ops-section .home-sub {
   margin-top: 10px;
 }
 .home-acts-pad {
@@ -417,7 +430,6 @@
   .home-rail {
     position: static;
     height: auto;
-    padding: 0 16px 14px;
     border-right: 0;
     border-bottom: 1px solid var(--hair);
   }
@@ -457,14 +469,9 @@
 /* ───────────── Ask us, on the help page ───────────── */
 .home-ask {
   margin-top: 36px;
-  padding: 0 var(--gut);
-  max-width: 68ch;
 }
 .home-ask .home-form {
   margin: 10px calc(-1 * var(--gut)) 0;
-}
-.home-ask .home-sub {
-  margin-top: 10px;
 }
 .home-textarea {
   height: auto;
@@ -480,9 +487,6 @@
 .ops-section {
   margin-top: 34px;
   padding: 0 var(--gut);
-}
-.ops-section .home-sub {
-  margin-top: 10px;
 }
 .ops-list {
   list-style: none;

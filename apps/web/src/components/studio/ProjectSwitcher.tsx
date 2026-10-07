@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { SITE } from "@/lib/site";
 import { ChevronDownIcon, PencilIcon, PlusIcon, TrashIcon } from "./icons";
 import { useProjects } from "./project-store";
 import { useDismiss } from "./useDismiss";
@@ -34,7 +35,7 @@ export function ProjectSwitcher() {
   };
   return (
     <div ref={wrap} className="shell-project">
-      <span className="shell-project-brand">Furnishes</span>
+      <span className="shell-project-brand">{SITE.name}</span>
       <span className="shell-project-sep" aria-hidden="true">
         /
       </span>

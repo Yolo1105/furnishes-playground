@@ -1,4 +1,5 @@
 import { productOf } from "@/components/studio/catalogue";
+import { z } from "zod";
 
 /**
  * An order as the server reads it. The price of each line is counted
@@ -8,6 +9,10 @@ import { productOf } from "@/components/studio/catalogue";
  */
 export type LineIn = { productId: string; name: string; price: number };
 export type Priced = { productId: string; name: string; sgd: number };
+
+/** an order number as the studio gives it (order-store): FN- and five
+    characters of the time in base 36; the tests use shorter ones */
+export const OrderId = z.string().regex(/^FN-[A-Z0-9]{3,10}$/);
 
 /** the lines priced from the catalogue, or the piece that is not in it */
 export function priceLines(

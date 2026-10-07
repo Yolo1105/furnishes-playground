@@ -1,7 +1,7 @@
 /**
  * Everything standing in the room, as the outliner and the shelf see it.
  *
- * Two kinds of thing share the scene:
+ * Three kinds of thing share the scene:
  *   piece  — a Furnishes modular piece: editable, purchasable, priced
  *   decor  — something placed so the scene reads as a room (sofa, plant)
  *   fixed  — architecture: walls, floor, window
@@ -14,17 +14,20 @@
  * the things a room has.
  */
 import { productOf } from "./catalogue";
-export type AssetKind = "piece" | "decor" | "fixed";
+export const ASSET_KINDS = ["piece", "decor", "fixed"] as const;
+export type AssetKind = (typeof ASSET_KINDS)[number];
 
-export type AssetCategory =
-  | "components"
-  | "storage"
-  | "seating"
-  | "tables"
-  | "screens"
-  | "lighting"
-  | "decor"
-  | "architecture";
+export const ASSET_CATEGORIES = [
+  "components",
+  "storage",
+  "seating",
+  "tables",
+  "screens",
+  "lighting",
+  "decor",
+  "architecture",
+] as const;
+export type AssetCategory = (typeof ASSET_CATEGORIES)[number];
 
 export const CATEGORY_NAMES: Record<AssetCategory, string> = {
   components: "Components",
@@ -166,15 +169,5 @@ export const pieceTotals = (nodes: AssetNode[]) => {
   };
 };
 
-/** Singapore dollars, whole numbers, written "S$1,540". Intl alone prints
-    a bare "$" for SGD in the Singapore locale, so the symbol is set here. */
-const sgdFormat = new Intl.NumberFormat("en-SG", {
-  style: "currency",
-  currency: "SGD",
-  maximumFractionDigits: 0,
-});
-export const sgd = (n: number) =>
-  sgdFormat
-    .formatToParts(n)
-    .map((p) => (p.type === "currency" ? "S$" : p.value))
-    .join("");
+/** money as the studio shows it, from lib/money */
+export { sgd } from "@/lib/money";

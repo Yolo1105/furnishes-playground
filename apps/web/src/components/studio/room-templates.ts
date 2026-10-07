@@ -6,6 +6,18 @@
  */
 export type Point = readonly [number, number];
 
+/** the extremes of some points, mm */
+export const boundsOf = (pts: readonly Point[]) => {
+  const xs = pts.map((p) => p[0]);
+  const ys = pts.map((p) => p[1]);
+  return {
+    minX: Math.min(...xs),
+    maxX: Math.max(...xs),
+    minY: Math.min(...ys),
+    maxY: Math.max(...ys),
+  };
+};
+
 type RoomTemplate = {
   id: string;
   name: string;
@@ -153,14 +165,10 @@ export function isoProjector(
   wall = WALL,
 ) {
   const pts = footprint;
-  const xs = pts.map((p) => p[0]);
-  const ys = pts.map((p) => p[1]);
-  const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
-  const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
-  const span = Math.max(
-    Math.max(...xs) - Math.min(...xs),
-    Math.max(...ys) - Math.min(...ys),
-  );
+  const b = boundsOf(pts);
+  const cx = (b.minX + b.maxX) / 2;
+  const cy = (b.minY + b.maxY) / 2;
+  const span = Math.max(b.maxX - b.minX, b.maxY - b.minY);
   const slack = span * 0.3;
   const scale = Math.min(
     box.w / (span * 2 * COS30 + slack),
@@ -194,10 +202,9 @@ export function isoFacesIn(
 ): IsoFace[] {
   const pts = footprint;
   const { P, wall } = proj;
-  const xs = pts.map((p) => p[0]);
-  const ys = pts.map((p) => p[1]);
-  const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
-  const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+  const b = boundsOf(pts);
+  const cx = (b.minX + b.maxX) / 2;
+  const cy = (b.minY + b.maxY) / 2;
   const WALL = wall;
   const faces: IsoFace[] = [
     { kind: "floor", points: pts.map((p) => P(p[0], p[1], 0)).join(" ") },

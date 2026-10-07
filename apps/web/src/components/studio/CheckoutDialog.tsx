@@ -1,19 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { validAddress, type Address } from "@/lib/address";
 import { useSession } from "@/lib/auth-client";
-import { EMAIL } from "@/lib/help-client";
+import { EMAIL } from "@/lib/email";
 import { sgd, type AssetNode } from "./assets-data";
 import { Dialog } from "./Dialog";
 import { exportCartCsv } from "./export";
 import { CheckIcon, ExportIcon } from "./icons";
-import {
-  STATUS_NAMES,
-  useOrders,
-  validAddress,
-  type Address,
-  type Order,
-} from "./order-store";
+import { STATUS_NAMES, useOrders, type Order } from "./order-store";
 import { useScene } from "./scene-store";
 
 /**

@@ -1,11 +1,12 @@
-import { randomBytes } from "node:crypto";
 import { desc, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { userIdOf } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { share } from "@/lib/db/schema";
+import { randomId } from "@/lib/id";
 import { LIMITS } from "@/lib/limits";
+import { BAD_REQUEST } from "@/lib/schemas";
 
 /**
  * Shared rooms: a copy of a project (its room and pieces, never Eva's
@@ -37,11 +38,11 @@ export async function POST(req: Request) {
   const userId = await userIdOf(req);
   if (!userId) return NextResponse.json({ error: "sign in" }, { status: 401 });
   const parsed = Body.safeParse(await req.json().catch(() => null));
-  if (!parsed.success)
-    return NextResponse.json({ error: "bad request" }, { status: 400 });
+  if (!parsed.success) return NextResponse.json(BAD_REQUEST, { status: 400 });
   if (JSON.stringify(parsed.data.data).length > LIMIT)
     return NextResponse.json({ error: "too large" }, { status: 413 });
-  const id = randomBytes(6).toString("base64url");
+  // short, as the tail of a link
+  const id = randomId(6);
   await getDb().db.insert(share).values({
     id,
     userId,

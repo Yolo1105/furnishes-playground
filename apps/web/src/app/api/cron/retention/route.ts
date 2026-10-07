@@ -2,6 +2,7 @@ import { lt } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { costLog, rateLimit } from "@/lib/db/schema";
+import { str } from "@/lib/env";
 import { DAY } from "@/lib/rate-limit";
 
 /**
@@ -19,7 +20,7 @@ export const dynamic = "force-dynamic";
 const KEEP_COSTS = 90 * DAY;
 
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET?.trim();
+  const secret = str("CRON_SECRET");
   if (!secret)
     return NextResponse.json({ error: "no cron secret" }, { status: 503 });
   if (req.headers.get("authorization") !== `Bearer ${secret}`)

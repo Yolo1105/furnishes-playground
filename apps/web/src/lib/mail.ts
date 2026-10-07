@@ -1,23 +1,27 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { dataDir } from "./data-dir";
+import { IS_PRODUCTION, str } from "./env";
 import { SITE } from "./site";
 
 /**
- * Mail from the studio: the link that confirms an email, the link that
- * resets a password. With RESEND_API_KEY set it goes through Resend's
- * REST API, from MAIL_FROM (or the site's contact); without a key, on a
- * development server, it is kept under .data/mail.json and said in the
- * log, where the tests read it (api/dev/mail). A hosted run without a
- * key sends nothing and says so, rather than pretend.
+ * Mail from the studio: the links that confirm an email and reset a
+ * password (lib/auth), and the letters about an order, a word to the
+ * studio and the waitlist (lib/mails). With RESEND_API_KEY set it goes
+ * through Resend's REST API, from MAIL_FROM (or the site's contact);
+ * without a key, on a development server, it is kept under
+ * mail.json in the data folder and said in the log, where the tests
+ * read it (api/dev/mail). A hosted run without a key sends nothing and
+ * says so, rather than pretend. `mailMode` says which of the three.
  */
 export type Mail = { to: string; subject: string; text: string };
 
+/** how many kept mails a development server holds */
 const KEEP = 50;
-const file = () =>
-  path.join(
-    process.env.DATA_DIR ?? path.join(process.cwd(), ".data"),
-    "mail.json",
-  );
+const file = () => path.join(dataDir(), "mail.json");
+
+export const mailMode = (): "resend" | "off" | "kept" =>
+  str("RESEND_API_KEY") ? "resend" : IS_PRODUCTION ? "off" : "kept";
 
 /** the mails kept on a development server, newest first */
 export const keptMail = (): (Mail & { at: number })[] => {
@@ -33,8 +37,9 @@ export const keptMail = (): (Mail & { at: number })[] => {
 export async function sendMail(
   mail: Mail,
 ): Promise<"sent" | "kept" | "unsent"> {
-  const key = process.env.RESEND_API_KEY?.trim();
-  if (key) {
+  const mode = mailMode();
+  if (mode === "resend") {
+    const key = str("RESEND_API_KEY");
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -42,7 +47,7 @@ export async function sendMail(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: process.env.MAIL_FROM?.trim() || `${SITE.name} <${SITE.contact}>`,
+        from: str("MAIL_FROM") || `${SITE.name} <${SITE.contact}>`,
         to: [mail.to],
         subject: mail.subject,
         text: mail.text,
@@ -51,7 +56,7 @@ export async function sendMail(
     if (!res.ok) throw new Error(`mail ${res.status}`);
     return "sent";
   }
-  if (process.env.NODE_ENV === "production") {
+  if (mode === "off") {
     console.warn("[mail] no RESEND_API_KEY: not sent", mail.subject, mail.to);
     return "unsent";
   }

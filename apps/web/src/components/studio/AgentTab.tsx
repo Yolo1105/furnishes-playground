@@ -25,7 +25,7 @@ import {
 } from "./icons";
 import { useEffect, useRef, useState } from "react";
 import { usePieceActions } from "./piece-actions";
-import { metresOf, whyLines } from "./plan-explain";
+import { whyLines } from "./plan-explain";
 import { LABEL_MAX } from "./piece-detail";
 import { metres, ROOM_NAMES } from "./room-data";
 import { useActiveRoom, useRoom } from "./room-store";
@@ -358,7 +358,7 @@ export function AgentTab() {
                             <li key={m.id}>
                               <span>{m.name}</span>
                               <span className="f-num">
-                                {m.dist >= 50 ? metresOf(m.dist) : "in place"}
+                                {m.dist >= 50 ? metres(m.dist) : "in place"}
                                 {m.turns ? " · turns" : ""}
                               </span>
                             </li>

@@ -1,9 +1,11 @@
 name: CI
 
-# Every push and pull request: the format, the lint, the types, the unit
-# tests of both packages, the production build, and the studio's own
-# end-to-end suite in Chromium against a development server (the
-# database is PGlite, so no account or key is needed anywhere).
+# Every push and pull request: the format, the lint, the types and the
+# unit tests of the whole workspace (the root scripts), the production
+# build, and the studio's own end-to-end suite in Chromium against a
+# development server (the database is PGlite, so no account or key is
+# needed anywhere). Node is the version .nvmrc names; pnpm the one
+# package.json names.
 on:
   push:
   pull_request:
@@ -19,19 +21,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10.28.0
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter ./apps/web exec prettier --check "src/**/*.{ts,tsx,css}" "e2e/*.ts"
-      - run: pnpm --filter ./apps/web exec eslint src e2e
-      - run: pnpm --filter ./apps/web exec tsc --noEmit -p .
-      - run: pnpm --filter ./packages/domain exec vitest run
-      - run: pnpm --filter ./apps/web exec vitest run
-      - run: pnpm --filter ./apps/web exec next build
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
         env:
           BETTER_AUTH_SECRET: ci-only-not-a-real-secret-0000000000
 
@@ -41,15 +40,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10.28.0
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter ./apps/web exec playwright install --with-deps chromium
-      - run: pnpm --filter ./apps/web exec playwright test --reporter=line
+      - run: pnpm e2e -- --reporter=line
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

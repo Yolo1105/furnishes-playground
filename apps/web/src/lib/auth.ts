@@ -4,6 +4,7 @@ import { nextCookies } from "better-auth/next-js";
 import { getDb } from "./db";
 import * as schema from "./db/schema";
 import { PASSWORD_MIN } from "./account-rules";
+import { str } from "./env";
 import { sendMail } from "./mail";
 import { SITE, trustedOrigins } from "./site";
 
@@ -21,11 +22,18 @@ import { SITE, trustedOrigins } from "./site";
  * sign-in is trusted from the site's own addresses and Vercel's
  * previews. Built on first use, as the database is.
  */
-const google = () => {
-  const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
-  return clientId && clientSecret ? { google: { clientId, clientSecret } } : {};
-};
+/** Google as a way in, when both halves of the OAuth client are set */
+export const googleOn = () =>
+  Boolean(str("GOOGLE_CLIENT_ID") && str("GOOGLE_CLIENT_SECRET"));
+const google = () =>
+  googleOn()
+    ? {
+        google: {
+          clientId: str("GOOGLE_CLIENT_ID"),
+          clientSecret: str("GOOGLE_CLIENT_SECRET"),
+        },
+      }
+    : {};
 
 const make = () =>
   betterAuth({

@@ -1,5 +1,8 @@
-import { sgd } from "@/components/studio/assets-data";
+import { addressLine, type Address } from "./address";
+import type { orders } from "./db/schema";
 import { type Mail, sendMail } from "./mail";
+import { sgd } from "./money";
+import type { OrderStatus, Priced } from "./orders";
 import { SITE } from "./site";
 
 /**
@@ -13,16 +16,24 @@ import { SITE } from "./site";
 export type OrderMail = {
   id: string;
   email: string | null;
-  lines: { name: string; sgd: number }[];
+  lines: Pick<Priced, "name" | "sgd">[];
   total: number;
-  address: { recipient: string; line1: string; postal: string };
+  address: Pick<Address, "recipient" | "line1" | "postal">;
 };
+
+/** an order's row, as the letters read it */
+export const orderMailOf = (o: typeof orders.$inferSelect): OrderMail => ({
+  id: o.id,
+  email: o.email,
+  lines: o.lines as OrderMail["lines"],
+  total: o.total,
+  address: o.address as OrderMail["address"],
+});
 
 const sign = `\n\n${SITE.name}\n${SITE.url}`;
 const linesOf = (o: OrderMail) =>
   o.lines.map((l) => `  ${l.name} · ${sgd(l.sgd)}`).join("\n");
-const to = (o: OrderMail) =>
-  `${o.address.recipient}, ${o.address.line1}, Singapore ${o.address.postal}`;
+const to = (o: OrderMail) => addressLine(o.address);
 
 /** a mail that cannot go (no address, or the provider refused) is said
     in the log and never fails the order or the request it rode on */
@@ -93,3 +104,14 @@ export const waitlistNoteMail = (email: string) =>
     subject: `${SITE.name}: ordering is open`,
     text: `You asked for one note the day ordering opens at ${SITE.name}. This is it.\n\nThe studio is at ${SITE.url}: plan the room at your measurements, see the pieces in it, and order the ones you want. Every price is counted from the parts, and the help page says how a piece arrives and goes together.\n\nThis is the only mail the list sends.${sign}`,
   });
+
+/** the letter an order's move earns, if any: paid, delivered or
+    refunded; placed has its own moment, cancelled none */
+export const orderMovedMail = (o: OrderMail, to: OrderStatus) =>
+  to === "paid"
+    ? orderPaidMail(o)
+    : to === "fulfilled"
+      ? orderDeliveredMail(o)
+      : to === "refunded"
+        ? orderRefundedMail(o)
+        : Promise.resolve("unsent" as const);

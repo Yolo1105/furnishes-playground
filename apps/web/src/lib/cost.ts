@@ -1,8 +1,9 @@
 import { and, eq, gte, sql } from "drizzle-orm";
-import { randomBytes } from "node:crypto";
 import { getDb } from "./db";
 import { costLog } from "./db/schema";
 import { num } from "./env";
+import { randomId } from "./id";
+import { dayStart } from "./time";
 
 /**
  * What the providers cost, counted as it is spent: every model turn and
@@ -28,11 +29,6 @@ export type CostKind = "chat" | "item" | "review";
 export const costOfTokens = (inTokens: number, outTokens: number) =>
   (inTokens * RATES.perMillionIn + outTokens * RATES.perMillionOut) / 1e6;
 
-export const dayStart = (now = new Date()) =>
-  Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-export const monthStart = (now = new Date()) =>
-  Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
-
 /** the dollars and the calls since a moment, by what they were for */
 export async function spentByKind(since: number) {
   const { db, ready } = getDb();
@@ -53,7 +49,8 @@ export async function spentByKind(since: number) {
   }));
 }
 
-/** the dollars spent since midnight UTC, by one caller or by everyone */
+/** the dollars spent since the day began (Singapore's), by one caller
+    or by everyone */
 export async function spentToday(caller?: string) {
   const { db, ready } = getDb();
   await ready;
@@ -84,7 +81,7 @@ export async function logCost(entry: {
   const { db, ready } = getDb();
   await ready;
   await db.insert(costLog).values({
-    id: randomBytes(8).toString("base64url"),
+    id: randomId(),
     caller: entry.caller,
     userId: entry.userId ?? null,
     kind: entry.kind,

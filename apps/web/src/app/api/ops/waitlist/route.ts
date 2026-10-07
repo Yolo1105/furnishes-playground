@@ -4,6 +4,7 @@ import { getDb } from "@/lib/db";
 import { waitlist } from "@/lib/db/schema";
 import { waitlistNoteMail } from "@/lib/mails";
 import { adminOf } from "@/lib/ops";
+import { whenAt } from "@/lib/time";
 
 /**
  * The waitlist, for the studio: GET hands it over as a CSV file (the
@@ -14,23 +15,17 @@ import { adminOf } from "@/lib/ops";
  */
 export const runtime = "nodejs";
 
-const when = new Intl.DateTimeFormat("en-SG", {
-  dateStyle: "medium",
-  timeStyle: "short",
-  timeZone: "Asia/Singapore",
-});
-
 export async function GET(req: Request) {
   if (!(await adminOf(req)))
     return NextResponse.json({ error: "not here" }, { status: 404 });
-  const { db, ready } = getDb();
-  await ready;
+  // adminOf waited for the database
+  const { db } = getDb();
   const rows = await db.select().from(waitlist).orderBy(asc(waitlist.at));
   const csv = [
     "email,joined,notified",
     ...rows.map(
       (r) =>
-        `${r.email},${when.format(r.at)},${r.notifiedAt ? when.format(r.notifiedAt) : ""}`,
+        `${r.email},${whenAt(r.at)},${r.notifiedAt ? whenAt(r.notifiedAt) : ""}`,
     ),
   ].join("\n");
   return new NextResponse(csv, {
@@ -45,8 +40,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   if (!(await adminOf(req)))
     return NextResponse.json({ error: "not here" }, { status: 404 });
-  const { db, ready } = getDb();
-  await ready;
+  const { db } = getDb();
   const due = await db
     .select({ email: waitlist.email })
     .from(waitlist)

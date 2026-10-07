@@ -1,17 +1,11 @@
 /**
- * @furnishes/scene — one world frame for every renderer.
- *
- * World frame (fixed here, converted at the edges):
- *   x → right along the room, y → up, z → toward the viewer; metres.
- * Domain geometry arrives in millimetres (see @furnishes/domain).
- *
- * Adapters for the inherited conventions (three.js y-up, SceneGraph z-up,
- * CAD mm X-right/Y-depth/Z-up, Block3D mm x-along-wall/y-toward-wall/z-up)
- * will live here. Nothing is implemented yet.
+ * @furnishes/scene: one world frame for every renderer. The world is
+ * x right along the room, y up, z toward the viewer, in metres; the
+ * domain's geometry arrives in millimetres (see @furnishes/domain) and
+ * crosses here. The studio's 3D (apps/web Scene3D, Room3D) reads the
+ * conversion from this package so no renderer keeps its own.
  */
 import type { Millimetres } from "@furnishes/domain";
 
-export const SCENE_PACKAGE = "@furnishes/scene" as const;
-
-/** Millimetres → world metres. */
+/** millimetres to world metres */
 export const toMetres = (value: Millimetres): number => value / 1000;

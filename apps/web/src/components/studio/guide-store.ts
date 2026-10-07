@@ -10,7 +10,7 @@ import { create } from "zustand";
  */
 type GuideId = "intro" | "walls";
 
-export type Guide = {
+type Guide = {
   id: GuideId;
   title: string;
   lines: string[];

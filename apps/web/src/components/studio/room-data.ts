@@ -4,11 +4,20 @@
  * the visitor corrects them to their own flat in millimetres.
  * Sizes follow the archive's SG HDB profile.
  */
+import { newId } from "./ids";
+
 export type FlatType = "3-room" | "4-room" | "5-room";
 export const FLAT_TYPES: FlatType[] = ["3-room", "4-room", "5-room"];
 
-export type RoomId =
-  "living" | "master" | "bedroom-1" | "bedroom-2" | "kitchen" | "study";
+export const ROOM_IDS = [
+  "living",
+  "master",
+  "bedroom-1",
+  "bedroom-2",
+  "kitchen",
+  "study",
+] as const;
+export type RoomId = (typeof ROOM_IDS)[number];
 
 export const ROOM_NAMES: Record<RoomId, string> = {
   living: "Living & dining",
@@ -20,7 +29,7 @@ export const ROOM_NAMES: Record<RoomId, string> = {
 };
 
 /** mm: width along the window wall, depth into the room */
-export type Size = { width: number; depth: number };
+type Size = { width: number; depth: number };
 
 const r = (width: number, depth: number): Size => ({ width, depth });
 
@@ -251,14 +260,12 @@ export const PRIVATE_ROOMS: readonly RoomId[] = [
   "study",
 ];
 
-let openingSeq = 0;
-export const openingId = () => `o-${Date.now().toString(36)}-${++openingSeq}`;
 export const makeOpening = (
   kind: OpeningKind,
   wall: Wall,
   patch: Partial<Opening> = {},
 ): Opening => ({
-  id: openingId(),
+  id: newId("o"),
   kind,
   wall,
   at: null,
@@ -415,7 +422,7 @@ export const sameRules = (a: Rules, b: Rules) =>
   a.mustHave.every((k) => b.mustHave.includes(k));
 
 /** the rules for a way of living in the room, over its typical ones */
-export type RulePreset = {
+type RulePreset = {
   id: string;
   label: string;
   note: string;
@@ -482,3 +489,7 @@ export const presetRules = (preset: RulePreset, room: RoomId): Rules => {
 /** the preset the rules match exactly, if any */
 export const presetOf = (rules: Rules, room: RoomId) =>
   RULE_PRESETS.find((p) => sameRules(rules, presetRules(p, room)))?.id ?? null;
+
+/** the words a piece's name carries when it is one of the must-haves */
+export const mustHaveMatch = (key: string) =>
+  MUST_HAVE_CHOICES.find((c) => c.key === key)!.match;

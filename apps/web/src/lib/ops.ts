@@ -1,4 +1,5 @@
 import { userOf } from "./auth";
+import { str } from "./env";
 import { SITE } from "./site";
 
 /**
@@ -8,12 +9,12 @@ import { SITE } from "./site";
  * Without the variable nobody is an admin, on purpose.
  */
 export const adminEmails = () =>
-  (process.env.ADMIN_EMAILS ?? "")
+  str("ADMIN_EMAILS")
     .split(",")
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);
 
-export const isAdminEmail = (email: string | null | undefined) =>
+const isAdminEmail = (email: string | null | undefined) =>
   !!email && adminEmails().includes(email.toLowerCase());
 
 /** the admin behind a request, or null */

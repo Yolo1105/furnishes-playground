@@ -1,4 +1,5 @@
 import type { RoomId } from "./room-data";
+import { mustHaveMatch } from "./room-data";
 
 /**
  * How a room of each kind is usually laid out: the placement rules an
@@ -45,9 +46,9 @@ export type Rule = {
   item?: string;
 };
 
-export type Archetype = { name: string; rules: Rule[] };
+type Archetype = { name: string; rules: Rule[] };
 
-const BED = /\bbed\b(?!side)/i;
+const BED = mustHaveMatch("bed");
 const BEDSIDE = /bedside|nightstand/i;
 const WARDROBE = /wardrobe|clothes|coat/i;
 const DESK = /\bdesk\b(?!-side| lamp)/i;

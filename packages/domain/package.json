@@ -3,16 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Furnishes domain model: Project → Room → Scheme → FurnitureInstance → Component. Framework-free, Zod-validated.",
+  "description": "Furnishes domain: the catalogue's recipes, parts, steps and prices. Framework-free.",
   "exports": {
     ".": "./src/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run"
-  },
-  "dependencies": {
-    "zod": "4.6.5"
   },
   "devDependencies": {
     "@types/node": "24.19.1",

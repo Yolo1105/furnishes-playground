@@ -3,6 +3,7 @@ import { gapToWalls, rectInside, sideSpan } from "./room-geometry";
 import type { Point } from "./room-templates";
 import {
   MUST_HAVE_CHOICES,
+  mustHaveMatch,
   OPENINGS,
   type Opening,
   PASS_DEPTH,
@@ -31,7 +32,7 @@ const REACH = 3000; // mm, how far a Fix may move a piece
 /** within this of a wall a bed counts as against it, mm */
 const AGAINST = 250;
 
-export type Box = {
+type Box = {
   id: string;
   name: string;
   /** the box round the piece on the plan */
@@ -58,7 +59,7 @@ export type Issue = {
   add?: string | undefined;
 };
 /** the room's walls and what is cut in them */
-export type Shell = {
+type Shell = {
   W: number;
   D: number;
   /** the room's outline, mm from its top-left corner */
@@ -151,7 +152,7 @@ const corners = (b: Box): [number, number][] => {
 };
 /** whether two pieces stand over each other: the boxes when both are
     square, the turned outlines (separating axes) when either is not */
-export const overlaps = (a: Box, b: Box) => {
+const overlaps = (a: Box, b: Box) => {
   if (!meets(a, b)) return false;
   const slant = (x: Box) => x.own && x.own.rotation % 90 !== 0;
   if (!slant(a) && !slant(b)) return true;
@@ -177,7 +178,7 @@ export const overlaps = (a: Box, b: Box) => {
 /** a rug lies under things; a small thing is walked round */
 const flat = (b: Box) => isRug(b);
 const minor = (b: Box) => flat(b) || isSmall({ width: b.w, depth: b.d });
-const BED = MUST_HAVE_CHOICES.find((c) => c.key === "bed")!.match;
+const BED = mustHaveMatch("bed");
 const isBed = (b: Pick<Box, "name">) => BED.test(b.name);
 /** how far a box stands from the nearest wall */
 const wallGap = (b: Box, r: Shell) => gapToWalls(b, r.outline);

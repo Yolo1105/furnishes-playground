@@ -16,17 +16,38 @@ export type OrderRow = {
   note: string | null;
 };
 
-const call = async (path: string, init: RequestInit) => {
+/** one call to an ops route: its answer, or what went wrong */
+const call = async <T,>(
+  path: string,
+  init: RequestInit,
+): Promise<{ data: T; error: null } | { data: null; error: string }> => {
   const res = await fetch(path, {
     headers: { "content-type": "application/json" },
     ...init,
   });
-  if (res.ok) return null;
-  const data = (await res.json().catch(() => null)) as {
-    error?: string;
-  } | null;
-  return data?.error ?? `${res.status}`;
+  const data = (await res.json().catch(() => null)) as
+    (T & { error?: string }) | null;
+  if (res.ok && data) return { data, error: null };
+  return { data: null, error: data?.error ?? `${res.status}` };
 };
+
+/** a call made from a button: busy while it runs, the failure kept,
+    and the page read again when it went through */
+function useOpsCall() {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+  const run = async <T,>(path: string, init: RequestInit) => {
+    setBusy(true);
+    setFailed(null);
+    const r = await call<T>(path, init);
+    setBusy(false);
+    if (r.error) setFailed(r.error);
+    else router.refresh();
+    return r.data;
+  };
+  return { busy, failed, run };
+}
 
 /** the moves the studio makes, by name */
 const MOVES: [OrderStatus, string][] = [
@@ -37,21 +58,13 @@ const MOVES: [OrderStatus, string][] = [
 ];
 
 export function OrderActions({ order }: { order: OrderRow }) {
-  const router = useRouter();
   const [note, setNote] = useState(order.note ?? "");
-  const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState<string | null>(null);
-  const patch = async (body: { status?: OrderStatus; note?: string }) => {
-    setBusy(true);
-    setFailed(null);
-    const problem = await call(`/api/ops/orders/${order.id}`, {
+  const { busy, failed, run } = useOpsCall();
+  const patch = (body: { status?: OrderStatus; note?: string }) =>
+    run(`/api/ops/orders/${order.id}`, {
       method: "PATCH",
       body: JSON.stringify(body),
     });
-    setBusy(false);
-    if (problem) setFailed(problem);
-    else router.refresh();
-  };
   const moves = MOVES.filter(([to]) => canMove(order.status, to));
   return (
     <div className="ops-acts">
@@ -106,20 +119,12 @@ export function HelpActions({
   message: string;
   answered: boolean;
 }) {
-  const router = useRouter();
-  const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState<string | null>(null);
-  const mark = async (to: boolean) => {
-    setBusy(true);
-    setFailed(null);
-    const problem = await call(`/api/ops/help/${id}`, {
+  const { busy, failed, run } = useOpsCall();
+  const mark = (to: boolean) =>
+    run(`/api/ops/help/${id}`, {
       method: "PATCH",
       body: JSON.stringify({ answered: to }),
     });
-    setBusy(false);
-    if (problem) setFailed(problem);
-    else router.refresh();
-  };
   const quoted = message
     .split("\n")
     .map((l) => `> ${l}`)
@@ -148,29 +153,21 @@ export function HelpActions({
 }
 
 export function WaitlistActions({ due }: { due: number }) {
-  const router = useRouter();
   const [asking, setAsking] = useState(false);
-  const [busy, setBusy] = useState(false);
   const [said, setSaid] = useState<string | null>(null);
+  const { busy, failed, run } = useOpsCall();
   const send = async () => {
-    setBusy(true);
     setSaid(null);
-    const res = await fetch("/api/ops/waitlist", { method: "POST" });
-    const data = (await res.json().catch(() => null)) as {
-      sent?: number;
-      error?: string;
-    } | null;
-    setBusy(false);
+    const data = await run<{ sent: number }>("/api/ops/waitlist", {
+      method: "POST",
+    });
     setAsking(false);
-    if (!res.ok) setSaid(data?.error ?? `${res.status}`);
-    else {
+    if (data)
       setSaid(
-        data?.sent === 0
+        data.sent === 0
           ? "Nobody was due a note."
-          : `Sent to ${data?.sent} ${data?.sent === 1 ? "address" : "addresses"}.`,
+          : `Sent to ${data.sent} ${data.sent === 1 ? "address" : "addresses"}.`,
       );
-      router.refresh();
-    }
   };
   return (
     <div className="ops-acts">
@@ -209,6 +206,11 @@ export function WaitlistActions({ due }: { due: number }) {
       {said && (
         <span className="ops-said" role="status">
           {said}
+        </span>
+      )}
+      {failed && (
+        <span className="home-error ops-error" role="alert">
+          {failed}
         </span>
       )}
     </div>

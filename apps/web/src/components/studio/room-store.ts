@@ -34,7 +34,7 @@ import { useScene } from "./scene-store";
 import { ROOM_TEMPLATES, type Point, type TemplateId } from "./room-templates";
 
 /** how the room's shape comes about: traced on the canvas, or picked */
-export type RoomStart = "draw" | "template";
+type RoomStart = "draw" | "template";
 
 /** one room of the flat: its shape, size, openings, finish and rules,
     and where it stands on the sheet */
@@ -81,7 +81,7 @@ export type Join = {
   open: boolean;
 };
 
-type RoomConfig = {
+export type RoomConfig = {
   flat: FlatType;
   /** the rooms of the flat, in the order they were added */
   rooms: RoomSpec[];
@@ -96,7 +96,7 @@ type RoomConfig = {
 };
 
 /** the active room's own fields, with the flat's */
-export type ActiveRoom = RoomSpec & Pick<RoomConfig, "flat">;
+type ActiveRoom = RoomSpec & Pick<RoomConfig, "flat">;
 
 type RoomState = RoomConfig & {
   setFlat: (flat: FlatType) => void;
@@ -163,10 +163,7 @@ export const footprintOf = (s: {
   width: number;
   depth: number;
 }): Point[] => {
-  if (s.drawn) {
-    const b = boxOf(s.drawn);
-    return s.drawn.map(([x, y]) => [x - b.x, y - b.y]);
-  }
+  if (s.drawn) return normalizeOutline(s.drawn).points;
   const tapped =
     s.template === "grid" ? outlineFromCells(new Set(s.cells)) : [];
   const shape = tapped.length

@@ -1,3 +1,6 @@
+import { googleOn } from "./auth";
+import { HOSTED, str } from "./env";
+import { mailMode } from "./mail";
 import { adminEmails } from "./ops";
 import { SITE } from "./site";
 
@@ -6,13 +9,13 @@ import { SITE } from "./site";
  * and said without a secret in sight: the database, mail, the model,
  * pictures and meshes, payments and its webhook, Google as a way in,
  * the operations area and the nightly retention.
- * api/health says it to whoever asks; the README's deployment notes
- * say what each needs. "off" means the studio does without: Eva
+ * api/health says it to whoever asks; docs/DEPLOY.md says what each
+ * needs. "off" means the studio does without: Eva
  * answers from the rules, items stand as shapes, an order waits
  * offline, mail is kept on a development server and not sent on a
  * hosted one.
  */
-const has = (name: string) => Boolean(process.env[name]?.trim());
+const has = (name: string) => Boolean(str(name));
 
 export type Services = {
   /** where this runs: a hosted deployment or a local server */
@@ -33,18 +36,15 @@ export type Services = {
 };
 
 export const services = (): Services => {
-  const hosted = Boolean(process.env.VERCEL);
-  const production = process.env.NODE_ENV === "production";
   return {
-    host: hosted ? "vercel" : "local",
+    host: HOSTED ? "vercel" : "local",
     database: has("DATABASE_URL") ? "neon" : "pglite",
     auth: {
       secret: has("BETTER_AUTH_SECRET") ? "set" : "default",
-      url: process.env.BETTER_AUTH_URL?.trim() || SITE.url,
-      google:
-        has("GOOGLE_CLIENT_ID") && has("GOOGLE_CLIENT_SECRET") ? "on" : "off",
+      url: str("BETTER_AUTH_URL") || SITE.url,
+      google: googleOn() ? "on" : "off",
     },
-    mail: has("RESEND_API_KEY") ? "resend" : production ? "off" : "kept",
+    mail: mailMode(),
     model: has("ANTHROPIC_API_KEY") ? "on" : "off",
     images: has("FAL_KEY") ? "on" : "off",
     payments: {
@@ -54,14 +54,18 @@ export const services = (): Services => {
     ops: adminEmails().length > 0 ? "on" : "off",
     cron: has("CRON_SECRET") ? "on" : "off",
     site: SITE.url,
-    commit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
+    commit: str("VERCEL_GIT_COMMIT_SHA").slice(0, 7) || null,
   };
 };
 
-/** what a hosted deployment cannot run without, by name */
+/** what a hosted deployment cannot run without, by name: the database,
+    the two auth settings, someone to run operations and the token the
+    nightly sweep is sent */
 export const missingForHosting = (s: Services = services()) =>
   [
     s.database === "pglite" ? "DATABASE_URL" : null,
     s.auth.secret === "default" ? "BETTER_AUTH_SECRET" : null,
-    !process.env.BETTER_AUTH_URL?.trim() ? "BETTER_AUTH_URL" : null,
+    !has("BETTER_AUTH_URL") ? "BETTER_AUTH_URL" : null,
+    s.ops === "off" ? "ADMIN_EMAILS" : null,
+    s.cron === "off" ? "CRON_SECRET" : null,
   ].filter((x): x is string => x !== null);

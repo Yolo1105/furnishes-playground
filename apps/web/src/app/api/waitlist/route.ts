@@ -4,22 +4,20 @@ import { getDb } from "@/lib/db";
 import { waitlist } from "@/lib/db/schema";
 import { LIMITS } from "@/lib/limits";
 import { allow, callerOf } from "@/lib/rate-limit";
+import { BAD_REQUEST, EmailField } from "@/lib/schemas";
 
 /**
  * The waitlist: an email, kept once. The landing's "Be first through
  * the door" posts here; the same email again is said to be there
- * already. Ten tries an hour per caller.
+ * already. A caller gets LIMITS.waitlistPerHour tries an hour.
  */
 export const runtime = "nodejs";
 
-const Body = z.object({
-  email: z.string().trim().toLowerCase().email().max(200),
-});
+const Body = z.object({ email: EmailField });
 
 export async function POST(req: Request) {
   const parsed = Body.safeParse(await req.json().catch(() => null));
-  if (!parsed.success)
-    return NextResponse.json({ error: "invalid" }, { status: 400 });
+  if (!parsed.success) return NextResponse.json(BAD_REQUEST, { status: 400 });
   if (!(await allow(`waitlist:${callerOf(req)}`, LIMITS.waitlistPerHour)))
     return NextResponse.json({ error: "rate-limit" }, { status: 429 });
   const { db, ready } = getDb();
