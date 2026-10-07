@@ -12,7 +12,9 @@ const PAGES = [
   ["privacy", "/privacy", "Privacy"],
   ["terms", "/terms", "Terms & refunds"],
 ] as const;
-export type RailPage = (typeof PAGES)[number][0];
+/** the operations page is an admin's alone: it shows in the rail only
+    while it is the page */
+export type RailPage = (typeof PAGES)[number][0] | "ops";
 export function HomeRail({
   current,
   studio = "/rounded",
@@ -49,6 +51,8 @@ export function HomeRail({
             {PAGES.map(([id, href, label], i) =>
               entry(id, href, label, `[0${i + 2}]`),
             )}
+            {current === "ops" &&
+              entry("ops", "/ops", "Operations", `[0${PAGES.length + 2}]`)}
           </nav>
         </div>
       </div>

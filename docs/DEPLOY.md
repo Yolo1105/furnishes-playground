@@ -54,7 +54,39 @@ intent and charge events, and copy its signing secret into
 URI `https://<site>/api/auth/callback/google`. Resend: verify the
 sending domain, and set `MAIL_FROM` to an address on it.
 
-## 3. What to check after a deploy
+## 3. Operations and the nightly sweep
+
+Two more variables run the studio's own operations:
+
+- `ADMIN_EMAILS`: a comma-separated list of account emails. Those
+  accounts, signed in, open `/ops`: every order with the moves the
+  studio makes (paid another way when Stripe is off, delivered,
+  cancelled, refunded) and a note on each; the words people wrote to
+  the studio, with a reply by mail and a mark once answered; the
+  waitlist as a CSV and the one note it is promised, sent once to
+  everyone not yet written to; and what the providers cost today and
+  this month against the caps, with which services are on. Anyone
+  else, signed in or not, gets 404; without the variable nobody is an
+  admin. Make the admin's account at `/account` as any other.
+- `CRON_SECRET`: the token the host's cron sends. `apps/web/vercel.json`
+  schedules `GET /api/cron/retention` nightly at 03:00 Singapore
+  (19:00 UTC), and Vercel sends `Authorization: Bearer <CRON_SECRET>`
+  on its own once the variable is set. The sweep deletes rate-limit
+  windows older than a day and cost rows older than ninety days;
+  orders, payment events, accounts and what people wrote are never
+  touched. Without the secret the route answers 503 and sweeps
+  nothing.
+
+The studio writes to buyers and senders on its own, through the same
+mail as the account links: an order placed, paid, delivered or refunded
+(to the account's email, or the one a guest gives at checkout), thanks
+for a word to the studio, and the waitlist's note. On a development
+server every one is kept under `.data/mail.json` and read at
+`/api/dev/mail`; `apps/web/.env.development` (committed, no secret in
+it) makes `ops@example.com` the admin and sets the development cron
+token, so the suites run the operations end to end.
+
+## 4. What to check after a deploy
 
 One command runs every check below against the site and exits 1 on
 any failure (`.github/workflows/deploy-check.yml` runs the same from
@@ -62,7 +94,10 @@ the Actions tab, given the address):
 
     pnpm smoke https://furnish-es.com
 
-- `GET /api/health` is 200, `ok: true`, `missingForHosting: []`.
+- `GET /api/health` is 200, `ok: true`, `missingForHosting: []`, and
+  `services.ops` and `services.cron` read `on`.
+- `/ops` is 404 signed out and the operations page signed in as an
+  admin; `GET /api/cron/retention` without the token is 401.
 - The landing opens at `/`; `/account` makes an account; with mail on,
   the confirmation link arrives; with Google on, the button shows.
 - Every response carries the security headers (`X-Content-Type-Options`,
@@ -72,7 +107,7 @@ the Actions tab, given the address):
   and comes back paid; the webhook row shows in the cost and event
   tables.
 
-## 4. Continuous integration
+## 5. Continuous integration
 
 `.github/workflows/ci.yml` runs on every push and pull request: the
 format, the lint, the types, the unit tests of both packages, the

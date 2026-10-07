@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useSession } from "@/lib/auth-client";
+import { EMAIL } from "@/lib/help-client";
 import { sgd, type AssetNode } from "./assets-data";
 import { Dialog } from "./Dialog";
 import { exportCartCsv } from "./export";
@@ -17,13 +19,22 @@ import { useScene } from "./scene-store";
 /**
  * Checkout in three steps: the order read back piece by piece with its
  * total; where it goes (a name, an address, a six-digit postal code, a
- * Singapore phone number); then the order placed, on the server too.
+ * Singapore phone number, and for a guest the email the order's mails
+ * go to; an account's go to its own); then the order placed, on the
+ * server too.
  * With Stripe connected the dialog offers the payment page; without it
  * the order waits at "awaiting payment" and the dialog says so plainly.
  * The list can still be downloaded. The pieces stay in the room and
  * read as ordered; the cart empties.
  */
-const EMPTY: Address = { recipient: "", line1: "", postal: "", phone: "" };
+type Form = Address & { email: string };
+const EMPTY: Form = {
+  recipient: "",
+  line1: "",
+  postal: "",
+  phone: "",
+  email: "",
+};
 
 export function CheckoutDialog({
   pieces,
@@ -37,12 +48,17 @@ export function CheckoutDialog({
   const [step, setStep] = useState<"summary" | "delivery" | "placed">(
     "summary",
   );
-  const [address, setAddress] = useState<Address>(EMPTY);
+  const [form, setForm] = useState<Form>(EMPTY);
   const [touched, setTouched] = useState(false);
   const [placed, setPlaced] = useState<Order | null>(null);
   const [note, setNote] = useState<string>("");
   const [payUrl, setPayUrl] = useState<string | null>(null);
-  const ok = validAddress(address);
+  const account = useSession().data?.user.email;
+  const { email, ...address } = form;
+  const ok = {
+    ...validAddress(address),
+    email: !!account || EMAIL.test(email.trim()),
+  };
   const allOk = Object.values(ok).every(Boolean);
 
   const place = async () => {
@@ -57,6 +73,7 @@ export function CheckoutDialog({
         price: n.price ?? 0,
       })),
       address,
+      account ? undefined : email.trim().toLowerCase(),
     );
     useScene.getState().clearCart();
     setPlaced(order);
@@ -75,6 +92,7 @@ export function CheckoutDialog({
           total: order.total,
           address,
           currency: "SGD",
+          ...(order.email ? { email: order.email } : {}),
         }),
       });
       const data = (await res.json()) as {
@@ -100,7 +118,7 @@ export function CheckoutDialog({
   };
 
   const field = (
-    key: keyof Address,
+    key: keyof Form,
     label: string,
     hint: string,
     extra: Partial<React.InputHTMLAttributes<HTMLInputElement>> = {},
@@ -109,10 +127,10 @@ export function CheckoutDialog({
       <span className="room-dim-label">{label}</span>
       <input
         className="room-dim-input"
-        value={address[key]}
+        value={form[key]}
         aria-label={label}
         aria-invalid={touched && !ok[key]}
-        onChange={(e) => setAddress({ ...address, [key]: e.target.value })}
+        onChange={(e) => setForm({ ...form, [key]: e.target.value })}
         {...extra}
       />
       {touched && !ok[key] && <small className="order-hint">{hint}</small>}
@@ -182,11 +200,20 @@ export function CheckoutDialog({
                 autoComplete: "tel",
               })}
             </div>
+            {!account &&
+              field("email", "Email", "Where the order's mails go", {
+                type: "email",
+                inputMode: "email",
+                autoComplete: "email",
+              })}
           </div>
           <p className="order-note">
             The order is kept as awaiting payment until it is paid, and can be
-            cancelled under Orders meanwhile. Prices are estimates until the
-            first run is costed.
+            cancelled under Orders meanwhile.{" "}
+            {account
+              ? `Word of it goes to ${account}.`
+              : "Word of it goes to the email above."}{" "}
+            Prices are estimates until the first run is costed.
           </p>
           <div className="shell-dialog-acts">
             <button

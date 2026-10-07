@@ -28,9 +28,20 @@ export function priceLines(
 export type OrderStatus =
   "pending_payment" | "paid" | "fulfilled" | "cancelled" | "refunded";
 
+/** each state as the studio and the shopper read it */
+export const STATUS_NAMES: Record<OrderStatus, string> = {
+  pending_payment: "Awaiting payment",
+  paid: "Paid",
+  fulfilled: "Delivered",
+  cancelled: "Cancelled",
+  refunded: "Refunded",
+};
+
 /** a state the shop can move an order to from where it stands: paid
-    only from awaiting payment, cancelled only while awaiting, refunded
-    only once paid; the same state again is no move */
+    only from awaiting payment (the webhook's word, or the studio's when
+    payment came another way), cancelled only while awaiting, delivered
+    once paid, refunded once paid or delivered; the same state again is
+    no move */
 export const canMove = (from: OrderStatus, to: OrderStatus) =>
   (to === "paid" && from === "pending_payment") ||
   (to === "cancelled" && from === "pending_payment") ||

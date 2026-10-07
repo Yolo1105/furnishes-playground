@@ -143,8 +143,13 @@ export const orders = pgTable(
     /** the shopper's handle on it when not signed in: random, carried
         by the link back from paying */
     key: text().notNull(),
+    /** where the order's mails go: the account's, or the one given at
+        checkout */
+    email: text(),
     /** pending_payment, paid, fulfilled, cancelled or refunded */
     status: text().notNull(),
+    /** the studio's own note on it, from ops */
+    note: text(),
     /** the pieces, each priced from the catalogue */
     lines: jsonb().notNull(),
     /** S$ */
@@ -184,6 +189,8 @@ export const helpRequest = pgTable(
     /** where they were: the page and the project */
     context: text(),
     at: bigint({ mode: "number" }).notNull(),
+    /** when the studio marked it answered, from ops */
+    answeredAt: bigint({ mode: "number" }),
   },
   (t) => [index("help_request_user_id_idx").on(t.userId)],
 );
@@ -191,6 +198,8 @@ export const helpRequest = pgTable(
 export const waitlist = pgTable("waitlist", {
   email: text().primaryKey(),
   at: bigint({ mode: "number" }).notNull(),
+  /** when the one note was sent, from ops; never twice */
+  notifiedAt: bigint({ mode: "number" }),
 });
 
 /** a caller's goes in a fixed window, by what they are doing */

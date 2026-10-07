@@ -5,12 +5,14 @@ import { userOf } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { helpRequest } from "@/lib/db/schema";
 import { LIMITS } from "@/lib/limits";
+import { helpReceivedMail } from "@/lib/mails";
 import { allow, callerOf, DAY } from "@/lib/rate-limit";
 
 /**
  * A word to the studio: a problem, an idea or a question, from the
  * gear's Feedback. Kept as a row with who sent it (the account, or the
- * email given) and where they were. Ten a day per caller.
+ * email given) and where they were, and answered with a mail that says
+ * so. Ten a day per caller.
  */
 export const runtime = "nodejs";
 
@@ -44,5 +46,6 @@ export async function POST(req: Request) {
       context: parsed.data.context ?? null,
       at: Date.now(),
     });
+  await helpReceivedMail(email, parsed.data.message);
   return NextResponse.json({ id });
 }

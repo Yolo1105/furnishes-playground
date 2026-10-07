@@ -2,6 +2,7 @@ import { eq, or } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { orders, paymentEvent } from "@/lib/db/schema";
+import { orderPaidMail, orderRefundedMail, type OrderMail } from "@/lib/mails";
 import { canMove, type OrderStatus } from "@/lib/orders";
 import {
   outcomeOf,
@@ -16,8 +17,9 @@ import {
  * raw body, within five minutes. Then the event's id kept, so a replay
  * does nothing twice. Then, and only then, the order moved on: paid,
  * cancelled when the page lapsed, refunded; a move the order's state
- * does not allow is left alone. A failure answers 5xx, so Stripe sends
- * the event again.
+ * does not allow is left alone, and the buyer is written to when it
+ * is paid or refunded. A failure answers 5xx, so Stripe sends the event
+ * again.
  */
 export const runtime = "nodejs";
 
@@ -67,5 +69,12 @@ export async function POST(req: Request) {
     .update(paymentEvent)
     .set({ orderId: row.id })
     .where(eq(paymentEvent.id, event.id));
+  const mail = {
+    ...row,
+    lines: row.lines as OrderMail["lines"],
+    address: row.address as OrderMail["address"],
+  };
+  if (outcome === "paid") await orderPaidMail(mail);
+  if (outcome === "refunded") await orderRefundedMail(mail);
   return NextResponse.json({ received: true, applied: true });
 }

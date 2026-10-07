@@ -28,8 +28,30 @@ export type CostKind = "chat" | "item" | "review";
 export const costOfTokens = (inTokens: number, outTokens: number) =>
   (inTokens * RATES.perMillionIn + outTokens * RATES.perMillionOut) / 1e6;
 
-const dayStart = (now = new Date()) =>
+export const dayStart = (now = new Date()) =>
   Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+export const monthStart = (now = new Date()) =>
+  Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
+
+/** the dollars and the calls since a moment, by what they were for */
+export async function spentByKind(since: number) {
+  const { db, ready } = getDb();
+  await ready;
+  const rows = await db
+    .select({
+      kind: costLog.kind,
+      usd: sql<number>`coalesce(sum(${costLog.usd}), 0)`,
+      calls: sql<number>`count(*)::int`,
+    })
+    .from(costLog)
+    .where(gte(costLog.at, since))
+    .groupBy(costLog.kind);
+  return rows.map((r) => ({
+    kind: r.kind as CostKind,
+    usd: Number(r.usd),
+    calls: Number(r.calls),
+  }));
+}
 
 /** the dollars spent since midnight UTC, by one caller or by everyone */
 export async function spentToday(caller?: string) {

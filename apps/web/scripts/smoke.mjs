@@ -8,7 +8,9 @@
  * hosted deployment still lacks), opens the landing and the inner
  * pages, reads the security headers, robots and the sitemap, joins the
  * waitlist once (and sees the same address refused the second time),
- * and asks Eva one thing to see which brain answers. Says each check
+ * and asks Eva one thing to see which brain answers; sees the
+ * operations area kept from a guest and the nightly sweep kept from a
+ * caller without the token. Says each check
  * as it passes or fails and exits 1 on any failure, so a workflow can
  * run it. Needs no key: a provider that is off is reported, not failed,
  * except the ones a hosted site cannot do without.
@@ -53,6 +55,8 @@ if (up) {
     ["payments", up.services.payments.checkout],
     ["webhook", up.services.payments.webhook],
     ["google", up.services.auth.google],
+    ["ops", up.services.ops],
+    ["cron", up.services.cron],
   ])
     console.log(`     ${name}: ${state}`);
 }
@@ -80,6 +84,17 @@ if (base.startsWith("https://"))
     (page.headers.get("strict-transport-security") ?? "").includes("max-age"),
     "header Strict-Transport-Security",
   );
+say((await get("/ops")).status === 404, "operations are not here for a guest");
+say(
+  (await get("/api/ops/waitlist")).status === 404,
+  "the ops routes are not here for a guest",
+);
+const sweep = (await get("/api/cron/retention")).status;
+say(
+  sweep === 401 || sweep === 503,
+  "the nightly sweep wants its token",
+  sweep === 503 ? "CRON_SECRET not set" : `${sweep}`,
+);
 const robots = await (await get("/robots.txt")).text();
 say(robots.includes("Disallow: /api/"), "robots keeps crawlers off the API");
 const sitemap = await (await get("/sitemap.xml")).text();

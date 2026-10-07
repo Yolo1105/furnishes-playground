@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { create } from "zustand";
+import { STATUS_NAMES, type OrderStatus } from "@/lib/orders";
 import type { AssetCategory } from "./assets-data";
 
 /**
@@ -14,16 +15,7 @@ import type { AssetCategory } from "./assets-data";
  */
 const KEY = "furnishes.orders";
 
-type OrderStatus =
-  "pending_payment" | "paid" | "fulfilled" | "cancelled" | "refunded";
-
-export const STATUS_NAMES: Record<OrderStatus, string> = {
-  pending_payment: "Awaiting payment",
-  paid: "Paid",
-  fulfilled: "Delivered",
-  cancelled: "Cancelled",
-  refunded: "Refunded",
-};
+export { STATUS_NAMES };
 
 export type Address = {
   recipient: string;
@@ -50,6 +42,8 @@ export type Order = {
   /** S$ */
   total: number;
   address: Address;
+  /** where the order's mails go, when given at checkout as a guest */
+  email?: string;
   /** the shopper's key on the server's copy, once placed there */
   key?: string;
   /** the payment page, while the order waits to be paid */
@@ -58,7 +52,7 @@ export type Order = {
 
 type OrderState = {
   orders: Order[];
-  place: (lines: OrderLine[], address: Address) => Order;
+  place: (lines: OrderLine[], address: Address, email?: string) => Order;
   /** only an order awaiting payment can be cancelled */
   cancel: (id: string) => void;
   setStatus: (id: string, status: OrderStatus) => void;
@@ -71,7 +65,7 @@ const nextId = () => `FN-${Date.now().toString(36).slice(-5).toUpperCase()}`;
 
 export const useOrders = create<OrderState>((set) => ({
   orders: [],
-  place: (lines, address) => {
+  place: (lines, address, email) => {
     const order: Order = {
       id: nextId(),
       at: Date.now(),
@@ -79,6 +73,7 @@ export const useOrders = create<OrderState>((set) => ({
       lines,
       total: lines.reduce((t, l) => t + l.price, 0),
       address,
+      ...(email ? { email } : {}),
     };
     set((s) => ({ orders: [order, ...s.orders] }));
     return order;

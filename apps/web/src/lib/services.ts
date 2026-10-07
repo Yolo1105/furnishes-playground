@@ -1,9 +1,11 @@
+import { adminEmails } from "./ops";
 import { SITE } from "./site";
 
 /**
  * Which services stand behind this server, read from the environment
  * and said without a secret in sight: the database, mail, the model,
- * pictures and meshes, payments and its webhook, Google as a way in.
+ * pictures and meshes, payments and its webhook, Google as a way in,
+ * the operations area and the nightly retention.
  * api/health says it to whoever asks; the README's deployment notes
  * say what each needs. "off" means the studio does without: Eva
  * answers from the rules, items stand as shapes, an order waits
@@ -21,6 +23,10 @@ export type Services = {
   model: "on" | "off";
   images: "on" | "off";
   payments: { checkout: "on" | "off"; webhook: "on" | "off" };
+  /** who may open /ops (ADMIN_EMAILS), and whether the retention cron
+      has its secret */
+  ops: "on" | "off";
+  cron: "on" | "off";
   site: string;
   /** the commit this build came from, when the host says */
   commit: string | null;
@@ -45,6 +51,8 @@ export const services = (): Services => {
       checkout: has("STRIPE_SECRET_KEY") ? "on" : "off",
       webhook: has("STRIPE_WEBHOOK_SECRET") ? "on" : "off",
     },
+    ops: adminEmails().length > 0 ? "on" : "off",
+    cron: has("CRON_SECRET") ? "on" : "off",
     site: SITE.url,
     commit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
   };

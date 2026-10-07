@@ -5,6 +5,7 @@ import { z } from "zod";
 import { userOf } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { orders } from "@/lib/db/schema";
+import { orderPlacedMail } from "@/lib/mails";
 import { priceLines } from "@/lib/orders";
 import { SITE } from "@/lib/site";
 import { createSession, stripeKey } from "@/lib/stripe";
@@ -14,7 +15,9 @@ import { createSession, stripeKey } from "@/lib/stripe";
  * what is charged is what the studio showed; the order is kept on the
  * server as awaiting payment, under the shopper's account when signed
  * in and under a random key either way (the key is the shopper's handle
- * on it from the link back). With STRIPE_SECRET_KEY set, a hosted
+ * on it from the link back), with where its mails go: the account's
+ * email, or the one a guest gives. A mail says it is placed. With
+ * STRIPE_SECRET_KEY set, a hosted
  * payment page is opened and its address handed back ("redirect");
  * without one the order waits as awaiting payment and the route says so
  * ("offline"). The webhook (api/webhooks/stripe) says when it is paid.
@@ -45,6 +48,8 @@ const Body = z.object({
   total: z.number().nonnegative(),
   address: Address,
   currency: z.literal("SGD"),
+  /** a guest's, for the order's mails; an account's is its own */
+  email: z.string().trim().toLowerCase().email().max(200).optional(),
 });
 
 const OFFLINE =
@@ -76,16 +81,18 @@ export async function POST(req: Request) {
       { status: 409 },
     );
   const who = await userOf(req);
+  const email = who?.email ?? parsed.data.email ?? null;
   const { db } = getDb();
   // the same order placed twice (a retry) is the one order
   const kept = await db.select().from(orders).where(eq(orders.id, orderId));
   const key = kept[0]?.key ?? randomBytes(9).toString("base64url");
   const now = Date.now();
-  if (!kept[0])
+  if (!kept[0]) {
     await db.insert(orders).values({
       id: orderId,
       userId: who?.id ?? null,
       key,
+      email,
       status: "pending_payment",
       lines: priced.lines,
       total: priced.total,
@@ -93,6 +100,14 @@ export async function POST(req: Request) {
       at: now,
       updatedAt: now,
     });
+    await orderPlacedMail({
+      id: orderId,
+      email,
+      lines: priced.lines,
+      total: priced.total,
+      address,
+    });
+  }
   if (!stripeKey())
     return NextResponse.json({ mode: "offline", key, message: OFFLINE });
   const origin = req.headers.get("origin") ?? SITE.url;
@@ -103,7 +118,7 @@ export async function POST(req: Request) {
     lines: priced.lines.map((l) => ({ name: l.name, sgd: l.sgd })),
     successUrl: back("success"),
     cancelUrl: back("cancelled"),
-    ...(who?.email ? { email: who.email } : {}),
+    ...(email ? { email } : {}),
   });
   if (!session)
     return NextResponse.json(

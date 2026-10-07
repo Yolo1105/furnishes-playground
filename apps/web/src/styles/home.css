@@ -475,3 +475,118 @@
 .home-ask .home-row {
   align-items: flex-start;
 }
+
+/* ───────────── the operations page ───────────── */
+.ops-section {
+  margin-top: 34px;
+  padding: 0 var(--gut);
+}
+.ops-section .home-sub {
+  margin-top: 10px;
+}
+.ops-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  border-top: 1px solid var(--hair);
+}
+.ops-item {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--hair);
+}
+.ops-item-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+  font-size: 15px;
+}
+.ops-id {
+  font-weight: 600;
+  text-transform: capitalize;
+}
+.ops-status {
+  font-family: var(--mono);
+  font-stretch: normal;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--terra);
+}
+.ops-status[data-status="cancelled"],
+.ops-status[data-status="refunded"],
+.ops-item[data-answered="true"] .ops-status {
+  color: color-mix(in srgb, var(--ink) 50%, transparent);
+}
+.ops-when {
+  font-size: 13px;
+  color: color-mix(in srgb, var(--ink) 56%, transparent);
+}
+.ops-total {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+.ops-text {
+  margin: 6px 0 0;
+  max-width: 72ch;
+  font-size: 14.4px;
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--ink) 70%, transparent);
+}
+.ops-message {
+  white-space: pre-wrap;
+  color: var(--ink);
+}
+.ops-acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+.ops-note {
+  flex: 1 1 260px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+/* the label keeps its own width on every screen: the field is the row */
+.ops-note .home-row-l {
+  flex: 0 0 auto;
+}
+.ops-note .home-input {
+  height: 30px;
+  font-size: 14.4px;
+}
+.ops-error,
+.ops-said {
+  margin: 0;
+  font-size: 13.8px;
+}
+.ops-said {
+  color: color-mix(in srgb, var(--ink) 62%, transparent);
+}
+.ops-table {
+  margin-top: 12px;
+  border-collapse: collapse;
+  font-size: 14.4px;
+}
+.ops-table th,
+.ops-table td {
+  padding: 8px 28px 8px 0;
+  border-bottom: 1px solid var(--hair);
+  text-align: left;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+.ops-table thead th {
+  font-family: var(--mono);
+  font-stretch: normal;
+  font-size: 10px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--terra);
+}
+.ops-table tbody th {
+  color: color-mix(in srgb, var(--ink) 70%, transparent);
+}

@@ -17,10 +17,11 @@ blob-report/
 # the local database (PGlite)
 .data/
 
-# env
+# env: the example and the development server's non-secrets are kept
 .env
 .env.*
 !.env.example
+!.env.development
 
 # os / editor
 .DS_Store

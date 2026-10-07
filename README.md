@@ -185,11 +185,22 @@ in `apps/web/src/lib/site.ts`, which the titles, the sitemap, the
 auth's trusted origins, the landing, the inner pages and the gear's
 Feedback all read. `GET /api/health` says which backends are up (the
 database and its migrations, mail, the model, pictures, payments and
-its webhook, Google) and what a hosted deployment is still missing,
+its webhook, Google, the operations area and the nightly sweep) and
+what a hosted deployment is still missing,
 never a secret, and lists the shares in force; `.github/workflows/ci.yml`
 runs the format, lint, types, unit tests, build and the end-to-end
 suite on every push, and `pnpm smoke <https://site>` runs the checks
-after a deploy against the live site. A caller's shares (Eva's turns and reviews, room
+after a deploy against the live site. The studio's own operations are at
+`/ops` for the accounts named in `ADMIN_EMAILS` (404 to anyone else):
+orders moved on (paid another way, delivered, cancelled, refunded) with
+a note each, words to the studio answered by mail and marked, the
+waitlist as a CSV and its one opening note sent once, and the day's and
+the month's spend against the caps. The studio writes to buyers and
+senders on its own (an order placed, paid, delivered, refunded; thanks
+for a word; the waitlist's note), to the account's email or the one a
+guest gives at checkout; `GET /api/cron/retention`, run nightly by the
+host with `CRON_SECRET`, sweeps rate-limit windows older than a day and
+cost rows older than ninety days and nothing else. A caller's shares (Eva's turns and reviews, room
 items, waitlist and help requests) and a document's weight have their
 defaults in `apps/web/src/lib/limits.ts` and can each be set in the
 environment; the site's name, address and contact can be set with the

@@ -2186,8 +2186,12 @@ test("an order is placed with a delivery address, waits for payment, is listed a
   await dialog.getByRole("button", { name: /^Place order/ }).click();
   await expect(dialog.getByText("Six digits")).toBeVisible();
   await expect(dialog.getByText("A Singapore number, 8 digits")).toBeVisible();
+  // a guest says where the order's mails go
+  await expect(dialog.getByText("Where the order's mails go")).toBeVisible();
   await dialog.getByRole("textbox", { name: "Postal code" }).fill("460123");
   await dialog.getByRole("textbox", { name: "Phone" }).fill("9123 4567");
+  const buyer = `buyer-${Date.now()}@example.com`;
+  await dialog.getByRole("textbox", { name: "Email" }).fill(buyer);
   await dialog.getByRole("button", { name: /^Place order/ }).click();
   // placed: an order number, awaiting payment, the honest note; the cart empties
   await expect(dialog.locator(".order-placed")).toContainText("FN-");
@@ -2217,6 +2221,16 @@ test("an order is placed with a delivery address, waits for payment, is listed a
     `/api/orders/${kept.id}?key=${encodeURIComponent(kept.key!)}`,
   );
   expect((await mine.json()).status).toBe("pending_payment");
+  // and wrote to the buyer that it is placed (kept on this server)
+  await expect
+    .poll(async () => {
+      const r = await page.request.get(
+        `/api/dev/mail?to=${encodeURIComponent(buyer)}`,
+      );
+      const { mails } = (await r.json()) as { mails: { subject: string }[] };
+      return mails.map((m) => m.subject);
+    })
+    .toContain(`Order ${kept.id} is placed`);
   expect(
     (await page.request.get(`/api/orders/${kept.id}?key=wrong`)).status(),
   ).toBe(404);
@@ -3727,6 +3741,170 @@ test("the site's edges: the privacy and terms pages, the help page's Ask us, the
   const listed = await sitemap.text();
   for (const path of ["/", "/account", "/help", "/privacy", "/terms"])
     expect(listed).toContain(`https://furnish-es.com${path}`);
+});
+
+test("the studio's operations: not here for anyone else; an order moved on with a mail each; a word marked answered; the waitlist's one note; the nightly sweep", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  // nobody: the page and its routes are not here
+  expect((await page.goto("/ops"))!.status()).toBe(404);
+  await expect(
+    page.getByRole("heading", { name: "There is no page here." }),
+  ).toBeVisible();
+  expect((await page.request.get("/api/ops/waitlist")).status()).toBe(404);
+  // the sweep wants the host's secret (.env.development has the dev one)
+  expect((await page.request.get("/api/cron/retention")).status()).toBe(401);
+  const swept = await page.request.get("/api/cron/retention", {
+    headers: { authorization: "Bearer dev-cron-secret" },
+  });
+  expect(swept.status()).toBe(200);
+  expect((await swept.json()).removed).toEqual({
+    rateLimits: expect.any(Number),
+    costs: expect.any(Number),
+  });
+  // the admin's account (ADMIN_EMAILS in .env.development), made once
+  const admin = "ops@example.com";
+  const made = await page.request.post("/api/auth/sign-up/email", {
+    data: { name: "Ops", email: admin, password: PASSWORD },
+  });
+  if (!made.ok()) {
+    const signedIn = await page.request.post("/api/auth/sign-in/email", {
+      data: { email: admin, password: PASSWORD },
+    });
+    expect(signedIn.status(), await signedIn.text()).toBe(200);
+  }
+  const mails = async (to: string, subject: RegExp) => {
+    const r = await page.request.get(
+      `/api/dev/mail?to=${encodeURIComponent(to)}`,
+    );
+    const { mails } = (await r.json()) as { mails: { subject: string }[] };
+    return mails.filter((m) => subject.test(m.subject));
+  };
+  // an order under the account, offline: the placed mail goes to it
+  const stamp = Date.now().toString(36).toUpperCase();
+  const orderId = `FN-${stamp.slice(-6)}`;
+  const first = top.find((a) => a.kind === "piece" && a.productId)!;
+  const placed = await page.request.post("/api/checkout", {
+    data: {
+      orderId,
+      lines: [
+        { productId: first.productId, name: first.name, price: first.price },
+      ],
+      total: first.price,
+      address: {
+        recipient: "Mei Lin",
+        line1: "Blk 123 Bedok North Ave 3 #05-67",
+        postal: "460123",
+        phone: "91234567",
+      },
+      currency: "SGD",
+    },
+  });
+  expect((await placed.json()).mode).toBe("offline");
+  await expect
+    .poll(
+      async () =>
+        (await mails(admin, new RegExp(`^Order ${orderId} is placed`))).length,
+    )
+    .toBe(1);
+  // a word to the studio, thanked by mail; a guest on the waitlist
+  const word = `Does the bookwall come in walnut? ${stamp}`;
+  await page.request.post("/api/help", {
+    data: { category: "question", message: word, context: "/help" },
+  });
+  await expect
+    .poll(async () => (await mails(admin, /^We have your word/)).length)
+    .toBeGreaterThan(0);
+  const waiting = `wait-${stamp.toLowerCase()}@example.com`;
+  await page.request.post("/api/waitlist", { data: { email: waiting } });
+  // the page: the order paid another way, then delivered, a mail each;
+  // a note kept on it
+  await page.goto("/ops");
+  await expect(
+    page.getByRole("heading", { name: "The studio, as it stands today." }),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("complementary", { name: "Pages" })
+      .locator('[aria-current="page"]'),
+  ).toContainText("Operations");
+  const order = page.locator(`.ops-item[data-id="${orderId}"]`);
+  await expect(order.locator(".ops-status")).toHaveText("Awaiting payment");
+  await expect(order).toContainText(first.name);
+  await expect(order).toContainText(admin);
+  await order.getByRole("button", { name: "Mark paid" }).click();
+  await expect(order.locator(".ops-status")).toHaveText("Paid");
+  await expect
+    .poll(
+      async () =>
+        (await mails(admin, new RegExp(`^Order ${orderId} is paid`))).length,
+    )
+    .toBe(1);
+  await expect(order.getByRole("button", { name: "Cancel" })).toHaveCount(0);
+  await order.getByRole("button", { name: "Mark delivered" }).click();
+  await expect(order.locator(".ops-status")).toHaveText("Delivered");
+  await expect
+    .poll(
+      async () =>
+        (await mails(admin, new RegExp(`^Order ${orderId} is delivered`)))
+          .length,
+    )
+    .toBe(1);
+  await order
+    .getByRole("textbox", { name: "Note" })
+    .fill("Courier booked for Friday");
+  await order.getByRole("button", { name: "Keep the note" }).click();
+  await expect(
+    order.getByRole("button", { name: "Keep the note" }),
+  ).toBeDisabled();
+  await page.reload();
+  await expect(order.getByRole("textbox", { name: "Note" })).toHaveValue(
+    "Courier booked for Friday",
+  );
+  // a move the order's state does not allow is refused
+  expect(
+    (
+      await page.request.patch(`/api/ops/orders/${orderId}`, {
+        data: { status: "paid" },
+      })
+    ).status(),
+  ).toBe(409);
+  // the word: open, a reply by mail, marked answered
+  const ask = page.locator(".ops-item", { hasText: word });
+  await expect(ask.locator(".ops-status")).toHaveText("Open");
+  await expect(
+    ask.getByRole("link", { name: "Reply by mail" }),
+  ).toHaveAttribute(
+    "href",
+    /^mailto:ops@example\.com\?subject=Re%3A%20your%20question/,
+  );
+  await ask.getByRole("button", { name: "Mark answered" }).click();
+  await expect(ask.locator(".ops-status")).toHaveText(/^Answered/);
+  await expect(ask.getByRole("button", { name: "Reopen" })).toBeVisible();
+  // the waitlist: the file has the address; the note goes once, and
+  // the second time nobody is due
+  const csv = await (await page.request.get("/api/ops/waitlist")).text();
+  expect(csv.startsWith("email,joined,notified")).toBe(true);
+  expect(csv).toContain(waiting);
+  const list = page.getByRole("region", { name: "Waitlist" });
+  await list.getByRole("button", { name: "Send the opening note" }).click();
+  await list.getByRole("button", { name: /^Send to \d+ now/ }).click();
+  await expect(list.getByRole("status")).toContainText(/^Sent to \d+/);
+  await expect
+    .poll(async () => (await mails(waiting, /ordering is open/)).length)
+    .toBe(1);
+  await expect(
+    list.getByRole("button", { name: "Send the opening note" }),
+  ).toBeDisabled();
+  expect(
+    (await (await page.request.post("/api/ops/waitlist")).json()).sent,
+  ).toBe(0);
+  // spend and services, as the server has them
+  const spend = page.getByRole("region", { name: "Spend and services" });
+  await expect(spend.getByRole("table")).toContainText("Eva's turns");
+  await expect(spend).toContainText("mail kept");
+  await expect(spend).toContainText("the nightly sweep on");
 });
 
 test("the landing: the band, the spot that changes under a drag, the rail and the menu, a piece into the studio, the waitlist and the cookie note", async ({
