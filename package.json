@@ -16,6 +16,7 @@
     "typecheck": "pnpm -r --parallel typecheck",
     "test": "pnpm -r --parallel --if-present test",
     "e2e": "pnpm --filter @furnishes/web e2e",
+    "smoke": "pnpm --filter @furnishes/web smoke",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

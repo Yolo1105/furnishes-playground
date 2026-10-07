@@ -56,6 +56,12 @@ sending domain, and set `MAIL_FROM` to an address on it.
 
 ## 3. What to check after a deploy
 
+One command runs every check below against the site and exits 1 on
+any failure (`.github/workflows/deploy-check.yml` runs the same from
+the Actions tab, given the address):
+
+    pnpm smoke https://furnish-es.com
+
 - `GET /api/health` is 200, `ok: true`, `missingForHosting: []`.
 - The landing opens at `/`; `/account` makes an account; with mail on,
   the confirmation link arrives; with Google on, the button shows.

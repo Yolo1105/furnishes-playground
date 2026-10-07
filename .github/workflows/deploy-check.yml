@@ -1,0 +1,22 @@
+name: Deploy check
+
+# The checks after a deploy, against a live address: run from the
+# Actions tab with the site's URL (the production site by default).
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: The site to check
+        required: true
+        default: https://furnish-es.com
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node apps/web/scripts/smoke.mjs "${{ inputs.url }}"
