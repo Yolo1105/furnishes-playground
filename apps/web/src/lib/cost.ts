@@ -2,6 +2,7 @@ import { and, eq, gte, sql } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import { getDb } from "./db";
 import { costLog } from "./db/schema";
+import { num } from "./env";
 
 /**
  * What the providers cost, counted as it is spent: every model turn and
@@ -11,10 +12,6 @@ import { costLog } from "./db/schema";
  * environment (dollars per million tokens in and out, dollars per
  * generated item); a cap of 0 is no cap.
  */
-const num = (name: string, fallback: number) => {
-  const n = Number(process.env[name]);
-  return Number.isFinite(n) && n >= 0 ? n : fallback;
-};
 /** US dollars, as the providers bill */
 export const RATES = {
   perMillionIn: num("EVA_USD_PER_M_IN", 3),

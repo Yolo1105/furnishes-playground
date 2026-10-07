@@ -38,6 +38,15 @@ hosted deployment is still missing. Nothing in that answer is a secret.
 | Google sign-in               | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `NEXT_PUBLIC_AUTH_GOOGLE=1`                          | email and password only                                              |
 | Costs and shares             | `EVA_USD_PER_M_IN`, `EVA_USD_PER_M_OUT`, `FAL_USD_PER_ITEM`, `DAILY_USD_PER_CALLER`, `DAILY_USD` | the defaults in `apps/web/src/lib/cost.ts`                           |
 
+Tuning (each optional, the defaults are the product's rules):
+`CHAT_TURNS_PER_HOUR`, `ITEMS_PER_HOUR`, `REVIEWS_PER_DAY`,
+`WAITLIST_PER_HOUR`, `HELP_PER_DAY` and `DOCUMENT_BYTES` set a caller's
+shares and a document's weight; `/api/health` lists the values in
+force. `NEXT_PUBLIC_SITE_NAME`, `NEXT_PUBLIC_SITE_URL` and
+`NEXT_PUBLIC_SITE_CONTACT` put the site under another name or address
+(they are baked in at build time, so a change is a rebuild);
+`BETTER_AUTH_URL` stays the address sign-ins are trusted from.
+
 Stripe: in the dashboard, add a webhook endpoint at
 `https://<site>/api/webhooks/stripe` for the checkout session, payment
 intent and charge events, and copy its signing secret into

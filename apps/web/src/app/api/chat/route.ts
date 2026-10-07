@@ -5,6 +5,7 @@ import { z } from "zod";
 import { userIdOf } from "@/lib/auth";
 import { costOfTokens, logCost, overCap } from "@/lib/cost";
 import { refuse, sanitize } from "@/lib/guard";
+import { LIMITS } from "@/lib/limits";
 import { allow, callerOf } from "@/lib/rate-limit";
 import type { Context } from "@/components/studio/eva-brain";
 import { pickDocs } from "@/components/studio/design-docs";
@@ -31,7 +32,6 @@ import {
 export const runtime = "nodejs";
 
 const MODEL = process.env.EVA_MODEL ?? "claude-opus-5-5";
-const TURNS_PER_HOUR = 40;
 
 /** the studio's facts, as every route that asks the model takes them */
 export const ContextBody = z.object({
@@ -124,7 +124,7 @@ export async function POST(req: Request) {
   if (refused) return fallback(refused, 400);
   if (!process.env.ANTHROPIC_API_KEY) return fallback("no-key", 503);
   const key = callerOf(req);
-  if (!(await allow(`chat:${key}`, TURNS_PER_HOUR)))
+  if (!(await allow(`chat:${key}`, LIMITS.chatTurnsPerHour)))
     return fallback("rate-limit", 429);
   if (await overCap(key)) return fallback("cost-cap", 429);
   const ctx = context as Context;

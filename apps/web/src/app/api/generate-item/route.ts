@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { userIdOf } from "@/lib/auth";
 import { logCost, overCap, RATES } from "@/lib/cost";
+import { LIMITS } from "@/lib/limits";
 import { allow, callerOf } from "@/lib/rate-limit";
 
 /**
@@ -17,7 +18,6 @@ export const maxDuration = 180;
 
 const IMAGE_MODEL = "fal-ai/flux/schnell";
 const MESH_MODEL = "fal-ai/hunyuan-3d/v3.1/rapid/image-to-3d";
-const ITEMS_PER_HOUR = 12;
 
 const Body = z.object({ prompt: z.string().trim().min(2).max(200) });
 
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
   const key = process.env.FAL_KEY;
   if (!key) return fallback("no-key", 503);
   const who = callerOf(req);
-  if (!(await allow(`item:${who}`, ITEMS_PER_HOUR)))
+  if (!(await allow(`item:${who}`, LIMITS.itemsPerHour)))
     return fallback("rate-limit", 429);
   if (await overCap(who)) return fallback("cost-cap", 429);
   fal.config({ credentials: key });

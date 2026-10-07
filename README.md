@@ -186,8 +186,13 @@ auth's trusted origins, the landing, the inner pages and the gear's
 Feedback all read. `GET /api/health` says which backends are up (the
 database and its migrations, mail, the model, pictures, payments and
 its webhook, Google) and what a hosted deployment is still missing,
-never a secret; `.github/workflows/ci.yml` runs the format, lint,
-types, unit tests, build and the end-to-end suite on every push. On Vercel, import the repository with `apps/web` as
+never a secret, and lists the shares in force; `.github/workflows/ci.yml`
+runs the format, lint, types, unit tests, build and the end-to-end
+suite on every push. A caller's shares (Eva's turns and reviews, room
+items, waitlist and help requests) and a document's weight have their
+defaults in `apps/web/src/lib/limits.ts` and can each be set in the
+environment; the site's name, address and contact can be set with the
+public variables in `.env.example` for a deployment under another name. On Vercel, import the repository with `apps/web` as
 the root directory (the build command and output are Next's own), add
 the domain, and set four variables: `DATABASE_URL` from a Neon project
 (a hosted run without one refuses to start rather than lose accounts

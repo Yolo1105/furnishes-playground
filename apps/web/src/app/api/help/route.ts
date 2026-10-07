@@ -4,6 +4,7 @@ import { z } from "zod";
 import { userOf } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { helpRequest } from "@/lib/db/schema";
+import { LIMITS } from "@/lib/limits";
 import { allow, callerOf, DAY } from "@/lib/rate-limit";
 
 /**
@@ -14,7 +15,6 @@ import { allow, callerOf, DAY } from "@/lib/rate-limit";
 export const runtime = "nodejs";
 
 export const HELP_CATEGORIES = ["problem", "idea", "question"] as const;
-const PER_DAY = 10;
 
 const Body = z.object({
   category: z.enum(HELP_CATEGORIES),
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
   const who = await userOf(req);
   const email = who?.email ?? parsed.data.email;
   if (!email) return NextResponse.json({ error: "email" }, { status: 400 });
-  if (!(await allow(`help:${callerOf(req)}`, PER_DAY, DAY)))
+  if (!(await allow(`help:${callerOf(req)}`, LIMITS.helpPerDay, DAY)))
     return NextResponse.json({ error: "rate-limit" }, { status: 429 });
   const id = randomBytes(8).toString("base64url");
   await getDb()

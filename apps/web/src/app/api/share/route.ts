@@ -5,6 +5,7 @@ import { z } from "zod";
 import { userIdOf } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { share } from "@/lib/db/schema";
+import { LIMITS } from "@/lib/limits";
 
 /**
  * Shared rooms: a copy of a project (its room and pieces, never Eva's
@@ -15,7 +16,7 @@ import { share } from "@/lib/db/schema";
 export const runtime = "nodejs";
 
 /** bytes of JSON a shared room may hold */
-const LIMIT = 2_000_000;
+const LIMIT = LIMITS.documentBytes;
 const Body = z.object({
   name: z.string().trim().min(1).max(80),
   data: z.unknown(),

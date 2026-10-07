@@ -4,6 +4,7 @@ import { z } from "zod";
 import { userIdOf } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { sync } from "@/lib/db/schema";
+import { LIMITS } from "@/lib/limits";
 
 /**
  * The account's mirror of what the browser keeps: the projects (with
@@ -16,8 +17,6 @@ export const runtime = "nodejs";
 
 const KINDS = ["projects", "orders", "generations", "guides", "board"] as const;
 type Kind = (typeof KINDS)[number];
-/** bytes of JSON one kind may hold */
-const LIMIT = 2_000_000;
 
 const Body = z.object({
   projects: z.unknown().optional(),
@@ -51,7 +50,7 @@ export async function PUT(req: Request) {
   for (const kind of KINDS) {
     const data = parsed.data[kind as Kind];
     if (data === undefined) continue;
-    if (JSON.stringify(data).length > LIMIT)
+    if (JSON.stringify(data).length > LIMITS.documentBytes)
       return NextResponse.json({ error: `${kind} too large` }, { status: 413 });
     await db
       .insert(sync)

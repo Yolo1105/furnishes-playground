@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
+import { LIMITS } from "@/lib/limits";
 import { missingForHosting, services } from "@/lib/services";
 
 /**
@@ -32,6 +33,7 @@ export async function GET() {
         at,
         database: { kind: s.database, migrations: Number(rows[0]?.n ?? 0) },
         services: s,
+        limits: LIMITS,
         missingForHosting: missingForHosting(s),
       },
       { headers: { "cache-control": "no-store" } },

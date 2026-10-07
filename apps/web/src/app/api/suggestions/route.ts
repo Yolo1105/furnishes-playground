@@ -5,6 +5,7 @@ import { z } from "zod";
 import { userIdOf } from "@/lib/auth";
 import { costOfTokens, logCost, overCap } from "@/lib/cost";
 import { sanitize } from "@/lib/guard";
+import { LIMITS } from "@/lib/limits";
 import { allow, callerOf, DAY } from "@/lib/rate-limit";
 import type { Context, Reply } from "@/components/studio/eva-brain";
 import { products } from "@/components/studio/catalogue";
@@ -24,7 +25,6 @@ import { ContextBody } from "../chat/route";
 export const runtime = "nodejs";
 
 const MODEL = process.env.EVA_MODEL ?? "claude-opus-5-5";
-const REVIEWS_PER_DAY = 8;
 
 const Body = z.object({ context: ContextBody });
 
@@ -56,7 +56,7 @@ export async function POST(req: Request) {
   if (!parsed.success) return fallback("bad-request", 400);
   if (!process.env.ANTHROPIC_API_KEY) return fallback("no-key", 503);
   const key = callerOf(req);
-  if (!(await allow(`review:${key}`, REVIEWS_PER_DAY, DAY)))
+  if (!(await allow(`review:${key}`, LIMITS.reviewsPerDay, DAY)))
     return fallback("daily-cap", 429);
   if (await overCap(key)) return fallback("cost-cap", 429);
   const ctx = parsed.data.context as Context;
