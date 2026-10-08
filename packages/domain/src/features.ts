@@ -51,10 +51,10 @@ export type Feature = Hole | Groove | Cutout;
 export const SYSTEM = { pitch: 32, d: 5, depth: 13, inset: 37 } as const;
 /** a concealed hinge's cup: 35 mm across, 13 mm deep, its centre
     22.5 mm in from the door's edge */
-export const HINGE = { d: 35, depth: 13, inset: 22.5 } as const;
+const HINGE = { d: 35, depth: 13, inset: 22.5 } as const;
 /** a back panel's groove: 6 mm wide, 10 mm deep, 10 mm in from the
     back edge */
-export const BACK_GROOVE = { width: 6, depth: 10, inset: 10 } as const;
+const BACK_GROOVE = { width: 6, depth: 10, inset: 10 } as const;
 
 /** the first id of `prefix-n` no feature has yet */
 const freeId = (features: readonly Feature[], prefix: string) => {

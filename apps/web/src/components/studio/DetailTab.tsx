@@ -56,6 +56,30 @@ import { ProductPage } from "./ProductPage";
 import { findNode, propsOf, useScene } from "./scene-store";
 import { useStudio } from "./studio-store";
 
+/** the shapes a panel is given, at its size: a rectangle is no
+    profile at all; a cut takes a fifth of the shorter side, a taper a
+    quarter of the length */
+const SHAPES: [string, ((L: number, W: number) => Sketch) | null][] = [
+  ["Rectangle", null],
+  ["Cut corner", (L, W) => cutCornerSketch(L, W, Math.min(L, W) / 5)],
+  ["Taper", (L, W) => taperSketch(L, W, L / 4)],
+];
+
+/** the shop's machining presets, laid on a panel's inner face */
+const PRESETS: [string, (p: Panel) => Feature[]][] = [
+  [
+    "Shelf pins",
+    (p) =>
+      systemHoles(p, p.features).map((h) => ({ ...h, face: innerFace(p) })),
+  ],
+  ["Hinge cups", (p) => hingeCups(p, p.features)],
+  [
+    "Back groove",
+    (p) => [{ ...backGroove(p, p.features), face: innerFace(p) }],
+  ],
+  ["Cut-out", (p) => [middleCutout(p, p.features)]],
+];
+
 /**
  * The piece in hand, as a product page in the panel: its picture, name
  * and price (an estimate, counted from its parts), what it is, and what
@@ -174,24 +198,6 @@ export function DetailTab() {
       .then((s) => editPanel({ profile: s, ...sketchSize(s) }))
       .catch(() => undefined);
   };
-  const SHAPES: [string, ((L: number, W: number) => Sketch) | null][] = [
-    ["Rectangle", null],
-    ["Cut corner", (L, W) => cutCornerSketch(L, W, Math.min(L, W) / 5)],
-    ["Taper", (L, W) => taperSketch(L, W, L / 4)],
-  ];
-  const PRESETS: [string, (p: Panel) => Feature[]][] = [
-    [
-      "Shelf pins",
-      (p) =>
-        systemHoles(p, p.features).map((h) => ({ ...h, face: innerFace(p) })),
-    ],
-    ["Hinge cups", (p) => hingeCups(p, p.features)],
-    [
-      "Back groove",
-      (p) => [{ ...backGroove(p, p.features), face: innerFace(p) }],
-    ],
-    ["Cut-out", (p) => [middleCutout(p, p.features)]],
-  ];
   const panelNum = (
     text: string,
     value: number,

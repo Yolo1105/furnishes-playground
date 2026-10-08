@@ -50,7 +50,7 @@ export const PANEL_THICKNESS = 18;
 export const SNAP_MM = 15;
 /** nearer than this two faces are the same joint, mm: a joint meant to
     touch lands on floats, and a 2 mm door reveal is deliberate */
-export const JOINT_TOL = 1.5;
+const JOINT_TOL = 1.5;
 /** the least a face may be dragged down to, mm */
 const MIN_SIZE_MM = 1;
 
@@ -92,12 +92,12 @@ export const axisField = (normal: Axis, axis: 0 | 1 | 2): Dimension =>
 /** an axis-aligned box, mm */
 export type Bounds = { min: Vec3; max: Vec3 };
 
-export const boundsFromCentre = (centre: Vec3, size: Vec3): Bounds => ({
+const boundsFromCentre = (centre: Vec3, size: Vec3): Bounds => ({
   min: [0, 1, 2].map((i) => centre[i]! - size[i]! / 2) as Vec3,
   max: [0, 1, 2].map((i) => centre[i]! + size[i]! / 2) as Vec3,
 });
 
-export const panelBounds = (p: Panel, position = p.position): Bounds =>
+const panelBounds = (p: Panel, position = p.position): Bounds =>
   boundsFromCentre(position, panelBoxSize(p));
 
 /** the box round a set of panels, or none for no panels */
@@ -133,7 +133,7 @@ export const freeId = (panels: readonly Panel[], prefix: string) => {
     for "could these faces meet here", so a panel passing a distant one
     in another plane never snaps to it across empty space; a shared
     edge counts, `tol` adds slack */
-export const overlapsPerpendicular = (
+const overlapsPerpendicular = (
   a: Bounds,
   b: Bounds,
   axis: number,
@@ -149,7 +149,7 @@ export const overlapsPerpendicular = (
 
 /** where two boxes overlap, axis by axis; on an axis where they only
     touch or do not reach the span is degenerate or inverted */
-export const contactRect = (a: Bounds, b: Bounds): { lo: Vec3; hi: Vec3 } => ({
+const contactRect = (a: Bounds, b: Bounds): { lo: Vec3; hi: Vec3 } => ({
   lo: [0, 1, 2].map((i) => Math.max(a.min[i]!, b.min[i]!)) as Vec3,
   hi: [0, 1, 2].map((i) => Math.min(a.max[i]!, b.max[i]!)) as Vec3,
 });
