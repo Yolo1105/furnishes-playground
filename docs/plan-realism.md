@@ -279,6 +279,24 @@ AGPL. `@salusoft89/planegcs` 1.3.0 is the only 2D constraint solver
   for a hand check in Chrome or Safari 26 before the step is called
   done, and the samples per tier (256, 64, 64) are a first guess until
   the minute-at-1080p gate is measured.
+- R7 is in, as far as the sandbox lets it be measured. The tiers came
+  with R5 (View settings' Picture: Auto, Full, Light, Plain; a software
+  GPU gets the phone's). The budgets: the studio's first-load
+  JavaScript, as Next counts it, is about 365 KB gzip, under the 450 KB
+  gate, because the scene has been a lazy chunk since before this plan;
+  the scene's own chunks (three's WebGPU build with TSL, 284 KB, and
+  the scene with drei, the loaders and the probes, 244 KB) arrive right
+  after, so a studio visit transfers about 893 KB of script in all. The
+  frame-rate gates (60 fps desktop, 30 fps phone) cannot be read on a
+  software GPU and wait for a hand check with the browser's frame
+  timing. The visual-target review changed three things: the evening's
+  sun now stands low beyond the north wall, where every template's
+  window is, so it comes in through the glass; the walls cast shadows,
+  so a low sun comes in through the openings alone; and the evening's
+  surroundings and sky fill stand back (the panels at 0.5, the maps at
+  0.4, the sky at 0.25), so the sun carries the room and the evening
+  reads as one. The day's light, which the three targets agreed on, is
+  unchanged.
 
 ## The order of work
 

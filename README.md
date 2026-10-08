@@ -158,7 +158,9 @@ browser with WebGPU, Render takes a photo: the light is traced through
 the room (`apps/web/src/components/studio/Photo.tsx`), denoised with
 weights the app serves under `apps/web/public/oidn`, and the compare
 sets it against a picture of the view as it stood; elsewhere the
-render is the view graded. The
+render is the view graded. In the evening the sun stands low beyond
+the window's wall and comes in through the glass, the walls casting
+their shadows, with the surroundings standing back. The
 room's own bounce light comes from a grid of light probes over the
 shell (`apps/web/src/components/studio/Probes.tsx`), baked over frames
 whenever the shell, its finish or its light changes and never under a

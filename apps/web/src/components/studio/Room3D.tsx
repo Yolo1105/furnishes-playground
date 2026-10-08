@@ -269,7 +269,9 @@ function WallRun({
         position={[(ax + bx) / 2, 0, (az + bz) / 2]}
         rotation={[0, yaw, 0]}
       >
-        <mesh receiveShadow>
+        {/* the wall casts its shadow too: a low sun comes in through the
+            openings alone and lays its patch on the floor */}
+        <mesh receiveShadow castShadow>
           <shapeGeometry args={[shape]} />
           <meshStandardMaterial
             color={wallHex}
@@ -575,8 +577,10 @@ export function RoomLight({ evening, sky }: { evening: boolean; sky: Sky }) {
   const file = sky === "panels" ? (evening ? "panels-evening" : "panels") : sky;
   const map = useLoader(HDRLoader, `/sky/${file}.hdr`);
   const get = useThree((s) => s.get);
+  // the surroundings carry the day; in the evening they stand back so
+  // the low sun through the window carries the room
   const intensity =
-    sky === "panels" ? (evening ? 1.6 : 2) : evening ? 1.2 : 1.5;
+    sky === "panels" ? (evening ? 0.5 : 2) : evening ? 0.4 : 1.5;
   useEffect(() => {
     const { scene, invalidate } = get();
     return surround(scene, map, intensity, invalidate);

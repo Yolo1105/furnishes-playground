@@ -147,11 +147,14 @@ const LIGHTS = {
     from: [3, 6, 4] as Vector3Tuple,
     sky: 0.9,
   },
+  // the evening's sun stands low beyond the north wall, where the
+  // window is in every template, so it comes in through the glass and
+  // lays its patch on the floor; the rest of the room is in the dusk
   evening: {
-    sun: 1.1,
-    colour: "#ffe3c8",
-    from: [-4, 2.5, 3] as Vector3Tuple,
-    sky: 0.6,
+    sun: 2.4,
+    colour: "#ffd2a0",
+    from: [2, 1.8, -7] as Vector3Tuple,
+    sky: 0.25,
   },
 } as const;
 /** what the floor gives back to the undersides */
