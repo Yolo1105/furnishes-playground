@@ -17,18 +17,28 @@ hosted deployment is still missing. Nothing in that answer is a secret.
 3. Set these environment variables for Production (and Preview if you
    want previews to have accounts):
    - `DATABASE_URL`: the Neon connection string. A hosted run without it
-     refuses to start rather than keep accounts on a disk that is wiped.
+     answers 503 at the first touch of the database rather than keep
+     accounts on a disk that is wiped.
    - `BETTER_AUTH_SECRET`: 32 characters or more, from
      `openssl rand -base64 32`. Signs every session.
    - `BETTER_AUTH_URL`: the site's address, `https://furnish-es.com`.
+   - `RESEND_API_KEY` and `MAIL_FROM`: the mail the account's links and
+     the orders' letters go by (section 2). Without it a reset or a
+     confirmation is a dead end, so `/api/health` reports a hosted
+     site as missing it.
    - `ADMIN_EMAILS` and `CRON_SECRET`: who runs operations and the token
      the nightly sweep is sent (section 3). A hosted site without them
      is reported as missing them by `/api/health`.
 4. Add the domain. The site's name, address and contact default to
    furnish-es.com's (`apps/web/src/lib/site.ts`); a deployment elsewhere
    sets the three public variables in section 2.
-5. Deploy. The migrations under `apps/web/drizzle` run on the first
-   request; `/api/health` then reports `database.kind: "neon"` and the
+5. Set the build command to `pnpm migrate && pnpm build` (in
+   `apps/web`), so the migrations under `apps/web/drizzle` run once,
+   ahead of the new code, with the `DATABASE_URL` the build sees. A
+   server that finds the journal ahead of the database still migrates
+   on its first request, so a deploy without that step works too, at
+   the cost of the fleet's cold starts racing for it.
+6. Deploy. `/api/health` then reports `database.kind: "neon"`, the
    migration count, and `missingForHosting: []`.
 
 ## 2. The providers (each optional)
@@ -52,9 +62,16 @@ force. `NEXT_PUBLIC_SITE_NAME`, `NEXT_PUBLIC_SITE_URL` and
 `BETTER_AUTH_URL` stays the address sign-ins are trusted from.
 
 Stripe: in the dashboard, add a webhook endpoint at
-`https://<site>/api/webhooks/stripe` for the checkout session, payment
-intent and charge events, and copy its signing secret into
-`STRIPE_WEBHOOK_SECRET`. Google: in the OAuth client, allow the redirect
+`https://<site>/api/webhooks/stripe` for these five events, and copy
+its signing secret into `STRIPE_WEBHOOK_SECRET`:
+`checkout.session.completed`, `checkout.session.async_payment_succeeded`
+and `payment_intent.succeeded` (paid), `checkout.session.expired`
+(cancelled) and `charge.refunded` (refunded). The webhook finds the
+order by the number the session carries, and says in the log what it
+applied, refused or could not match. The shopper comes back from the
+payment page to the order's own page, `/orders/<number>?key=<key>`,
+which every letter about the order links to; a cancelled order's
+payment page is closed with it. Google: in the OAuth client, allow the redirect
 URI `https://<site>/api/auth/callback/google`. Resend: verify the
 sending domain, and set `MAIL_FROM` to an address on it.
 
@@ -69,17 +86,20 @@ Two more variables run the studio's own operations:
   the studio, with a reply by mail and a mark once answered; the
   waitlist as a CSV and the one note it is promised, sent once to
   everyone not yet written to; and what the providers cost today and
-  this month against the caps, with which services are on. Anyone
+  this month against the caps, with which services are on. "Refund
+  made in Stripe" records a refund and writes to the buyer; the money
+  itself goes back from Stripe's own dashboard, first. Anyone
   else, signed in or not, gets 404; without the variable nobody is an
   admin. Make the admin's account at `/account` as any other.
 - `CRON_SECRET`: the token the host's cron sends. `apps/web/vercel.json`
   schedules `GET /api/cron/retention` nightly at 03:00 Singapore
   (19:00 UTC), and Vercel sends `Authorization: Bearer <CRON_SECRET>`
   on its own once the variable is set. The sweep deletes rate-limit
-  windows older than a day and cost rows older than ninety days;
-  orders, payment events, accounts and what people wrote are never
-  touched. Without the secret the route answers 503 and sweeps
-  nothing.
+  windows older than a day, cost rows older than ninety days, sessions
+  and mail links past their time, and cancels an order placed offline
+  (no payment page ever opened) and left thirty days; paid orders,
+  payment events, accounts and what people wrote are never touched.
+  Without the secret the route answers 503 and sweeps nothing.
 
 The studio writes to buyers and senders on its own, through the same
 mail as the account links: an order placed, paid, delivered or refunded
@@ -111,6 +131,12 @@ What the command checks:
   (from the model with a key, from the rules without).
 - `/ops` and its routes are 404 to a guest; the nightly sweep refuses a
   call without its token.
+- The money paths refuse what they should: an order that cannot be
+  read, an order asked for without its key, a shared room that is not
+  there, a webhook call without its signature.
+- Every request's failures are one JSON line each in the host's log
+  (`event`, the order or event id, the status), so a search for an
+  order number finds its story.
 
 What to try by hand after the first deploy:
 

@@ -1,5 +1,6 @@
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { sql } from "drizzle-orm";
 import { drizzle as neonDrizzle } from "drizzle-orm/neon-http";
 import { migrate as migrateNeon } from "drizzle-orm/neon-http/migrator";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
@@ -18,19 +19,46 @@ import * as schema from "./schema";
  * development server evaluates a route's modules in more than one
  * process, and PGlite's files belong to one. The migrations under
  * drizzle/ run with that first use; `ready` resolves once they have.
- * One instance is kept across hot reloads; a Neon one whose migration
- * failed is let go, so the next request tries again rather than stay
- * broken until a restart.
+ * A Neon run first counts the migrations already in, and migrates only
+ * when the journal holds more, so the cold starts of a fleet do not
+ * all migrate at once (the build step runs `pnpm migrate` ahead of
+ * them; docs/DEPLOY.md). One instance is kept across hot reloads; a
+ * Neon one whose migration failed is let go, so the next request tries
+ * again rather than stay broken until a restart.
  */
 type Db = PgDatabase<PgQueryResultHKT, typeof schema>;
 
 const MIGRATIONS = path.join(process.cwd(), "drizzle");
 
+/** how many migrations the database has taken; the two drivers answer
+    in two shapes (rows on a field, or rows); throws before the first */
+export const migrationCount = async (db: Db) => {
+  const res: unknown = await db.execute(
+    sql`select count(*)::int as n from drizzle.__drizzle_migrations`,
+  );
+  const rows = (
+    Array.isArray(res) ? res : ((res as { rows?: unknown[] }).rows ?? [])
+  ) as { n?: number | string }[];
+  return Number(rows[0]?.n ?? 0);
+};
+
+/** how many migrations the journal under drizzle/ holds */
+const journalCount = () =>
+  (
+    JSON.parse(
+      readFileSync(path.join(MIGRATIONS, "meta/_journal.json"), "utf8"),
+    ) as { entries: unknown[] }
+  ).entries.length;
+
 const open = (): { db: Db; ready: Promise<void> } => {
   const url = str("DATABASE_URL");
   if (url) {
     const db = neonDrizzle({ connection: url, schema, casing: "snake_case" });
-    const ready = migrateNeon(db, { migrationsFolder: MIGRATIONS });
+    const ready = (async () => {
+      const have = await migrationCount(db).catch(() => -1);
+      if (have === journalCount()) return;
+      await migrateNeon(db, { migrationsFolder: MIGRATIONS });
+    })();
     // a failed migration is reported by the route that awaits it, not
     // as an unhandled rejection; and the instance is let go
     ready.catch(() => {

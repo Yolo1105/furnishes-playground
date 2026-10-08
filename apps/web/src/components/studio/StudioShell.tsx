@@ -18,7 +18,7 @@ import { other, useStudio } from "./studio-store";
 import { toast, useAccountSync } from "./account-sync";
 import { useGenerationsSync } from "./generation-store";
 import { useBoardSync } from "./board-store";
-import { refreshOrder, STATUS_NAMES, useOrdersSync } from "./order-store";
+import { useOrdersSync } from "./order-store";
 import { useProjectSync } from "./project-store";
 import { productOf } from "./catalogue";
 import { useRoom } from "./room-store";
@@ -86,23 +86,20 @@ export function StudioShell({
     router.replace(pathname);
   }, [piece, router, pathname]);
   useOrdersSync();
-  // back from the payment page (?checkout=success|cancelled&order=&key=):
-  // the order's state is asked of the server and said
-  const back = params.get("checkout");
-  const backOrder = params.get("order");
-  const backKey = params.get("key");
+  // back from the link that confirms an email (?verified=1), or from
+  // one that lapsed (?error=, as the auth library sends it): a word at
+  // the foot of the studio, and the address is plain again
+  const verified = params.get("verified");
+  const authError = params.get("error");
   useEffect(() => {
-    if (!back || !backOrder || !backKey) return;
-    void refreshOrder(backOrder, backKey).then((status) => {
-      if (status)
-        toast(
-          status === "paid"
-            ? `Order ${backOrder} is paid. Thank you.`
-            : `Order ${backOrder} is ${STATUS_NAMES[status].toLowerCase()}.`,
-        );
-    });
+    if (!verified && !authError) return;
+    toast(
+      verified
+        ? "Your email is confirmed."
+        : "That link has lapsed. Ask for a new one from the gear's Account.",
+    );
     router.replace(pathname);
-  }, [back, backOrder, backKey, router, pathname]);
+  }, [verified, authError, router, pathname]);
   useGenerationsSync();
   useBoardSync();
   const { data: session } = useSession();

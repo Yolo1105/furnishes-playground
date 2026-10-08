@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { getDb } from "./db";
 import { rateLimit } from "./db/schema";
-import { IS_PRODUCTION } from "./env";
+import { IS_PRODUCTION, str } from "./env";
 
 /**
  * A bounded number of goes per caller in a window, counted in the
@@ -9,7 +9,8 @@ import { IS_PRODUCTION } from "./env";
  * proxy says it is, and one name for everyone where there is no proxy.
  * The bound is for the deployed site: a development server, where
  * everyone is "local" and the test suites come round and round, counts
- * nothing. The window is fixed, not sliding: it starts with the first
+ * nothing unless RATE_LIMITS=on asks it to (the unit test does). The
+ * window is fixed, not sliding: it starts with the first
  * go and the count starts again once it has passed. One statement
  * does the counting, so two goes at once cannot both slip under.
  */
@@ -18,7 +19,7 @@ export const DAY = 24 * HOUR;
 
 /** one more go for the key, if its window has room */
 export async function allow(key: string, max: number, windowMs = HOUR) {
-  if (!IS_PRODUCTION) return true;
+  if (!IS_PRODUCTION && str("RATE_LIMITS") !== "on") return true;
   const { db, ready } = getDb();
   await ready;
   const now = Date.now();

@@ -59,7 +59,7 @@ export function useAccountForm(onDone?: () => void) {
             name: name.trim(),
             email,
             password,
-            callbackURL: "/rounded",
+            callbackURL: "/rounded?verified=1",
           })
         : await authClient.signIn.email({ email, password });
     setBusy(false);

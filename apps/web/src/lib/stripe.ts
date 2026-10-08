@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { str } from "./env";
+import { log, reasonOf } from "./log";
 import { CURRENCY } from "./money";
 
 /**
@@ -54,49 +55,77 @@ export const sessionBody = (input: SessionInput) => {
 
 type Session = { id: string; url: string };
 
-/** a hosted Checkout Session for an order; the order's id is the
-    idempotency key, so the same order asked twice is one session */
-export async function createSession(
-  input: SessionInput,
-): Promise<Session | null> {
+/** a call to Stripe: its answer as JSON, or null with the failure in
+    the log (the status and the first words of the body, never a key) */
+const call = async <T>(
+  what: string,
+  path: string,
+  init: RequestInit,
+): Promise<T | null> => {
   const key = stripeKey();
   if (!key) return null;
   try {
-    const res = await fetch(`${API}/checkout/sessions`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Idempotency-Key": `order-${input.orderId}`,
-      },
-      body: sessionBody(input),
+    const res = await fetch(`${API}${path}`, {
+      ...init,
+      headers: { Authorization: `Bearer ${key}`, ...init.headers },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
     });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { id?: string; url?: string };
-    return data.id && data.url ? { id: data.id, url: data.url } : null;
-  } catch {
+    if (!res.ok) {
+      const body = (await res.text().catch(() => "")).slice(0, 200);
+      log.error(`stripe.${what}.failed`, { status: res.status, body });
+      return null;
+    }
+    return (await res.json()) as T;
+  } catch (error) {
+    log.error(`stripe.${what}.failed`, { reason: reasonOf(error) });
     return null;
   }
+};
+/** the most a call to Stripe waits, ms */
+const TIMEOUT_MS = 15_000;
+
+/** a hosted Checkout Session for an order; the order's id is the
+    idempotency key, so the same order asked twice is one session, and
+    `attempt` names a fresh one once the first has lapsed */
+export async function createSession(
+  input: SessionInput,
+  attempt = "",
+): Promise<Session | null> {
+  const data = await call<{ id?: string; url?: string }>(
+    "session",
+    "/checkout/sessions",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Idempotency-Key": `order-${input.orderId}${attempt ? `-${attempt}` : ""}`,
+      },
+      body: sessionBody(input),
+    },
+  );
+  return data?.id && data.url ? { id: data.id, url: data.url } : null;
+}
+
+/** a session closed for good, so a cancelled order cannot be paid on
+    its page after all; true when Stripe took it */
+export async function expireSession(id: string): Promise<boolean> {
+  const data = await call<{ status?: string }>(
+    "expire",
+    `/checkout/sessions/${encodeURIComponent(id)}/expire`,
+    { method: "POST" },
+  );
+  return data?.status === "expired";
 }
 
 /** the hosted page of a session still open, to send the shopper back
     to; nothing once it has lapsed or been paid */
 export async function sessionUrl(id: string): Promise<string | null> {
-  const key = stripeKey();
-  if (!key) return null;
-  try {
-    const res = await fetch(
-      `${API}/checkout/sessions/${encodeURIComponent(id)}`,
-      {
-        headers: { Authorization: `Bearer ${key}` },
-      },
-    );
-    if (!res.ok) return null;
-    const data = (await res.json()) as { status?: string; url?: string };
-    return data.status === "open" && data.url ? data.url : null;
-  } catch {
-    return null;
-  }
+  const data = await call<{ status?: string; url?: string }>(
+    "read",
+    `/checkout/sessions/${encodeURIComponent(id)}`,
+    {},
+  );
+  return data?.status === "open" && data.url ? data.url : null;
 }
 
 export type Rejection =
@@ -153,6 +182,9 @@ export type Event = {
   /** the reference the order is matched on: the session's id for a
       session event, the intent's for an intent or charge event */
   ref: string;
+  /** the order's own number, as the session and its intent carry it
+      (client_reference_id, metadata.order_id): the surest match */
+  orderId: string | null;
   intentRef: string | null;
   /** Stripe's own paid or unpaid for a session */
   paymentStatus: string | null;
@@ -174,6 +206,8 @@ export function parseEvent(rawBody: string): Event | null {
         id?: unknown;
         payment_intent?: unknown;
         payment_status?: unknown;
+        client_reference_id?: unknown;
+        metadata?: { order_id?: unknown };
       };
     };
   };
@@ -189,10 +223,17 @@ export function parseEvent(rawBody: string): Event | null {
       ? objectId
       : (intent ?? objectId);
   if (!id || !kind || !ref) return null;
+  const orderId =
+    typeof o?.client_reference_id === "string"
+      ? o.client_reference_id
+      : typeof o?.metadata?.order_id === "string"
+        ? o.metadata.order_id
+        : null;
   return {
     id,
     kind,
     ref,
+    orderId,
     intentRef: session ? intent : null,
     paymentStatus:
       session && typeof o?.payment_status === "string"

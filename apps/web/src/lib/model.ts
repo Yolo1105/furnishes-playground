@@ -28,7 +28,9 @@ export async function admit(
   max: number,
   windowMs?: number,
 ): Promise<{ caller: string } | { refused: NextResponse }> {
-  const caller = callerOf(req);
+  // a signed-in caller is counted as themselves, not as whoever shares
+  // their address; a guest as their address
+  const caller = (await userIdOf(req)) ?? callerOf(req);
   if (!(await allow(`${scope}:${caller}`, max, windowMs)))
     return { refused: fallback("rate-limit", 429) };
   if (await overCap(caller)) return { refused: fallback("cost-cap", 429) };

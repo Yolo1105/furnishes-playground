@@ -86,7 +86,7 @@ export function ProfileDialog({
   const resend = async () => {
     const r = await authClient.sendVerificationEmail({
       email,
-      callbackURL: "/rounded",
+      callbackURL: "/rounded?verified=1",
     });
     setNote(
       r.error

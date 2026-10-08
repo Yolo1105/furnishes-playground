@@ -115,14 +115,14 @@ export const PRIVACY: Section[] = [
     head: "With an account",
     body: [
       "An account holds your name, your email address, a hash of your password (never the password itself), whether the email is confirmed, and the sessions you have open, each with the browser it was opened from. Signed in, the studio mirrors your projects, orders, room items, board and what the guide has shown you to the account, so they are there on every device you sign in on. The browser stays the truth; the account is its mirror.",
-      "You can change your name and your password, sign the other devices out, download everything the account holds, and end the account from the studio's gear, under Account. Ending it deletes everything the account holds, including any rooms you shared by link. What is in your browser stays there.",
+      "You can change your name and your password, sign the other devices out, download everything the account holds, and end the account from the studio's gear, under Account. Ending it deletes the account, its mirror and any rooms you shared by link, and takes your address off anything you wrote to the studio; an order you placed stays in the shop's ledger with its delivery details, as a sale must. What is in your browser stays there.",
     ],
   },
   {
     id: "mail",
     head: "Mail from the studio",
     body: [
-      "The studio writes to you three ways only: a link to confirm a new account's email, a link to set a new password when you ask for one, and one note when ordering opens, if you left your email for it. Nothing else, and never a newsletter.",
+      "The studio writes to you about your account (a link to confirm a new account's email, a link to set a new password when you ask for one), about an order you placed (placed, paid, delivered, refunded, each once), to say it has a word you wrote to it, and once when ordering opens, if you left your email for it. Nothing else, and never a newsletter.",
     ],
   },
   {

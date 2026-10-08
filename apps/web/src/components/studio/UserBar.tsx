@@ -46,8 +46,13 @@ type Sheet =
 export function UserBar() {
   const { data: session } = useSession();
   const note = useSyncState((s) => s.note);
+  const failed = useSyncState((s) => s.state === "failed");
   const name = session?.user.name ?? "Guest";
-  const line = note ?? session?.user.email ?? "Not signed in";
+  const line =
+    note ??
+    (failed && session
+      ? "Not saved to your account: the last save did not go through"
+      : (session?.user.email ?? "Not signed in"));
   const [open, setOpen] = useState(false);
   const [sheet, setSheet] = useState<Sheet>(null);
   const wrap = useRef<HTMLDivElement>(null);

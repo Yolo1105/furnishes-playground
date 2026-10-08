@@ -14,6 +14,7 @@ import { CheckoutDialog } from "./CheckoutDialog";
 import { ShareDialog } from "./ShareDialog";
 import { shareable, useProjects } from "./project-store";
 import { useSession } from "@/lib/auth-client";
+import { toast } from "./account-sync";
 import { Floating } from "./Floating";
 import { ProgressLine } from "./ProgressLine";
 import { pieceTotals, sgd, type AssetNode } from "./assets-data";
@@ -134,7 +135,17 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ name: name ?? "A room", data: shareable() }),
     });
-    if (!r.ok) return setSharing(null);
+    if (!r.ok) {
+      setSharing(null);
+      toast(
+        r.status === 413
+          ? "The room is too big to share as it is."
+          : r.status === 401
+            ? "Sign in again to share the room."
+            : "The room could not be shared just now.",
+      );
+      return;
+    }
     const { id } = (await r.json()) as { id: string };
     setSharing(`${location.origin}/s/${id}`);
   };

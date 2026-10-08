@@ -5,7 +5,8 @@ import { STATUS_NAMES, useOrders } from "./order-store";
 
 /** Every order placed from the studio, newest first, with its state; an
     order awaiting payment can be paid, while its page is open, or
-    cancelled. */
+    cancelled; one the server knows has its own page, the one its
+    mails link to. */
 export function OrderList() {
   const orders = useOrders((s) => s.orders);
   const { cancel } = useOrders.getState();
@@ -38,6 +39,16 @@ export function OrderList() {
           <p className="order-to">
             To {o.address.recipient}, {o.address.line1}, Singapore{" "}
             {o.address.postal}
+            {o.key && (
+              <>
+                {" · "}
+                <a
+                  href={`/orders/${encodeURIComponent(o.id)}?key=${encodeURIComponent(o.key)}`}
+                >
+                  Its page
+                </a>
+              </>
+            )}
           </p>
           {o.status === "pending_payment" && (
             <div className="shell-dialog-acts order-acts">

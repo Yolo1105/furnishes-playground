@@ -6,21 +6,25 @@ import { getDb } from "@/lib/db";
 import { share } from "@/lib/db/schema";
 import { randomId } from "@/lib/id";
 import { LIMITS } from "@/lib/limits";
-import { BAD_REQUEST } from "@/lib/schemas";
+import { allow } from "@/lib/rate-limit";
+import { BAD_REQUEST, readJson, SnapshotSchema } from "@/lib/schemas";
 
 /**
  * Shared rooms: a copy of a project (its room and pieces, never Eva's
  * side) kept under a short id, for anyone with the link to look at.
- * POST makes one for the signed-in person; GET lists theirs. The copy
- * itself is read at api/share/[id] by anyone.
+ * POST makes one for the signed-in person (so many an hour), checking
+ * it is a room (lib/schemas SnapshotSchema) and not too heavy; GET
+ * lists theirs. The copy itself is read at api/share/[id] by anyone.
  */
 export const runtime = "nodejs";
 
 /** bytes of JSON a shared room may hold */
 const LIMIT = LIMITS.documentBytes;
+/** rooms an account may share in an hour */
+const SHARES_PER_HOUR = 30;
 const Body = z.object({
   name: z.string().trim().min(1).max(80),
-  data: z.unknown(),
+  data: SnapshotSchema,
 });
 
 export async function GET(req: Request) {
@@ -37,10 +41,12 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const userId = await userIdOf(req);
   if (!userId) return NextResponse.json({ error: "sign in" }, { status: 401 });
-  const parsed = Body.safeParse(await req.json().catch(() => null));
+  if (!(await allow(`share:${userId}`, SHARES_PER_HOUR)))
+    return NextResponse.json({ error: "rate-limit" }, { status: 429 });
+  const body = await readJson(req, LIMIT);
+  if (body.error) return body.error;
+  const parsed = Body.safeParse(body.value);
   if (!parsed.success) return NextResponse.json(BAD_REQUEST, { status: 400 });
-  if (JSON.stringify(parsed.data.data).length > LIMIT)
-    return NextResponse.json({ error: "too large" }, { status: 413 });
   // short, as the tail of a link
   const id = randomId(6);
   await getDb().db.insert(share).values({

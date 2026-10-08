@@ -182,7 +182,8 @@ export const helpRequest = pgTable(
   {
     id: text().primaryKey(),
     userId: text().references(() => user.id, { onDelete: "set null" }),
-    email: text().notNull(),
+    /** where the answer goes; let go when the account ends */
+    email: text(),
     /** problem, idea or question */
     category: text().notNull(),
     message: text().notNull(),
@@ -201,6 +202,20 @@ export const waitlist = pgTable("waitlist", {
   /** when the one note was sent, from ops; never twice */
   notifiedAt: bigint({ mode: "number" }),
 });
+
+/** Better Auth's own count of sign-ins, sign-ups and reset mails a
+    caller asks for, kept here so a fleet of servers counts as one
+    (lib/auth sets `rateLimit.storage: "database"` on this model) */
+export const authRateLimit = pgTable(
+  "auth_rate_limit",
+  {
+    id: text().primaryKey(),
+    key: text().notNull(),
+    count: integer().notNull(),
+    lastRequest: bigint({ mode: "number" }).notNull(),
+  },
+  (t) => [index("auth_rate_limit_key_idx").on(t.key)],
+);
 
 /** a caller's goes in a fixed window, by what they are doing */
 export const rateLimit = pgTable("rate_limit", {

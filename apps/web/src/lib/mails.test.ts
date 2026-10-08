@@ -15,6 +15,7 @@ const kept = () =>
   }[];
 const order = {
   id: "FN-TEST1",
+  key: "k1",
   email: "mei@example.com",
   lines: [{ name: "Bookwall", sgd: 1540 }],
   total: 1540,

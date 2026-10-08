@@ -8,30 +8,37 @@ import { importProject, showSnapshot, type Snapshot } from "./project-store";
 import Scene3D from "./Scene3D";
 import { propsOf, useScene, useTopLevel } from "./scene-store";
 import { useStudio } from "./studio-store";
+import { SITE } from "@/lib/site";
 
 /**
  * A shared room, read-only: its name, the 3D room to look round (a
  * click picks a piece, nothing moves), the pieces with their prices,
  * and two ways on: into a studio of one's own as a new project, or to
- * the studio's front door. A link that was taken down says so.
+ * the studio's front door. A link that was taken down says so; a room
+ * that could not be read is told apart from one that is gone.
  */
 type Shared = { name: string; data: Snapshot; at: number };
 
 export function SharePage({ id }: { id: string }) {
   const router = useRouter();
-  const [shared, setShared] = useState<Shared | null | "gone">(null);
+  const [shared, setShared] = useState<Shared | null | "gone" | "failed">(null);
   useEffect(() => {
     useStudio.setState({ readOnly: true, tool: "inspect", view: "3d" });
     let live = true;
     fetch(`/api/share/${encodeURIComponent(id)}`)
       .then(async (r) => {
         if (!live) return;
-        if (!r.ok) return setShared("gone");
+        if (r.status === 404) return setShared("gone");
+        if (!r.ok) return setShared("failed");
         const s = (await r.json()) as Shared;
-        showSnapshot(s.data);
+        try {
+          showSnapshot(s.data);
+        } catch {
+          return setShared("failed");
+        }
         setShared(s);
       })
-      .catch(() => live && setShared("gone"));
+      .catch(() => live && setShared("failed"));
     return () => {
       live = false;
       useStudio.setState({ readOnly: false });
@@ -39,7 +46,8 @@ export function SharePage({ id }: { id: string }) {
   }, [id]);
   const items = useTopLevel();
   const overrides = useScene((s) => s.overrides);
-  const room = shared && shared !== "gone" ? shared : null;
+  const room =
+    shared && shared !== "gone" && shared !== "failed" ? shared : null;
   const pieces = room
     ? items
         .filter((n) => n.kind === "piece" && !propsOf(n, overrides).hidden)
@@ -47,16 +55,22 @@ export function SharePage({ id }: { id: string }) {
     : [];
   const total = pieces.reduce((t, p) => t + (p.price ?? 0), 0);
 
-  if (shared === "gone")
+  if (shared === "gone" || shared === "failed")
     return (
       <main className="share-page">
         <section className="glass account-card">
-          <h1 className="shell-dialog-title">This room is no longer shared</h1>
+          <h1 className="shell-dialog-title">
+            {shared === "gone"
+              ? "This room is no longer shared"
+              : "This room could not be opened"}
+          </h1>
           <p className="account-text">
-            Whoever shared it has taken the link down.
+            {shared === "gone"
+              ? "Whoever shared it has taken the link down."
+              : "Something in it could not be read; try again in a moment."}
           </p>
           <div className="shell-dialog-acts">
-            <Link href="/rounded" className="main-btn main-btn-primary">
+            <Link href={SITE.studio} className="main-btn main-btn-primary">
               Open the studio
             </Link>
           </div>
@@ -68,12 +82,10 @@ export function SharePage({ id }: { id: string }) {
       <header className="account-head">
         <div>
           <h1 className="shell-dialog-title">{room?.name ?? "A room"}</h1>
-          <p className="account-text">
-            A room shared from the Furnishes studio.
-          </p>
+          <p className="account-text">A room shared from {SITE.name}.</p>
         </div>
         <div className="shell-dialog-acts share-acts">
-          <Link href="/rounded" className="main-btn">
+          <Link href={SITE.studio} className="main-btn">
             Make your own
           </Link>
           <button
@@ -83,7 +95,7 @@ export function SharePage({ id }: { id: string }) {
             onClick={() => {
               if (!room) return;
               const pid = importProject(room.name, room.data);
-              router.push(`/rounded?project=${encodeURIComponent(pid)}`);
+              router.push(`${SITE.studio}?project=${encodeURIComponent(pid)}`);
             }}
           >
             Open in my studio

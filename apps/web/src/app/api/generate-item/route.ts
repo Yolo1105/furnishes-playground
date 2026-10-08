@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { LIMITS } from "@/lib/limits";
 import { admit, countItem, falKey, fallback } from "@/lib/model";
+import { readJson } from "@/lib/schemas";
 
 /**
  * A room item from a few words, the way the archive made them: Flux
@@ -32,7 +33,9 @@ const meshUrl = (out: Record<string, unknown>) => {
 };
 
 export async function POST(req: Request) {
-  const parsed = Body.safeParse(await req.json().catch(() => null));
+  const body = await readJson(req);
+  if (body.error) return body.error;
+  const parsed = Body.safeParse(body.value);
   if (!parsed.success) return fallback("bad-request", 400);
   const key = falKey();
   if (!key) return fallback("no-key", 503);

@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import { productOf } from "@/components/studio/catalogue";
 import { z } from "zod";
 
@@ -10,9 +11,22 @@ import { z } from "zod";
 export type LineIn = { productId: string; name: string; price: number };
 export type Priced = { productId: string; name: string; sgd: number };
 
-/** an order number as the studio gives it (order-store): FN- and five
-    characters of the time in base 36; the tests use shorter ones */
+/** an order number: FN- and three to ten capitals or digits */
 export const OrderId = z.string().regex(/^FN-[A-Z0-9]{3,10}$/);
+
+const DIGITS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+/** a new order number from the server: FN-, the day's minute in base
+    36 (so numbers read in order) and three random characters, none
+    easily mistaken for another; a clash is retried by the route */
+export const orderNumber = (now = Date.now()) => {
+  const minute = Math.floor(now / 60_000)
+    .toString(36)
+    .toUpperCase()
+    .slice(-4);
+  let tail = "";
+  for (let i = 0; i < 3; i++) tail += DIGITS[randomInt(DIGITS.length)];
+  return `FN-${minute}${tail}`;
+};
 
 /** the lines priced from the catalogue, or the piece that is not in it */
 export function priceLines(

@@ -9,6 +9,7 @@ import type { AssetCategory } from "./assets-data";
  * each stands (awaiting payment, paid, delivered, cancelled, refunded, as
  * the shop's own ledger has them). Placing an order takes the cart's
  * pieces and keeps the order on the server too (api/checkout), which
+ * gives it its number (the browser's own is a handle until then) and
  * hands back the shopper's key on it and, with Stripe connected, the
  * payment page; an order waits at "awaiting payment" until the webhook
  * says it is paid, and can be cancelled meanwhile. Kept in the browser
@@ -52,10 +53,12 @@ type OrderState = {
   setStatus: (id: string, status: OrderStatus) => void;
   /** what the server handed back on placing: the key, the payment page */
   setPayment: (id: string, p: { key?: string; payUrl?: string }) => void;
+  /** the number the server gave the order, in place of the browser's */
+  assign: (id: string, serverId: string) => void;
 };
 
-/** an order number: FN- and the time in base 36, upper case (the
-    route checks the shape as lib/orders OrderId) */
+/** the browser's own handle on an order until the server numbers it:
+    the same shape, so an order placed offline reads as one */
 const nextId = () => `FN-${Date.now().toString(36).slice(-5).toUpperCase()}`;
 
 export const useOrders = create<OrderState>((set) => ({
@@ -101,6 +104,10 @@ export const useOrders = create<OrderState>((set) => ({
   setPayment: (id, p) =>
     set((s) => ({
       orders: s.orders.map((o) => (o.id === id ? { ...o, ...p } : o)),
+    })),
+  assign: (id, serverId) =>
+    set((s) => ({
+      orders: s.orders.map((o) => (o.id === id ? { ...o, id: serverId } : o)),
     })),
 }));
 

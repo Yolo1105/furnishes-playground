@@ -1,10 +1,11 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
+import { eq, like, or } from "drizzle-orm";
 import { getDb } from "./db";
 import * as schema from "./db/schema";
 import { PASSWORD_MIN } from "./account-rules";
-import { str } from "./env";
+import { IS_PRODUCTION, str } from "./env";
 import { sendMail } from "./mail";
 import { SITE, trustedOrigins } from "./site";
 
@@ -16,7 +17,12 @@ import { SITE, trustedOrigins } from "./site";
  * at once on every device. A new account is sent a link to confirm its
  * email (signing in does not wait on it); a forgotten password is reset
  * by a link; a password can be changed, and the other devices signed
- * out. An account can be deleted by its owner. The secret comes from
+ * out. An account can be deleted by its owner, after a confirmation in
+ * the dialog and however long ago they signed in; the links sent to
+ * its email and the address on what it wrote to the studio go with
+ * it, the orders stay as the shop's record. Sign-ins, sign-ups and
+ * reset mails are counted in the database (auth_rate_limit), so a
+ * fleet of servers holds one line against a flood. The secret comes from
  * BETTER_AUTH_SECRET (a development run falls back to the library's own
  * and says so); BETTER_AUTH_URL names the site in production, and a
  * sign-in is trusted from the site's own addresses and Vercel's
@@ -62,7 +68,32 @@ const make = () =>
     },
     socialProviders: google(),
     trustedOrigins: trustedOrigins(),
-    user: { deleteUser: { enabled: true } },
+    rateLimit: {
+      enabled: IS_PRODUCTION,
+      storage: "database",
+      modelName: "authRateLimit",
+    },
+    session: { freshAge: 0 },
+    user: {
+      deleteUser: {
+        enabled: true,
+        beforeDelete: async (u) => {
+          const { db } = getDb();
+          await db
+            .delete(schema.verification)
+            .where(
+              or(
+                eq(schema.verification.identifier, u.email),
+                like(schema.verification.identifier, `%${u.email}`),
+              ),
+            );
+          await db
+            .update(schema.helpRequest)
+            .set({ email: null })
+            .where(eq(schema.helpRequest.userId, u.id));
+        },
+      },
+    },
     plugins: [nextCookies()],
   });
 

@@ -2324,6 +2324,17 @@ test("an order is placed with a delivery address, waits for payment, is listed a
     `/api/orders/${kept.id}?key=${encodeURIComponent(kept.key!)}`,
   );
   expect((await mine.json()).status).toBe("pending_payment");
+  // the order's own page, by its key: where it stands and its pieces
+  const own = await page.context().newPage();
+  await own.goto(`/orders/${kept.id}?key=${encodeURIComponent(kept.key!)}`);
+  await expect(own.locator(".home-title")).toHaveText(kept.id);
+  await expect(own.locator(".home-sub")).toContainText("Awaiting payment");
+  await expect(own.getByRole("region", { name: "The order" })).toContainText(
+    first.name,
+  );
+  await own.goto(`/orders/${kept.id}?key=wrong`);
+  await expect(own.locator(".home-title")).toHaveText("Not here");
+  await own.close();
   // and wrote to the buyer that it is placed (kept on this server)
   await expect
     .poll(
@@ -2369,10 +2380,16 @@ test("an order is placed with a delivery address, waits for payment, is listed a
     currency: "SGD",
   };
   const res = await page.request.post("/api/checkout", { data: offline });
-  expect((await res.json()).mode).toBe("offline");
-  // the same number again, from someone who cannot show it is theirs,
-  // is simply taken: nobody learns another's key from here
-  const again = await page.request.post("/api/checkout", { data: offline });
+  const placed = (await res.json()) as { mode: string; id: string };
+  expect(placed.mode).toBe("offline");
+  // the number is the server's, not the one sent; that number again,
+  // from someone who cannot show it is theirs, is simply taken: nobody
+  // learns another's key from here
+  expect(placed.id).not.toBe(fresh);
+  expect(placed.id).toMatch(/^FN-[A-Z0-9]+$/);
+  const again = await page.request.post("/api/checkout", {
+    data: { ...offline, orderId: placed.id },
+  });
   expect(again.status()).toBe(409);
   expect((await again.json()).mode).toBe("taken");
   expect(JSON.stringify(await again.json())).not.toContain('"key"');
@@ -3821,9 +3838,14 @@ test("the studio's operations: not here for anyone else; an order moved on with 
     headers: { authorization: "Bearer dev-cron-secret" },
   });
   expect(swept.status()).toBe(200);
-  expect((await swept.json()).removed).toEqual({
-    rateLimits: expect.any(Number),
-    costs: expect.any(Number),
+  expect(await swept.json()).toMatchObject({
+    removed: {
+      rateLimits: expect.any(Number),
+      costs: expect.any(Number),
+      sessions: expect.any(Number),
+      links: expect.any(Number),
+    },
+    cancelled: expect.any(Number),
   });
   // the admin's account (ADMIN_EMAILS in .env.development), made once
   const admin = "ops@example.com";
@@ -3839,11 +3861,9 @@ test("the studio's operations: not here for anyone else; an order moved on with 
   const mails = (to: string, subject: RegExp) => keptMail(page, to, subject);
   // an order under the account, offline: the placed mail goes to it
   const stamp = Date.now().toString(36).toUpperCase();
-  const orderId = `FN-${stamp.slice(-6)}`;
   const first = top.find((a) => a.kind === "piece" && a.productId)!;
   const placed = await page.request.post("/api/checkout", {
     data: {
-      orderId,
       lines: [
         { productId: first.productId, name: first.name, price: first.price },
       ],
@@ -3852,7 +3872,11 @@ test("the studio's operations: not here for anyone else; an order moved on with 
       currency: "SGD",
     },
   });
-  expect((await placed.json()).mode).toBe("offline");
+  const placedOrder = (await placed.json()) as { mode: string; id: string };
+  expect(placedOrder.mode).toBe("offline");
+  // the number is the server's
+  const orderId = placedOrder.id;
+  expect(orderId).toMatch(/^FN-/);
   await expect
     .poll(
       async () =>
@@ -4063,6 +4087,9 @@ test("an account: created with an email and a password, signed out, signed in ag
   )![0];
   await page.goto(confirm);
   await expect(page).toHaveURL(/\/rounded/);
+  // the studio says so at its foot, and the address is plain again
+  await expect(page.locator(".user-line")).toContainText("confirmed");
+  await expect(page).not.toHaveURL(/verified/);
   await gear.click();
   await menu.getByRole("menuitem", { name: "Account" }).click();
   const profile = page.getByRole("dialog", { name: "Account" });

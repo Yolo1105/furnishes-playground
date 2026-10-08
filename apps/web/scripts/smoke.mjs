@@ -10,7 +10,10 @@
  * waitlist once (and sees the same address refused the second time),
  * and asks Eva one thing to see which brain answers; sees the
  * operations area kept from a guest and the nightly sweep kept from a
- * caller without the token. Says each check
+ * caller without the token; and that the money paths refuse what they
+ * should: an order that cannot be read, an order nobody holds the key
+ * to, a shared room that is not there, a webhook call unsigned. Says
+ * each check
  * as it passes or fails and exits 1 on any failure, so a workflow can
  * run it. Needs no key: a provider that is off is reported, not failed,
  * except the ones a hosted site cannot do without.
@@ -155,6 +158,37 @@ say(
   [200, 503].includes(chat.status),
   "Eva answers",
   chat.status === 200 ? "from the model" : "from the rules (no key)",
+);
+
+// the money paths refuse what they should
+const badOrder = await get("/api/checkout", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ lines: [] }),
+});
+say(badOrder.status === 400, "checkout refuses an order it cannot read");
+say(
+  (await get("/api/orders/FN-NONE?key=none")).status === 404,
+  "an order is nobody's without its key",
+);
+say(
+  (await get("/api/share/none")).status === 404,
+  "a shared room that is not there says so",
+);
+const hook = (
+  await get("/api/webhooks/stripe", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      id: "evt_smoke",
+      type: "checkout.session.completed",
+    }),
+  })
+).status;
+say(
+  hook === 400 || hook === 503,
+  "the webhook wants its signature",
+  hook === 503 ? "STRIPE_WEBHOOK_SECRET not set" : `${hook}`,
 );
 
 console.log(failed ? `\n${failed} check(s) failed` : "\nall checks passed");

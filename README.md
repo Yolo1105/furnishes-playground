@@ -199,11 +199,15 @@ development server keeps it under `.data/mail.json`, where the tests
 follow its links (`/api/dev/mail`), and a hosted run says it sent
 nothing. The browser stays the truth and the account mirrors
 it: signed in, the projects (and which were deleted), the orders, the
-room items made and the guide's record are pulled once, merged with
+room items made and the guide's record are pulled, merged with
 what is here (a project goes to the newer copy and stays gone where
 either side deleted it later; an order keeps the state that moved on
 from awaiting payment) and pushed back, then every change is pushed a
-moment later; the view and the wheel stay the device's own. The gear's
+moment later, saying the time the mirror was last seen at; a push the
+account has moved past since (another device) comes back with the
+account's copy to merge and push again, and coming back to the tab
+pulls again; the user bar says when a save did not go through. The
+view and the wheel stay the device's own. The gear's
 Account shows the name, editable, the email, when the mirror was last
 taken with Save now, Sign out, the rooms shared by link, and the end of
 the account, which takes the mirror with it and leaves the browser's
@@ -216,8 +220,14 @@ and takes a link down. The database is Neon Postgres when `DATABASE_URL` is set 
 PGlite otherwise, a Postgres inside the server process that keeps its
 files under `apps/web/.data/pglite`, so a checkout runs and tests with
 no account anywhere; the migrations under `apps/web/drizzle` run when
-the server first touches the database, and `pnpm db:generate` (in
-`apps/web`) writes a new one from a change to the schema. A project's snapshot carries the
+the server first touches the database (a hosted build runs `pnpm
+migrate` ahead of it), and `pnpm db:generate` (in `apps/web`) writes
+a new one from a change to the schema. An order is numbered by the
+server, has its own page (`/orders/<number>?key=<key>`, which its
+letters link to and the payment page comes back to), and its payment
+page is closed when it is cancelled; every route reads its body with a
+cap, counts a caller's goes, and says its failures as one JSON line
+each in the log. A project's snapshot carries the
 version of its shape (`SNAPSHOT_VERSION` in the project store); one
 kept by an earlier studio, in the browser, the account's mirror or a
 share link, is brought up to the current shape as it is read, step by

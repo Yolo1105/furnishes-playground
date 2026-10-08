@@ -8,7 +8,7 @@ import { randomId } from "@/lib/id";
 import { LIMITS } from "@/lib/limits";
 import { helpReceivedMail } from "@/lib/mails";
 import { allow, callerOf, DAY } from "@/lib/rate-limit";
-import { BAD_REQUEST, EmailField } from "@/lib/schemas";
+import { BAD_REQUEST, EmailField, readJson } from "@/lib/schemas";
 
 /**
  * A word to the studio: a problem, an idea or a question, from the
@@ -27,7 +27,9 @@ const Body = z.object({
 });
 
 export async function POST(req: Request) {
-  const parsed = Body.safeParse(await req.json().catch(() => null));
+  const body = await readJson(req);
+  if (body.error) return body.error;
+  const parsed = Body.safeParse(body.value);
   if (!parsed.success) return NextResponse.json(BAD_REQUEST, { status: 400 });
   const who = await userOf(req);
   const email = who?.email ?? parsed.data.email;

@@ -18,6 +18,7 @@ import type { Context, Reply } from "@/components/studio/eva-brain";
 import { products } from "@/components/studio/catalogue";
 import { FURNISH } from "@/components/studio/eva-data";
 import { contextText, EVA_RULES } from "@/components/studio/eva-prompt";
+import { readJson } from "@/lib/schemas";
 
 /**
  * Review this room, when a model is connected: the studio's facts go
@@ -53,7 +54,9 @@ const ReviewSchema = z.object({
 const VOICE = `This turn you are reviewing the room as it stands, not chatting: walk through it and note three to five things that would make it work better, the most useful first. Each observation has a short title (eight words or fewer) and one to three sentences grounded in a real piece, size, distance or rule of this room; no platitudes. Where one catalogue piece would settle an observation, give its id as "pick"; where the person could ask you to act on it, give "act" with a label of four words or fewer and the words to send (for example "${FURNISH}" or "Lay the room out by the book"). The text is one line saying how many things you noticed.`;
 
 export async function POST(req: Request) {
-  const parsed = Body.safeParse(await req.json().catch(() => null));
+  const body = await readJson(req);
+  if (body.error) return body.error;
+  const parsed = Body.safeParse(body.value);
   if (!parsed.success) return fallback("bad-request", 400);
   if (!anthropicKey()) return fallback("no-key", 503);
   const door = await admit(req, "review", LIMITS.reviewsPerDay, DAY);

@@ -16,12 +16,20 @@ import { SITE } from "./site";
  * hosted one.
  */
 const has = (name: string) => Boolean(str(name));
+/** the Google button, baked into the pages at build time */
+const googleButton = () => has("NEXT_PUBLIC_AUTH_GOOGLE");
 
 export type Services = {
   /** where this runs: a hosted deployment or a local server */
   host: "vercel" | "local";
   database: "neon" | "pglite";
-  auth: { secret: "set" | "default"; url: string; google: "on" | "off" };
+  auth: {
+    secret: "set" | "default";
+    url: string;
+    /** on with the provider and its button both set, half with one
+        without the other (a button that fails, or a way in unseen) */
+    google: "on" | "half" | "off";
+  };
   mail: "resend" | "kept" | "off";
   model: "on" | "off";
   images: "on" | "off";
@@ -42,7 +50,12 @@ export const services = (): Services => {
     auth: {
       secret: has("BETTER_AUTH_SECRET") ? "set" : "default",
       url: str("BETTER_AUTH_URL") || SITE.url,
-      google: googleOn() ? "on" : "off",
+      google:
+        googleOn() && googleButton()
+          ? "on"
+          : googleOn() || googleButton()
+            ? "half"
+            : "off",
     },
     mail: mailMode(),
     model: has("ANTHROPIC_API_KEY") ? "on" : "off",
@@ -59,13 +72,19 @@ export const services = (): Services => {
 };
 
 /** what a hosted deployment cannot run without, by name: the database,
-    the two auth settings, someone to run operations and the token the
-    nightly sweep is sent */
+    the two auth settings, the mail the account's links and the orders'
+    letters go by (without it a reset or a confirmation is a dead end),
+    someone to run operations, the token the nightly sweep is sent, and
+    Google's two halves agreeing */
 export const missingForHosting = (s: Services = services()) =>
   [
     s.database === "pglite" ? "DATABASE_URL" : null,
     s.auth.secret === "default" ? "BETTER_AUTH_SECRET" : null,
     !has("BETTER_AUTH_URL") ? "BETTER_AUTH_URL" : null,
+    s.mail === "off" ? "RESEND_API_KEY" : null,
     s.ops === "off" ? "ADMIN_EMAILS" : null,
     s.cron === "off" ? "CRON_SECRET" : null,
+    s.auth.google === "half"
+      ? "GOOGLE_CLIENT_ID+GOOGLE_CLIENT_SECRET with NEXT_PUBLIC_AUTH_GOOGLE"
+      : null,
   ].filter((x): x is string => x !== null);

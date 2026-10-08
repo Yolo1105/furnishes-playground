@@ -8,9 +8,13 @@ import { useProjects, type Project } from "./project-store";
 
 /**
  * The browser stays the truth; the account mirrors it. Signed in, what
- * the account holds is pulled once and merged with what is here, the
+ * the account holds is pulled and merged with what is here, the
  * merged whole is pushed back, and every change after that is pushed a
- * moment later. The merge is by id: a project goes to the newer copy
+ * moment later, saying the time the mirror was last seen at; when
+ * another device has pushed since, the account's copy comes back
+ * instead, is merged the same way, and the merged whole goes up, so
+ * two devices never write over each other. Coming back to the tab
+ * pulls again. The merge is by id: a project goes to the newer copy
  * and stays gone where either side deleted it later than it changed;
  * an order keeps the state that moved on from "awaiting payment"; a
  * generation stays gone where either side removed it, and is otherwise
@@ -138,24 +142,11 @@ const collect = (): SyncBody => {
   };
 };
 
-const push = async (body: SyncBody) => {
-  useSyncState.setState({ state: "syncing" });
-  const r = await fetch("/api/sync", {
-    method: "PUT",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!r.ok) throw new Error(`sync ${r.status}`);
-  const { at } = (await r.json()) as { at: number };
-  useSyncState.setState({ state: "synced", at });
-};
+/** the time the mirror was last seen at, said with every push */
+let seen: number | null = null;
 
-/** the account's copy, merged into the stores; false when not signed in */
-const pull = async () => {
-  const r = await fetch("/api/sync");
-  if (r.status === 401) return false;
-  if (!r.ok) throw new Error(`sync ${r.status}`);
-  const { data } = (await r.json()) as { data: Partial<SyncBody> };
+/** the account's copy taken into the stores, merged with what is here */
+const takeIn = (data: Partial<SyncBody>) => {
   const mine = collect();
   if (
     data.projects &&
@@ -171,6 +162,42 @@ const pull = async () => {
   if (data.guides)
     useGuide.getState().adoptDismissed(mergeGuides(mine.guides, data.guides));
   if (data.board) useBoard.getState().adopt(mergeBoard(mine.board, data.board));
+};
+
+type Mirror = { data: Partial<SyncBody>; at: number | null };
+
+const put = (body: SyncBody) =>
+  fetch("/api/sync", {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ ...body, ifAt: seen }),
+  });
+
+/** the browser's copy up to the account; the account's copy taken in
+    and the merge pushed when another device moved on since */
+const push = async (body: SyncBody) => {
+  useSyncState.setState({ state: "syncing" });
+  let r = await put(body);
+  if (r.status === 409) {
+    const theirs = (await r.json()) as Mirror;
+    seen = theirs.at;
+    takeIn(theirs.data);
+    r = await put(collect());
+  }
+  if (!r.ok) throw new Error(`sync ${r.status}`);
+  const { at } = (await r.json()) as { at: number };
+  seen = at;
+  useSyncState.setState({ state: "synced", at });
+};
+
+/** the account's copy, merged into the stores; false when not signed in */
+const pull = async () => {
+  const r = await fetch("/api/sync");
+  if (r.status === 401) return false;
+  if (!r.ok) throw new Error(`sync ${r.status}`);
+  const theirs = (await r.json()) as Mirror;
+  seen = theirs.at;
+  takeIn(theirs.data);
   return true;
 };
 
@@ -187,7 +214,10 @@ export const syncNow = async () => {
 export function useAccountSync(userId: string | null) {
   useEffect(() => {
     if (!userId) {
-      useSyncState.setState({ state: "idle", at: null, note: null });
+      // a note already said (the confirmation's word, say) stays its
+      // moment: the session is not known yet on the first render
+      seen = null;
+      useSyncState.setState({ state: "idle", at: null });
       return;
     }
     let stopped = false;
@@ -199,6 +229,14 @@ export function useAccountSync(userId: string | null) {
         push(collect()).catch(() => useSyncState.setState({ state: "failed" }));
       }, PUSH_AFTER);
     };
+    // back to the tab: what another device pushed meanwhile comes in
+    const onShown = () => {
+      if (document.visibilityState === "visible") void syncNow();
+    };
+    document.addEventListener("visibilitychange", onShown);
+    unsubs.push(() =>
+      document.removeEventListener("visibilitychange", onShown),
+    );
     void syncNow().then(() => {
       if (stopped) return;
       unsubs.push(

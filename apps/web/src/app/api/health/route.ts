@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { sql } from "drizzle-orm";
-import { getDb } from "@/lib/db";
+import { getDb, migrationCount } from "@/lib/db";
 import { LIMITS } from "@/lib/limits";
 import { missingForHosting, services } from "@/lib/services";
 
@@ -20,18 +19,11 @@ export async function GET() {
   try {
     const { db, ready } = getDb();
     await ready;
-    // the two drivers answer in two shapes: rows on a field, or rows
-    const res: unknown = await db.execute(
-      sql`select count(*)::int as n from drizzle.__drizzle_migrations`,
-    );
-    const rows = (
-      Array.isArray(res) ? res : ((res as { rows?: unknown[] }).rows ?? [])
-    ) as { n?: number | string }[];
     return NextResponse.json(
       {
         ok: true,
         at,
-        database: { kind: s.database, migrations: Number(rows[0]?.n ?? 0) },
+        database: { kind: s.database, migrations: await migrationCount(db) },
         services: s,
         limits: LIMITS,
         missingForHosting: missingForHosting(s),

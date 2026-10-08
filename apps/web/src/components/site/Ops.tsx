@@ -124,7 +124,9 @@ export async function Ops({ admin }: { admin: string }) {
                     {h.answeredAt ? `Answered ${whenAt(h.answeredAt)}` : "Open"}
                   </span>
                   <span className="ops-when">{whenAt(h.at)}</span>
-                  <span className="ops-total">{h.email}</span>
+                  <span className="ops-total">
+                    {h.email ?? "account ended"}
+                  </span>
                 </div>
                 <p className="ops-text ops-message">{h.message}</p>
                 {h.context && (

@@ -251,11 +251,16 @@ const load = (raw: Snapshot) => {
   useEva.setState({ ...data.eva, draft: "" });
 };
 
-/** the open project's room and pieces, with Eva's side left out */
-export const shareable = (): Snapshot => ({
-  ...snapshot(),
-  eva: fresh().eva,
-});
+/** the open project's room and pieces, with Eva's side, the cart and
+    the labels left out: what the room is, not what is being done in it */
+export const shareable = (): Snapshot => {
+  const s = snapshot();
+  return {
+    ...s,
+    scene: { ...s.scene, cart: [], labels: [] },
+    eva: fresh().eva,
+  };
+};
 /** put a shared room into the stores to look at */
 export const showSnapshot = (data: Snapshot) => load(data);
 

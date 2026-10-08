@@ -17,8 +17,9 @@ import { useScene } from "./scene-store";
  * Singapore phone number, and for a guest the email the order's mails
  * go to; an account's go to its own); then the order placed, on the
  * server too.
- * With Stripe connected the dialog offers the payment page; without it
- * the order waits at "awaiting payment" and the dialog says so plainly.
+ * The server numbers the order and hands the number back; with Stripe
+ * connected the dialog offers the payment page; without it the order
+ * waits at "awaiting payment" and the dialog says so plainly.
  * The list can still be downloaded. The pieces stay in the room and
  * read as ordered; the cart empties.
  */
@@ -78,7 +79,6 @@ export function CheckoutDialog({
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          orderId: order.id,
           lines: order.lines.map((l) => ({
             productId: l.productId ?? l.pieceId,
             name: l.name,
@@ -93,11 +93,18 @@ export function CheckoutDialog({
       const data = (await res.json()) as {
         mode: string;
         message?: string;
+        id?: string;
         key?: string;
         url?: string;
       };
+      // the order is the server's number from here on
+      const id = data.id ?? order.id;
+      if (data.id && data.id !== order.id) {
+        useOrders.getState().assign(order.id, data.id);
+        setPlaced((p) => (p ? { ...p, id: data.id! } : p));
+      }
       if (data.key || data.url)
-        useOrders.getState().setPayment(order.id, {
+        useOrders.getState().setPayment(id, {
           ...(data.key ? { key: data.key } : {}),
           ...(data.url ? { payUrl: data.url } : {}),
         });

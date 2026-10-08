@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { dataDir } from "./data-dir";
 import { IS_PRODUCTION, str } from "./env";
+import { log } from "./log";
 import { SITE } from "./site";
 
 /**
@@ -13,8 +14,20 @@ import { SITE } from "./site";
  * mail.json in the data folder and said in the log, where the tests
  * read it (api/dev/mail). A hosted run without a key sends nothing and
  * says so, rather than pretend. `mailMode` says which of the three.
+ * A send waits at most TIMEOUT_MS, goes once more after a 429 or a
+ * 5xx, and carries its key so the provider never sends one letter
+ * twice for a retried request.
  */
-export type Mail = { to: string; subject: string; text: string };
+export type Mail = {
+  to: string;
+  subject: string;
+  text: string;
+  /** the letter's identity for the provider: one send per key */
+  key?: string;
+};
+const TIMEOUT_MS = 10_000;
+/** the most a Retry-After is waited, ms */
+const RETRY_WAIT_MAX_MS = 5_000;
 
 /** how many kept mails a development server holds */
 const KEEP = 50;
@@ -40,24 +53,46 @@ export async function sendMail(
   const mode = mailMode();
   if (mode === "resend") {
     const key = str("RESEND_API_KEY");
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: str("MAIL_FROM") || `${SITE.name} <${SITE.contact}>`,
-        to: [mail.to],
+    const post = () =>
+      fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${key}`,
+          "Content-Type": "application/json",
+          ...(mail.key ? { "Idempotency-Key": mail.key.slice(0, 256) } : {}),
+        },
+        body: JSON.stringify({
+          from: str("MAIL_FROM") || `${SITE.name} <${SITE.contact}>`,
+          to: [mail.to],
+          subject: mail.subject,
+          text: mail.text,
+        }),
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      });
+    let res = await post();
+    if (res.status === 429 || res.status >= 500) {
+      const after = Number(res.headers.get("retry-after") ?? 1);
+      await new Promise((r) =>
+        setTimeout(r, Math.min(RETRY_WAIT_MAX_MS, (after || 1) * 1000)),
+      );
+      res = await post();
+    }
+    if (!res.ok) {
+      const body = (await res.text().catch(() => "")).slice(0, 200);
+      log.error("mail.failed", {
+        status: res.status,
         subject: mail.subject,
-        text: mail.text,
-      }),
-    });
-    if (!res.ok) throw new Error(`mail ${res.status}`);
+        body,
+      });
+      throw new Error(`mail ${res.status}`);
+    }
     return "sent";
   }
   if (mode === "off") {
-    console.warn("[mail] no RESEND_API_KEY: not sent", mail.subject, mail.to);
+    log.warn("mail.unsent", {
+      subject: mail.subject,
+      reason: "no RESEND_API_KEY",
+    });
     return "unsent";
   }
   const kept = [{ ...mail, at: Date.now() }, ...keptMail()].slice(0, KEEP);

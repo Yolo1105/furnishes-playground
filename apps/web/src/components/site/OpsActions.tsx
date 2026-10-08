@@ -54,7 +54,7 @@ const MOVES: [OrderStatus, string][] = [
   ["paid", "Mark paid"],
   ["fulfilled", "Mark delivered"],
   ["cancelled", "Cancel"],
-  ["refunded", "Refund noted"],
+  ["refunded", "Refund made in Stripe"],
 ];
 
 export function OrderActions({ order }: { order: OrderRow }) {
@@ -114,7 +114,8 @@ export function HelpActions({
   answered,
 }: {
   id: string;
-  email: string;
+  /** none once the account that wrote it has ended */
+  email: string | null;
   category: string;
   message: string;
   answered: boolean;
@@ -132,9 +133,11 @@ export function HelpActions({
   const mailto = `mailto:${email}?subject=${encodeURIComponent(`Re: your ${category} to ${SITE.name}`)}&body=${encodeURIComponent(`\n\n${quoted}`)}`;
   return (
     <div className="ops-acts">
-      <a className="home-btn" href={mailto}>
-        Reply by mail
-      </a>
+      {email && (
+        <a className="home-btn" href={mailto}>
+          Reply by mail
+        </a>
+      )}
       <button
         type="button"
         className="home-btn"
