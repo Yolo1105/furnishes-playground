@@ -180,7 +180,9 @@ AGPL. `@salusoft89/planegcs` 1.3.0 is the only 2D constraint solver
 - R0 is in: `apps/web/e2e/visual.spec.ts` keeps five fixed views of
   the room (the panels by day, a sunset, the evening, the front
   elevation, eye level) as pictures and fails on a drift over half a
-  percent; a second run of the same build drifts by nothing. The photo
+  percent of the pixels, a pixel counting as changed past a twentieth
+  of its colour (Playwright's default fifth let the whole of R3 through
+  unseen); a second run of the same build drifts by nothing. The photo
   spike waits for a browser with WebGPU, which the sandbox lacks.
 - R1 is in, with one departure: AgX tone mapping with an Exposure
   slider in View settings, the flat ambient term replaced by the

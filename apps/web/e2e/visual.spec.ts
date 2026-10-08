@@ -5,11 +5,14 @@ import { GUIDE_STORAGE_KEY } from "../src/components/studio/guide-store";
  * The room as it looks: five fixed views of the first project, each
  * kept as a picture beside this file and compared on every run, so a
  * change to the light, the materials or the renderer is seen before it
- * ships. A view may drift by half a percent of its pixels (the software
- * renderer's noise); more is a change to look at, and
- * `--update-snapshots` keeps it once it is meant.
+ * ships. A pixel counts as changed past a twentieth of its colour (the
+ * finish moves most of the picture by less than that; the default of a
+ * fifth let it through), and a view may drift by half a percent of its
+ * pixels (the software renderer's noise); more is a change to look at,
+ * and `--update-snapshots` keeps it once it is meant.
  */
 const DRIFT = {
+  threshold: 0.05,
   maxDiffPixelRatio: 0.005,
   animations: "disabled",
   // a development server mid-compile, and the software renderer, are slow
