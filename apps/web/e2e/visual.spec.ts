@@ -65,6 +65,10 @@ const settled = async (page: Page) => {
   await expect(stage(page)).toHaveAttribute("data-reflection", /ready|off/, {
     timeout: 60_000,
   });
+  // the edges resolved: TRAA's settle frames are through
+  await expect(stage(page)).toHaveAttribute("data-settled", "true", {
+    timeout: 60_000,
+  });
   await page.waitForTimeout(SETTLE);
 };
 

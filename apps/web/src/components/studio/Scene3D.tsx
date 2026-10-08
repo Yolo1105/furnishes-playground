@@ -1462,6 +1462,7 @@ export default function Scene3D() {
       data-exposure={scene.exposure}
       data-backend={backend}
       data-drawn={drawn}
+      data-settled={settling === 0}
       data-post={post ?? "off"}
       data-probes={probes ? probeState : "off"}
       data-reflection={probes ? reflectState : "off"}
