@@ -10,14 +10,8 @@ import {
   type Vector3Tuple,
 } from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
-import {
-  CLOTH_M,
-  clothSurface,
-  shade,
-  type Surface,
-  WOOD_M,
-  woodSurface,
-} from "./textures";
+import { type MaterialName, repeated, useMaterial } from "./materials";
+import { shade, WOOD_M } from "./textures";
 
 /**
  * The surfaces and the simple parts every 3D form is built from: a
@@ -42,11 +36,10 @@ export const roughnessOf = (texture: string) =>
         ? 0.55
         : 0.85;
 
-/** a surface's grain: the maps it is drawn with and the stretch, m,
-    one tile of them covers */
-type Grain = { surface: Surface; tile: number };
-const woodGrain = (): Grain => ({ surface: woodSurface(), tile: WOOD_M });
-const clothGrain = (): Grain => ({ surface: clothSurface(), tile: CLOTH_M });
+/** a surface's grain: the material (materials.ts) it is drawn with */
+type Grain = Extract<MaterialName, "wood" | "cloth">;
+const woodGrain = (): Grain => "wood";
+const clothGrain = (): Grain => "cloth";
 
 /** a surface: its colour, how it catches the light, a grain if any */
 export type Finish = {
@@ -93,17 +86,15 @@ export const finishOf = (colour: string, texture: string): Finish => ({
 /** how strongly a grain's relief bends the light */
 const RELIEF_SCALE = new Vector2(0.6, 0.6);
 
-/** a grain's maps repeated by the tile's stretch over a part whose
-    texture lies in metres: a slab's wood is laid in its geometry
-    already (slabGeometry, in wood tiles), so wood repeats once; cloth
-    over a rounded part takes a few cloth tiles per wood tile */
-const grainMaps = (grain: Grain | undefined) => {
+/** a grain's maps repeated by its tile over a part whose texture lies
+    in wood tiles (slabGeometry lays a slab's so; a rounded part's runs
+    once over each face): the grown wood repeats once, a photographed
+    set by its own stretch, cloth a few times. Follows the store, so a
+    part is drawn again when its photographed set arrives */
+const useGrainMaps = (grain: Grain | undefined) => {
+  const m = useMaterial(grain ?? "wood");
   if (!grain) return null;
-  const { surface, tile } = grain;
-  const repeat = WOOD_M / tile;
-  for (const t of [surface.map, surface.normalMap, surface.roughnessMap])
-    if (t.repeat.x !== repeat) t.repeat.set(repeat, repeat);
-  return surface;
+  return repeated(m, m.tile / WOOD_M);
 };
 
 export function Mat({
@@ -117,7 +108,7 @@ export function Mat({
   banded?: boolean;
 }) {
   const c = colour ?? f.colour;
-  const maps = grainMaps(f.grain);
+  const maps = useGrainMaps(f.grain);
   const grained = {
     map: maps?.map ?? null,
     normalMap: maps?.normalMap ?? null,

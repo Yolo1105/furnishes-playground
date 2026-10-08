@@ -443,9 +443,10 @@ test("the right rail holds the other view, and the swap trades them", async ({
     "2d",
   );
   await expect(view.locator(".view-stub")).toHaveAttribute("data-view", "3d");
-  // and the small 3D view is the room as an isometric box with its pieces
-  await expect(view.locator(".view-mini-iso [data-face='top']")).toHaveCount(
-    top.filter((a) => a.kind !== "fixed").length,
+  // and the small 3D view is the 3D view's last picture, as it stood
+  await expect(view.locator(".view-last")).toHaveAttribute(
+    "src",
+    /^data:image\/jpeg/,
   );
   await page.getByRole("button", { name: "Show 3D view in main" }).click();
   await expect(page.locator(".shell-main-hint")).toHaveAttribute(
@@ -676,11 +677,10 @@ test("the toolbar reads mode · select, add, wall · undo, guide, export", async
   const stages = bar.getByRole("list", { name: "Stage" });
   await expect(stages.getByRole("button")).toHaveText([
     "01Room",
-    "02Layout",
-    "03Furnish",
-    "04Review",
+    "02Products",
+    "03Review",
   ]);
-  await expect(bar.getByRole("button", { name: "Layout" })).toHaveAttribute(
+  await expect(bar.getByRole("button", { name: "Products" })).toHaveAttribute(
     "aria-current",
     "step",
   );
@@ -723,24 +723,24 @@ test("the toolbar reads mode · select, add, wall · undo, guide, export", async
     "aria-current",
     "step",
   );
-  await bar.getByRole("button", { name: "Layout" }).click();
+  await bar.getByRole("button", { name: "Products" }).click();
   await expect(bar.getByRole("button", { name: "Review" })).not.toHaveAttribute(
     "aria-current",
     "step",
   );
-  // the other stages open their panel tab: Room the room, Furnish the catalogue
+  // the other stages open their panel tab: Room the room, Products the
+  // catalogue
   await bar.getByRole("button", { name: "Room" }).click();
   await expect(
     page.getByRole("tab", { name: "Room", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
-  await bar.getByRole("button", { name: "Furnish" }).click();
+  await bar.getByRole("button", { name: "Products" }).click();
   await expect(page.getByRole("tab", { name: "Products" })).toHaveAttribute(
     "aria-selected",
     "true",
   );
-  await bar.getByRole("button", { name: "Layout" }).click();
   const [edit, tools, exp] = await Promise.all([
-    bar.getByRole("button", { name: "Layout" }).boundingBox(),
+    bar.getByRole("button", { name: "Products" }).boundingBox(),
     bar.getByRole("group", { name: "Tools" }).boundingBox(),
     bar.getByRole("button", { name: "Export" }).boundingBox(),
   ]);
@@ -816,6 +816,10 @@ test("Render runs a line along the top, sweeps the render in over the view, then
   await bar.getByRole("button", { name: "Review" }).click();
   const line = page.getByRole("progressbar", { name: "Rendering the room" });
   await expect(line).toBeAttached();
+  // the steps the render takes stand over the stage while it generates
+  const steps = page.getByRole("status", { name: "Rendering" });
+  await expect(steps).toBeVisible();
+  await expect(steps.locator(".render-step[data-state='now']")).toHaveCount(1);
   await expect
     .poll(async () => (await line.boundingBox())?.width ?? 0, {
       timeout: 8000,
@@ -893,7 +897,7 @@ test("Render runs a line along the top, sweeps the render in over the view, then
   await page.getByRole("button", { name: "Show panels" }).click();
   await expect(page.locator(".preview")).toHaveAttribute("data-status", "done");
   await expect(handle).toHaveAttribute("aria-valuenow", "100");
-  await bar.getByRole("button", { name: "Layout" }).click();
+  await bar.getByRole("button", { name: "Products" }).click();
   await expect(page.locator(".preview")).toHaveCount(0);
   await expect(bar.getByRole("button", { name: "Select" })).toBeEnabled();
 });
@@ -1285,6 +1289,26 @@ test("the Detail tab lists a piece's components and changes one", async ({
   ).toHaveAttribute("aria-checked", "true");
   await expect(page.getByRole("radiogroup", { name: "Colour" })).toBeVisible();
   await page.getByRole("radio", { name: "Sage" }).click();
+  // a Furnishes piece can be configured: its add-ons taken or left, the
+  // estimate following; and in 3D the look comes before the place
+  const customise = page.getByRole("region", { name: "Customise" });
+  await expect(customise).toBeVisible();
+  const addOns = customise.getByRole("group", { name: /add-ons/ });
+  const chips = addOns.getByRole("checkbox");
+  if ((await chips.count()) > 0) {
+    const first = chips.first();
+    const was = await first.getAttribute("aria-checked");
+    await first.click();
+    await expect(first).toHaveAttribute(
+      "aria-checked",
+      was === "true" ? "false" : "true",
+    );
+  }
+  const [customiseBox, placeBox] = await Promise.all([
+    customise.boundingBox(),
+    page.getByRole("region", { name: "Place" }).boundingBox(),
+  ]);
+  expect(customiseBox!.y).toBeLessThan(placeBox!.y);
   const segment = bookwall.children![0]!;
   await parts.getByRole("radio", { name: new RegExp(segment.name) }).click();
   await expect(page.getByRole("radio", { name: "Sage" })).toHaveAttribute(
@@ -3469,7 +3493,7 @@ test("a piece turns freely: the handle drags round it in steps of 15, Shift free
   // R turns a quarter from there
   await page.keyboard.press("r");
   await expect(sofa).toHaveAttribute("data-turn", "180");
-  // a clash is read from the turned outline, not the box round it: a vase
+  // a clash is read from the turned outline, not the box round it: a pot
   // in the empty corner of a sofa on the slant does not clash
   const placeAt = (name: string, x: string, y: string) =>
     placeByMm(page, name, x, y);
@@ -3478,7 +3502,15 @@ test("a piece turns freely: the handle drags round it in steps of 15, Shift free
   await placeAt("Sofa", "2500", "2900");
   await deg.fill("45");
   await deg.press("Tab");
-  await placeAt("Ceramic vase", "2550", "2950");
+  await placeAt("Potted plant", "2550", "2950");
+  // a small pot, the size the corner leaves
+  for (const side of ["width", "depth"]) {
+    const dim = page.getByRole("spinbutton", {
+      name: `Potted plant ${side} in millimetres`,
+    });
+    await dim.fill("200");
+    await dim.press("Tab");
+  }
   const health = page
     .locator(".agent")
     .getByRole("list", { name: "Room health" });
@@ -3486,7 +3518,7 @@ test("a piece turns freely: the handle drags round it in steps of 15, Shift free
   // the overlaps card shows only while something overlaps
   const card = page.getByRole("region", { name: "Overlaps" });
   await expect(card).toHaveCount(0);
-  // squared, the sofa's box reaches the vase: a clash
+  // squared, the sofa's box reaches the pot: a clash
   await placeAt("Sofa", "2500", "2900");
   await page.getByRole("button", { name: "Square to the walls" }).click();
   await expect(health).toContainText(/overlaps/);

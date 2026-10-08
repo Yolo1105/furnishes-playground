@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { CloseIcon, InfoIcon, PencilIcon } from "./icons";
 import { GUIDES, linesFor, useGuide } from "./guide-store";
+import { useStudio } from "./studio-store";
 import { useSession } from "@/lib/auth-client";
 
 /**
@@ -22,6 +23,14 @@ export function GuideCard() {
   useEffect(() => {
     hydrate();
   }, [hydrate]);
+  // the walls' guide is for drawing on the plan from the Room tab:
+  // leaving any of those closes it
+  const drawing = useStudio(
+    (s) => s.tool === "wall" && s.view === "2d" && s.panelTab === "room",
+  );
+  useEffect(() => {
+    if (open === "walls" && !drawing) close();
+  }, [open, drawing, close]);
 
   if (!open) return null;
   const g = GUIDES[open];

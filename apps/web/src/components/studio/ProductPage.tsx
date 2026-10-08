@@ -6,6 +6,7 @@ import {
   boxes,
   buildSteps,
   counts,
+  type Configuration,
   defaultConfig,
   dimensionSummary,
   priceOf,
@@ -30,10 +31,17 @@ import { useScene } from "./scene-store";
  * beside it, each a press away from the room. Count, don't claim: all
  * of it is read from the recipe's part list, nothing typed in twice.
  */
-export function ProductPage({ recipe: r }: { recipe: Recipe }) {
+export function ProductPage({
+  recipe: r,
+  config,
+}: {
+  recipe: Recipe;
+  /** the piece as configured; the recipe's own when unset */
+  config?: Configuration | undefined;
+}) {
   const activeId = useRoom((s) => s.activeId);
   const { addProduct, select } = useScene.getState();
-  const c = defaultConfig(r);
+  const c = config ?? defaultConfig(r);
   const parts = billOfParts(r, c);
   const bx = boxes(r, c);
   const steps = buildSteps(r, c);

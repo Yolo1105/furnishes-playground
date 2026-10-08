@@ -82,13 +82,16 @@ import { useFixedMenu } from "./useFixedMenu";
  */
 
 /** the stages of the work along the top, in the order a room is made:
-    the room itself, its layout, what furnishes it, and the review, which
-    renders it. Each stands for a panel tab or the render; the current
-    one is read back from them */
+    the room itself, the products in it and to add, and the review,
+    which renders it. Each stands for a panel tab or the render; the
+    current one is read back from them */
 const STAGE_TABS = [
   { id: "room", label: "Room", tip: "The room: its shape, size and openings" },
-  { id: "layout", label: "Layout", tip: "The pieces, laid out on the plan" },
-  { id: "furnish", label: "Furnish", tip: "The catalogue: pieces to add" },
+  {
+    id: "products",
+    label: "Products",
+    tip: "The pieces in the room, and the catalogue to add from",
+  },
   { id: "review", label: "Review", tip: "Render the room" },
 ] as const;
 type StageId = (typeof STAGE_TABS)[number]["id"];
@@ -97,13 +100,7 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
   const mode = useStudio((s) => s.mode);
   const panelTab = useStudio((s) => s.panelTab);
   const stage: StageId =
-    mode === "preview"
-      ? "review"
-      : panelTab === "room"
-        ? "room"
-        : panelTab === "products"
-          ? "furnish"
-          : "layout";
+    mode === "preview" ? "review" : panelTab === "room" ? "room" : "products";
   const goStage = (id: StageId) => {
     const { setPanelTab } = useStudio.getState();
     if (id === "review") {
@@ -111,9 +108,7 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
       return;
     }
     if (mode === "preview") setMode("edit");
-    setPanelTab(
-      id === "room" ? "room" : id === "furnish" ? "products" : "assets",
-    );
+    setPanelTab(id === "room" ? "room" : "products");
   };
   const tool = useStudio((s) => s.tool);
   const { setMode, setTool, setUiHidden } = useStudio.getState();

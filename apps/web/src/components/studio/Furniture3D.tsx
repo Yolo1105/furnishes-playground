@@ -98,6 +98,8 @@ type Props = {
   /** one colour per bay, when the piece has parts */
   parts: string[];
   texture: string;
+  /** doors on a carcass's bays, as configured; the recipe's when unset */
+  doors?: boolean | undefined;
   selected: boolean;
   /** the pointer is over it: a thin outline says it can be picked */
   hovered: boolean;
@@ -370,7 +372,7 @@ function Form(p: Props) {
             ? p.parts
             : Array.from({ length: carcassOf(p.node)!.bays }, () => p.colour)
         }
-        doors={carcassOf(p.node)!.doors}
+        doors={p.doors ?? carcassOf(p.node)!.doors}
         books={
           r ? shape === "shelf" : /bookwall|bookcase|shelf|shelves/.test(name)
         }

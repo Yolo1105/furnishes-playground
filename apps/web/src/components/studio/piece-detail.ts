@@ -1,4 +1,8 @@
-import type { Panel } from "@furnishes/domain";
+import {
+  type Configuration,
+  defaultConfig,
+  type Panel,
+} from "@furnishes/domain";
 import { recipeOf, recipeSize } from "./catalogue";
 import type { AssetCategory, AssetNode } from "./assets-data";
 
@@ -30,6 +34,25 @@ export type PieceProps = {
       in its own frame (x across, y up from the floor, z to the front,
       mm about its middle); its size and price then come from them */
   panels?: Panel[];
+  /** a Furnishes piece as configured: doors on its bays, and which
+      add-ons it takes; unset, the recipe's own (defaultConfig) */
+  doors?: boolean;
+  accessories?: string[];
+};
+
+/** how a Furnishes piece is configured: what was chosen here, else
+    the recipe's own; null for a piece with no recipe */
+export const configOf = (
+  n: Pick<AssetNode, "productId">,
+  props: Pick<PieceProps, "doors" | "accessories">,
+): Configuration | null => {
+  const r = recipeOf(n);
+  if (!r) return null;
+  const base = defaultConfig(r);
+  return {
+    doors: props.doors ?? base.doors,
+    accessories: props.accessories ?? base.accessories,
+  };
 };
 
 /** a turn kept to 0 to 359 whole degrees */

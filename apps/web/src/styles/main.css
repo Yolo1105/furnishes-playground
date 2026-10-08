@@ -687,10 +687,8 @@
 .main-progress[data-kind="view"] {
   --load: var(--load-view, 0.5s);
 }
-.main-progress[data-kind="render"] {
-  --load: var(--preview-generate, 2.2s);
-}
-/* a photo's line is as long as its samples: set from their count */
+/* a render's line is set from its work: no run of its own */
+.main-progress[data-kind="render"],
 .main-progress[data-kind="photo"] {
   animation: none;
   transition: width 0.3s var(--ease);
@@ -702,6 +700,86 @@
   to {
     width: 100%;
   }
+}
+
+/* ---- the steps a render takes, while it generates ---- */
+.render-steps {
+  position: absolute;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  width: min(300px, calc(100% - 24px));
+  padding: 12px 14px 10px;
+  border-radius: var(--r-panel, 14px);
+  display: grid;
+  gap: 6px;
+}
+.shell[data-corners="square"] .render-steps {
+  border-radius: 0;
+}
+.render-steps-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+.render-steps-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+.render-step {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: rgb(from var(--color-ink) r g b / 0.5);
+}
+.render-step[data-state="now"] {
+  color: var(--color-ink);
+}
+.render-step[data-state="done"] {
+  color: rgb(from var(--color-ink) r g b / 0.7);
+}
+.render-step-mark {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid rgb(from var(--color-ink) r g b / 0.25);
+  display: grid;
+  place-items: center;
+}
+.render-step[data-state="done"] .render-step-mark {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: #fff;
+}
+.render-step[data-state="now"] .render-step-mark {
+  border-color: var(--color-accent);
+  animation: render-step-pulse 1.2s ease-in-out infinite;
+}
+@keyframes render-step-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(from var(--color-accent) r g b / 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgb(from var(--color-accent) r g b / 0);
+  }
+}
+.render-step-count {
+  font-size: 11px;
+  color: rgb(from var(--color-ink) r g b / 0.55);
+}
+.render-steps-note {
+  margin: 2px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: rgb(from var(--color-ink) r g b / 0.55);
 }
 
 /* ---- Render on the stage: the sweep, then the compare ---- */
@@ -1303,8 +1381,40 @@
   cursor: pointer;
 }
 /* in 3D the handle floats over the piece's corner, placed by the scene */
-.stage-3d-overlay .stage-turn-3d {
-  position: static;
+/* in 3D the turn is a ring on the floor round the piece, with a knob at
+   its front: a small glass disc rimmed in the accent, larger in hand,
+   and a readout of the degrees above the piece while it turns */
+.stage-turn-knob {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid var(--color-accent);
+  background: var(--color-glass);
+  box-shadow: 0 2px 6px -2px rgb(from var(--color-shadow) r g b / 0.4);
+  cursor: grab;
+  touch-action: none;
+  transition: transform 0.15s var(--ease);
+}
+.stage-turn-knob:hover,
+.stage-turn-knob[data-spinning="true"] {
+  transform: scale(1.25);
+}
+.stage-turn-knob[data-spinning="true"] {
+  cursor: grabbing;
+  background: var(--color-accent);
+}
+.stage-turn-readout {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: var(--r-chip);
+  background: rgb(from var(--color-glass) r g b / 0.95);
+  border: 1px solid rgb(from var(--color-line) r g b / 0.2);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-ink);
+  white-space: nowrap;
 }
 .stage-piece-lock {
   position: absolute;
@@ -1542,6 +1652,12 @@
 .stage-3d canvas {
   display: block;
   touch-action: none;
+  /* clear until the first frame is drawn, then up over the shell */
+  opacity: 0;
+  transition: opacity 0.5s var(--ease);
+}
+.stage-3d[data-drawn="true"] canvas {
+  opacity: 1;
 }
 .stage-3d-overlay {
   position: absolute;

@@ -40,6 +40,7 @@ import { usePieceActions } from "./piece-actions";
 import {
   carcassOf,
   COLOURS,
+  configOf,
   LABEL_MAX,
   PLACE_SNAP,
   TEXTURES,
@@ -53,6 +54,7 @@ import { portraitOf, recipeOf } from "./catalogue";
 import { exportCutList, exportPanelDxf, exportPanelStep } from "./machining";
 import { solveSketch, usePartStore } from "./part-client";
 import { ProductPage } from "./ProductPage";
+import { ACCESSORIES, dimensionSummary, priceOf } from "@furnishes/domain";
 import { findNode, propsOf, useScene } from "./scene-store";
 import { useStudio } from "./studio-store";
 
@@ -110,6 +112,7 @@ export function DetailTab() {
     removeNode,
   } = useScene.getState();
   const setFocus = useStudio((s) => s.setFocus);
+  const view = useStudio((s) => s.view);
   const stage = usePieceActions();
   const found = findNode(groups, selectedId);
   if (!found || found.node.kind === "fixed")
@@ -237,6 +240,127 @@ export function DetailTab() {
     </label>
   );
 
+  // the look: the colour and the texture, for a piece for sale
+  const look = !item && (
+    <>
+      <section className="eva-pref">
+        <div className="eva-pref-head">
+          <span className="eva-pref-title">Colour</span>
+        </div>
+        <div className="eva-swatches" role="radiogroup" aria-label="Colour">
+          {COLOURS.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              role="radio"
+              className="eva-swatch"
+              aria-checked={p.colour === c.id}
+              aria-label={c.name}
+              onClick={() => apply({ colour: c.id })}
+            >
+              <span
+                className="eva-swatch-dot"
+                style={{ background: c.hex }}
+                aria-hidden="true"
+              />
+              <span className="eva-swatch-name">{c.name}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+      <section className="eva-pref">
+        <div className="eva-pref-head">
+          <span className="eva-pref-title">Texture</span>
+        </div>
+        <div className="eva-chips" role="radiogroup" aria-label="Texture">
+          {TEXTURES.map((t) => (
+            <button
+              key={t}
+              type="button"
+              role="radio"
+              className="assets-chip"
+              aria-checked={p.texture === t}
+              onClick={() => apply({ texture: t })}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      </section>
+    </>
+  );
+  // what a Furnishes piece can be configured with: doors on its bays
+  // where the design takes them, and the add-ons it can carry; the
+  // price follows
+  const config = configOf(piece, whole_);
+  const customise = recipe && whole && config && (
+    <section className="eva-pref" aria-label="Customise">
+      <div className="eva-pref-head">
+        <span className="eva-pref-title">Customise</span>
+        <span className="detail-of f-num">
+          {sgd(priceOf(recipe, config).sgd)} · estimate
+        </span>
+      </div>
+      <p className="eva-pref-hint">
+        {recipe.bays > 1 ? `${recipe.bays} bays, ` : ""}
+        {recipe.tiers > 1 ? `${recipe.tiers} tiers, ` : ""}
+        {dimensionSummary(recipe)}: the body is the design&apos;s; its size can
+        be typed below, its colour and texture chosen, and these taken or left.
+      </p>
+      {recipe.door && (
+        <div className="eva-explore detail-option">
+          <span className="eva-explore-text">
+            <b>Doors</b>
+            <span>{config.doors ? "On every bay" : "Open bays"}</span>
+          </span>
+          <button
+            type="button"
+            role="switch"
+            className="eva-switch"
+            aria-checked={config.doors}
+            aria-label={`${piece.name} doors`}
+            onClick={() => setProps(piece.id, { doors: !config.doors })}
+          >
+            <span className="eva-switch-knob" aria-hidden="true" />
+          </button>
+        </div>
+      )}
+      {(recipe.defaultAccessories.length > 0 ||
+        recipe.optionalAccessories.length > 0) && (
+        <div
+          className="eva-chips"
+          role="group"
+          aria-label={`${piece.name} add-ons`}
+        >
+          {[...recipe.defaultAccessories, ...recipe.optionalAccessories].map(
+            (id) => {
+              const on = config.accessories.includes(id);
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  role="checkbox"
+                  aria-checked={on}
+                  className="assets-chip"
+                  onClick={() =>
+                    setProps(piece.id, {
+                      accessories: on
+                        ? config.accessories.filter((a) => a !== id)
+                        : [...config.accessories, id],
+                    })
+                  }
+                >
+                  {ACCESSORIES[id]?.name ?? id}
+                </button>
+              );
+            },
+          )}
+        </div>
+      )}
+    </section>
+  );
+  const lookFirst = view === "3d";
+
   return (
     <div className="detail">
       <section className="detail-head">
@@ -304,7 +428,10 @@ export function DetailTab() {
         </button>
       </div>
 
-      {recipe && whole && <ProductPage recipe={recipe} />}
+      {/* in 3D the piece is looked at: its look and what can be chosen
+          on it come first; on the plan, where it stands and how big */}
+      {lookFirst && customise}
+      {lookFirst && look}
 
       {parts.length > 0 && (
         <section className="eva-pref">
@@ -350,7 +477,7 @@ export function DetailTab() {
         </section>
       )}
 
-      <section className="eva-pref">
+      <section className="eva-pref" aria-label="Place">
         <div className="eva-pref-head">
           <span className="eva-pref-title">Place</span>
           <span className="detail-of f-num">
@@ -459,54 +586,8 @@ export function DetailTab() {
           </button>
         </div>
       </section>
-      {!item && (
-        <>
-          <section className="eva-pref">
-            <div className="eva-pref-head">
-              <span className="eva-pref-title">Colour</span>
-            </div>
-            <div className="eva-swatches" role="radiogroup" aria-label="Colour">
-              {COLOURS.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  role="radio"
-                  className="eva-swatch"
-                  aria-checked={p.colour === c.id}
-                  aria-label={c.name}
-                  onClick={() => apply({ colour: c.id })}
-                >
-                  <span
-                    className="eva-swatch-dot"
-                    style={{ background: c.hex }}
-                    aria-hidden="true"
-                  />
-                  <span className="eva-swatch-name">{c.name}</span>
-                </button>
-              ))}
-            </div>
-          </section>
-          <section className="eva-pref">
-            <div className="eva-pref-head">
-              <span className="eva-pref-title">Texture</span>
-            </div>
-            <div className="eva-chips" role="radiogroup" aria-label="Texture">
-              {TEXTURES.map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  role="radio"
-                  className="assets-chip"
-                  aria-checked={p.texture === t}
-                  onClick={() => apply({ texture: t })}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-          </section>
-        </>
-      )}
+      {!lookFirst && customise}
+      {!lookFirst && look}
       <section className="eva-pref">
         <div className="eva-pref-head">
           <span className="eva-pref-title">Size</span>
@@ -523,6 +604,9 @@ export function DetailTab() {
           </div>
         )}
       </section>
+      {recipe && whole && (
+        <ProductPage recipe={recipe} config={config ?? undefined} />
+      )}
       {carcass && (
         <section className="eva-pref" aria-label="Panels">
           <div className="eva-pref-head">

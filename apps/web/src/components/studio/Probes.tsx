@@ -20,11 +20,13 @@ import type { WebGPURenderer } from "three/webgpu";
  * openings, the surroundings through the open top) turned into
  * spherical harmonics on the GPU, so every surface takes the room's own
  * bounce (the floor's tone on the undersides, the corners a little
- * darker). The pieces are kept out of the probes' pictures: the seam
- * where a piece stands is the occlusion's work, and a room that bakes
- * only when its shell or its light changes never stalls under a drag.
- * The bake is spread over frames, a few probes each, the shadow maps
- * serving from the last frame.
+ * darker). The pieces are kept out of the first pass's pictures: the
+ * seam where a piece stands is the occlusion's work, and a room that
+ * bakes only when its shell or its light changes never stalls under a
+ * drag; the second pass, a bounce, sees them, so a piece's colour bleeds
+ * faintly onto the wall behind it once a change has settled. The bake
+ * is spread over frames, a few probes each, the shadow maps serving
+ * from the last frame.
  */
 
 /** probes about this far apart, m */
@@ -36,8 +38,10 @@ const PER_CALL = 2;
 /** the time a frame gives the bake, ms; the rest waits for the next */
 const BAKE_MS = 6;
 /** passes after the first: each adds a bounce of the room's own light
-    (the first already sees the shell lit by the sun and the surroundings) */
-const BOUNCES = 0;
+    (the first sees the shell alone, lit by the sun and the surroundings;
+    the pieces are in the picture from the second, so their colour
+    bleeds faintly onto what stands near them) */
+const BOUNCES = 1;
 /** a change waits this long before the probes are baked again, ms */
 const SETTLE_MS = 400;
 
@@ -59,6 +63,7 @@ export function Probes({
   stamp,
   pieces,
   onState,
+  onProgress,
 }: {
   /** the room's box, m */
   w: number;
@@ -66,10 +71,12 @@ export function Probes({
   d: number;
   /** what the probes see: a change here bakes them again */
   stamp: string;
-  /** the pieces, left out of the probes' pictures */
+  /** the pieces, left out of the probes' first pictures */
   pieces: RefObject<Group | null>;
   /** whether a bake is under way or the probes are up to date */
   onState: (state: StillState) => void;
+  /** how many probes of how many are baked, as the bake goes */
+  onProgress?: (baked: number, of: number) => void;
 }) {
   const invalidate = useThree((s) => s.invalidate);
   const get = useThree((s) => s.get);
@@ -130,7 +137,7 @@ export function Probes({
     const t0 = performance.now();
     do {
       const count = Math.min(PER_CALL, total - j.at);
-      stillOf(state.scene, [pieces.current], () =>
+      stillOf(state.scene, j.pass === 0 ? [pieces.current] : [], () =>
         grid.bake(state.gl as unknown as WebGPURenderer, state.scene, {
           cubemapSize: CUBEMAP,
           start: j.at,
@@ -140,6 +147,7 @@ export function Probes({
       );
       j.at += count;
     } while (j.at < total && performance.now() - t0 < BAKE_MS);
+    onProgress?.(j.pass * total + j.at, total * (BOUNCES + 1));
     if (j.at >= total) {
       if (j.pass >= BOUNCES) {
         job.current = null;

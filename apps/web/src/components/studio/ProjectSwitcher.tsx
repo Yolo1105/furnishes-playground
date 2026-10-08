@@ -12,6 +12,13 @@ import { useDismiss } from "./useDismiss";
  * project, Rename and Delete below. Renaming happens in place; the last
  * project cannot be deleted. Switching keeps the open project first.
  */
+/** the brand's words, the last one marked in the accent: "Furnishes
+    Studio" is the house, in ink, and its studio, in orange */
+const brandOf = (name: string): [string, boolean][] => {
+  const words = name.split(/\s+/);
+  return words.map((w, i) => [w, words.length > 1 && i === words.length - 1]);
+};
+
 export function ProjectSwitcher() {
   const projects = useProjects((s) => s.projects);
   const activeId = useProjects((s) => s.activeId);
@@ -35,7 +42,17 @@ export function ProjectSwitcher() {
   };
   return (
     <div ref={wrap} className="shell-project">
-      <span className="shell-project-brand">{SITE.name}</span>
+      <span className="shell-project-brand">
+        {brandOf(SITE.name).map(([word, mark], i) => (
+          <span
+            key={i}
+            className={mark ? "shell-project-brand-mark" : undefined}
+          >
+            {i > 0 && " "}
+            {word}
+          </span>
+        ))}
+      </span>
       <span className="shell-project-sep" aria-hidden="true">
         /
       </span>

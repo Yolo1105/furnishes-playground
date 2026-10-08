@@ -305,9 +305,9 @@ texture and size). A piece turns a quarter with a click on its handle or
 the R key, and freely with a drag round it, in steps of 15 degrees
 unless Shift is held; Square brings it back to the walls. On the slant
 a clash is read from the turned outline, not the box round it. The
-main column has a toolbar (the four stages of the work, Room, Layout,
-Furnish and Review, each opening its panel tab and the last rendering
-the room; Select, which drags and turns pieces on the plan and in 3D,
+main column has a toolbar (the three stages of the work, Room,
+Products and Review, the first two opening their panel tab and the
+last rendering the room; Select, which drags and turns pieces on the plan and in 3D,
 Inspect, Add, an eye that hides every panel, Undo/Redo, Guide, Export
 as SVG/PNG/JSON) and a shelf with Saved and Cart: the pieces as cards
 each saying where it stands (placed, with Eva, decided, ordered),
@@ -395,8 +395,11 @@ and View settings (edges on every piece, the names, a floor
 grid, shadows, daylight or evening light), kept with the view. Review
 renders whichever view is up, the 3D room (its shadows on, its handles
 away) or the plan, sweeps it in and, with the panels hidden, offers a
-before/after divider. The studio opens in 3D on each visit and keeps
-the view and angle for the tab. A piece can stand past the walls; a
+before/after divider. The studio opens in 3D on each visit, standing
+at eye height beyond the room's open corner (the overhead views are
+on the cube), the room fading up over the shell on its first frame
+while its surfaces are painted in a worker, and keeps the view and
+angle for the tab. A piece can stand past the walls; a
 move never shifts another piece, nor does a piece coming in (it takes
 the first clear spot, or the nearest inside the walls), and two pieces
 standing over each other read in the warning red on the plan and in

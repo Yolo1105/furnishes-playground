@@ -1,13 +1,22 @@
 "use client";
 
 import { toMetres } from "@furnishes/scene";
-import { EXRLoader } from "three/examples/jsm/loaders/EXRLoader.js";
 import { HDRLoader } from "three/examples/jsm/loaders/HDRLoader.js";
-import { cameraPosition, equirectUV, positionWorld, texture } from "three/tsl";
+import {
+  cameraPosition,
+  float,
+  mix,
+  mx_fractal_noise_float,
+  positionWorld,
+  smoothstep,
+  uniform,
+  vec2,
+  vec3,
+} from "three/tsl";
 import { MeshBasicNodeMaterial } from "three/webgpu";
 import { LIGHT_WOOD_HEX } from "./piece-detail";
 import { useFrame, useLoader, useThree } from "@react-three/fiber";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
   BufferAttribute,
   BufferGeometry,
@@ -37,14 +46,8 @@ import type { Point } from "./room-templates";
 import type { Sky } from "./studio-store";
 import type { StillState } from "./capture";
 import { FloorReflection, useFloorMaterial } from "./Reflection";
-import {
-  floorTexture,
-  PLASTER_M,
-  plasterSurface,
-  reliefOf,
-  shade,
-  TILE_M,
-} from "./textures";
+import { FLOOR_MATERIAL, repeated, tintOver, useMaterial } from "./materials";
+import { shade } from "./textures";
 
 /**
  * The room itself in 3D: the floor in its finish, a wall along every
@@ -56,6 +59,7 @@ import {
  * everything on the floor. All in metres about the room's middle.
  */
 const SKIRTING = 0.1;
+/** a door's frame and architrave, m */
 const FRAME = 0.07;
 const FRAME_HEX = "#f7f3ec";
 const DOOR_HEX = LIGHT_WOOD_HEX;
@@ -63,83 +67,107 @@ const DOOR_HEX = LIGHT_WOOD_HEX;
 const FLOOR_RELIEF = new Vector2(0.5, 0.5);
 /** how strongly the plaster's relief bends the light */
 const PLASTER_RELIEF = new Vector2(0.35, 0.35);
-/** the walls' plaster, its maps repeated by the metre */
-const plaster = () => {
-  const s = plasterSurface();
-  for (const t of [s.map, s.normalMap, s.roughnessMap])
-    if (t.repeat.x !== 1 / PLASTER_M)
-      t.repeat.set(1 / PLASTER_M, 1 / PLASTER_M);
-  return s;
-};
 const CEILING_HEX = "#f8f5f0";
 /** how far inside the wall's outer face a window's outside stands, m */
 const OUTSIDE_IN = 0.01;
-/** what a window looks onto: a photograph of the outside (a park by
-    day, Venice's sunset in the evening; public/sky, see its
-    LICENSES.md), and how bright it stands against the room */
+
+/** the outside a window looks onto, by day and at dusk: the sky from
+    its zenith to a hazy horizon, the sun, the ground, a line of trees;
+    linear light, lit as a scene is against the room (the AgX tone
+    mapping rolls the sun off) */
 const OUTLOOK = {
-  day: { file: "/sky/park.exr", light: 1.6 },
-  evening: { file: "/sky/sunset.hdr", light: 1.1 },
+  day: {
+    zenith: [0.17, 0.36, 0.78],
+    horizon: [0.72, 0.8, 0.9],
+    sun: [1, 0.96, 0.88],
+    cloud: [1, 1, 1],
+    ground: [0.16, 0.24, 0.08],
+    trees: [0.07, 0.12, 0.05],
+    light: 1.4,
+  },
+  evening: {
+    zenith: [0.14, 0.16, 0.36],
+    horizon: [0.95, 0.52, 0.3],
+    sun: [1, 0.7, 0.4],
+    cloud: [0.95, 0.6, 0.45],
+    ground: [0.08, 0.09, 0.05],
+    trees: [0.04, 0.045, 0.03],
+    light: 0.8,
+  },
 } as const;
 
-/** the outlook photographs, loaded once each and kept; loaded apart
-    from the scene's own suspense, so a change of light never takes the
-    room down while its outside arrives (the pane stands empty for the
-    moment instead) */
-const outlooks = new Map<string, Promise<Texture>>();
-const outlookOf = (file: string) => {
-  let p = outlooks.get(file);
-  if (!p) {
-    const loader = file.endsWith(".exr") ? new EXRLoader() : new HDRLoader();
-    p = loader.loadAsync(file);
-    outlooks.set(file, p);
-  }
-  return p;
-};
-const useOutlook = (file: string) => {
-  const [map, setMap] = useState<{ file: string; map: Texture } | null>(null);
-  useEffect(() => {
-    let live = true;
-    void outlookOf(file).then((m) => {
-      if (live) setMap({ file, map: m });
-    });
-    return () => {
-      live = false;
-    };
-  }, [file]);
-  return map?.file === file ? map.map : null;
-};
-
-/** the outside seen through a window: the photograph sampled along
-    the eye's ray through the pane, so it turns as the room is looked
-    round, as a view does; set in the opening behind the glass */
+/** the outside seen through a window, drawn in the shader along the
+    eye's ray through the pane (so it turns as the room is looked
+    round, as a view does, and is sharp at any size): the sky's
+    gradient, the sun where the room's sun stands, clouds and a tree
+    line from noise, the ground below the horizon; set in the opening
+    behind the glass */
 function Outside({
   evening,
+  sun,
   width,
   tall,
   at,
 }: {
   evening: boolean;
+  /** where the room's sun stands, m about the room's middle */
+  sun: Vector3Tuple;
   width: number;
   tall: number;
   at: [number, number, number];
 }) {
   const look = evening ? OUTLOOK.evening : OUTLOOK.day;
-  const map = useOutlook(look.file);
   const invalidate = useThree((s) => s.invalidate);
+  const sunDir = useMemo(() => uniform(new Vector3()), []);
+  sunDir.value.set(...sun).normalize();
   const material = useMemo(() => {
-    if (!map) return null;
     const m = new MeshBasicNodeMaterial();
     const ray = positionWorld.sub(cameraPosition).normalize();
-    m.colorNode = texture(map, equirectUV(ray)).mul(look.light);
+    const up = ray.y;
+    // the sky, paler towards the horizon
+    const haze = smoothstep(0.6, 0, up.max(0));
+    const sky = mix(vec3(...look.zenith), vec3(...look.horizon), haze);
+    // the sun: its disc and the glow about it
+    const toSun = ray.dot(sunDir).max(0);
+    const disc = smoothstep(0.9993, 0.9999, toSun);
+    const glow = toSun.pow(48).mul(0.35);
+    // clouds, drawn on a sheet above, fading into the haze
+    const sheet = ray.xz.div(up.add(0.12)).mul(0.6);
+    const cloud = smoothstep(
+      0.08,
+      0.55,
+      mx_fractal_noise_float(sheet, 4, 2.2, 0.55).add(0.1),
+    ).mul(smoothstep(0, 0.25, up));
+    const heavens = mix(sky, vec3(...look.cloud), cloud.mul(0.9))
+      .add(vec3(...look.sun).mul(glow))
+      .add(
+        vec3(...look.sun)
+          .mul(disc)
+          .mul(4),
+      );
+    // the ground, and a line of trees along the horizon
+    const bearing = ray.x.atan(ray.z).mul(5);
+    const treeTop = mx_fractal_noise_float(vec2(bearing, 0.5), 3, 2, 0.5)
+      .mul(0.035)
+      .add(0.045);
+    const trees = smoothstep(treeTop, treeTop.sub(0.01), up);
+    const ground = mix(
+      vec3(...look.ground),
+      vec3(...look.ground).mul(0.75),
+      mx_fractal_noise_float(ray.xz.div(up.min(-0.01)).mul(0.3), 3)
+        .mul(0.5)
+        .add(0.5),
+    );
+    const below = smoothstep(0.002, -0.002, up);
+    const land = mix(heavens, vec3(...look.trees), trees);
+    m.colorNode = mix(land, ground, below).mul(float(look.light));
     m.side = DoubleSide;
     return m;
-  }, [map, look]);
+  }, [look, sunDir]);
   useEffect(() => {
     invalidate();
-    return () => material?.dispose();
+    return () => material.dispose();
   }, [material, invalidate]);
-  if (!material) return null;
   return (
     <mesh position={at} material={material}>
       <planeGeometry args={[width, tall]} />
@@ -169,6 +197,8 @@ type RoomShape = {
   wallHex: string;
   /** the evening outside the windows */
   evening: boolean;
+  /** where the sun stands, m about the room's middle: the outside's */
+  sun: Vector3Tuple;
   /** stretches of its walls shared with another room, mm along the
       wall's axis: where two rooms stand wall to wall the wall is built
       once, by the earlier room (`both`: this room builds it and it shows
@@ -397,6 +427,10 @@ function WallRun({
   /** shared with the room beyond: seen from both sides */
   both?: boolean;
 }) {
+  // the walls' plaster, its maps repeated by its stretch over the
+  // solid's metres
+  const plaster = useMaterial("plaster");
+  const plasterMaps = repeated(plaster);
   const ax = toMetres(e.a[0]) - w / 2;
   const az = toMetres(e.a[1]) - d / 2;
   const bx = toMetres(e.b[0]) - w / 2;
@@ -447,11 +481,11 @@ function WallRun({
           castShadow
         >
           <meshStandardMaterial
-            color={wallHex}
-            map={plaster().map}
-            normalMap={plaster().normalMap}
+            color={plaster.photo ? tintOver(wallHex) : wallHex}
+            map={plasterMaps.map}
+            normalMap={plasterMaps.normalMap}
             normalScale={PLASTER_RELIEF}
-            roughnessMap={plaster().roughnessMap}
+            roughnessMap={plasterMaps.roughnessMap}
             roughness={0.92}
           />
         </mesh>
@@ -500,6 +534,43 @@ function Face({
   );
 }
 
+/** a painted member of a window: a jamb, a rail, a mullion, a sill */
+function Bar({
+  at,
+  size,
+  rough = 0.4,
+}: {
+  at: [number, number, number];
+  size: [number, number, number];
+  rough?: number;
+}) {
+  return (
+    <mesh position={at} castShadow receiveShadow>
+      <boxGeometry args={size} />
+      <meshStandardMaterial color={FRAME_HEX} roughness={rough} />
+    </mesh>
+  );
+}
+
+/** the joinery of a window, m: the outer frame lining the opening,
+    the sash within it, the bars that divide the panes, how deep the
+    frame stands, and the sill board inside */
+const WINDOW = {
+  frame: 0.06,
+  sash: 0.045,
+  bar: 0.035,
+  depth: 0.09,
+  sillBoard: 0.035,
+  sillOut: 0.06,
+  architrave: 0.06,
+};
+
+/** a window with its joinery, in the opening the wall leaves: a frame
+    lining the reveal towards the outer face, a sash within it divided
+    into four panes by a mullion and a transom, the glass set in the
+    sash with the room's faint reflection, an architrave round the
+    opening on the inside and a sill board projecting into the room;
+    the outside drawn behind the glass at the wall's outer face */
 function Window({ r, o }: { r: RoomShape; o: Opening }) {
   const width = toMetres(o.width);
   const sill = toMetres(o.sill ?? OPENINGS.window.sill);
@@ -511,51 +582,78 @@ function Window({ r, o }: { r: RoomShape; o: Opening }) {
   const mid = sill + tall / 2;
   const [x, z] = placeOf(r, o);
   const yaw = yawOf(o.wall);
+  const t = toMetres(r.thickness);
+  // the frame's plane stands in the outer half of the wall
+  const zf = -Math.max(t * 0.6, WINDOW.depth / 2 + 0.01);
+  const { frame, sash, bar, depth, sillBoard, sillOut, architrave } = WINDOW;
+  const iw = width - 2 * frame; // inside the frame
+  const ih = tall - 2 * frame;
+  const gw = iw - 2 * sash; // the glass
+  const gh = ih - 2 * sash;
+  const sashDepth = depth * 0.6;
   return (
     <Inside normal={inward(o.wall)} always={o.join !== undefined}>
       <group position={[x, 0, z]} rotation={[0, yaw, 0]}>
-        {/* the outside the glass looks onto, set in the opening at the
-            wall's outer face so the reveal stands in front of it from
-            an angle and nothing shows past the wall from outside; the
-            glass itself clear, with the room's faint reflection; the
-            frame, a transom, the sill */}
         <Outside
           evening={r.evening}
+          sun={r.sun}
           width={width}
           tall={tall}
-          at={[0, mid, -toMetres(r.thickness) + OUTSIDE_IN]}
+          at={[0, mid, -t + OUTSIDE_IN]}
         />
-        <mesh position={[0, mid, 0.01]}>
-          <planeGeometry args={[width, tall]} />
+        {/* the frame: two jambs, a head and a bottom rail */}
+        {[-1, 1].map((s) => (
+          <Bar
+            key={`j${s}`}
+            at={[s * (width / 2 - frame / 2), mid, zf]}
+            size={[frame, tall, depth]}
+          />
+        ))}
+        {[sill + frame / 2, head - frame / 2].map((y) => (
+          <Bar key={`r${y}`} at={[0, y, zf]} size={[iw, frame, depth]} />
+        ))}
+        {/* the sash within the frame, and the bars dividing its panes */}
+        {[-1, 1].map((s) => (
+          <Bar
+            key={`s${s}`}
+            at={[s * (iw / 2 - sash / 2), mid, zf]}
+            size={[sash, ih, sashDepth]}
+          />
+        ))}
+        {[sill + frame + sash / 2, head - frame - sash / 2].map((y) => (
+          <Bar key={`t${y}`} at={[0, y, zf]} size={[gw, sash, sashDepth]} />
+        ))}
+        <Bar at={[0, mid, zf]} size={[bar, gh, sashDepth]} />
+        <Bar at={[0, mid, zf]} size={[gw, bar, sashDepth]} />
+        {/* the glass, set in the sash */}
+        <mesh position={[0, mid, zf]}>
+          <planeGeometry args={[gw, gh]} />
           <meshPhysicalMaterial
             color="#ffffff"
             transparent
             opacity={GLASS_OPACITY}
-            roughness={0.05}
+            roughness={0.03}
             metalness={0}
             depthWrite={false}
             side={DoubleSide}
           />
         </mesh>
+        {/* the architrave round the opening on the inside */}
         {[-1, 1].map((s) => (
-          <Face
-            key={s}
-            at={[(s * (width + FRAME)) / 2, mid, 0.02]}
-            size={[FRAME, tall + 2 * FRAME]}
-            colour={FRAME_HEX}
+          <Bar
+            key={`a${s}`}
+            at={[s * (width / 2 + architrave / 2), mid + architrave / 2, 0.008]}
+            size={[architrave, tall + architrave, 0.016]}
           />
         ))}
-        <Face
-          at={[0, head + FRAME / 2, 0.02]}
-          size={[width + 2 * FRAME, FRAME]}
-          colour={FRAME_HEX}
+        <Bar
+          at={[0, head + architrave / 2, 0.008]}
+          size={[width + 2 * architrave, architrave, 0.016]}
         />
-        <Face at={[0, mid, 0.02]} size={[width, 0.04]} colour={FRAME_HEX} />
-        <Face at={[0, mid, 0.02]} size={[0.04, tall]} colour={FRAME_HEX} />
-        <Face
-          at={[0, sill - FRAME / 2, 0.02]}
-          size={[width + 2 * FRAME + 0.08, FRAME]}
-          colour={FRAME_HEX}
+        {/* the sill board, from the frame into the room */}
+        <Bar
+          at={[0, sill - sillBoard / 2, (zf + sillOut) / 2]}
+          size={[width + 2 * architrave + 0.04, sillBoard, sillOut - zf]}
           rough={0.5}
         />
       </group>
@@ -663,24 +761,16 @@ export function RoomShell({
   const floorMesh = useRef<Mesh>(null);
   const { material, target } = useFloorMaterial(w, h, d, reflection !== null);
   const shape = useMemo(() => floorShape(r.outline, w, d), [r.outline, w, d]);
-  const map = useMemo(
-    () => floorTexture(r.floor, r.floorHex),
-    [r.floor, r.floorHex],
-  );
+  // the floor's material: a photographed set in its own colour with
+  // the tone laid lightly over it, else the grown floor in the tone
+  const floorMat = useMaterial(FLOOR_MATERIAL[r.floor], r.floorHex);
+  const floorMaps = repeated(floorMat);
   const t = toMetres(r.thickness);
-  // both outlooks fetched as the room opens, so a change of light finds
-  // its outside ready
-  useEffect(() => {
-    void outlookOf(OUTLOOK.day.file);
-    void outlookOf(OUTLOOK.evening.file);
-  }, []);
   // where the walls' outer faces meet, for the mitre at each edge's ends
   const mitres = useMemo(
     () => mitresOf(r.outline, r.thickness),
     [r.outline, r.thickness],
   );
-  map.repeat.set(1 / TILE_M, 1 / TILE_M);
-  const relief = reliefOf(map);
   return (
     <group>
       <mesh
@@ -697,10 +787,11 @@ export function RoomShell({
         <primitive
           object={material}
           attach="material"
-          map={map}
-          normalMap={relief.normalMap}
+          color={floorMat.photo ? tintOver(r.floorHex) : "#ffffff"}
+          map={floorMaps.map}
+          normalMap={floorMaps.normalMap}
           normalScale={FLOOR_RELIEF}
-          roughnessMap={relief.roughnessMap}
+          roughnessMap={floorMaps.roughnessMap}
           roughness={ROUGHNESS[r.floor]}
         />
       </mesh>

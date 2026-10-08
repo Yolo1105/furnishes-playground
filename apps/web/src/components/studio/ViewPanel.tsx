@@ -22,6 +22,9 @@ export function ViewPanel({
   onSwap: () => void;
 }) {
   const here = other(main);
+  // the 3D view as it last stood in the main column, when it has stood
+  // there; the drawn stand-in before that
+  const lastFrame = useStudio((s) => s.lastFrame);
   return (
     <>
       <div className="shell-panel-head shell-panel-head-sm">
@@ -44,6 +47,11 @@ export function ViewPanel({
           <div className="view-plan view-mini">
             <Plan2D interactive={false} />
           </div>
+        ) : lastFrame ? (
+          // the last picture of the view, a data URL no image loader
+          // could serve better
+          // eslint-disable-next-line @next/next/no-img-element
+          <img className="view-last" src={lastFrame} alt="" />
         ) : (
           <div className="view-iso view-mini" aria-hidden="true">
             <MiniIso />

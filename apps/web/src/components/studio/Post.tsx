@@ -272,10 +272,14 @@ const placeOf = (canvas: HTMLCanvasElement, place: Place) => {
 export function Post({
   tier,
   onFailed,
+  onSettle,
 }: {
   tier: Tier;
   /** a stage failed on this device: the room is drawn plain from now on */
   onFailed: (error: unknown) => void;
+  /** how many settle frames remain after a change, 0 once the picture
+      has settled */
+  onSettle?: (remaining: number) => void;
 }) {
   const invalidate = useThree((s) => s.invalidate);
   // the passes are built on the first frame that needs them and let go
@@ -314,9 +318,13 @@ export function Post({
       state.gl.render(state.scene, state.camera);
       return;
     }
-    if (!have.chain.temporal) return;
+    if (!have.chain.temporal) {
+      onSettle?.(0);
+      return;
+    }
     if (settle.current === 0) settle.current = SETTLE_FRAMES;
     settle.current -= 1;
+    onSettle?.(settle.current);
     if (settle.current > 0) state.invalidate();
   }, 1);
   return null;

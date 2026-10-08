@@ -1,6 +1,7 @@
 import {
   boundsOf,
   type Panel,
+  priceOf,
   priceOfPanels,
   settledPanels,
   sizeOf,
@@ -14,8 +15,13 @@ import {
   type AssetGroup,
   type AssetNode,
 } from "./assets-data";
-import { productOf, type Product } from "./catalogue";
-import { defaultProps, LABEL_MAX, type PieceProps } from "./piece-detail";
+import { productOf, recipeOf, type Product } from "./catalogue";
+import {
+  configOf,
+  defaultProps,
+  LABEL_MAX,
+  type PieceProps,
+} from "./piece-detail";
 
 /** what undo brings back: the room's contents and what was done to them */
 type Snapshot = Pick<SceneState, "groups" | "cart" | "labels" | "overrides">;
@@ -168,21 +174,27 @@ const itemNode = (
     ...(item.model ? { model: item.model } : {}),
   };
 };
-/** a piece's price set anew: from its panels, or its recipe's again */
+/** a piece's price set anew: from its panels, or its recipe's as it
+    is configured (its doors and add-ons), or the product's */
 const priced = (
   groups: AssetGroup[],
   id: string,
   panels: readonly Panel[] | undefined,
+  props?: Pick<PieceProps, "doors" | "accessories">,
 ): AssetGroup[] =>
   groups.map((g) => ({
     ...g,
     items: g.items.map((n) => {
       if (n.id !== id) return n;
+      const recipe = recipeOf(n);
+      const config = props && recipe ? configOf(n, props) : null;
       const price = panels
         ? priceOfPanels(panels)
-        : n.productId
-          ? productOf(n.productId)?.price
-          : undefined;
+        : recipe && config
+          ? priceOf(recipe, config).sgd
+          : n.productId
+            ? productOf(n.productId)?.price
+            : undefined;
       return price === undefined ? n : { ...n, price };
     }),
   }));
@@ -381,8 +393,14 @@ export const useScene = create<SceneState>((set, get) => {
     setProps: (id, patch) =>
       set((s) => {
         const overrides = held(s);
+        const next = { ...overrides[id], ...patch };
+        // a configuration changed: the piece is priced as it now is
+        const configured = "doors" in patch || "accessories" in patch;
         return {
-          overrides: { ...overrides, [id]: { ...overrides[id], ...patch } },
+          overrides: { ...overrides, [id]: next },
+          ...(configured
+            ? { groups: priced(s.groups, id, next.panels, next) }
+            : {}),
           ...remember(s),
         };
       }),

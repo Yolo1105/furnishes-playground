@@ -80,12 +80,14 @@ const trace = (
   camera: Camera,
   samples: number,
   onCount: (samples: number) => void,
+  onDenoise: () => void,
   stopped: () => boolean,
 ) =>
   new Promise<void>((resolve, reject) => {
     tracer.maxSamples = samples;
     tracer.setScene(scene, camera);
     let frames = 0;
+    let denoising = false;
     const tick = () => {
       if (stopped()) return resolve();
       try {
@@ -99,7 +101,13 @@ const trace = (
         return resolve();
       }
       if (++frames % COUNT_EVERY === 0) {
-        void tracer.getSampleCountsAsync().then((c) => onCount(c.min));
+        void tracer.getSampleCountsAsync().then((c) => {
+          onCount(c.min);
+          if (c.min >= samples && !denoising) {
+            denoising = true;
+            onDenoise();
+          }
+        });
       }
       requestAnimationFrame(tick);
     };
@@ -119,7 +127,10 @@ export function Photo({ tier }: { tier: Tier }) {
     if (!taking) return;
     const { gl, scene, camera, setFrameloop, invalidate } = get();
     const renderer = gl as unknown as WebGPURenderer;
-    const { setPhoto, endLoading } = useStudio.getState();
+    const { setPhoto, setWork, endLoading } = useStudio.getState();
+    const plan = ["scene", "trace", "denoise"] as const;
+    const at = (step: (typeof plan)[number], done = 0, of = 0) =>
+      setWork({ plan, step, done, of });
     let stopped = false;
     const give = (why: unknown) => {
       // the graded view stands in: the line runs on as a render's
@@ -139,16 +150,22 @@ export function Photo({ tier }: { tier: Tier }) {
         samples: 0,
         of: SAMPLES[tier],
       });
+      at("scene");
       setFrameloop("never");
       try {
         const made = await tracerFor(renderer);
         if (stopped) return;
+        at("trace", 0, SAMPLES[tier]);
         await trace(
           made,
           scene,
           camera,
           SAMPLES[tier],
-          (samples) => setPhoto({ samples }),
+          (samples) => {
+            setPhoto({ samples });
+            at("trace", samples, SAMPLES[tier]);
+          },
+          () => at("denoise"),
           () => stopped,
         );
         if (!stopped) endLoading();

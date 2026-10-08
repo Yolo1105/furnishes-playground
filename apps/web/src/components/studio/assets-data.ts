@@ -135,17 +135,13 @@ export const assetGroups: AssetGroup[] = [
   {
     id: "lighting",
     name: CATEGORY_NAMES.lighting,
-    items: [
-      decor("floor-lamp", "Floor lamp", "lighting"),
-      decor("desk-lamp", "Desk lamp", "lighting"),
-    ],
+    items: [decor("floor-lamp", "Floor lamp", "lighting")],
   },
   {
     id: "decor",
     name: CATEGORY_NAMES.decor,
     items: [
       decor("plant", "Potted plant", "decor"),
-      decor("vase", "Ceramic vase", "decor"),
       decor("rug", "Rug", "decor"),
     ],
   },

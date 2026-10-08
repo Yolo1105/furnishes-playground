@@ -184,8 +184,7 @@
   color: rgb(from var(--color-ink) r g b / 0.45);
 }
 .eva-pref[data-set="true"] .eva-pref-hint {
-  color: var(--color-accent);
-  font-weight: 600;
+  color: rgb(from var(--color-ink) r g b / 0.55);
 }
 .eva-chips {
   display: flex;

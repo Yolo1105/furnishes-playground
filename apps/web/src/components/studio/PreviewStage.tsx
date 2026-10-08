@@ -1,8 +1,64 @@
 "use client";
 
 import { useRef, type KeyboardEvent, type PointerEvent } from "react";
-import { CompareIcon } from "./icons";
-import { useStudio } from "./studio-store";
+import { CheckIcon, CompareIcon } from "./icons";
+import { useStudio, type WorkStep } from "./studio-store";
+
+/** what each step of a render is called, and what it counts */
+const STEP_NAMES: Record<WorkStep, { name: string; counts?: string }> = {
+  scene: { name: "Preparing the scene" },
+  trace: { name: "Tracing the light", counts: "samples" },
+  denoise: { name: "Cleaning the picture" },
+  light: { name: "Baking the light into the room", counts: "probes" },
+  floor: { name: "Taking the floor's picture" },
+  edges: { name: "Resolving the edges" },
+  grade: { name: "Grading the view" },
+};
+/** one line on what the render is, by its kind of work */
+const NOTE: Record<"photo" | "render", string> = {
+  photo:
+    "The light is traced through the room on this device, one sample a frame, then cleaned.",
+  render:
+    "The room's own light is baked in, its floor pictured and its edges resolved on this device.",
+};
+
+/** the steps a render is taking, with the one under way and how far
+    it is, while the render generates */
+function RenderSteps() {
+  const work = useStudio((s) => s.work);
+  const loading = useStudio((s) => s.loading);
+  if (!work || (loading !== "render" && loading !== "photo")) return null;
+  const now = work.plan.indexOf(work.step);
+  return (
+    <section
+      className="glass render-steps"
+      role="status"
+      aria-label="Rendering"
+    >
+      <p className="render-steps-title">Rendering</p>
+      <ol className="render-steps-list">
+        {work.plan.map((step, i) => {
+          const state = i < now ? "done" : i === now ? "now" : "next";
+          const { name, counts } = STEP_NAMES[step];
+          return (
+            <li key={step} className="render-step" data-state={state}>
+              <span className="render-step-mark" aria-hidden="true">
+                {state === "done" && <CheckIcon size={9} />}
+              </span>
+              <span>{name}</span>
+              {state === "now" && counts && work.of > 0 && (
+                <span className="render-step-count f-num">
+                  {work.done} of {work.of} {counts}
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+      <p className="render-steps-note">{NOTE[loading]}</p>
+    </section>
+  );
+}
 
 /**
  * Render on the stage, between the rails and behind the panels, over
@@ -58,6 +114,7 @@ export function PreviewStage() {
 
   return (
     <div className="preview" data-status={status} data-photo={photo !== null}>
+      {status === "generating" && <RenderSteps />}
       <div
         ref={stage}
         className="preview-stage"

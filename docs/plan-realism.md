@@ -418,18 +418,73 @@ AGPL. `@salusoft89/planegcs` 1.3.0 is the only 2D constraint solver
   lamp), a seat's cloth taking the item's colour over the model's own
   normal and roughness maps, the built form standing in until the
   model loads; a rug, a bed and a floor lamp keep their built forms.
-  A window looks onto a photograph of the outside (a park by day,
-  Venice's sunset in the evening; `public/sky`), sampled along the
-  eye's ray through the pane so the view turns as the room is looked
-  round, set in the opening at the wall's outer face (so the reveal
-  stands before it and nothing shows past the wall from above),
-  behind a clear pane with the room's faint reflection; the
-  photographs load apart from the scene's suspense, so a change of
-  light never takes the room down while its outside arrives. The
-  photographed CC0 texture sets the plan asked for still cannot be
-  fetched from the sandbox (the park came through npm, as
-  `@pmndrs/assets` carries Poly Haven's maps); the grown surfaces
-  stand until they can.
+  A window looks onto the outside, set in the opening at the wall's
+  outer face (so the reveal stands before it and nothing shows past
+  the wall from above), behind a clear pane with the room's faint
+  reflection. The photographed CC0 texture sets the plan asked for
+  still cannot be fetched from the sandbox; the grown surfaces stand
+  until they can.
+- R9 is in, as far as the sandbox lets it be: the four things that
+  still stood between the live view and a photograph. The materials
+  come from files when there are any: `public/materials/<name>/` holds
+  a photographed colour, normal and roughness set with the stretch one
+  tile covers, listed in `index.json` (the README there says which CC0
+  sets fit and where), fetched once as the room opens (`materials.ts`)
+  and taking the grown surface's place as each arrives, a floor's own
+  colour kept with the Room tab's tone laid lightly over it; the suite
+  serves a set of its own to the loader and reads the stage's
+  `data-materials`. The window's outside is drawn in the shader
+  (`Outside` in Room3D.tsx) along the eye's ray through the pane: the
+  sky's gradient, the sun where the room's sun stands (so the light in
+  the view agrees with the shadows on the floor), clouds and a tree
+  line from noise, the ground below the horizon, dusk-coloured in the
+  evening; sharp at any size, where a 512-pixel panorama was a blur,
+  and the park photograph went. The Layout stage opens at eye level,
+  standing inside the room's near corner and looking across it, the
+  overhead view a click away on the cube. The desktop tier has a soft
+  shadow from the sky (a second, dim light straight above with a wide
+  shadow) so undersides and far corners darken as they do under an
+  open sky, and the probe grid runs a second pass with the pieces in
+  its pictures once a drag has settled, so a piece's colour bleeds
+  faintly onto the wall behind it. The grown surfaces are painted in
+  a worker (`surface-paint.ts`, `surface.worker.ts`), a flat stand-in
+  in the material's colour holding each one's place, and the canvas
+  fades up on its first frame, so the studio opens over the shell
+  rather than freezing and then showing whole. What waits for a
+  browser with WebGPU is listed below.
+
+## Checked by hand on WebGPU
+
+The suite runs on the WebGL 2 backend, since headless Chromium has no
+adapter. Before a release, in Chrome or Safari 26 with WebGPU, open
+`/rounded` with the quality on Full and go through this list; each
+line names what to look at and what the stage says.
+
+1. The stage says `data-backend="webgpu"` and `data-post="desktop"`;
+   the View settings menu offers Photo.
+2. The first frame: the shell arrives, then the room fades up within
+   a second or two; no freeze with the page blank, and the wood and
+   the floor planks fill in after the flat colours without a flash.
+3. The probes: `data-probes` goes `pending` then `ready` within a few
+   seconds of a change to the walls' tone; the undersides of the
+   pieces take the floor's tone and the corners darken; no dark
+   blotches on a wall beside a piece after the second pass.
+4. The floor reflection: `data-reflection="ready"`; the window's
+   light patch and a piece's underside show in the floor, in the
+   right place as the camera orbits.
+5. The sky shadow: with the sun through the window, the floor under
+   a sideboard is darker than the open floor beside it, softly, and
+   nothing is banded or speckled on the walls.
+6. Render: the steps card runs light, floor, edges and grade; the
+   line's pace follows the counts; the picture grades without a jump.
+7. Photo: a 1080p photo at the default samples finishes in under a
+   minute on a desktop GPU; ten in a row with no growth in the
+   browser's task-manager GPU memory.
+8. The window: the outlook is sharp at any zoom, the sun's disc sits
+   where the floor's patch says it should, and the evening look turns
+   it to dusk.
+9. The walk: 60 fps on a desktop GPU with the shadows on; no
+   shimmer on the edges after the TRAA settles.
 
 ## The order of work
 

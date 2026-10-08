@@ -13,6 +13,7 @@ import {
 } from "@react-three/fiber";
 import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
 import {
+  CanvasTexture,
   type Group,
   PCFShadowMap,
   Plane,
@@ -22,11 +23,13 @@ import {
 } from "three";
 import { CATEGORY_NAMES, type AssetNode } from "./assets-data";
 import { Furniture3D } from "./Furniture3D";
-import { ArrowLeftIcon, LockIcon, RotateIcon } from "./icons";
+import { ArrowLeftIcon, LockIcon } from "./icons";
 import { usePieceActions } from "./piece-actions";
 import { PieceActions } from "./PieceActions";
 import {
+  ACCENT_HEX,
   colourHex,
+  DANGER_HEX,
   footprint,
   isRug,
   ROOM_ITEM_HEX,
@@ -54,11 +57,17 @@ import { Photo } from "./Photo";
 import { backendOf, Post, tierOf, TONE_MAPPING } from "./Post";
 import { Probes } from "./Probes";
 import type { StillState } from "./capture";
+import { loadMaterials, useMaterials } from "./materials";
 import { RoomLight, RoomShell, windowSun } from "./Room3D";
 import { usePartStore } from "./part-client";
 import { propsOf, useScene } from "./scene-store";
 import { useCoarse } from "./input";
-import { useStudio, type Angle } from "./studio-store";
+import {
+  minRenderMs,
+  useStudio,
+  type Angle,
+  type WorkStep,
+} from "./studio-store";
 
 /**
  * The room in 3D: the floor and the walls from the Room tab's outline and
@@ -120,6 +129,22 @@ const makeRendererCoarse = (props: RendererProps) => makeRenderer(props, false);
 /** the shadow map the WebGPU renderer keeps (it dropped the soft one) */
 const SHADOWS = { type: PCFShadowMap } as const;
 
+/** the first frame drawn: the canvas is kept clear until then and
+    fades up on it, so the room comes in over the shell rather than
+    popping up whole once its first frame (the shaders built, the
+    materials made) is through */
+function FirstFrame({ onDrawn }: { onDrawn: () => void }) {
+  const done = useRef(false);
+  useFrame(() => {
+    if (done.current) return;
+    done.current = true;
+    // the state lands after this frame's render, which runs in the
+    // same turn as the frame's callbacks
+    onDrawn();
+  });
+  return null;
+}
+
 /** which backend the renderer came up on, for the stage to say and
     the store to know */
 function Backend() {
@@ -128,6 +153,20 @@ function Backend() {
   useEffect(() => {
     setBackend(backendOf(gl));
   }, [gl, setBackend]);
+  // leaving the main column (the plan takes it), the view's last
+  // picture is kept for the small panel, as it stood
+  useEffect(
+    () => () => {
+      try {
+        useStudio.setState({
+          lastFrame: gl.domElement.toDataURL("image/jpeg", 0.85),
+        });
+      } catch {
+        /* a context already lost keeps the drawn stand-in */
+      }
+    },
+    [gl],
+  );
   return null;
 }
 
@@ -167,6 +206,10 @@ const LIGHTS = {
 /** how far beyond the window the sun stands, and how far along the
     wall, m */
 const SUN = { back: 5.5, aside: -1 };
+/** the sky's shadow on the desktop tier: how much of the sky's light
+    comes as a shadowed light from above, from how high, m, and how
+    soft its shadow is */
+const SKY_SHADOW = { share: 0.45, height: 12, radius: 8 };
 /** what the floor gives back to the undersides */
 const GROUND_HEX = "#c9b9a6";
 
@@ -274,11 +317,14 @@ const cameraFor = (
   const over = h * 1.3;
   const side: Vector3Tuple = [cx, h / 3, cz];
   const at: Record<string, Vector3Tuple> = {
-    Perspective: [cx, h / 2, cz],
+    // the perspective stands at eye height beyond the open near corner
+    // and looks a little down across the room, as a photograph of it
+    // is taken: the floor in view, the walls upright
+    Perspective: [cx, EYE * 0.6, cz],
     Top: [cx, h / 2, cz],
   };
   const pos: Record<string, Vector3Tuple> = {
-    Perspective: [cx + r * 0.9, r * 0.75, cz + r * 1.1],
+    Perspective: [cx + r * 0.78, EYE, cz + r * 0.98],
     Front: [cx, over, cz + r * 1.3],
     Back: [cx, over, cz - r * 1.3],
     Left: [cx - r * 1.3, over, cz],
@@ -704,13 +750,24 @@ function Piece({
   labels: boolean;
   edges: boolean;
 }) {
-  // the handle: a click turns a quarter; a sideways drag turns freely,
-  // a degree a pixel, snapped unless Shift is held
-  const spin = useRef<{ x0: number; r0: number; moved: boolean } | null>(null);
+  // the knob on the ring: a click turns a quarter; a drag round the
+  // piece turns it by the angle the pointer makes about the piece's
+  // middle on the screen, snapped unless Shift is held
+  const camera = useThree((s) => s.camera);
+  const canvas = useThree((s) => s.gl.domElement);
+  const spin = useRef<{ a0: number; r0: number; moved: boolean } | null>(null);
   const spinSkip = useRef(false);
+  const [spinning, setSpinning] = useState(false);
+  const angleAbout = (e: React.PointerEvent) => {
+    const c = new Vector3(at[0], 0, at[2]).project(camera);
+    const r = canvas.getBoundingClientRect();
+    const cx = r.left + ((c.x + 1) / 2) * r.width;
+    const cy = r.top + ((1 - c.y) / 2) * r.height;
+    return Math.atan2(e.clientY - cy, e.clientX - cx);
+  };
   const onSpinDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     if (e.button !== 0) return;
-    spin.current = { x0: e.clientX, r0: props.rotation, moved: false };
+    spin.current = { a0: angleAbout(e), r0: props.rotation, moved: false };
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
     } catch {
@@ -720,13 +777,17 @@ function Piece({
   const onSpinMove = (e: React.PointerEvent<HTMLButtonElement>) => {
     const s = spin.current;
     if (!s) return;
-    const dx = e.clientX - s.x0;
+    let da = ((angleAbout(e) - s.a0) * 180) / Math.PI;
+    da = ((da + 540) % 360) - 180;
     if (!s.moved) {
-      if (Math.abs(dx) < 4) return;
+      if (Math.abs(da) < 3) return;
       s.moved = true;
+      setSpinning(true);
       useScene.getState().dragStart();
     }
-    const raw = s.r0 + dx;
+    // seen from above the room, the pointer going clockwise on the
+    // screen turns the piece clockwise on the plan
+    const raw = s.r0 + da;
     useScene
       .getState()
       .turnMove(
@@ -740,11 +801,14 @@ function Piece({
     const s = spin.current;
     if (!s) return;
     spin.current = null;
+    setSpinning(false);
     if (s.moved) {
       useScene.getState().dragEnd();
       spinSkip.current = true;
     }
   };
+  // the ring's reach round the footprint, m
+  const ringR = Math.hypot(size[0], size[2]) / 2 + RING_OUT;
   const drag = useRef<{
     hit: Vector3;
     x0: number;
@@ -826,6 +890,7 @@ function Piece({
         colour={colour}
         parts={parts}
         texture={props.texture}
+        doors={props.doors}
         panels={props.panels}
         editable={selected && !props.locked}
         selected={selected}
@@ -850,33 +915,66 @@ function Piece({
           </span>
         </Html>
       )}
+      {/* picked: a halo on the floor round the footprint says which piece
+          is in hand; the ring round it is where it turns, its knob at the
+          piece's front */}
+      {selected && (
+        <Halo size={size} colour={clash ? DANGER_HEX : ACCENT_HEX} />
+      )}
       {selected && canDrag && (
-        <Html
-          portal={portal}
-          position={[-size[0] / 2, size[1] + 0.12, -size[2] / 2]}
-          center
-          zIndexRange={[45, 35]}
-        >
-          <button
-            type="button"
-            className="stage-piece-turn stage-turn-3d shell-tip"
-            data-tooltip="Turn: click a quarter, drag freely"
-            aria-label={`Turn ${node.name}`}
-            onPointerDown={onSpinDown}
-            onPointerMove={onSpinMove}
-            onPointerUp={onSpinUp}
-            onPointerCancel={onSpinUp}
-            onClick={() => {
-              if (spinSkip.current) {
-                spinSkip.current = false;
-                return;
-              }
-              onTurn();
-            }}
+        <>
+          <mesh
+            rotation={[-Math.PI / 2, 0, 0]}
+            position={[0, RING_Y, 0]}
+            raycast={unpickable}
           >
-            <RotateIcon size={12} />
-          </button>
-        </Html>
+            <ringGeometry args={[ringR - RING_W, ringR, 96]} />
+            <meshBasicMaterial
+              color={ACCENT_HEX}
+              transparent
+              opacity={spinning ? 0.95 : 0.7}
+              depthWrite={false}
+            />
+          </mesh>
+          <Html
+            portal={portal}
+            position={[0, RING_Y, ringR]}
+            center
+            zIndexRange={[45, 35]}
+          >
+            <button
+              type="button"
+              className="stage-turn-knob shell-tip"
+              data-tooltip="Turn: drag round the ring, or click for a quarter turn"
+              aria-label={`Turn ${node.name}`}
+              data-spinning={spinning}
+              onPointerDown={onSpinDown}
+              onPointerMove={onSpinMove}
+              onPointerUp={onSpinUp}
+              onPointerCancel={onSpinUp}
+              onClick={() => {
+                if (spinSkip.current) {
+                  spinSkip.current = false;
+                  return;
+                }
+                onTurn();
+              }}
+            />
+          </Html>
+          {spinning && (
+            <Html
+              portal={portal}
+              position={[0, size[1] + 0.12, 0]}
+              center
+              zIndexRange={[46, 36]}
+              style={{ pointerEvents: "none" }}
+            >
+              <span className="stage-turn-readout f-num">
+                {props.rotation}°
+              </span>
+            </Html>
+          )}
+        </>
       )}
       {props.locked && (
         <Html
@@ -918,6 +1016,70 @@ function Piece({
   );
 }
 
+/** drawn, never picked: a halo or a ring under the pointer leaves the
+    pick to the piece */
+const unpickable = () => null;
+/** the ring's distance past the footprint's corners, its width, and
+    the height both it and the halo lie at above the floor, m */
+const RING_OUT = 0.1;
+const RING_W = 0.012;
+const RING_Y = 0.006;
+/** the halo's margin round the footprint, m, and its picture's size */
+const HALO_OUT = 0.12;
+const HALO_PX = 256;
+const halos = new Map<string, CanvasTexture>();
+/** a rounded rectangle in the colour, stroked and faintly filled, as
+    the picture a halo lies on the floor as; kept by its size */
+const haloTexture = (w: number, d: number, colour: string) => {
+  const key = `${w.toFixed(3)},${d.toFixed(3)},${colour}`;
+  const had = halos.get(key);
+  if (had) return had;
+  const c = document.createElement("canvas");
+  const px = HALO_PX;
+  c.width = px;
+  c.height = Math.max(8, Math.round((px * d) / w));
+  const ctx = c.getContext("2d")!;
+  const inset = px * 0.03;
+  const r = px * 0.05;
+  ctx.beginPath();
+  ctx.roundRect(inset, inset, c.width - 2 * inset, c.height - 2 * inset, r);
+  ctx.fillStyle = colour;
+  ctx.globalAlpha = 0.12;
+  ctx.fill();
+  ctx.globalAlpha = 0.95;
+  ctx.lineWidth = px * 0.014;
+  ctx.strokeStyle = colour;
+  ctx.stroke();
+  const t = new CanvasTexture(c);
+  t.anisotropy = 4;
+  halos.set(key, t);
+  return t;
+};
+function Halo({
+  size: [w, , d],
+  colour,
+}: {
+  size: Vector3Tuple;
+  colour: string;
+}) {
+  const hw = w + 2 * HALO_OUT;
+  const hd = d + 2 * HALO_OUT;
+  return (
+    <mesh
+      rotation={[-Math.PI / 2, 0, 0]}
+      position={[0, RING_Y, 0]}
+      raycast={unpickable}
+    >
+      <planeGeometry args={[hw, hd]} />
+      <meshBasicMaterial
+        map={haloTexture(hw, hd, colour)}
+        transparent
+        depthWrite={false}
+      />
+    </mesh>
+  );
+}
+
 /** another room of the flat, standing where it does on the sheet with
     the active room at the origin: its shell and its pieces, to look at
     and to pick, not to drag */
@@ -928,6 +1090,7 @@ function OtherRoom({
   labels,
   edges,
   rendering,
+  sun,
 }: {
   rm: RoomSpec;
   from: RoomSpec;
@@ -935,6 +1098,8 @@ function OtherRoom({
   labels: boolean;
   edges: boolean;
   rendering: boolean;
+  /** where the sun stands, for the room's windows */
+  sun: Vector3Tuple;
 }) {
   const a = usePieceActions(rm.id);
   // only the two slices the shell reads, so a point drawn elsewhere
@@ -975,6 +1140,7 @@ function OtherRoom({
           floorHex: floor,
           wallHex: wall,
           evening,
+          sun,
           shared: sharedOf(st, rm),
         }}
         walk={false}
@@ -1038,6 +1204,11 @@ export default function Scene3D() {
   const angle = useStudio((s) => s.angle);
   // a panel's drag (its step opens on the press) holds the camera still
   const panelDrag = useScene((s) => s.dragFrom !== null);
+  // the photographed materials that have arrived, for the stage to say
+  const photographed = useMaterials((s) =>
+    Object.keys(s.loaded).sort().join(" "),
+  );
+  useEffect(() => loadMaterials(), []);
   // the part worker's requests under way, for the stage to say
   const partsPending = usePartStore((s) => s.pending);
   const walk = useStudio((s) => s.walk);
@@ -1213,6 +1384,56 @@ export default function Scene3D() {
     ]);
   const [probeState, setProbeState] = useState<StillState>("pending");
   const [reflectState, setReflectState] = useState<StillState>("pending");
+  const [probeDone, setProbeDone] = useState({ at: 0, of: 0 });
+  const [settling, setSettling] = useState(0);
+  const [drawn, setDrawn] = useState(false);
+  const skyShadow = shadows && tier === "desktop";
+  const skyReach = Math.max(w, d) * 0.75;
+  // a graded render is the work the stage does anyway, counted: the
+  // light baked, the floor's picture, the edges settled; it ends when
+  // all of it is done and the line has had its moment
+  const grading = useStudio(
+    (s) => s.mode === "preview" && s.loading === "render",
+  );
+  const loadingAt = useStudio((s) => s.loadingAt);
+  const gradingFrom = useRef(0);
+  useEffect(() => {
+    if (grading) gradingFrom.current = performance.now();
+  }, [grading, loadingAt]);
+  useEffect(() => {
+    if (!grading) return;
+    const { setWork, endLoading } = useStudio.getState();
+    const temporal = post !== null && post !== "phone";
+    const plan: WorkStep[] = probes
+      ? ["light", "floor", ...(temporal ? (["edges"] as const) : [])]
+      : ["grade"];
+    const step: WorkStep | null = !probes
+      ? settling > 0
+        ? "grade"
+        : null
+      : probeState !== "ready"
+        ? "light"
+        : reflectState !== "ready"
+          ? "floor"
+          : settling > 0 && temporal
+            ? "edges"
+            : null;
+    const left = gradingFrom.current + minRenderMs() - performance.now();
+    if (step === null && left <= 0) {
+      endLoading();
+      return;
+    }
+    setWork({
+      plan,
+      step: step ?? plan[plan.length - 1]!,
+      done: step === "light" ? probeDone.at : 0,
+      of: step === "light" ? probeDone.of : 0,
+    });
+    if (step === null) {
+      const t = window.setTimeout(endLoading, left);
+      return () => window.clearTimeout(t);
+    }
+  }, [grading, probes, post, probeState, reflectState, settling, probeDone]);
   return (
     <div
       ref={stage}
@@ -1234,8 +1455,10 @@ export default function Scene3D() {
       data-grid={grid}
       data-light={scene.light}
       data-sky={scene.sky}
+      data-materials={photographed}
       data-exposure={scene.exposure}
       data-backend={backend}
+      data-drawn={drawn}
       data-post={post ?? "off"}
       data-probes={probes ? probeState : "off"}
       data-reflection={probes ? reflectState : "off"}
@@ -1273,10 +1496,19 @@ export default function Scene3D() {
         )}
         <Exposure value={scene.exposure} />
         <Backend />
+        <FirstFrame onDrawn={() => setDrawn(true)} />
         {tier && <Photo tier={tier} />}
-        {post && <Post tier={post} onFailed={failPost(setPostFailed)} />}
+        {post && (
+          <Post
+            tier={post}
+            onFailed={failPost(setPostFailed)}
+            onSettle={setSettling}
+          />
+        )}
         <hemisphereLight
-          intensity={light.sky}
+          // the desktop tier takes part of the sky's light as a shadowed
+          // light from above instead
+          intensity={light.sky * (skyShadow ? 1 - SKY_SHADOW.share : 1)}
           color={light.fill}
           groundColor={GROUND_HEX}
         />
@@ -1290,6 +1522,27 @@ export default function Scene3D() {
           shadow-bias={-0.0003}
           shadow-normalBias={0.02}
         />
+        {skyShadow && (
+          // the sky's shadow: a dim light from straight above with a wide,
+          // soft shadow, so undersides and the floor beneath a piece
+          // darken as they do under an open sky
+          <directionalLight
+            position={[0.3, SKY_SHADOW.height, 0.2]}
+            intensity={light.sky * SKY_SHADOW.share}
+            color={light.fill}
+            castShadow
+            shadow-mapSize={[1024, 1024]}
+            shadow-radius={SKY_SHADOW.radius}
+            shadow-bias={-0.0005}
+            shadow-normalBias={0.04}
+            shadow-camera-left={-skyReach}
+            shadow-camera-right={skyReach}
+            shadow-camera-top={skyReach}
+            shadow-camera-bottom={-skyReach}
+            shadow-camera-near={1}
+            shadow-camera-far={SKY_SHADOW.height + 2}
+          />
+        )}
         <RoomLight evening={scene.light === "evening"} sky={scene.sky} />
         {probes && (
           <Probes
@@ -1299,6 +1552,7 @@ export default function Scene3D() {
             stamp={probeStamp}
             pieces={pieces}
             onState={setProbeState}
+            onProgress={(at, of) => setProbeDone({ at, of })}
           />
         )}
         {grid && !a.focus && (
@@ -1326,6 +1580,7 @@ export default function Scene3D() {
               floorHex: floor,
               wallHex: wall,
               evening: scene.light === "evening",
+              sun: sunFrom,
             }}
             walk={walk}
             onWalkTo={(x, z) => {
@@ -1349,6 +1604,7 @@ export default function Scene3D() {
                 labels={labels}
                 edges={edges}
                 rendering={rendering}
+                sun={sunFrom}
               />
             ))}
         <group ref={pieces}>

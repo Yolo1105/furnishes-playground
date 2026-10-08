@@ -52,6 +52,18 @@ export const QUALITIES: { id: Quality; label: string; sub: string }[] = [
   { id: "light", label: "Light", sub: "the finish at half size" },
   { id: "plain", label: "Plain", sub: "the room as drawn" },
 ];
+/** the least a render's line runs, ms: the page's `--preview-generate`
+    token (the suite shortens or lengthens it), so a render that is done
+    at once still shows its moment */
+export const minRenderMs = () => {
+  if (typeof document === "undefined") return 0;
+  const v = getComputedStyle(document.documentElement)
+    .getPropertyValue("--preview-generate")
+    .trim();
+  const n = v.endsWith("ms") ? parseFloat(v) : parseFloat(v) * 1000;
+  return Number.isFinite(n) ? n : 1200;
+};
+
 /** the exposure's range: a dim room to a bright one */
 export const EXPOSURE = { min: 0.6, max: 1.8, step: 0.05 };
 export const SCENE_DEFAULT: SceneLook = {
@@ -88,6 +100,20 @@ type Loading = "view" | "render" | "photo" | null;
 /** a photo under way or shown: the view before it, for the compare,
     and how many samples a pixel has of those asked for */
 export type PhotoStatus = { before: string; samples: number; of: number };
+/** a step of the work a render takes: the scene prepared and the light
+    traced and denoised (a photo), or the light baked into the room, the
+    floor's picture taken and the edges resolved (the view graded), or
+    the view graded alone where the device does no more */
+export type WorkStep =
+  "scene" | "trace" | "denoise" | "light" | "floor" | "edges" | "grade";
+/** the steps a render will take, which it is on, and how far along
+    that step is when it is counted (done of of; 0 of 0 while not) */
+export type Work = {
+  plan: readonly WorkStep[];
+  step: WorkStep;
+  done: number;
+  of: number;
+};
 /** WebGPU, WebGL 2, or WebGL 2 on a software GPU (SwiftShader, llvmpipe) */
 export type Backend = "" | "webgpu" | "webgl" | "software";
 
@@ -124,6 +150,11 @@ type StudioState = {
   /** the renderer's backend once it is up */
   backend: Backend;
   photo: PhotoStatus | null;
+  /** what the render is doing now, while it generates */
+  work: Work | null;
+  /** the 3D view's last picture before it left the main column, for
+      the small panel to show it as it stood */
+  lastFrame: string | null;
   /** where the divider stands, as a percent of the stage's width */
   split: number;
   /** the plan's zoom (1 is the sheet fitted) and pan, px */
@@ -151,6 +182,7 @@ type StudioState = {
   setBackend: (backend: Backend) => void;
   /** the photo's progress, or none once the view is edited again */
   setPhoto: (patch: Partial<PhotoStatus> | null) => void;
+  setWork: (work: Work | null) => void;
   setTool: (tool: Tool) => void;
   setView: (view: View) => void;
   setAngle: (angle: Angle) => void;
@@ -212,6 +244,8 @@ export const useStudio = create<StudioState>((set, get) => ({
   preview: "idle",
   backend: "",
   photo: null,
+  work: null,
+  lastFrame: null,
   split: 0,
   planZoom: 1,
   planPan: { x: 0, y: 0 },
@@ -235,14 +269,23 @@ export const useStudio = create<StudioState>((set, get) => ({
             split: 0,
             loading: s.backend === "webgpu" ? "photo" : "render",
             loadingAt: s.loadingAt + 1,
+            work: null,
           }
-        : { mode, preview: "idle", split: 0, loading: null, photo: null },
+        : {
+            mode,
+            preview: "idle",
+            split: 0,
+            loading: null,
+            photo: null,
+            work: null,
+          },
     ),
   // measuring and placing the tour's stops are done on the plan: those
   // tools bring the plan up, and leaving the plan puts them down
   setTool: (tool) =>
     set((s) =>
-      (tool === "measure" || tool === "tour") && s.view !== "2d"
+      (tool === "wall" || tool === "measure" || tool === "tour") &&
+      s.view !== "2d"
         ? {
             tool,
             view: "2d",
@@ -300,6 +343,14 @@ export const useStudio = create<StudioState>((set, get) => ({
           ? null
           : { before: "", samples: 0, of: 0, ...s.photo, ...patch },
     })),
+  setWork: (work) =>
+    set((s) =>
+      s.work?.step === work?.step &&
+      s.work?.done === work?.done &&
+      s.work?.of === work?.of
+        ? {}
+        : { work },
+    ),
   setFocus: (focusId) => set({ focusId }),
   setPanelTab: (panelTab) => set({ panelTab }),
   setEvaTab: (evaTab) => set({ evaTab }),
@@ -309,8 +360,8 @@ export const useStudio = create<StudioState>((set, get) => ({
     set(
       (s.loading === "render" || s.loading === "photo") &&
         s.preview === "generating"
-        ? { loading: null, preview: "revealing", split: 100 }
-        : { loading: null },
+        ? { loading: null, preview: "revealing", split: 100, work: null }
+        : { loading: null, work: null },
     );
   },
   revealed: () => {
