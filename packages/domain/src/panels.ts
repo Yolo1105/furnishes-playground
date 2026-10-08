@@ -10,6 +10,7 @@
  */
 
 import type { Feature } from "./features";
+import type { Sketch } from "./sketch";
 
 /** the axis a panel's thickness runs along; its face lies in the plane
     of the other two */
@@ -37,6 +38,9 @@ export type Panel = {
   grain: Grain;
   kind: PanelKind;
   features?: Feature[];
+  /** the face's outline when it is not a rectangle (sketch.ts); the
+      length and width are then the box round it */
+  profile?: Sketch;
 };
 
 /** the thickness a new panel takes, mm */

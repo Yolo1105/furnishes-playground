@@ -1,11 +1,13 @@
 import { cutListCsv, dxfOf, nest, SHEET, type Panel } from "@furnishes/domain";
 import { download } from "./export";
+import { stepOf } from "./part-client";
 
 /**
  * What a piece's panels leave for the shop: each panel's face as a
  * DXF with its machining, and the piece's cut list, its panels nested
- * on the shop's sheets, as a CSV. Each lands as a download, named
- * after the piece and the panel.
+ * on the shop's sheets, as a CSV; and a shaped panel as STEP, the
+ * kernel's own file, made in the part worker. Each lands as a
+ * download, named after the piece and the panel.
  */
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
@@ -14,6 +16,15 @@ export const exportPanelDxf = (piece: string, panel: Panel) =>
     `${slug(piece)}-${slug(panel.name)}-${panel.id}.dxf`,
     new Blob([dxfOf(panel)], { type: "application/dxf" }),
   );
+
+export const exportPanelStep = async (piece: string, panel: Panel) => {
+  if (!panel.profile) return;
+  const step = await stepOf(panel.profile, panel.thickness);
+  download(
+    `${slug(piece)}-${slug(panel.name)}-${panel.id}.step`,
+    new Blob([step], { type: "application/step" }),
+  );
+};
 
 export const exportCutList = (piece: string, panels: readonly Panel[]) =>
   download(

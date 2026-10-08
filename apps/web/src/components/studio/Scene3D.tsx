@@ -55,6 +55,7 @@ import { backendOf, Post, tierOf, TONE_MAPPING } from "./Post";
 import { Probes } from "./Probes";
 import type { StillState } from "./capture";
 import { RoomLight, RoomShell } from "./Room3D";
+import { usePartStore } from "./part-client";
 import { propsOf, useScene } from "./scene-store";
 import { useCoarse } from "./input";
 import { useStudio, type Angle } from "./studio-store";
@@ -1026,6 +1027,8 @@ export default function Scene3D() {
   const angle = useStudio((s) => s.angle);
   // a panel's drag (its step opens on the press) holds the camera still
   const panelDrag = useScene((s) => s.dragFrom !== null);
+  // the part worker's requests under way, for the stage to say
+  const partsPending = usePartStore((s) => s.pending);
   const walk = useStudio((s) => s.walk);
   const room = useActiveRoom();
   const rooms = useRoom((s) => s.rooms);
@@ -1193,6 +1196,7 @@ export default function Scene3D() {
       ref={stage}
       className="stage-3d"
       data-focus={a.focus !== null}
+      data-parts={partsPending}
       data-walk={walk}
       data-dragging={dragging}
       data-hover={

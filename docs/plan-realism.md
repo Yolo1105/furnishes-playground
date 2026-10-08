@@ -362,6 +362,25 @@ AGPL. `@salusoft89/planegcs` 1.3.0 is the only 2D constraint solver
   boolean subtraction on export (manifold-3d) is left out: the DXF
   carries the machining to the shop, which is what the cut is made
   from, and no export of the studio's meshes exists yet to subtract in.
+- M4 is in: a panel's shape as a constrained sketch and a solid. A
+  profile (`sketch.ts`) is the face's outline as points in the face's
+  frame, a loop through them, and the constraints that hold it (an
+  edge level or upright, a distance held, the first point still), with
+  corners rounded by a radius; the presets are the shapes a panel is
+  given (a corner cut off, a top narrowed), a rectangle being none.
+  The solver is FreeCAD's planegcs and the kernel Open CASCADE through
+  replicad, both WebAssembly, in the studio's part worker
+  (`part.worker.ts`), loaded the first time a shape is asked for and
+  never before; each wasm is served as the unmodified file its package
+  ships (`apps/web/LICENSES.md`). The picked panel's Shape picks a
+  preset, types the corner radius, and its length or width typed anew
+  is the held distance changed and the sketch solved; the solid (the
+  profile drawn, its corners filleted, extruded by the thickness) is
+  drawn in place of the slab, the stage counting the worker's work
+  (`data-parts`), and comes as STEP from the kernel; the DXF's outline
+  follows the profile. The gates hold in the unit tests: a constrained
+  sketch solves in under 50 ms, a solid and its STEP come in under a
+  few seconds, and nothing of it runs on the main thread.
 
 ## The order of work
 

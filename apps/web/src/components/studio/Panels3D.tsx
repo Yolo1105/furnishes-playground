@@ -27,6 +27,7 @@ import {
   type Vector3Tuple,
 } from "three";
 import { type Finish, Mat, metal, METAL, Slab } from "./finish";
+import { useProfileGeometry } from "./part-client";
 import { ACCENT_HEX } from "./piece-detail";
 import { useScene } from "./scene-store";
 
@@ -41,7 +42,9 @@ import { useScene } from "./scene-store";
  * thickness is typed in the Detail tab, never dragged. A drag is one
  * step to undo; letting go settles the piece's box round its panels.
  * A panel's machining (features.ts) is drawn on its face as marks: a
- * disc a hole, a dark strip a groove or a cut-out.
+ * disc a hole, a dark strip a groove or a cut-out. A panel with a
+ * profile (sketch.ts) is drawn as the solid the part worker makes of
+ * it, the slab standing in until it comes.
  */
 /** the marks' colour: the wood cut into, in shadow */
 const MARK_HEX = "#3a3129";
@@ -219,6 +222,7 @@ function PanelMesh({
 }) {
   const camera = useThree((s) => s.camera);
   const invalidate = useThree((s) => s.invalidate);
+  const solid = useProfileGeometry(panel);
   const drag = useRef<{
     plane: Plane;
     hit: Vector3;
@@ -305,11 +309,17 @@ function PanelMesh({
           useScene.getState().selectPanel(picked ? null : panel.id);
       }}
     >
-      <Slab
-        f={f}
-        at={panel.position.map(toMetres) as Vector3Tuple}
-        dims={panelBoxSize(panel).map(toMetres) as Vector3Tuple}
-      />
+      {solid ? (
+        <mesh geometry={solid} castShadow receiveShadow>
+          <Mat f={f} />
+        </mesh>
+      ) : (
+        <Slab
+          f={f}
+          at={panel.position.map(toMetres) as Vector3Tuple}
+          dims={panelBoxSize(panel).map(toMetres) as Vector3Tuple}
+        />
+      )}
       {panel.features?.map((x) => (
         <Mark key={x.id} panel={panel} feature={x} />
       ))}

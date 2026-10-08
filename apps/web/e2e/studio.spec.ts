@@ -1369,6 +1369,31 @@ test("a piece opens as panels: picked, typed in millimetres, added to, priced, c
   const csv = page.waitForEvent("download");
   await section.getByRole("button", { name: "Cut list" }).click();
   expect((await csv).suggestedFilename()).toMatch(/cut-list\.csv$/);
+  // a shape: a corner cut off and the corners rounded; the part worker
+  // makes the solid (the stage counts its work) and hands over a STEP
+  const shape = section.getByRole("radiogroup", { name: "Shape" });
+  await shape.getByRole("radio", { name: "Cut corner" }).click();
+  await expect(section).toContainText("5 corners");
+  await page
+    .getByRole("spinbutton", { name: "Side corner radius in millimetres" })
+    .fill("20");
+  await expect(section).toContainText("5 corners, rounded");
+  const stage3d = page.locator(".stage-3d");
+  await expect(stage3d).toHaveAttribute("data-parts", "0", {
+    timeout: 90_000,
+  });
+  await expect(section).not.toContainText("could not be made");
+  const step = page.waitForEvent("download");
+  await section.getByRole("button", { name: "Side as STEP" }).click();
+  expect((await step).suggestedFilename()).toMatch(/side.*\.step$/);
+  // the panel's length typed anew is a constraint the solver settles
+  const sideLength = page.getByRole("spinbutton", {
+    name: "Side length in millimetres",
+  });
+  await sideLength.fill("500");
+  await expect(sideLength).toHaveValue("500", { timeout: 20_000 });
+  await shape.getByRole("radio", { name: "Rectangle" }).click();
+  await expect(section).toContainText("a rectangle");
   await panels.getByRole("radio", { name: /^Side/ }).first().click();
   // in 3D, with the piece alone and seen from above, a click on it
   // picks the panel under the pointer: the top

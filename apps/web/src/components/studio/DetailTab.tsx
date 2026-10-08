@@ -9,10 +9,16 @@ import {
   freeId,
   hingeCups,
   innerFace,
+  cutCornerSketch,
   middleCutout,
   newPanel,
   type Panel,
+  rounded,
+  type Sketch,
+  sketchSize,
   systemHoles,
+  taperSketch,
+  withDistance,
 } from "@furnishes/domain";
 import { CATEGORY_NAMES, sgd, type AssetNode } from "./assets-data";
 import {
@@ -44,7 +50,8 @@ import {
   squared,
 } from "./piece-detail";
 import { portraitOf, recipeOf } from "./catalogue";
-import { exportCutList, exportPanelDxf } from "./machining";
+import { exportCutList, exportPanelDxf, exportPanelStep } from "./machining";
+import { solveSketch, usePartStore } from "./part-client";
 import { ProductPage } from "./ProductPage";
 import { findNode, propsOf, useScene } from "./scene-store";
 import { useStudio } from "./studio-store";
@@ -67,6 +74,8 @@ export function DetailTab() {
   const cart = useScene((s) => s.cart);
   const labels = useScene((s) => s.labels);
   const panelId = useScene((s) => s.panelId);
+  const partsPending = usePartStore((s) => s.pending);
+  const partFailed = usePartStore((s) => s.failed);
   const {
     select,
     selectPanel,
@@ -138,6 +147,38 @@ export function DetailTab() {
     editPanel({
       features: [...(panel.features ?? []), ...made(panel.features ?? [])],
     });
+  // the picked panel's shape: a profile given by a preset at the
+  // panel's size; its length and width typed anew are held constraints
+  // the solver settles, off the main thread
+  const shaped = (made: ((L: number, W: number) => Sketch) | null) => {
+    if (!panel) return;
+    if (made)
+      return editPanel({
+        profile: {
+          ...made(panel.length, panel.width),
+          corners: panel.profile?.corners ?? {},
+        },
+      });
+    // a rectangle is no profile at all
+    const plain = { ...panel };
+    delete plain.profile;
+    changePanels(panels!.map((x) => (x.id === panel.id ? plain : x)));
+  };
+  const resized = (patch: { length?: number; width?: number }) => {
+    if (!panel) return;
+    if (!panel.profile) return editPanel(patch);
+    const L = patch.length ?? panel.length;
+    const W = patch.width ?? panel.width;
+    const asked = withDistance(withDistance(panel.profile, "len", L), "wid", W);
+    void solveSketch(asked)
+      .then((s) => editPanel({ profile: s, ...sketchSize(s) }))
+      .catch(() => undefined);
+  };
+  const SHAPES: [string, ((L: number, W: number) => Sketch) | null][] = [
+    ["Rectangle", null],
+    ["Cut corner", (L, W) => cutCornerSketch(L, W, Math.min(L, W) / 5)],
+    ["Taper", (L, W) => taperSketch(L, W, L / 4)],
+  ];
   const PRESETS: [string, (p: Panel) => Feature[]][] = [
     [
       "Shelf pins",
@@ -537,13 +578,13 @@ export function DetailTab() {
                       "Length",
                       panel.length,
                       `${panel.name} length in millimetres`,
-                      (length) => editPanel({ length }),
+                      (length) => resized({ length }),
                     )}
                     {panelNum(
                       "Width",
                       panel.width,
                       `${panel.name} width in millimetres`,
-                      (width) => editPanel({ width }),
+                      (width) => resized({ width }),
                     )}
                     {panelNum(
                       "Thick",
@@ -655,6 +696,74 @@ export function DetailTab() {
                       </button>
                     ))}
                   </div>
+                  <div className="eva-pref-head">
+                    <span className="eva-pref-title">Shape</span>
+                    <span className="detail-of">
+                      {partFailed
+                        ? "the part could not be made"
+                        : partsPending
+                          ? "making the part"
+                          : panel.profile
+                            ? `${panel.profile.loop.length} corners${
+                                Object.values(panel.profile.corners).some(
+                                  (r) => r > 0,
+                                )
+                                  ? ", rounded"
+                                  : ""
+                              }`
+                            : "a rectangle"}
+                    </span>
+                  </div>
+                  <div
+                    className="detail-acts"
+                    role="radiogroup"
+                    aria-label="Shape"
+                  >
+                    {SHAPES.map(([name, made]) => (
+                      <button
+                        key={name}
+                        type="button"
+                        role="radio"
+                        className="main-btn"
+                        aria-checked={
+                          made
+                            ? panel.profile?.loop.length ===
+                              made(panel.length, panel.width).loop.length
+                            : !panel.profile
+                        }
+                        onClick={() => shaped(made)}
+                      >
+                        <span>{name}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {panel.profile && (
+                    <div className="room-dims detail-panel">
+                      {panelNum(
+                        "Radius",
+                        Math.max(0, ...Object.values(panel.profile.corners)),
+                        `${panel.name} corner radius in millimetres`,
+                        (radius) =>
+                          editPanel({
+                            profile: rounded(
+                              panel.profile!,
+                              Math.max(0, radius),
+                            ),
+                          }),
+                        5,
+                      )}
+                      <button
+                        type="button"
+                        className="main-btn"
+                        aria-label={`${panel.name} as STEP`}
+                        disabled={partsPending > 0}
+                        onClick={() => void exportPanelStep(piece.name, panel)}
+                      >
+                        <ExportIcon size={14} />
+                        <span>STEP</span>
+                      </button>
+                    </div>
+                  )}
                 </>
               )}
               <div className="detail-acts">

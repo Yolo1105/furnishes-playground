@@ -20,3 +20,4 @@ export * from "./carcass";
 export * from "./features";
 export * from "./cutlist";
 export * from "./dxf";
+export * from "./sketch";
