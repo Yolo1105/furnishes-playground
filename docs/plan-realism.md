@@ -223,6 +223,24 @@ AGPL. `@salusoft89/planegcs` 1.3.0 is the only 2D constraint solver
   draws the room plain from then on. drei's `Edges` went with it (its
   `LineMaterial` is not a node material): the outlines are plain edge
   lines. WebGPU is still checked by hand.
+- R4 is in, with a departure: the probes see the shell alone. A
+  `LightProbeGrid` over the room (`apps/web/src/components/studio/Probes.tsx`,
+  probes about 1.5 m apart, each a cubemap of the floor, the walls,
+  their openings and the surroundings through the open top) is baked
+  over frames, two probes a frame, whenever the shell, its finish or
+  its light changes, and again when a surroundings map arrives; the
+  pieces are hidden for the bake's renders and the shadow maps are not
+  drawn again for each side, so a drag never starts a bake and the seam
+  under a piece stays the occlusion's work. The first probe is baked
+  before anything is drawn with the grid in the room, since a material
+  built while the grid has no texture would never sample it (the
+  renderer is also told the grid's light node up front; it otherwise
+  learns it at the first bake and warns before). The stage says whether
+  a bake is under way (`data-probes`), the pictures and the suite wait
+  for it, and phones go without. three's `LightProbeGridWebGL` is for
+  the old WebGL renderer, not this renderer's WebGL backend, so one
+  class serves both backends. SSGI on the desktop tier waits for a
+  browser with WebGPU to check it in.
 
 ## The order of work
 

@@ -13,6 +13,7 @@ import {
 } from "@react-three/fiber";
 import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
 import {
+  type Group,
   PCFShadowMap,
   Plane,
   Vector3,
@@ -50,6 +51,7 @@ import {
   type RoomConfig,
 } from "./room-store";
 import { Post, tierOf, TONE_MAPPING } from "./Post";
+import { Probes, type ProbeState } from "./Probes";
 import { RoomLight, RoomShell } from "./Room3D";
 import { propsOf, useScene } from "./scene-store";
 import { useCoarse } from "./input";
@@ -1114,8 +1116,28 @@ export default function Scene3D() {
   // render has it whatever the View settings; a stage that fails on this
   // device turns it off for good
   const [postFailed, setPostFailed] = useState(false);
-  const tier = backend && !postFailed ? tierOf(coarse, backend) : null;
-  const post = tier && (scene.post || rendered) ? tier : null;
+  const tier = backend ? tierOf(coarse, backend) : null;
+  const post = tier && !postFailed && (scene.post || rendered) ? tier : null;
+  // the room's own bounce light, from probes over the shell: not on a
+  // phone, and not for a piece looked at on its own
+  const probes = tier !== null && tier !== "phone" && !a.focus;
+  // what the probes see: the shell, its finish and its light
+  const probeStamp = JSON.stringify([
+    room.id,
+    w,
+    d,
+    h,
+    outline,
+    openingsOf({ joins }, room),
+    sharedOf({ rooms }, room),
+    floor,
+    wall,
+    scene.light,
+    scene.sky,
+    shadows,
+  ]);
+  const pieces = useRef<Group>(null);
+  const [probeState, setProbeState] = useState<ProbeState>("baking");
   return (
     <div
       ref={stage}
@@ -1139,6 +1161,7 @@ export default function Scene3D() {
       data-exposure={scene.exposure}
       data-backend={backend}
       data-post={post ?? "off"}
+      data-probes={probes ? probeState : "off"}
     >
       <Canvas
         // a frame only when something moves: the orbit, a glide, a walk, a
@@ -1189,6 +1212,16 @@ export default function Scene3D() {
           shadow-bias={-0.0004}
         />
         <RoomLight evening={scene.light === "evening"} sky={scene.sky} />
+        {probes && (
+          <Probes
+            w={w}
+            h={h}
+            d={d}
+            stamp={probeStamp}
+            pieces={pieces}
+            onState={setProbeState}
+          />
+        )}
         {grid && !a.focus && (
           <gridHelper
             args={[
@@ -1234,63 +1267,67 @@ export default function Scene3D() {
                 rendering={rendering}
               />
             ))}
-        {a.shown.map((n) => {
-          const p = a.props.get(n.id)!;
-          const size: Vector3Tuple = [
-            toMetres(p.width),
-            toMetres(p.height),
-            toMetres(p.depth),
-          ];
-          const at = a.spots.get(n.id)!;
-          const f = footprint(p);
-          const pos: Vector3Tuple = a.focus
-            ? [0, 0, 0]
-            : [
-                -w / 2 + toMetres(at.x + f.w / 2),
-                0,
-                -d / 2 + toMetres(at.y + f.d / 2),
-              ];
-          const label = a.labelOf(n);
-          return (
-            <Piece
-              key={n.id}
-              portal={portal}
-              node={n}
-              props={p}
-              at={pos}
-              turn={a.focus ? 0 : -(p.rotation * Math.PI) / 180}
-              size={size}
-              colour={n.kind === "piece" ? colourHex(p.colour) : ROOM_ITEM_HEX}
-              parts={(n.children ?? []).map((c) =>
-                colourHex(propsOf(c, a.overrides).colour),
-              )}
-              selected={a.selectedId === n.id && !rendering}
-              clash={a.clashes.has(n.id)}
-              label={label}
-              canDrag={canDrag && !p.locked && !walk}
-              room={{ W: a.room.W, D: a.room.D, w, d, outline }}
-              others={rects}
-              onPick={() => a.onPick(n)}
-              onTurn={() => a.turn(n)}
-              onDragging={setDragging}
-              hovered={hover === n.id && !rendering}
-              onHover={hoverOf(n.id)}
-              labels={labels}
-              edges={edges}
-              actions={
-                a.actionsFor === n.id ? (
-                  <PieceActions
-                    node={n}
-                    label={label}
-                    full={a.labelsFull(n)}
-                    onDetails={() => a.details(n)}
-                    onLabel={() => a.toggleLabel(n.id)}
-                  />
-                ) : null
-              }
-            />
-          );
-        })}
+        <group ref={pieces}>
+          {a.shown.map((n) => {
+            const p = a.props.get(n.id)!;
+            const size: Vector3Tuple = [
+              toMetres(p.width),
+              toMetres(p.height),
+              toMetres(p.depth),
+            ];
+            const at = a.spots.get(n.id)!;
+            const f = footprint(p);
+            const pos: Vector3Tuple = a.focus
+              ? [0, 0, 0]
+              : [
+                  -w / 2 + toMetres(at.x + f.w / 2),
+                  0,
+                  -d / 2 + toMetres(at.y + f.d / 2),
+                ];
+            const label = a.labelOf(n);
+            return (
+              <Piece
+                key={n.id}
+                portal={portal}
+                node={n}
+                props={p}
+                at={pos}
+                turn={a.focus ? 0 : -(p.rotation * Math.PI) / 180}
+                size={size}
+                colour={
+                  n.kind === "piece" ? colourHex(p.colour) : ROOM_ITEM_HEX
+                }
+                parts={(n.children ?? []).map((c) =>
+                  colourHex(propsOf(c, a.overrides).colour),
+                )}
+                selected={a.selectedId === n.id && !rendering}
+                clash={a.clashes.has(n.id)}
+                label={label}
+                canDrag={canDrag && !p.locked && !walk}
+                room={{ W: a.room.W, D: a.room.D, w, d, outline }}
+                others={rects}
+                onPick={() => a.onPick(n)}
+                onTurn={() => a.turn(n)}
+                onDragging={setDragging}
+                hovered={hover === n.id && !rendering}
+                onHover={hoverOf(n.id)}
+                labels={labels}
+                edges={edges}
+                actions={
+                  a.actionsFor === n.id ? (
+                    <PieceActions
+                      node={n}
+                      label={label}
+                      full={a.labelsFull(n)}
+                      onDetails={() => a.details(n)}
+                      onLabel={() => a.toggleLabel(n.id)}
+                    />
+                  ) : null
+                }
+              />
+            );
+          })}
+        </group>
         <OrbitControls
           makeDefault
           enabled={!walk && !dragging}

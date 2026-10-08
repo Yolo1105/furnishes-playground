@@ -30,8 +30,21 @@ test.beforeEach(async ({ page }) => {
   await expect(page.locator('html[data-arrived="true"]')).toBeAttached({
     timeout: 20_000,
   });
-  await page.waitForTimeout(SETTLE);
+  await baked(page);
 });
+
+/** the room's probes are baked over frames: the picture waits for them
+    (the software renderer takes a while over each) */
+const baked = async (page: Page) => {
+  // the stage says off until the backend is known: wait for that first
+  await expect(stage(page)).toHaveAttribute("data-backend", /webgl|webgpu/, {
+    timeout: 60_000,
+  });
+  await expect(stage(page)).toHaveAttribute("data-probes", /baked|off/, {
+    timeout: 60_000,
+  });
+  await page.waitForTimeout(SETTLE);
+};
 
 const stage = (page: Page) => page.locator(".shell-stage .stage-3d");
 
@@ -44,7 +57,7 @@ test("the room under a sunset", async ({ page }) => {
   const menu = page.getByRole("menu", { name: "View settings" });
   await menu.getByRole("menuitemradio", { name: "A sunset" }).click();
   await page.keyboard.press("Escape");
-  await page.waitForTimeout(SETTLE);
+  await baked(page);
   await expect(stage(page)).toHaveScreenshot("day-sunset.png", DRIFT);
 });
 
@@ -53,7 +66,7 @@ test("the room in the evening, with its shadows", async ({ page }) => {
   const menu = page.getByRole("menu", { name: "View settings" });
   await menu.getByRole("menuitemradio", { name: "Evening" }).click();
   await page.keyboard.press("Escape");
-  await page.waitForTimeout(SETTLE);
+  await baked(page);
   await expect(stage(page)).toHaveScreenshot("evening-panels.png", DRIFT);
 });
 

@@ -152,7 +152,12 @@ the floor or a wall, the frame is tone-mapped onto the page's own
 backdrop, and the edges are resolved over frames (TRAA); a desktop
 draws the occlusion at full size, a laptop at half, a phone skips it
 and smooths its edges in one pass (SMAA), the stage says which
-(`data-post`), and View settings has an Ambient occlusion switch. The gear's Board
+(`data-post`), and View settings has an Ambient occlusion switch. The
+room's own bounce light comes from a grid of light probes over the
+shell (`apps/web/src/components/studio/Probes.tsx`), baked over frames
+whenever the shell, its finish or its light changes and never under a
+drag (the pieces are left out of the probes' pictures); the stage says
+when a bake is under way (`data-probes`). The gear's Board
 keeps pictures with a title and a note, uploaded (sized down in the
 browser first) or saved from a generated room item's tile, with the
 starred room items beside them; it is mirrored to the account as a

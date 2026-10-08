@@ -68,6 +68,10 @@ test("a finger: targets, no tooltips, a long press, nothing wider than the scree
     "phone",
     { timeout: 20_000 },
   );
+  await expect(page.locator(".shell-stage .stage-3d")).toHaveAttribute(
+    "data-probes",
+    "off",
+  );
   // targets a finger can hit
   const add = page.getByRole("button", { name: "Add", exact: true });
   const box = (await add.boundingBox())!;

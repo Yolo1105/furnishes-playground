@@ -1931,7 +1931,9 @@ test("in 3D a piece is dragged over the floor, the camera glides between angles,
   await arrived(page);
   // the camera reports where it stands; Top takes it high, in a glide
   await expect
-    .poll(async () => (await stage.getAttribute("data-cam")) ?? "")
+    .poll(async () => (await stage.getAttribute("data-cam")) ?? "", {
+      timeout: 20_000,
+    })
     .toMatch(/\d/);
   const y = () =>
     Number((stage.getAttribute("data-cam") as unknown as string) ?? "0");
@@ -3449,6 +3451,10 @@ test("View settings: edges, names, a floor grid, shadows and the light, kept for
   // the finish: occlusion and smoothed edges, at the device's tier (a
   // mouse without WebGPU is a laptop's), or none
   await expect(stage).toHaveAttribute("data-post", "laptop");
+  // the room's own bounce light, from probes baked over the shell
+  await expect(stage).toHaveAttribute("data-probes", "baked", {
+    timeout: 60_000,
+  });
   await menu
     .getByRole("menuitemcheckbox", { name: "Ambient occlusion" })
     .click();
@@ -3519,7 +3525,9 @@ test("the tour: stops on the plan, Play walks the camera through them, Stop and 
   await expect(run).toBeVisible();
   const bar = run.getByRole("progressbar", { name: "Tour" });
   await expect
-    .poll(async () => Number(await bar.getAttribute("aria-valuenow")))
+    .poll(async () => Number(await bar.getAttribute("aria-valuenow")), {
+      timeout: 20_000,
+    })
     .toBeGreaterThan(0);
   await run.getByRole("button", { name: "Stop the tour" }).click();
   await expect(run).toHaveCount(0);
