@@ -1,11 +1,13 @@
 "use client";
 
-import { Edges, RoundedBox, useGLTF } from "@react-three/drei";
-import { Component, Suspense, type ReactNode } from "react";
+import { RoundedBox, useGLTF } from "@react-three/drei";
+import { Component, type ReactNode, Suspense, useEffect, useMemo } from "react";
 import {
   Box3,
+  BoxGeometry,
   type CanvasTexture,
   DoubleSide,
+  EdgesGeometry,
   Vector2,
   Vector3,
   type Vector3Tuple,
@@ -275,7 +277,6 @@ class ModelGuard extends Component<
 }
 
 export function Furniture3D(p: Props) {
-  const [w, h, d] = p.size;
   const outline = p.clash || p.selected || p.edges || p.hovered;
   const form = <Form {...p} />;
   return (
@@ -295,16 +296,30 @@ export function Furniture3D(p: Props) {
         form
       )}
       {outline && (
-        <mesh position={[0, h / 2, 0]}>
-          <boxGeometry args={[w + 0.004, h + 0.004, d + 0.004]} />
-          <meshBasicMaterial visible={false} />
-          <Edges
-            color={p.clash ? DANGER_HEX : ACCENT_HEX}
-            lineWidth={p.clash ? 2 : p.selected ? 1.5 : 1}
-          />
-        </mesh>
+        <Outline size={p.size} colour={p.clash ? DANGER_HEX : ACCENT_HEX} />
       )}
     </group>
+  );
+}
+
+/** the box's twelve edges, a hair outside the piece, as the one-pixel
+    lines the renderer draws */
+function Outline({
+  size: [w, h, d],
+  colour,
+}: {
+  size: Vector3Tuple;
+  colour: string;
+}) {
+  const geometry = useMemo(
+    () => new EdgesGeometry(new BoxGeometry(w + 0.004, h + 0.004, d + 0.004)),
+    [w, h, d],
+  );
+  useEffect(() => () => geometry.dispose(), [geometry]);
+  return (
+    <lineSegments geometry={geometry} position={[0, h / 2, 0]}>
+      <lineBasicMaterial color={colour} />
+    </lineSegments>
   );
 }
 

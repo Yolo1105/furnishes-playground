@@ -200,6 +200,27 @@ AGPL. `@salusoft89/planegcs` 1.3.0 is the only 2D constraint solver
   up (`data-backend`). The suite and the five kept pictures run on the
   WebGL 2 backend, since headless Chromium has no adapter; WebGPU is
   checked by hand in a browser that has it.
+- R3 is in, with two departures from the r186 example. The scene is
+  drawn once a frame into a pass that keeps its depth and motion
+  beside the colour; GTAO reads its normals back from that depth (no
+  second pass with packed normals, which doubled the shader programs
+  and the draw calls), and the occlusion darkens the lit colour in the
+  composite rather than entering the lighting through
+  `builtinAOContext`, which needs the occlusion before the scene is
+  lit. The composite (`apps/web/src/components/studio/Post.tsx`)
+  tone-maps the frame and lays it on the page's own backdrop, the
+  body's gradient read from the computed style and drawn at the
+  canvas's place in the window, because TRAA's history is opaque and
+  the pass's own alpha could not be read beside another texture on the
+  WebGL backend (the page behind the room used to come through the
+  canvas's alpha). TRAA resolves the edges over sixteen settle frames
+  after each change (SMAA in one pass on phones, which also skip the
+  occlusion); the tier comes from the pointer, the backend and the
+  device memory, the stage says which (`data-post`), View settings has
+  an Ambient occlusion switch, and a stage that fails on a device
+  draws the room plain from then on. drei's `Edges` went with it (its
+  `LineMaterial` is not a node material): the outlines are plain edge
+  lines. WebGPU is still checked by hand.
 
 ## The order of work
 

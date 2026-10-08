@@ -13,7 +13,6 @@ import {
 } from "@react-three/fiber";
 import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
 import {
-  AgXToneMapping,
   PCFShadowMap,
   Plane,
   Vector3,
@@ -50,6 +49,7 @@ import {
   useRoom,
   type RoomConfig,
 } from "./room-store";
+import { Post, tierOf, TONE_MAPPING } from "./Post";
 import { RoomLight, RoomShell } from "./Room3D";
 import { propsOf, useScene } from "./scene-store";
 import { useCoarse } from "./input";
@@ -108,7 +108,6 @@ const makeRenderer = async (props: RendererProps, antialias: boolean) => {
       : {}),
   });
   await renderer.init();
-  renderer.toneMapping = AgXToneMapping;
   return renderer as unknown as WebGLRenderer;
 };
 const makeRendererFine = (props: RendererProps) => makeRenderer(props, true);
@@ -127,6 +126,12 @@ function Backend({ onKnown }: { onKnown: (backend: string) => void }) {
   }, [gl, onKnown]);
   return null;
 }
+
+/** a stage of the picture's finish failed: say so once, draw plain */
+const failPost = (set: (failed: boolean) => void) => (error: unknown) => {
+  console.warn("The picture's finish is off on this device.", error);
+  set(true);
+};
 
 /** the sun in the room, the day's or an evening's (warmer and lower),
     and the sky's fill from above against the floor's from below; the
@@ -149,12 +154,14 @@ const LIGHTS = {
 /** what the floor gives back to the undersides */
 const GROUND_HEX = "#c9b9a6";
 
-/** the renderer's exposure follows the look; AgX rolls the window's
-    highlights off instead of clipping them */
+/** the renderer's tone mapping and exposure follow the look */
 function Exposure({ value }: { value: number }) {
   const get = useThree((s) => s.get);
   useEffect(() => {
     const { gl, invalidate } = get();
+    // fiber sets its own tone mapping on a renderer made by a function:
+    // the picture's is set here, with its exposure
+    gl.toneMapping = TONE_MAPPING;
     gl.toneMappingExposure = value;
     invalidate();
   }, [get, value]);
@@ -1103,6 +1110,12 @@ export default function Scene3D() {
   const edges = scene.edges && !rendered;
   const light = LIGHTS[scene.light];
   const [backend, setBackend] = useState("");
+  // the picture's finish follows the device once the backend is known; a
+  // render has it whatever the View settings; a stage that fails on this
+  // device turns it off for good
+  const [postFailed, setPostFailed] = useState(false);
+  const tier = backend && !postFailed ? tierOf(coarse, backend) : null;
+  const post = tier && (scene.post || rendered) ? tier : null;
   return (
     <div
       ref={stage}
@@ -1125,6 +1138,7 @@ export default function Scene3D() {
       data-sky={scene.sky}
       data-exposure={scene.exposure}
       data-backend={backend}
+      data-post={post ?? "off"}
     >
       <Canvas
         // a frame only when something moves: the orbit, a glide, a walk, a
@@ -1159,6 +1173,7 @@ export default function Scene3D() {
         )}
         <Exposure value={scene.exposure} />
         <Backend onKnown={setBackend} />
+        {post && <Post tier={post} onFailed={failPost(setPostFailed)} />}
         <hemisphereLight
           intensity={light.sky}
           color={light.colour}

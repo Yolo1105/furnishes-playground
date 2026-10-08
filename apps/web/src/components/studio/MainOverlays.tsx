@@ -323,6 +323,16 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
                           {scene.shadows === "auto" ? "auto" : scene.shadows}
                         </span>
                       </button>
+                      <button
+                        type="button"
+                        role="menuitemcheckbox"
+                        aria-checked={scene.post}
+                        className="shell-menu-row"
+                        onClick={() => setScene({ post: !scene.post })}
+                      >
+                        <span className="main-prefs-check" aria-hidden="true" />
+                        Ambient occlusion
+                      </button>
                       <div className="shell-menu-sep" role="separator" />
                       {(
                         [

@@ -41,6 +41,8 @@ export type SceneLook = {
   sky: Sky;
   /** how bright the picture is, as a camera's exposure */
   exposure: number;
+  /** ambient occlusion and smoothed edges after the scene is drawn */
+  post: boolean;
 };
 /** the exposure's range: a dim room to a bright one */
 export const EXPOSURE = { min: 0.6, max: 1.8, step: 0.05 };
@@ -52,6 +54,7 @@ export const SCENE_DEFAULT: SceneLook = {
   light: "day",
   sky: "panels",
   exposure: 1.2,
+  post: true,
 };
 /** how far the plan can be zoomed, and by how much a step zooms */
 export const ZOOM = { min: 0.5, max: 4, step: 1.15 };

@@ -144,7 +144,15 @@ relief read from its own grain, a normal and a roughness map, so it
 catches the light along the grain. The room renders with three's WebGPU
 renderer where the browser has an adapter and on its WebGL 2 backend
 elsewhere (the stage says which, `data-backend`); the light panels are
-two surroundings files drawn by `apps/web/scripts/make-panels.mjs`. The gear's Board
+two surroundings files drawn by `apps/web/scripts/make-panels.mjs`.
+After the scene is drawn, the picture is finished through three's
+render pipeline (`apps/web/src/components/studio/Post.tsx`): ambient
+occlusion from the frame's depth darkens the seams where a piece meets
+the floor or a wall, the frame is tone-mapped onto the page's own
+backdrop, and the edges are resolved over frames (TRAA); a desktop
+draws the occlusion at full size, a laptop at half, a phone skips it
+and smooths its edges in one pass (SMAA), the stage says which
+(`data-post`), and View settings has an Ambient occlusion switch. The gear's Board
 keeps pictures with a title and a note, uploaded (sized down in the
 browser first) or saved from a generated room item's tile, with the
 starred room items beside them; it is mirrored to the account as a

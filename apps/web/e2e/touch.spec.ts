@@ -62,6 +62,12 @@ test("a finger: targets, no tooltips, a long press, nothing wider than the scree
   expect(
     await page.evaluate(() => matchMedia("(pointer: coarse)").matches),
   ).toBe(true);
+  // the picture's finish is the phone's: smoothed edges, no occlusion
+  await expect(page.locator(".shell-stage .stage-3d")).toHaveAttribute(
+    "data-post",
+    "phone",
+    { timeout: 20_000 },
+  );
   // targets a finger can hit
   const add = page.getByRole("button", { name: "Add", exact: true });
   const box = (await add.boundingBox())!;

@@ -3446,6 +3446,13 @@ test("View settings: edges, names, a floor grid, shadows and the light, kept for
   await expect(stage).toHaveAttribute("data-grid", "true");
   await menu.getByRole("menuitemcheckbox", { name: /^Shadows/ }).click();
   await expect(stage).toHaveAttribute("data-shadows", "false");
+  // the finish: occlusion and smoothed edges, at the device's tier (a
+  // mouse without WebGPU is a laptop's), or none
+  await expect(stage).toHaveAttribute("data-post", "laptop");
+  await menu
+    .getByRole("menuitemcheckbox", { name: "Ambient occlusion" })
+    .click();
+  await expect(stage).toHaveAttribute("data-post", "off");
   await menu.getByRole("menuitemradio", { name: "Evening" }).click();
   await expect(stage).toHaveAttribute("data-light", "evening");
   // the surroundings: a map lights and reflects in the room
@@ -3468,6 +3475,7 @@ test("View settings: edges, names, a floor grid, shadows and the light, kept for
   await expect(stage).toHaveAttribute("data-grid", "true");
   await expect(stage).toHaveAttribute("data-labels", "true");
   await expect(stage).toHaveAttribute("data-exposure", "1.4");
+  await expect(stage).toHaveAttribute("data-post", "off");
 });
 
 test("the tour: stops on the plan, Play walks the camera through them, Stop and Escape end it, a round when there are none", async ({
