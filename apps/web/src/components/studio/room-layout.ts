@@ -6,7 +6,7 @@ import {
   type PieceProps,
 } from "./piece-detail";
 import { ARCHETYPES, type Placement, type Rule } from "./archetypes";
-import { edgesOf, rectInside, WALL_MM, type Edge } from "./room-geometry";
+import { edgesOf, rectInside, type Edge } from "./room-geometry";
 import {
   keepOff,
   meets,
@@ -597,7 +597,7 @@ const MAGNET = 150;
 export const settle = (
   at: Spot,
   f: { w: number; d: number },
-  room: Pick<Room, "outline">,
+  room: Pick<Room, "outline" | "thickness">,
   magnet: boolean,
   others: readonly Rect[] = [],
 ): Spot => {
@@ -635,8 +635,8 @@ export const settle = (
       // the room lies below a north wall, above a south one
       const faces =
         e.wall === "north"
-          ? [line, line - WALL_MM - f.d]
-          : [line - f.d, line + WALL_MM];
+          ? [line, line - room.thickness - f.d]
+          : [line - f.d, line + room.thickness];
       faces.forEach(drawY);
     } else {
       const [from, to] = span(e.a[1], e.b[1]);
@@ -645,8 +645,8 @@ export const settle = (
       // the room lies right of a west wall, left of an east one
       const faces =
         e.wall === "west"
-          ? [line, line - WALL_MM - f.w]
-          : [line - f.w, line + WALL_MM];
+          ? [line, line - room.thickness - f.w]
+          : [line - f.w, line + room.thickness];
       faces.forEach(drawX);
     }
   }

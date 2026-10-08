@@ -38,6 +38,7 @@ import {
 } from "./room-data";
 import { CloseIcon, PlusIcon } from "./icons";
 import { RoomStart } from "./RoomStart";
+import { WALL_RANGE } from "./room-geometry";
 import { openingCentre, wallSpan } from "./room-health";
 import {
   activeOf,
@@ -85,25 +86,43 @@ export function RoomTab() {
   const rooms = (Object.keys(ROOM_NAMES) as RoomId[]).filter(
     (id) => PRESETS[s.flat][id],
   );
-  const num = (key: "width" | "depth" | "height") => (
-    <label className="room-dim">
-      <span className="room-dim-label">
-        {key === "width" ? "Width" : key === "depth" ? "Depth" : "Height"}
-      </span>
-      <input
-        type="number"
-        className="room-dim-input f-num"
-        inputMode="numeric"
-        min={key === "height" ? CEILING.min : ROOM_SIZE.min}
-        max={key === "height" ? CEILING.max : ROOM_SIZE.max}
-        step={50}
-        value={s[key]}
-        aria-label={`${key} in millimetres`}
-        onChange={(e) => s.setSize({ [key]: Number(e.target.value) })}
-      />
-      <span className="room-dim-unit">mm</span>
-    </label>
-  );
+  const num = (key: "width" | "depth" | "height" | "thickness") => {
+    const range =
+      key === "thickness" ? WALL_RANGE : key === "height" ? CEILING : ROOM_SIZE;
+    return (
+      <label className="room-dim">
+        <span className="room-dim-label">
+          {key === "width"
+            ? "Width"
+            : key === "depth"
+              ? "Depth"
+              : key === "height"
+                ? "Height"
+                : "Walls"}
+        </span>
+        <input
+          type="number"
+          className="room-dim-input f-num"
+          inputMode="numeric"
+          min={range.min}
+          max={range.max}
+          step={key === "thickness" ? WALL_RANGE.step : 50}
+          value={s[key]}
+          aria-label={
+            key === "thickness"
+              ? "wall thickness in millimetres"
+              : `${key} in millimetres`
+          }
+          onChange={(e) =>
+            key === "thickness"
+              ? s.set({ thickness: Number(e.target.value) })
+              : s.setSize({ [key]: Number(e.target.value) })
+          }
+        />
+        <span className="room-dim-unit">mm</span>
+      </label>
+    );
+  };
   /** a wall picker for one opening, or for the one the room lacks (the
       first door or the first window), where a wall adds it */
   const wallPick = (
@@ -480,6 +499,7 @@ export function RoomTab() {
                   {num("width")}
                   {num("depth")}
                   {num("height")}
+                  {num("thickness")}
                 </div>
               )}
               {fit.length > 0 && (

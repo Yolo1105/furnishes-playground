@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { layoutPlans } from "./room-layout";
 import { defaultProps } from "./piece-detail";
 import { rulesFor } from "./room-data";
+import { WALL_MM } from "./room-geometry";
 import type { Room } from "./room-health";
 
 /**
@@ -23,6 +24,7 @@ const room: Room = {
     { id: "w", kind: "window", wall: "east", at: null, width: 1500 },
   ],
   rules: rulesFor("master"),
+  thickness: WALL_MM,
 };
 const piece = (id: string, name: string, w: number, d: number, h: number) => ({
   ...defaultProps({

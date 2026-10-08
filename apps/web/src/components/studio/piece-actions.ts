@@ -42,6 +42,7 @@ export const layoutsOf = (
     outline: footprintOf(spec),
     openings: openingsOf({ joins }, spec),
     rules: spec.rules,
+    thickness: spec.thickness,
   };
   const props = new Map(pieces.map((n) => [n.id, propsOf(n, overrides)]));
   const named = pieces.map((n) => ({ ...props.get(n.id)!, name: n.name }));

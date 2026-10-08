@@ -185,7 +185,7 @@ export const endTileDrag = (e: ReactPointerEvent) => {
       settle(
         { x, y },
         f,
-        { outline: footprintOf(room) },
+        { outline: footprintOf(room), thickness: room.thickness },
         useStudio.getState().magnet,
       ),
     );

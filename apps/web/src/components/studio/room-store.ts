@@ -52,6 +52,8 @@ export type RoomSpec = {
   width: number;
   depth: number;
   height: number;
+  /** the walls' thickness, mm */
+  thickness: number;
   /** the doors and windows in the walls */
   openings: Opening[];
   floor: string;
@@ -104,7 +106,9 @@ type RoomState = RoomConfig & {
   setSize: (
     patch: Partial<Pick<RoomSpec, "width" | "depth" | "height">>,
   ) => void;
-  set: (patch: Partial<Pick<RoomSpec, "floor" | "wallTone">>) => void;
+  set: (
+    patch: Partial<Pick<RoomSpec, "floor" | "wallTone" | "thickness">>,
+  ) => void;
   /** one opening changed: its wall, place, width, sill or head */
   setOpening: (id: string, patch: Partial<Omit<Opening, "id">>) => void;
   /** an opening of a kind put in a wall (the emptiest, facing the first
@@ -247,6 +251,7 @@ const roomOf = (
     room,
     ...size,
     height: CEILING.default,
+    thickness: WALL_MM,
     openings: openingsFor(room, size.width, size.depth),
     floor: "Vinyl",
     wallTone: "white",
@@ -331,7 +336,7 @@ export const sharedOf = (
   return s.rooms.flatMap((other, k) =>
     k === i
       ? []
-      : sharedRuns(mine, sheetOutline(other)).map((run) => {
+      : sharedRuns(mine, sheetOutline(other), r.thickness).map((run) => {
           const along = run.horizontal ? r.pos[0] : r.pos[1];
           // with a later room this room builds the wall, seen from both
           // sides; with an earlier one, that room does
@@ -356,7 +361,11 @@ const settled = (
     for (let k = i + 1; k < s.rooms.length; k++) {
       const a = s.rooms[i]!;
       const b = s.rooms[k]!;
-      for (const run of sharedRuns(sheetOutline(a), sheetOutline(b))) {
+      for (const run of sharedRuns(
+        sheetOutline(a),
+        sheetOutline(b),
+        a.thickness,
+      )) {
         if (run.to - run.from < JOIN_MIN) continue;
         const was = s.joins.find(
           (j) =>
@@ -612,14 +621,14 @@ export const useRoom = create<RoomState>((set, get) => {
     addRoom: (room) => {
       const s = get();
       const from = activeOf(s);
-      // beside the active room, a wall's thickness away: east, south,
+      // beside the active room, its walls' thickness away: east, south,
       // west or north, the first side where nothing stands yet
       const size = sized(s.flat, room);
       const sides: Point[] = [
-        [from.pos[0] + from.width + WALL_MM, from.pos[1]],
-        [from.pos[0], from.pos[1] + from.depth + WALL_MM],
-        [from.pos[0] - size.width - WALL_MM, from.pos[1]],
-        [from.pos[0], from.pos[1] - size.depth - WALL_MM],
+        [from.pos[0] + from.width + from.thickness, from.pos[1]],
+        [from.pos[0], from.pos[1] + from.depth + from.thickness],
+        [from.pos[0] - size.width - from.thickness, from.pos[1]],
+        [from.pos[0], from.pos[1] - size.depth - from.thickness],
       ];
       const clear = ([x, y]: Point) =>
         !s.rooms.some(

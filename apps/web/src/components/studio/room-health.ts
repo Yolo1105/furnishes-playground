@@ -66,7 +66,11 @@ type Shell = {
   outline: readonly Point[];
   openings: readonly Opening[];
 };
-export type Room = Shell & { rules: Rules };
+export type Room = Shell & {
+  rules: Rules;
+  /** the walls' thickness, mm */
+  thickness: number;
+};
 
 /** the wall an opening sits in: the longest edge of that side, so a
     door never opens onto a notch; and where the opening's centre comes

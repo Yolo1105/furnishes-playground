@@ -87,6 +87,7 @@ export const exportRoomJson = () => {
     width: rm.width,
     depth: rm.depth,
     height: rm.height,
+    thickness: rm.thickness,
     openings: openingsOf(st, rm).map(
       ({ id: _id, hdb: _hdb, join: _join, ...o }) => o,
     ),

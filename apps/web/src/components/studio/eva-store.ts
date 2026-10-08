@@ -155,6 +155,7 @@ const contextOf = (
       outline: footprintOf(r),
       openings: openingsOf(st, r),
       rules: r.rules,
+      thickness: r.thickness,
     },
   )
     .filter((i) => i.kind !== "missing")

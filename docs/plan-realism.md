@@ -297,6 +297,26 @@ AGPL. `@salusoft89/planegcs` 1.3.0 is the only 2D constraint solver
   0.4, the sky at 0.25), so the sun carries the room and the evening
   reads as one. The day's light, which the three targets agreed on, is
   unchanged.
+- M1 is in: the walls have a thickness and a height in both views, the
+  same ones. Each room keeps its walls' thickness (`thickness`, mm;
+  Room tab, Walls, 100 to 400 mm, an HDB's 300 to start) beside its
+  height; the outline is the walls' inner face in both views, and the
+  outer face stands a thickness outside it, each corner's outer point
+  where the two offset faces meet along the bisector of the normals
+  (`outerOutline` in `room-geometry.ts`, the blueprint3d-modern formula
+  rewritten and unit-tested on a rectangle, an L and both windings). The
+  plan draws the band between the two faces (it used to be a stroke
+  centred on the outline, half of it inside the room, which the 3D
+  walls on the outline contradicted), with the openings, their grips
+  and the wall handles on it. In 3D each wall run is built solid
+  (`wall-solid.ts`): its elevation less its openings as stretches, each
+  a box from the inner face to the outer, the ends slanted where the
+  wall meets the next (longer at a convex corner, shorter at a concave
+  one), so a doorway is a way through the thickness and a window shows
+  its sill and jambs; the walls cast shadows. The rooms stand their
+  walls' thickness apart, the shared walls and the magnet take the
+  room's thickness, a piece outside the room leans on its far face, and
+  the export carries it. A room saved before takes the default.
 
 ## The order of work
 

@@ -1733,9 +1733,8 @@
   stroke-linejoin: miter;
 }
 .plan-wall {
-  fill: none;
-  stroke: url(#plan-hatch);
-  stroke-linejoin: miter;
+  fill: url(#plan-hatch);
+  stroke: none;
 }
 .plan-hatch {
   stroke: var(--plan-fine);

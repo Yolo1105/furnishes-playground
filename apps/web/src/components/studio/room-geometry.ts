@@ -10,9 +10,50 @@ import type { Wall } from "./room-data";
 type Rect = { x: number; y: number; w: number; d: number };
 export type Edge = { a: Point; b: Point; wall: Wall };
 
-/** the walls' thickness, mm: the band drawn outside the outline on the
-    plan, the far face a piece outside the room leans on */
+/** the walls' thickness a room starts with, mm (an HDB's party wall);
+    each room keeps its own, drawn as the band outside the outline on
+    the plan and built solid in 3D, the far face a piece outside the
+    room leans on */
 export const WALL_MM = 300;
+/** what a wall's thickness may be set to, mm: a partition to a party
+    wall */
+export const WALL_RANGE = { min: 100, max: 400, step: 50 } as const;
+
+/** the outline's outer face, a thickness outside it: at each corner the
+    two offset edges meet at the vertex moved along the bisector of the
+    outward normals, by t / (1 + n1·n2) of their sum (t at a square
+    corner, further at a sharp one) */
+export const outerOutline = (poly: readonly Point[], t: number): Point[] => {
+  const n = poly.length;
+  if (n < 3) return poly.map((p) => [...p] as Point);
+  // the inside is to the left of each edge when the polygon runs
+  // counter-clockwise on the plan (y down), to the right when clockwise
+  let area = 0;
+  for (let i = 0; i < n; i++) {
+    const [x1, y1] = poly[i]!;
+    const [x2, y2] = poly[(i + 1) % n]!;
+    area += x1 * y2 - x2 * y1;
+  }
+  const cw = area > 0;
+  const outward = (i: number): [number, number] => {
+    const [ax, ay] = poly[i]!;
+    const [bx, by] = poly[(i + 1) % n]!;
+    const len = Math.hypot(bx - ax, by - ay) || 1;
+    const dx = (bx - ax) / len;
+    const dy = (by - ay) / len;
+    // the inward normal is the edge turned a quarter towards the inside
+    return cw ? [dy, -dx] : [-dy, dx];
+  };
+  return poly.map((p, i) => {
+    const [n1x, n1y] = outward((i - 1 + n) % n);
+    const [n2x, n2y] = outward(i);
+    const dot = n1x * n2x + n1y * n2y;
+    // the two offset lines meet along the sum of the normals; edges that
+    // fold back on themselves (dot near -1) are capped at the thickness
+    const k = t / Math.max(1 + dot, 0.25);
+    return [p[0] + (n1x + n2x) * k, p[1] + (n1y + n2y) * k] as Point;
+  });
+};
 
 /** whether a point lies in the polygon (on an edge counts as in) */
 export const insideOutline = (x: number, y: number, poly: readonly Point[]) => {
@@ -343,10 +384,11 @@ export const FACING: Record<Wall, Wall> = {
 
 /** the walls room A (outline `a`, on the sheet) shares with room B:
     facing edges, parallel, the gap between the outlines within `slack`
-    of a wall's thickness, running alongside each other */
+    of the wall's thickness `t`, running alongside each other */
 export const sharedRuns = (
   a: readonly Point[],
   b: readonly Point[],
+  t: number,
   slack = 1,
 ): SharedRun[] => {
   const out: SharedRun[] = [];
@@ -354,7 +396,7 @@ export const sharedRuns = (
     for (const eb of edgesOf(b)) {
       if (eb.wall !== FACING[ea.wall]) continue;
       const { gap, span, horizontal, across } = wallFrame(ea, eb);
-      if (Math.abs(gap - WALL_MM) > slack) continue;
+      if (Math.abs(gap - t) > slack) continue;
       const [a0, a1] = span(ea);
       const [b0, b1] = span(eb);
       const from = Math.max(a0!, b0!);
@@ -383,6 +425,8 @@ const ROOM_REACH = 400;
 export const magnetRoom = (
   moving: readonly Point[],
   others: readonly (readonly Point[])[],
+  /** the moving room's walls' thickness, mm */
+  t: number,
 ): { dx: number; dy: number } => {
   let dx: number | null = null;
   let dy: number | null = null;
@@ -395,12 +439,12 @@ export const magnetRoom = (
         const { gap, span, outward, horizontal } = wallFrame(ea, eb);
         // within reach of a wall apart, or pushed a little into the
         // neighbour: either way it stands off by a wall
-        if (gap > WALL_MM + ROOM_REACH || gap < -ROOM_REACH) continue;
+        if (gap > t + ROOM_REACH || gap < -ROOM_REACH) continue;
         const [a0, a1] = span(ea);
         const [b0, b1] = span(eb);
         // alongside, or nearly: the runs overlap or come within reach
         if (a1 < b0 - ROOM_REACH || a0 > b1 + ROOM_REACH) continue;
-        const shift = (gap - WALL_MM) * outward;
+        const shift = (gap - t) * outward;
         if (horizontal) dy = nearer(dy, shift);
         else dx = nearer(dx, shift);
         // the nearer pair of ends lines up too

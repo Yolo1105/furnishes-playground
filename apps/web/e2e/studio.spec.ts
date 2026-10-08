@@ -774,6 +774,11 @@ test("the Room tab starts from the HDB preset and takes a size of your own", asy
     .fill("3400");
   await expect(page.locator(".room-size")).toContainText("3.4 m × 3.0 m");
   await expect(page.locator(".room-size")).toContainText("yours");
+  // the walls' thickness draws the plan's band out from the outline
+  await page
+    .getByRole("spinbutton", { name: "wall thickness in millimetres" })
+    .fill("150");
+  await expect(page.locator('.plan-wall[d*="-150,-150"]')).not.toHaveCount(0);
   await page.getByRole("button", { name: "Typical" }).click();
   await expect(page.locator(".room-size")).toContainText(
     "typical for a 3-room",
@@ -1359,7 +1364,7 @@ test("the plan reads as a drawing: hatched walls, a door swing, dimensions, a ti
   await page.goto("/rounded");
   await page.getByRole("button", { name: "Show 2D plan in main" }).click();
   const svg = page.locator(".plan-svg");
-  await expect(svg.locator(".plan-wall")).toHaveCSS("stroke", /url/);
+  await expect(svg.locator(".plan-wall")).toHaveCSS("fill", /url/);
   await expect(svg.locator(".plan-swing")).toHaveCount(1);
   await expect(svg.locator(".plan-leaf")).toHaveCount(1);
   await expect(svg.locator(".plan-line")).toHaveCount(3);

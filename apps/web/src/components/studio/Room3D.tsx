@@ -6,12 +6,13 @@ import { LIGHT_WOOD_HEX } from "./piece-detail";
 import { useFrame, useLoader, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import {
+  BufferAttribute,
+  BufferGeometry,
   DoubleSide,
   EquirectangularReflectionMapping,
   FrontSide,
   type Group,
   type Mesh,
-  Path,
   type Scene,
   Shape,
   type Texture,
@@ -25,7 +26,8 @@ import {
   OPENINGS,
   type Wall,
 } from "./room-data";
-import { edgesOf, type Edge } from "./room-geometry";
+import { edgesOf, outerOutline, type Edge } from "./room-geometry";
+import { blocksOf, wallTriangles } from "./wall-solid";
 import { openingCentre } from "./room-health";
 import type { Point } from "./room-templates";
 import type { Sky } from "./studio-store";
@@ -63,6 +65,8 @@ type RoomShape = {
   outline: readonly Point[];
   openings: readonly Opening[];
   height: number;
+  /** the walls' thickness, mm */
+  thickness: number;
   floor: Floor;
   floorHex: string;
   wallHex: string;
@@ -140,6 +144,39 @@ const runsOf = (
   }
   return out;
 };
+
+/** how far each edge's outer face runs past its inner face at the two
+    ends, m: the outer corner points projected on the edge */
+const mitresOf = (
+  outline: readonly Point[],
+  thickness: number,
+): [number, number][] => {
+  const outer = outerOutline(outline, thickness);
+  const n = outline.length;
+  return outline.map((a, i) => {
+    const b = outline[(i + 1) % n]!;
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    const ux = (b[0] - a[0]) / len;
+    const uy = (b[1] - a[1]) / len;
+    const oa = outer[i]!;
+    const ob = outer[(i + 1) % n]!;
+    return [
+      toMetres(-((oa[0] - a[0]) * ux + (oa[1] - a[1]) * uy)),
+      toMetres((ob[0] - b[0]) * ux + (ob[1] - b[1]) * uy),
+    ];
+  });
+};
+
+/** a run's mitres: the edge's where the run reaches the edge's end,
+    none where it stops along the wall */
+const runMitres = (
+  e: Edge,
+  run: Edge,
+  [a, b]: readonly [number, number],
+): [number, number] => [
+  run.a[0] === e.a[0] && run.a[1] === e.a[1] ? a : 0,
+  run.b[0] === e.b[0] && run.b[1] === e.b[1] ? b : 0,
+];
 
 /** the floor as a shape in metres about the room's middle; the plane is
     laid flat by a quarter turn, so the shape's y runs the other way */
@@ -220,6 +257,8 @@ function WallRun({
   w,
   d,
   h,
+  t,
+  mitres,
   wallHex,
   holes,
   both = false,
@@ -228,6 +267,12 @@ function WallRun({
   w: number;
   d: number;
   h: number;
+  /** the wall's thickness, m */
+  t: number;
+  /** how far the outer face runs past the inner at each end, m: a
+      thickness at a convex corner, minus one at a concave, nothing
+      where the run ends along the wall */
+  mitres: readonly [number, number];
   wallHex: string;
   holes: ReturnType<typeof holesOf>;
   /** shared with the room beyond: seen from both sides */
@@ -240,29 +285,33 @@ function WallRun({
   const len = Math.hypot(bx - ax, bz - az);
   const yaw = yawOf(e.wall);
   const [nx, nz] = inward(e.wall);
-  // the wall as a shape with its openings cut out, so a doorway is a
-  // way through and a window a hole for the glass
-  const shape = useMemo(() => {
-    const sh = new Shape();
-    sh.moveTo(-len / 2, 0);
-    sh.lineTo(len / 2, 0);
-    sh.lineTo(len / 2, h);
-    sh.lineTo(-len / 2, h);
-    sh.closePath();
-    for (const hole of holes) {
-      const x0 = Math.max(-len / 2, hole.x - hole.w / 2);
-      const x1 = Math.min(len / 2, hole.x + hole.w / 2);
-      if (x1 - x0 < 0.05) continue;
-      const path = new Path();
-      path.moveTo(x0, hole.y0);
-      path.lineTo(x1, hole.y0);
-      path.lineTo(x1, hole.y1);
-      path.lineTo(x0, hole.y1);
-      path.closePath();
-      sh.holes.push(path);
-    }
-    return sh;
-  }, [len, h, holes]);
+  // the wall built solid, its openings cut through it, so a doorway is
+  // a way through and a window a hole for the glass; the inside is +z
+  const geometry = useMemo(() => {
+    const blocks = blocksOf(
+      len,
+      h,
+      holes.map((o) => ({
+        x0: o.x - o.w / 2 + len / 2,
+        x1: o.x + o.w / 2 + len / 2,
+        y0: o.y0,
+        y1: o.y1,
+      })),
+    );
+    const { positions, normals } = wallTriangles(
+      blocks,
+      len,
+      t,
+      mitres[0],
+      mitres[1],
+      -1,
+    );
+    const g = new BufferGeometry();
+    g.setAttribute("position", new BufferAttribute(positions, 3));
+    g.setAttribute("normal", new BufferAttribute(normals, 3));
+    return g;
+  }, [len, h, t, mitres, holes]);
+  useEffect(() => () => geometry.dispose(), [geometry]);
   return (
     <Inside normal={[nx, nz]} always={both}>
       <group
@@ -271,13 +320,13 @@ function WallRun({
       >
         {/* the wall casts its shadow too: a low sun comes in through the
             openings alone and lays its patch on the floor */}
-        <mesh receiveShadow castShadow>
-          <shapeGeometry args={[shape]} />
-          <meshStandardMaterial
-            color={wallHex}
-            roughness={0.95}
-            side={DoubleSide}
-          />
+        <mesh
+          geometry={geometry}
+          position={[-len / 2, 0, 0]}
+          receiveShadow
+          castShadow
+        >
+          <meshStandardMaterial color={wallHex} roughness={0.95} />
         </mesh>
         {/* the skirting stands just inside the wall's face */}
         <mesh
@@ -477,6 +526,12 @@ export function RoomShell({
     () => floorTexture(r.floor, r.floorHex),
     [r.floor, r.floorHex],
   );
+  const t = toMetres(r.thickness);
+  // where the walls' outer faces meet, for the mitre at each edge's ends
+  const mitres = useMemo(
+    () => mitresOf(r.outline, r.thickness),
+    [r.outline, r.thickness],
+  );
   map.repeat.set(1 / TILE_M, 1 / TILE_M);
   const relief = reliefOf(map);
   return (
@@ -519,6 +574,8 @@ export function RoomShell({
             w={w}
             d={d}
             h={h}
+            t={t}
+            mitres={runMitres(e, run, mitres[i]!)}
             wallHex={r.wallHex}
             holes={holesOf(r, run, h)}
             both={both}

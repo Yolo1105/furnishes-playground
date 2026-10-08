@@ -21,9 +21,9 @@ import {
   isSimple,
   magnetRoom,
   moveCorner,
+  outerOutline,
   pushEdge,
   splitEdge,
-  WALL_MM,
 } from "./room-geometry";
 import { usePieceActions } from "./piece-actions";
 import { openingCentre, zonesOf } from "./room-health";
@@ -69,8 +69,10 @@ import {
  * and under two fingers, dragging the sheet pans it, and Fit brings it
  * back. Under a finger the measure snaps to 100 mm.
  */
-const WALL = WALL_MM / 2; // mm, half the band's thickness
 const FACE = 14; // mm, the face line either side of the band
+const BAND_PAD = 15; // mm, an opening's gap past the band's faces
+const GRIP_PAD = 60; // mm, a grip past the band's faces
+const LABEL_IN = 260; // mm, an opening's label inside the band
 const MARGIN = 1100; // mm, room for the dimensions, the arrow, the title
 /** the room's handles with the Wall tool, mm: the bar on a wall takes a
     share of the wall's free run, between a shortest and a longest, and
@@ -102,20 +104,41 @@ const edgeOf = (wall: Wall, W: number, D: number): Edge => {
   }
 };
 
-/** a rectangle along an edge: `len` along it, `thick` across it */
-const alongRect = (e: Edge, len: number, thick: number) => {
+/** a rectangle on an edge's band: `len` along it, across the wall's
+    thickness `t` outside the outline and `pad` past both faces */
+const bandRect = (e: Edge, len: number, t: number, pad: number) => {
   const hx = (e.dx * len) / 2;
   const hy = (e.dy * len) / 2;
-  const tx = (e.nx * thick) / 2;
-  const ty = (e.ny * thick) / 2;
+  // the band's middle stands half a thickness outside the outline
+  const cx = e.x - (e.nx * t) / 2;
+  const cy = e.y - (e.ny * t) / 2;
+  const tx = (e.nx * (t + 2 * pad)) / 2;
+  const ty = (e.ny * (t + 2 * pad)) / 2;
   return [
-    [e.x - hx - tx, e.y - hy - ty],
-    [e.x + hx - tx, e.y + hy - ty],
-    [e.x + hx + tx, e.y + hy + ty],
-    [e.x - hx + tx, e.y - hy + ty],
+    [cx - hx - tx, cy - hy - ty],
+    [cx + hx - tx, cy + hy - ty],
+    [cx + hx + tx, cy + hy + ty],
+    [cx - hx + tx, cy - hy + ty],
   ]
     .map((p) => p.join(","))
     .join(" ");
+};
+
+/** the walls as the band between the outline and its outer face, the
+    hatch within and a face line on each side */
+const Band = ({ outline, t }: { outline: readonly Point[]; t: number }) => {
+  const inner = outline.map((p) => p.join(",")).join(" ");
+  const outer = outerOutline(outline, t)
+    .map((p) => p.join(","))
+    .join(" ");
+  const ring = `M${inner.split(" ").join("L")}Z M${outer.split(" ").join("L")}Z`;
+  return (
+    <>
+      <path d={ring} className="plan-wall" fillRule="evenodd" />
+      <polygon points={inner} className="plan-face" strokeWidth={FACE} />
+      <polygon points={outer} className="plan-face" strokeWidth={FACE} />
+    </>
+  );
 };
 
 export function Plan2D({
@@ -520,6 +543,7 @@ export function Plan2D({
       const pull = magnetRoom(
         moving,
         rooms.filter((rm) => rm.id !== active.id).map(sheetOutline),
+        active.thickness,
       );
       next = [next[0] + pull.dx, next[1] + pull.dy];
     }
@@ -604,7 +628,11 @@ export function Plan2D({
       three lines; a door as the gap, its leaf and its swing (two for a
       double door); a sliding door as two panels past each other; a
       passage as the gap alone. With `grips`, each has its handles */
-  const drawOpenings = (shell: ReturnType<typeof shellOf>, grips: boolean) =>
+  const drawOpenings = (
+    shell: ReturnType<typeof shellOf>,
+    t: number,
+    grips: boolean,
+  ) =>
     shell.openings.map((o) => {
       const e = onEdge(shell, o);
       const half = o.width / 2;
@@ -616,17 +644,17 @@ export function Plan2D({
           data-wall={o.wall}
         >
           <polygon
-            points={alongRect(e, o.width, WALL * 2 + 30)}
+            points={bandRect(e, o.width, t, BAND_PAD)}
             className="plan-opening"
           />
           {o.kind === "window" &&
-            [-WALL, 0, WALL].map((k) => (
+            [0, 0.5, 1].map((k) => (
               <line
                 key={k}
-                x1={e.x - e.dx * half + e.nx * k}
-                y1={e.y - e.dy * half + e.ny * k}
-                x2={e.x + e.dx * half + e.nx * k}
-                y2={e.y + e.dy * half + e.ny * k}
+                x1={e.x - e.dx * half - e.nx * k * t}
+                y1={e.y - e.dy * half - e.ny * k * t}
+                x2={e.x + e.dx * half - e.nx * k * t}
+                y2={e.y + e.dy * half - e.ny * k * t}
                 className="plan-line"
               />
             ))}
@@ -664,7 +692,7 @@ export function Plan2D({
           {grips && (
             <g className="plan-grips">
               <polygon
-                points={alongRect(e, o.width, WALL * 2 + 120)}
+                points={bandRect(e, o.width, t, GRIP_PAD)}
                 className="plan-grip"
                 role="button"
                 aria-label={`Move the ${o.kind} along its wall`}
@@ -694,8 +722,8 @@ export function Plan2D({
                 );
               })}
               <text
-                x={e.x + e.nx * (WALL + 260)}
-                y={e.y + e.ny * (WALL + 260)}
+                x={e.x + e.nx * LABEL_IN}
+                y={e.y + e.ny * LABEL_IN}
                 className="plan-grip-label f-num"
               >
                 {o.width}
@@ -780,17 +808,8 @@ export function Plan2D({
                     st.setActive(rm.id);
                   }}
                 />
-                <polygon
-                  points={pts}
-                  className="plan-face"
-                  strokeWidth={WALL * 2 + FACE * 2}
-                />
-                <polygon
-                  points={pts}
-                  className="plan-wall"
-                  strokeWidth={WALL * 2}
-                />
-                {drawOpenings(shell, false)}
+                <Band outline={shell.outline} t={rm.thickness} />
+                {drawOpenings(shell, rm.thickness, false)}
                 <text
                   className="plan-room-name"
                   x={rm.width / 2}
@@ -820,12 +839,7 @@ export function Plan2D({
             onPointerUp={onRoomUp}
             onPointerCancel={onRoomUp}
           />
-          <polygon
-            points={poly}
-            className="plan-face"
-            strokeWidth={WALL * 2 + FACE * 2}
-          />
-          <polygon points={poly} className="plan-wall" strokeWidth={WALL * 2} />
+          <Band outline={outline} t={active.thickness} />
 
           {/* the room's own handles, with the Wall tool, under the openings so
             their grips stay in reach: a bar on each wall
@@ -873,9 +887,11 @@ export function Plan2D({
                   >
                     <rect
                       x={-len / 2}
-                      y={-WALL}
+                      // on the band: its local y runs inward or outward
+                      // with the outline's turn
+                      y={f.nx * -f.uy + f.ny * f.ux > 0 ? -active.thickness : 0}
                       width={len}
-                      height={WALL * 2}
+                      height={active.thickness}
                       rx={60}
                       className="plan-shape-edge"
                       data-across={horizontal ? "ns" : "ew"}
@@ -921,7 +937,7 @@ export function Plan2D({
               ))}
             </g>
           )}
-          {drawOpenings(opening, grips)}
+          {drawOpenings(opening, active.thickness, grips)}
 
           {dim([0, 0], [W, 0], `${W}`, [0, -1])}
           {dim([0, D], [0, 0], `${D}`, [-1, 0])}

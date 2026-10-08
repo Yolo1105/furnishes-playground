@@ -673,7 +673,14 @@ function Piece({
   label: number;
   /** Select is on, the piece is not locked, nothing is in focus */
   canDrag: boolean;
-  room: { W: number; D: number; w: number; d: number; outline: Point[] };
+  room: {
+    W: number;
+    D: number;
+    w: number;
+    d: number;
+    outline: Point[];
+    thickness: number;
+  };
   /** the other pieces on the floor, in mm, which draw a dragged one too */
   others: (Rect & { id: string })[];
   actions: React.ReactNode;
@@ -950,6 +957,7 @@ function OtherRoom({
           outline,
           openings: openingsOf(st, rm),
           height: rm.height,
+          thickness: rm.thickness,
           floor: rm.floor as Floor,
           floorHex: floor,
           wallHex: wall,
@@ -985,7 +993,14 @@ function OtherRoom({
             clash={a.clashes.has(n.id)}
             label={a.labelOf(n)}
             canDrag={false}
-            room={{ W: rm.width, D: rm.depth, w, d, outline }}
+            room={{
+              W: rm.width,
+              D: rm.depth,
+              w,
+              d,
+              outline,
+              thickness: rm.thickness,
+            }}
             others={rects}
             onPick={() => a.onPick(n)}
             onTurn={() => a.turn(n)}
@@ -1133,6 +1148,7 @@ export default function Scene3D() {
     w,
     d,
     h,
+    room.thickness,
     outline,
     openingsOf({ joins }, room),
     sharedOf({ rooms }, room),
@@ -1273,6 +1289,7 @@ export default function Scene3D() {
               outline,
               openings: openingsOf({ joins }, room),
               height: room.height,
+              thickness: room.thickness,
               shared: sharedOf({ rooms }, room),
               floor: room.floor as Floor,
               floorHex: floor,
@@ -1339,7 +1356,14 @@ export default function Scene3D() {
                 clash={a.clashes.has(n.id)}
                 label={label}
                 canDrag={canDrag && !p.locked && !walk}
-                room={{ W: a.room.W, D: a.room.D, w, d, outline }}
+                room={{
+                  W: a.room.W,
+                  D: a.room.D,
+                  w,
+                  d,
+                  outline,
+                  thickness: a.room.thickness,
+                }}
                 others={rects}
                 onPick={() => a.onPick(n)}
                 onTurn={() => a.turn(n)}
