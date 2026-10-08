@@ -1,19 +1,29 @@
 "use client";
 
+import {
+  type Added,
+  carcassPanels,
+  freeId,
+  newPanel,
+  type Panel,
+} from "@furnishes/domain";
 import { CATEGORY_NAMES, sgd, type AssetNode } from "./assets-data";
 import {
   CartIcon,
   CheckIcon,
+  CopyIcon,
   ExpandIcon,
   EyeIcon,
   EyeOffIcon,
   LockIcon,
   RotateIcon,
+  PlusIcon,
   TagIcon,
   TrashIcon,
 } from "./icons";
 import { usePieceActions } from "./piece-actions";
 import {
+  carcassOf,
   COLOURS,
   LABEL_MAX,
   PLACE_SNAP,
@@ -46,8 +56,16 @@ export function DetailTab() {
   const overrides = useScene((s) => s.overrides);
   const cart = useScene((s) => s.cart);
   const labels = useScene((s) => s.labels);
-  const { select, setProps, toggleCart, toggleLabel, removeNode } =
-    useScene.getState();
+  const panelId = useScene((s) => s.panelId);
+  const {
+    select,
+    selectPanel,
+    setProps,
+    setPanels,
+    toggleCart,
+    toggleLabel,
+    removeNode,
+  } = useScene.getState();
   const setFocus = useStudio((s) => s.setFocus);
   const stage = usePieceActions();
   const found = findNode(groups, selectedId);
@@ -87,6 +105,43 @@ export function DetailTab() {
       y: Math.round(patch.y ?? spot.y),
     });
 
+  // the piece as panels: a carcass can be opened; the picked panel is
+  // typed in millimetres, in the piece's frame about its middle
+  const carcass = whole && !item ? carcassOf(piece) : null;
+  const panels = whole ? whole_.panels : undefined;
+  const panel = panels?.find((x) => x.id === panelId);
+  const changePanels = (next: Panel[]) => setPanels(piece.id, next);
+  const editPanel = (patch: Partial<Panel>) =>
+    panel &&
+    changePanels(
+      panels!.map((x) => (x.id === panel.id ? { ...x, ...patch } : x)),
+    );
+  const add = (kind: Added) => {
+    const made = newPanel(panels ?? [], kind);
+    changePanels([...(panels ?? []), made]);
+    selectPanel(made.id);
+  };
+  const panelNum = (
+    text: string,
+    value: number,
+    label: string,
+    onChange: (v: number) => void,
+    step = 1,
+  ) => (
+    <label className="room-dim" key={label}>
+      <span className="room-dim-label">{text}</span>
+      <input
+        type="number"
+        className="room-dim-input f-num"
+        inputMode="numeric"
+        step={step}
+        value={value}
+        aria-label={label}
+        onChange={(e) => onChange(Number(e.target.value))}
+      />
+      <span className="room-dim-unit">mm</span>
+    </label>
+  );
   const dim = (key: "width" | "depth" | "height", text: string) => (
     <label className="room-dim">
       <span className="room-dim-label">{text}</span>
@@ -380,14 +435,169 @@ export function DetailTab() {
           <span className="eva-pref-title">Size</span>
           <span className="detail-of f-num">
             {p.width} × {p.depth} × {p.height} mm
+            {panels && " · from its panels"}
           </span>
         </div>
-        <div className="room-dims">
-          {dim("width", "Width")}
-          {dim("depth", "Depth")}
-          {dim("height", "Height")}
-        </div>
+        {!panels && (
+          <div className="room-dims">
+            {dim("width", "Width")}
+            {dim("depth", "Depth")}
+            {dim("height", "Height")}
+          </div>
+        )}
       </section>
+      {carcass && (
+        <section className="eva-pref" aria-label="Panels">
+          <div className="eva-pref-head">
+            <span className="eva-pref-title">Panels</span>
+            <span className="detail-of f-num">
+              {panels
+                ? `${panels.length} panels · ${sgd(piece.price ?? 0)} estimate`
+                : "as the recipe draws it"}
+            </span>
+          </div>
+          {!panels ? (
+            <div className="detail-acts">
+              <button
+                type="button"
+                className="main-btn"
+                onClick={() =>
+                  setPanels(
+                    piece.id,
+                    carcassPanels({
+                      width: p.width,
+                      depth: p.depth,
+                      height: p.height,
+                      ...carcass,
+                    }),
+                  )
+                }
+              >
+                <PlusIcon size={14} />
+                <span>Open as panels</span>
+              </button>
+            </div>
+          ) : (
+            <>
+              <div
+                className="detail-parts"
+                role="radiogroup"
+                aria-label="Panels"
+              >
+                {panels.map((x) => (
+                  <button
+                    key={x.id}
+                    type="button"
+                    role="radio"
+                    className="detail-part"
+                    aria-checked={x.id === panelId}
+                    onClick={() => selectPanel(x.id === panelId ? null : x.id)}
+                  >
+                    <span className="detail-part-name">{x.name}</span>
+                    <span className="detail-part-price f-num">
+                      {x.length} × {x.width} × {x.thickness}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              {panel && (
+                <>
+                  <div className="room-dims detail-panel">
+                    {panelNum(
+                      "Length",
+                      panel.length,
+                      `${panel.name} length in millimetres`,
+                      (length) => editPanel({ length }),
+                    )}
+                    {panelNum(
+                      "Width",
+                      panel.width,
+                      `${panel.name} width in millimetres`,
+                      (width) => editPanel({ width }),
+                    )}
+                    {panelNum(
+                      "Thick",
+                      panel.thickness,
+                      `${panel.name} thickness in millimetres`,
+                      (thickness) => editPanel({ thickness }),
+                    )}
+                  </div>
+                  <div className="room-dims detail-panel">
+                    {(["Across", "Up", "Out"] as const).map((text, i) =>
+                      panelNum(
+                        text,
+                        panel.position[i]!,
+                        `${panel.name} ${text.toLowerCase()} in millimetres`,
+                        (v) => {
+                          const position = [
+                            ...panel.position,
+                          ] as Panel["position"];
+                          position[i] = v;
+                          editPanel({ position });
+                        },
+                        PLACE_SNAP,
+                      ),
+                    )}
+                  </div>
+                  <div className="detail-acts">
+                    <button
+                      type="button"
+                      className="main-btn"
+                      onClick={() => {
+                        const made: Panel = {
+                          ...panel,
+                          id: freeId(panels, panel.name.toLowerCase()),
+                          position: [
+                            panel.position[0],
+                            panel.position[1] + panel.thickness * 2,
+                            panel.position[2],
+                          ],
+                        };
+                        changePanels([...panels, made]);
+                        selectPanel(made.id);
+                      }}
+                    >
+                      <CopyIcon size={14} />
+                      <span>Duplicate</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="main-btn"
+                      aria-label={`Remove ${panel.name}`}
+                      onClick={() =>
+                        changePanels(panels.filter((x) => x.id !== panel.id))
+                      }
+                    >
+                      <TrashIcon size={14} />
+                      <span>Remove</span>
+                    </button>
+                  </div>
+                </>
+              )}
+              <div className="detail-acts">
+                {(["shelf", "divider", "door", "back"] as const).map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    className="main-btn"
+                    onClick={() => add(k)}
+                  >
+                    <PlusIcon size={14} />
+                    <span>{k[0]!.toUpperCase() + k.slice(1)}</span>
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className="main-btn"
+                  onClick={() => setPanels(piece.id, undefined)}
+                >
+                  <span>Back to the recipe</span>
+                </button>
+              </div>
+            </>
+          )}
+        </section>
+      )}
     </div>
   );
 }

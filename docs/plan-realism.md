@@ -317,6 +317,28 @@ AGPL. `@salusoft89/planegcs` 1.3.0 is the only 2D constraint solver
   walls' thickness apart, the shared walls and the magnet take the
   room's thickness, a piece outside the room leans on its far face, and
   the export carries it. A room saved before takes the default.
+- M2 is in: a piece can be opened as panels. Panelizer's panel model
+  and its pure geometry (an axis-aligned box per panel, `snapGroupDelta`
+  and `snapResizeFace` within 15 mm to a neighbour's face or centre
+  line, the resize that holds the far face, the overlaps, the parts
+  rows) are in the domain package as `panels.ts`, rewritten to the
+  house's millimetres and frame with its MIT notice in
+  `packages/domain/LICENSES.md`; `carcass.ts` is the recipe made
+  resizable: the carcass the studio draws (plinth, bottom, top, back,
+  sides, dividers, shelves, doors), joint-true, at any size, with a
+  shelf, a divider, a door or a back to add. In the Detail tab a
+  carcass piece has Open as panels; the panels are listed, the picked
+  one typed in millimetres (length, width, thickness, and its place
+  across, up and out from the piece's middle), duplicated or removed,
+  and Back to the recipe closes it. In 3D, with the piece in hand, a
+  click picks a panel, the picked panel drags on the plane facing the
+  camera and snaps, a guide marking the patch where the faces meet,
+  and a ball off each of its edges drags that edge (Alt holds the
+  centre); a drag is one step to undo and settles the piece's box
+  round its panels, so the plan, the clashes and the layouts read the
+  new size. The price is counted from the panels as parts, from the
+  one table of rates. The panels ride in the piece's properties, so
+  they are saved, synced and exported with the project.
 
 ## The order of work
 

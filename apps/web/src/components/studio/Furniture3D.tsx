@@ -1,11 +1,11 @@
 "use client";
 
-import { RoundedBox, useGLTF } from "@react-three/drei";
+import { useGLTF } from "@react-three/drei";
 import { Component, type ReactNode, Suspense, useEffect, useMemo } from "react";
+import type { Panel } from "@furnishes/domain";
 import {
   Box3,
   BoxGeometry,
-  type CanvasTexture,
   DoubleSide,
   EdgesGeometry,
   Vector2,
@@ -16,13 +16,29 @@ import type { AssetNode } from "./assets-data";
 import { recipeOf } from "./catalogue";
 import {
   ACCENT_HEX,
+  bodyOf,
+  carcassOf,
   DANGER_HEX,
   FOLIAGE_HEX,
   isRug,
   LIGHT_WOOD_HEX,
   ROOM_ITEM_HEX,
 } from "./piece-detail";
-import { reliefOf, shade, woodTexture } from "./textures";
+import { shade } from "./textures";
+import {
+  cloth,
+  type Finish,
+  finishOf,
+  Mat,
+  metal,
+  METAL,
+  PANEL,
+  Rod,
+  Slab,
+  Soft,
+  wood,
+} from "./finish";
+import { Panels3D } from "./Panels3D";
 
 /**
  * A piece's form in 3D, built from what it is, at the size the Detail
@@ -38,14 +54,12 @@ import { reliefOf, shade, woodTexture } from "./textures";
  * duvet; a screen on its feet. A finish of wood grain is painted on
  * from the palette. A generated item with a mesh of its own shows that.
  */
-const PANEL = 0.018;
 const PLINTH = 0.06;
 const LEG = 0.1; // m, a sofa's legs
 const CUSHION = 0.65; // m, about one seat
 
 const DARK_WOOD = "#5a4634";
 const LIGHT_WOOD = LIGHT_WOOD_HEX;
-const METAL = "#8d8780";
 const BRASS = "#b59a6a";
 const IRON = "#3a3633";
 const SHADE_HEX = "#f1e8da";
@@ -79,158 +93,12 @@ type Props = {
   clash: boolean;
   /** the View settings ask for edges on every piece */
   edges: boolean;
+  /** the piece opened as panels, drawn from them instead of its form */
+  panels?: readonly Panel[] | undefined;
+  /** the piece is in hand: its panels can be picked and moved */
+  editable: boolean;
   onPick: () => void;
 };
-
-/** how a finish catches the light */
-const roughnessOf = (texture: string) =>
-  texture === "Satin"
-    ? 0.45
-    : texture === "Linen"
-      ? 1
-      : texture === "Wood grain"
-        ? 0.75
-        : 0.9;
-
-/** a surface: its colour, how it catches the light, a grain if any */
-type Finish = {
-  colour: string;
-  rough: number;
-  map?: CanvasTexture | undefined;
-  /** cloth: a soft sheen across the weave */
-  sheen?: number;
-  /** glaze: a clear coat over the colour */
-  coat?: number;
-  metal?: number;
-};
-const cloth = (colour: string): Finish => ({ colour, rough: 0.95, sheen: 0.6 });
-const wood = (colour: string, grain = true): Finish => ({
-  colour,
-  rough: 0.7,
-  map: grain ? woodTexture(colour) : undefined,
-});
-const metal = (colour: string, rough = 0.35): Finish => ({
-  colour,
-  rough,
-  metal: 0.85,
-});
-
-function Mat({ f, colour }: { f: Finish; colour?: string | undefined }) {
-  const c = colour ?? f.colour;
-  if (f.sheen !== undefined || f.coat !== undefined)
-    return (
-      <meshPhysicalMaterial
-        color={c}
-        roughness={f.rough}
-        sheen={f.sheen ?? 0}
-        sheenColor={shade(c, 0.1)}
-        sheenRoughness={0.8}
-        clearcoat={f.coat ?? 0}
-        clearcoatRoughness={0.25}
-      />
-    );
-  const map = f.map && colour === undefined ? f.map : null;
-  const relief = map ? reliefOf(map) : null;
-  return (
-    <meshStandardMaterial
-      color={f.map ? shade(c, 0.02) : c}
-      map={map}
-      normalMap={relief?.normalMap ?? null}
-      normalScale={RELIEF_SCALE}
-      roughnessMap={relief?.roughnessMap ?? null}
-      roughness={f.rough}
-      metalness={f.metal ?? 0}
-    />
-  );
-}
-/** how strongly the grain's relief bends the light */
-const RELIEF_SCALE = new Vector2(0.35, 0.35);
-
-/** a square-edged part: a panel, a plinth, a frame member */
-function Slab({
-  at,
-  dims,
-  f,
-  colour,
-  rotation,
-}: {
-  at: Vector3Tuple;
-  dims: Vector3Tuple;
-  f: Finish;
-  colour?: string | undefined;
-  rotation?: Vector3Tuple | undefined;
-}) {
-  return (
-    <mesh
-      position={at}
-      {...(rotation ? { rotation } : {})}
-      castShadow
-      receiveShadow
-    >
-      <boxGeometry args={dims} />
-      <Mat f={f} colour={colour} />
-    </mesh>
-  );
-}
-
-/** a soft part: a cushion, a mattress, a table top */
-function Soft({
-  at,
-  dims,
-  f,
-  radius = 0.03,
-  rotation,
-}: {
-  at: Vector3Tuple;
-  dims: Vector3Tuple;
-  f: Finish;
-  radius?: number;
-  rotation?: Vector3Tuple | undefined;
-}) {
-  const r = Math.min(radius, Math.min(...dims) / 2 - 0.001);
-  return (
-    <RoundedBox
-      args={dims}
-      radius={Math.max(0.002, r)}
-      smoothness={3}
-      position={at}
-      {...(rotation ? { rotation } : {})}
-      castShadow
-      receiveShadow
-    >
-      <Mat f={f} />
-    </RoundedBox>
-  );
-}
-
-/** a round part: a leg, a stem, a handle, a castor; upright unless turned */
-function Rod({
-  at,
-  r,
-  h,
-  f,
-  top,
-  rotation,
-}: {
-  at: Vector3Tuple;
-  r: number;
-  h: number;
-  f: Finish;
-  top?: number;
-  rotation?: Vector3Tuple | undefined;
-}) {
-  return (
-    <mesh
-      position={at}
-      {...(rotation ? { rotation } : {})}
-      castShadow
-      receiveShadow
-    >
-      <cylinderGeometry args={[top ?? r, r, h, 20]} />
-      <Mat f={f} />
-    </mesh>
-  );
-}
 
 /** a small whole number from a name, the same every time */
 const seedOf = (s: string) => {
@@ -302,6 +170,8 @@ export function Furniture3D(p: Props) {
   );
 }
 
+const unpickable = () => null;
+
 /** the box's twelve edges, a hair outside the piece, as the one-pixel
     lines the renderer draws */
 function Outline({
@@ -316,8 +186,14 @@ function Outline({
     [w, h, d],
   );
   useEffect(() => () => geometry.dispose(), [geometry]);
+  // the lines are drawn, never picked: a line is hit within a metre of
+  // the pointer, which would take the pick from a panel or a neighbour
   return (
-    <lineSegments geometry={geometry} position={[0, h / 2, 0]}>
+    <lineSegments
+      geometry={geometry}
+      position={[0, h / 2, 0]}
+      raycast={unpickable}
+    >
       <lineBasicMaterial color={colour} />
     </lineSegments>
   );
@@ -327,12 +203,19 @@ function Form(p: Props) {
   const [w, h, d] = p.size;
   const name = p.node.name.toLowerCase();
   const cat = p.node.category;
-  const own: Finish = {
-    colour: p.colour,
-    rough: roughnessOf(p.texture),
-    map: p.texture === "Wood grain" ? woodTexture(p.colour) : undefined,
-  };
+  const own = finishOf(p.colour, p.texture);
   const seed = seedOf(p.node.id);
+
+  // opened as panels: the panels are the piece
+  if (p.panels)
+    return (
+      <Panels3D
+        pieceId={p.node.id}
+        panels={p.panels}
+        f={own}
+        editable={p.editable}
+      />
+    );
 
   // a single component from the strip: one panel
   if (cat === "components") {
@@ -371,28 +254,24 @@ function Form(p: Props) {
   // what it is called
   const r = recipeOf(p.node);
   const shape = r?.shape;
-  if (shape === "trolley" || shape === "island" || /cart|trolley/.test(name))
-    return <Cart w={w} h={h} d={d} f={own} />;
-  if (shape === "bench" || /bench/.test(name))
-    return <Bench w={w} h={h} d={d} f={own} />;
+  const body = bodyOf(p.node);
+  if (body === "cart") return <Cart w={w} h={h} d={d} f={own} />;
+  if (body === "bench") return <Bench w={w} h={h} d={d} f={own} />;
 
   // a carcass of panels: storage, a desk's pedestal, a wardrobe
-  if (
-    p.node.kind === "piece" &&
-    (r ? shape !== "folding" : cat !== "decor" && cat !== "screens")
-  )
+  if (body === "carcass")
     return (
       <Carcass
         w={w}
         h={h}
         d={d}
         f={own}
-        bays={p.parts.length ? p.parts : [p.colour]}
-        doors={
-          r
-            ? r.door && r.shape === "cabinet"
-            : /sideboard|cabinet|wardrobe|drawer/.test(name)
+        bays={
+          p.parts.length
+            ? p.parts
+            : Array.from({ length: carcassOf(p.node)!.bays }, () => p.colour)
         }
+        doors={carcassOf(p.node)!.doors}
         books={
           r ? shape === "shelf" : /bookwall|bookcase|shelf|shelves/.test(name)
         }

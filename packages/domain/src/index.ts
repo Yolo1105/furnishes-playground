@@ -15,3 +15,5 @@ export * from "./catalogue";
 export * from "./parts";
 export * from "./steps";
 export * from "./price";
+export * from "./panels";
+export * from "./carcass";

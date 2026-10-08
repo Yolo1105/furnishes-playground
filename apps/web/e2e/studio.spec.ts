@@ -1,4 +1,10 @@
-import { expect, test, type BrowserContext, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type BrowserContext,
+  type Locator,
+  type Page,
+} from "@playwright/test";
 import {
   assetGroups,
   pieceTotals,
@@ -35,6 +41,12 @@ const placeByMm = async (page: Page, name: string, x: string, y: string) => {
   await sx.press("Tab");
   await sy.fill(y);
   await sy.press("Tab");
+};
+
+/** the middle of an element, for a click on it */
+const centreOf = async (el: Locator) => {
+  const box = (await el.boundingBox())!;
+  return { x: box.width / 2, y: box.height / 2 };
 };
 
 /** the mails a development server kept for an address, by subject */
@@ -1300,6 +1312,72 @@ test("the Detail tab lists a piece's components and changes one", async ({
     "aria-checked",
     "true",
   );
+});
+
+test("a piece opens as panels: picked, typed in millimetres, added to, priced, closed again", async ({
+  page,
+}) => {
+  await page.goto("/rounded");
+  const bookwall = top.find((a) => a.children?.length)!;
+  await page
+    .locator(".main-shelf")
+    .getByRole("button", { name: bookwall.name, exact: true })
+    .click();
+  await page.getByRole("tab", { name: "Detail" }).click();
+  const section = page.getByRole("region", { name: "Panels" });
+  await expect(section).toContainText("as the recipe draws it");
+  const was = (await page.locator(".detail-price").textContent()) ?? "";
+  await section.getByRole("button", { name: "Open as panels" }).click();
+  // the recipe's carcass: the six of the box, a divider between the
+  // bays, shelves by the height; the price counts the panels
+  const panels = section.getByRole("radiogroup", { name: "Panels" });
+  const count = await panels.getByRole("radio").count();
+  expect(count).toBeGreaterThanOrEqual(8);
+  await expect(section).toContainText(`${count} panels`);
+  await expect(page.locator(".detail-price")).not.toHaveText(was);
+  // a size typed in is kept; the size is the box round the panels
+  await panels.getByRole("radio", { name: /^Top/ }).click();
+  const length = page.getByRole("spinbutton", {
+    name: "Top length in millimetres",
+  });
+  await length.fill("900");
+  await expect(length).toHaveValue("900");
+  await expect(
+    page.locator(".detail-of", { hasText: "from its panels" }),
+  ).toBeVisible();
+  // one more shelf, then the piece as the recipe draws it again
+  await section.getByRole("button", { name: "Shelf", exact: true }).click();
+  await expect(panels.getByRole("radio")).toHaveCount(count + 1);
+  await expect(
+    panels.getByRole("radio", { name: /^Shelf/ }).last(),
+  ).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("button", { name: "Remove Shelf" }).click();
+  await expect(panels.getByRole("radio")).toHaveCount(count);
+  // in 3D, with the piece alone and seen from above, a click on it
+  // picks the panel under the pointer: the top
+  await page.getByRole("button", { name: "Show alone" }).click();
+  await page
+    .getByRole("radiogroup", { name: "View angle" })
+    .getByRole("radio", { name: "Top" })
+    .click();
+  const stage = page.locator(".shell-stage canvas");
+  await expect
+    .poll(
+      async () => {
+        await stage.click({ position: await centreOf(stage) });
+        return panels.getByRole("radio", { checked: true }).count();
+      },
+      { timeout: 20_000 },
+    )
+    .toBe(1);
+  await expect(panels.getByRole("radio", { checked: true })).toHaveText(/Top/);
+  await page
+    .locator(".shell-stage")
+    .getByRole("button", { name: "Back to the room" })
+    .click();
+  await section.getByRole("button", { name: "Back to the recipe" }).click();
+  await expect(section).toContainText("as the recipe draws it");
+  await expect(page.locator(".detail-price")).toHaveText(was);
 });
 
 test("Eva answers a message; New chat opens a thread; suggestions fill the box", async ({

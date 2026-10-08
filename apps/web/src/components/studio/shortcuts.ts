@@ -108,7 +108,9 @@ export function useShortcuts(onHelp: () => void) {
         case "?":
           return onHelp();
         case "Escape":
-          if (st.touring) st.stopTour();
+          if (useScene.getState().panelId)
+            useScene.getState().selectPanel(null);
+          else if (st.touring) st.stopTour();
           else if (st.walk) st.setWalk(false);
           else if (st.focusId) st.setFocus(null);
           return;

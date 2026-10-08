@@ -816,6 +816,8 @@ function Piece({
         colour={colour}
         parts={parts}
         texture={props.texture}
+        panels={props.panels}
+        editable={selected && !props.locked}
         selected={selected}
         clash={clash}
         onPick={() => {
@@ -1022,6 +1024,8 @@ export default function Scene3D() {
   const portal = useRef<HTMLDivElement>(null!);
   const stage = useRef<HTMLDivElement>(null);
   const angle = useStudio((s) => s.angle);
+  // a panel's drag (its step opens on the press) holds the camera still
+  const panelDrag = useScene((s) => s.dragFrom !== null);
   const walk = useStudio((s) => s.walk);
   const room = useActiveRoom();
   const rooms = useRoom((s) => s.rooms);
@@ -1389,7 +1393,7 @@ export default function Scene3D() {
         </group>
         <OrbitControls
           makeDefault
-          enabled={!walk && !dragging}
+          enabled={!walk && !dragging && !panelDrag}
           enablePan={false}
           minDistance={1}
           maxDistance={30}

@@ -1,3 +1,4 @@
+import type { Panel } from "@furnishes/domain";
 import { recipeOf, recipeSize } from "./catalogue";
 import type { AssetCategory, AssetNode } from "./assets-data";
 
@@ -25,6 +26,10 @@ export type PieceProps = {
   rotation: number;
   hidden: boolean;
   locked: boolean;
+  /** the piece opened as panels: its parts as the person has them,
+      in its own frame (x across, y up from the floor, z to the front,
+      mm about its middle); its size and price then come from them */
+  panels?: Panel[];
 };
 
 /** a turn kept to 0 to 359 whole degrees */
@@ -115,6 +120,43 @@ const SIZES_BY_NAME: [RegExp, [number, number, number]][] = [
   [/dining table/i, [1400, 800, 750]],
   [/coat stand/i, [400, 400, 1750]],
 ];
+
+/** the body a piece is drawn as: a cart on castors, a bench, a carcass
+    of panels, or none of these (a room item drawn by what it is) */
+export const bodyOf = (
+  n: Pick<AssetNode, "name" | "kind" | "category" | "productId">,
+): "cart" | "bench" | "carcass" | null => {
+  const r = recipeOf(n);
+  const name = n.name.toLowerCase();
+  const shape = r?.shape;
+  if (shape === "trolley" || shape === "island" || /cart|trolley/.test(name))
+    return "cart";
+  if (shape === "bench" || /bench/.test(name)) return "bench";
+  if (
+    n.kind === "piece" &&
+    (r
+      ? shape !== "folding"
+      : n.category !== "decor" && n.category !== "screens")
+  )
+    return "carcass";
+  return null;
+};
+
+/** a carcass's bays and whether it has doors: how its panels are laid
+    out, or null for a piece that is not a carcass */
+export const carcassOf = (
+  n: Pick<AssetNode, "name" | "kind" | "category" | "productId" | "children">,
+): { bays: number; doors: boolean } | null => {
+  if (bodyOf(n) !== "carcass") return null;
+  const r = recipeOf(n);
+  return {
+    // a piece with parts has a bay a part; a recipe has its bays
+    bays: n.children?.length || r?.bays || 1,
+    doors: r
+      ? r.door && r.shape === "cabinet"
+      : /sideboard|cabinet|wardrobe|drawer/.test(n.name.toLowerCase()),
+  };
+};
 
 /** a rug lies under things; a small item (a lamp, a vase) is no obstacle */
 export const isRug = (n: Pick<AssetNode, "name">) => /rug/i.test(n.name);

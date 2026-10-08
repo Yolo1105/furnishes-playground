@@ -1,3 +1,10 @@
+import {
+  boundsOf,
+  type Panel,
+  priceOfPanels,
+  settledPanels,
+  sizeOf,
+} from "@furnishes/domain";
 import { create } from "zustand";
 import { newId } from "./ids";
 import {
@@ -7,7 +14,7 @@ import {
   type AssetGroup,
   type AssetNode,
 } from "./assets-data";
-import type { Product } from "./catalogue";
+import { productOf, type Product } from "./catalogue";
 import { defaultProps, LABEL_MAX, type PieceProps } from "./piece-detail";
 
 /** what undo brings back: the room's contents and what was done to them */
@@ -40,6 +47,8 @@ type SceneState = {
   groups: AssetGroup[];
   /** the one thing picked, in the outliner and on the shelf alike */
   selectedId: string | null;
+  /** the panel of the picked piece in hand, when it is opened as panels */
+  panelId: string | null;
   /** counts every pick, so a repeat pick of the same thing still shows it */
   selectedAt: number;
   /** counts the picks that should bring the outliner to the thing: a card
@@ -72,6 +81,18 @@ type SceneState = {
     roomId: string,
   ) => string;
   select: (id: string | null, reveal?: boolean) => void;
+  selectPanel: (id: string | null) => void;
+  /** a piece's panels moved under a drag: live, between dragStart and
+      dragEnd, its size following */
+  panelsMove: (id: string, panels: readonly Panel[]) => void;
+  /** a piece opened as panels, its panels changed, or closed again
+      (undefined): the box settles round them, the size and the price
+      follow; one step to undo unless `live`, inside a drag */
+  setPanels: (
+    id: string,
+    panels: readonly Panel[] | undefined,
+    live?: boolean,
+  ) => void;
   toggleCart: (id: string) => void;
   /** the cart after an order: empty (not a step to undo) */
   clearCart: () => void;
@@ -147,6 +168,31 @@ const itemNode = (
     ...(item.model ? { model: item.model } : {}),
   };
 };
+/** a piece's price set anew: from its panels, or its recipe's again */
+const priced = (
+  groups: AssetGroup[],
+  id: string,
+  panels: readonly Panel[] | undefined,
+): AssetGroup[] =>
+  groups.map((g) => ({
+    ...g,
+    items: g.items.map((n) => {
+      if (n.id !== id) return n;
+      const price = panels
+        ? priceOfPanels(panels)
+        : n.productId
+          ? productOf(n.productId)?.price
+          : undefined;
+      return price === undefined ? n : { ...n, price };
+    }),
+  }));
+
+/** a piece's size from the box round its panels, mm, as they stand */
+const sizedBy = (panels: readonly Panel[]) => {
+  const b = boundsOf(panels);
+  return b ? sizeOf(b) : {};
+};
+
 /** the node into its category's group, which is made when new */
 const into = (groups: AssetGroup[], node: AssetNode): AssetGroup[] =>
   groups.some((g) => g.id === node.category)
@@ -197,6 +243,7 @@ export const useScene = create<SceneState>((set, get) => {
   return {
     groups: seed,
     selectedId: null,
+    panelId: null,
     selectedAt: 0,
     revealAt: 0,
     cart: [],
@@ -280,9 +327,42 @@ export const useScene = create<SceneState>((set, get) => {
     select: (id, reveal = true) =>
       set((s) => ({
         selectedId: id,
+        panelId: null,
         selectedAt: s.selectedAt + 1,
         revealAt: reveal ? s.revealAt + 1 : s.revealAt,
       })),
+    selectPanel: (panelId) => set({ panelId }),
+    panelsMove: (id, panels) =>
+      set((s) => ({
+        groups: priced(s.groups, id, panels),
+        overrides: {
+          ...s.overrides,
+          [id]: { ...s.overrides[id], panels: [...panels], ...sizedBy(panels) },
+        },
+      })),
+    setPanels: (id, panels, live = false) =>
+      set((s) => {
+        const overrides = live ? s.overrides : held(s);
+        const settled = panels ? settledPanels(panels) : null;
+        const patch = settled
+          ? {
+              panels: settled.panels,
+              width: settled.width,
+              depth: settled.depth,
+              height: settled.height,
+            }
+          : {};
+        const { panels: _was, ...rest } = overrides[id] ?? {};
+        return {
+          groups: priced(s.groups, id, settled?.panels),
+          overrides: { ...overrides, [id]: { ...rest, ...patch } },
+          panelId:
+            s.panelId && settled?.panels.some((p) => p.id === s.panelId)
+              ? s.panelId
+              : null,
+          ...(live ? {} : remember(s)),
+        };
+      }),
     clearCart: () => set({ cart: [] }),
     toggleCart: (id) =>
       set((s) => ({

@@ -164,7 +164,11 @@ their shadows, with the surroundings standing back. The walls have a thickness
 (the Room tab's Walls, beside the height): the outline is their inner
 face in both views, the plan draws the band outside it, and in 3D each
 wall is built solid with its openings cut through, mitred where it
-meets the next. The
+meets the next. A carcass piece opens as panels in the Detail tab
+(Panelizer's model and snapping, rewritten into `packages/domain`):
+each panel is listed and typed in millimetres, added to, duplicated
+or removed, picked and dragged in 3D with its faces snapping to its
+neighbours, and the piece's size and price follow its panels. The
 room's own bounce light comes from a grid of light probes over the
 shell (`apps/web/src/components/studio/Probes.tsx`), baked over frames
 whenever the shell, its finish or its light changes and never under a
