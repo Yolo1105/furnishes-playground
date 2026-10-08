@@ -122,30 +122,52 @@ const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
 /** one point of a surface: how light it is (1 the material's own
     colour), its height (about 0, in the relief's units) and roughness */
-type Point = { lum: number; height: number; rough: number };
+type Point = {
+  lum: number;
+  height: number;
+  rough: number;
+  /** how far the point leans warm (towards the latewood's red-brown),
+      0 for the tint alone */
+  warm?: number;
+};
 type Paint = (u: number, v: number) => Point;
 
 /** how a wood is figured: the growth rings across the tile, how far
-    they drift along the grain, and how dark the latewood stands */
-type Figure = { rings: number; drift: number; contrast: number };
-/** a panel's veneer: fine rings, a little wander */
-const VENEER: Figure = { rings: 44, drift: 1.1, contrast: 0.12 };
+    they drift along the grain (the cathedral of a flat-cut face), how
+    unevenly they are spaced, and how dark the latewood stands */
+type Figure = {
+  rings: number;
+  drift: number;
+  uneven: number;
+  contrast: number;
+};
+/** a panel's veneer: fine rings, a wide cathedral, well spaced */
+const VENEER: Figure = { rings: 110, drift: 2.4, uneven: 0.4, contrast: 0.1 };
 /** a floorboard: narrow rings running straight along the plank */
-const PLANK: Figure = { rings: 64, drift: 0.5, contrast: 0.06 };
-/** wood at a point of the tile: rings that drift along the grain (u),
-    fine pores between, a slow figure over all; the latewood sits lower,
-    darker and a little rougher */
+const PLANK: Figure = { rings: 140, drift: 0.6, uneven: 0.3, contrast: 0.06 };
+/** wood at a point of the tile: rings whose spacing wanders, drifting
+    along the grain (u) into the cathedral figure of a flat-cut face;
+    each ring's latewood a narrow band with a sharp late edge, darker,
+    lower, rougher and a little redder than the earlywood; fine pores
+    between, a slow figure over all */
 const woodAt = (u: number, v: number, seed: number, f: Figure): Point => {
   const drift = fbm(u, v, 2, 1, seed, 3) - 0.5;
   const sway = fbm(u, v, 1, 3, seed + 7, 2) - 0.5;
-  const phase = v * f.rings + drift * f.drift + sway * 0.3 * f.drift;
-  const ring = Math.pow(0.5 + 0.5 * Math.sin(phase * Math.PI * 2), 3);
+  // the spacing: a slow noise along the rings stretches and crowds them
+  const spacing = (fbm(u, v, 1, 5, seed + 3, 2) - 0.5) * f.uneven * f.rings;
+  const phase = v * f.rings + spacing + drift * f.drift + sway * 0.3 * f.drift;
+  const at = phase - Math.floor(phase);
+  // earlywood for most of the ring, latewood at its end, sharp after
+  const ring =
+    smooth(clamp01((at - 0.5) / 0.3)) *
+    (1 - smooth(clamp01((at - 0.86) / 0.1)));
   const pores = fbm(u, v, 6, 128, seed + 11, 3) - 0.5;
   const figure = fbm(u, v, 3, 2, seed + 23, 3) - 0.5;
   return {
-    lum: clamp01(0.98 - f.contrast * ring - 0.08 * pores - 0.07 * figure),
+    lum: clamp01(0.98 - f.contrast * ring - 0.07 * pores - 0.08 * figure),
     height: -0.5 * ring + 0.6 * pores + 0.15 * figure,
-    rough: clamp01(0.52 + 0.2 * ring + 0.12 * pores),
+    rough: clamp01(0.5 + 0.2 * ring + 0.12 * pores),
+    warm: ring * 0.8 + 0.2 * (figure + 0.5),
   };
 };
 
@@ -269,6 +291,7 @@ export const paintMaps = (spec: SurfaceSpec): SurfaceMaps => {
   const lum = new Float32Array(n);
   const height = new Float32Array(n);
   const rough = new Float32Array(n);
+  const warm = new Float32Array(n);
   for (let y = 0; y < size; y++)
     for (let x = 0; x < size; x++) {
       const p = paint(x / size, y / size);
@@ -276,6 +299,7 @@ export const paintMaps = (spec: SurfaceSpec): SurfaceMaps => {
       lum[i] = p.lum;
       height[i] = p.height;
       rough[i] = p.rough;
+      warm[i] = p.warm ?? 0;
     }
   const colour = new Uint8ClampedArray(n * 4);
   const normal = new Uint8ClampedArray(n * 4);
@@ -291,9 +315,11 @@ export const paintMaps = (spec: SurfaceSpec): SurfaceMaps => {
       const i = y * size + x;
       const o = i * 4;
       const l = lum[i]!;
+      // a warm point keeps its red and loses a little green and blue
+      const wm = warm[i]!;
       colour[o] = Math.round(tr * l);
-      colour[o + 1] = Math.round(tg * l);
-      colour[o + 2] = Math.round(tb * l);
+      colour[o + 1] = Math.round(tg * l * (1 - 0.06 * wm));
+      colour[o + 2] = Math.round(tb * l * (1 - 0.14 * wm));
       colour[o + 3] = 255;
       const dx = (at(x + 1, y) - at(x - 1, y)) * relief;
       const dy = (at(x, y + 1) - at(x, y - 1)) * relief;

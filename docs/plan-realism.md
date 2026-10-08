@@ -454,6 +454,27 @@ AGPL. `@salusoft89/planegcs` 1.3.0 is the only 2D constraint solver
   rather than freezing and then showing whole. What waits for a
   browser with WebGPU is listed below.
 
+- R10 is in: what still read as drawn after R9, by eye. The outside
+  stands at daylight (three times the room's light, which the tone
+  mapping rolls off, so the panes glow and the sky goes near white as
+  a window photographs), the tree line has light and shade across its
+  crowns and the haze of distance, the glass carries float glass's
+  faint green and gives back more of the room. The room has a ceiling
+  facing down, so the perspective and a walk stand under one and the
+  overhead views still look in over the open top; it is lit a little
+  of its own, as a ceiling is by the room's bounce, which no light
+  from above reaches it with. The skirting is painted white, proud of
+  the wall, so the wall's foot is drawn. The sky's fill is up (2.4)
+  and less blue, so the walls read off-white as a room is exposed for,
+  and the hemisphere's ground tone is well down, so undersides stand
+  darker than walls. The wood is grown again: fine rings whose spacing
+  wanders, latewood a narrow band with a sharp late edge that leans
+  warm (the colour map keeps the tint's red and loses a little green
+  and blue there, so every colour of the palette warms the same way),
+  a wide cathedral figure on a flat-cut face, under a satin lacquer
+  (roughness 0.45, clear coat 0.25) that catches the window as a
+  sheen across a panel.
+
 ## Checked by hand on WebGPU
 
 The suite runs on the WebGL 2 backend, since headless Chromium has no

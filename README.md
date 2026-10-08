@@ -396,10 +396,11 @@ grid, shadows, daylight or evening light), kept with the view. Review
 renders whichever view is up, the 3D room (its shadows on, its handles
 away) or the plan, sweeps it in and, with the panels hidden, offers a
 before/after divider. The studio opens in 3D on each visit, standing
-at eye height beyond the room's open corner (the overhead views are
-on the cube), the room fading up over the shell on its first frame
-while its surfaces are painted in a worker, and keeps the view and
-angle for the tab. A piece can stand past the walls; a
+at eye height beyond the room's open corner under the room's ceiling
+(the overhead views are on the cube and look in over the open top),
+the room fading up over the shell on its first frame while its
+surfaces are painted in a worker, and keeps the view and angle for
+the tab. A piece can stand past the walls; a
 move never shifts another piece, nor does a piece coming in (it takes
 the first clear spot, or the nearest inside the walls), and two pieces
 standing over each other read in the warning red on the plan and in

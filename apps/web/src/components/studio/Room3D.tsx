@@ -47,7 +47,6 @@ import type { Sky } from "./studio-store";
 import type { StillState } from "./capture";
 import { FloorReflection, useFloorMaterial } from "./Reflection";
 import { FLOOR_MATERIAL, repeated, tintOver, useMaterial } from "./materials";
-import { shade } from "./textures";
 
 /**
  * The room itself in 3D: the floor in its finish, a wall along every
@@ -68,6 +67,9 @@ const FLOOR_RELIEF = new Vector2(0.5, 0.5);
 /** how strongly the plaster's relief bends the light */
 const PLASTER_RELIEF = new Vector2(0.35, 0.35);
 const CEILING_HEX = "#f8f5f0";
+/** how much light a ceiling has of its own: the room's bounce, which
+    the lights from above cannot reach its underside with */
+const CEILING_GLOW = 0.5;
 /** how far inside the wall's outer face a window's outside stands, m */
 const OUTSIDE_IN = 0.01;
 
@@ -81,18 +83,20 @@ const OUTLOOK = {
     horizon: [0.72, 0.8, 0.9],
     sun: [1, 0.96, 0.88],
     cloud: [1, 1, 1],
-    ground: [0.16, 0.24, 0.08],
-    trees: [0.07, 0.12, 0.05],
-    light: 1.4,
+    ground: [0.24, 0.32, 0.13],
+    trees: [0.09, 0.15, 0.06],
+    // daylight stands well above the room's light: the panes glow and
+    // the tone mapping rolls them off, as a window photographs
+    light: 3.2,
   },
   evening: {
     zenith: [0.14, 0.16, 0.36],
     horizon: [0.95, 0.52, 0.3],
     sun: [1, 0.7, 0.4],
     cloud: [0.95, 0.6, 0.45],
-    ground: [0.08, 0.09, 0.05],
-    trees: [0.04, 0.045, 0.03],
-    light: 0.8,
+    ground: [0.09, 0.1, 0.06],
+    trees: [0.045, 0.05, 0.035],
+    light: 1.3,
   },
 } as const;
 
@@ -151,6 +155,21 @@ function Outside({
       .mul(0.035)
       .add(0.045);
     const trees = smoothstep(treeTop, treeTop.sub(0.01), up);
+    // the foliage: light and shade across the crowns, and the haze of
+    // distance lifting the line towards the horizon's colour
+    const leaf = mx_fractal_noise_float(
+      vec2(bearing.mul(6), up.mul(80)),
+      3,
+      2,
+      0.5,
+    )
+      .mul(0.5)
+      .add(0.5);
+    const foliage = mix(
+      mix(vec3(...look.trees), vec3(...look.trees).mul(1.8), leaf),
+      vec3(...look.horizon),
+      0.22,
+    );
     const ground = mix(
       vec3(...look.ground),
       vec3(...look.ground).mul(0.75),
@@ -159,7 +178,7 @@ function Outside({
         .add(0.5),
     );
     const below = smoothstep(0.002, -0.002, up);
-    const land = mix(heavens, vec3(...look.trees), trees);
+    const land = mix(heavens, foliage, trees);
     m.colorNode = mix(land, ground, below).mul(float(look.light));
     m.side = DoubleSide;
     return m;
@@ -175,7 +194,9 @@ function Outside({
   );
 }
 /** how much of the room a pane gives back */
-const GLASS_OPACITY = 0.12;
+const GLASS_OPACITY = 0.18;
+/** the glass's own cast, the faint green of float glass */
+const GLASS_HEX = "#eaf1ee";
 
 const ROUGHNESS: Record<Floor, number> = {
   Vinyl: 0.7,
@@ -489,13 +510,11 @@ function WallRun({
             roughness={0.92}
           />
         </mesh>
-        {/* the skirting stands just inside the wall's face */}
-        <mesh
-          position={[0, SKIRTING / 2, 0.008 * (nx || nz ? 1 : 1)]}
-          receiveShadow
-        >
+        {/* the skirting stands just proud of the wall's face, painted
+            white as joinery is, so the wall's foot is drawn */}
+        <mesh position={[0, SKIRTING / 2, 0.008]} receiveShadow castShadow>
           <boxGeometry args={[len, SKIRTING, 0.016]} />
-          <meshStandardMaterial color={shade(wallHex, -0.06)} roughness={0.7} />
+          <meshStandardMaterial color={FRAME_HEX} roughness={0.5} />
         </mesh>
       </group>
     </Inside>
@@ -629,7 +648,7 @@ function Window({ r, o }: { r: RoomShape; o: Opening }) {
         <mesh position={[0, mid, zf]}>
           <planeGeometry args={[gw, gh]} />
           <meshPhysicalMaterial
-            color="#ffffff"
+            color={GLASS_HEX}
             transparent
             opacity={GLASS_OPACITY}
             roughness={0.03}
@@ -746,7 +765,7 @@ export function RoomShell({
   reflection,
 }: {
   r: RoomShape;
-  /** inside, walking: the ceiling is overhead */
+  /** inside, walking: a click on the floor goes there */
   walk: boolean;
   /** a click on the floor while walking: go there */
   onWalkTo: (x: number, z: number) => void;
@@ -827,22 +846,20 @@ export function RoomShell({
           <Door key={o.id} r={r} o={o} />
         ),
       )}
-      {walk && (
-        <mesh
-          rotation={[-Math.PI / 2, 0, 0]}
-          scale={[1, -1, 1]}
-          position={[0, h, 0]}
-        >
-          <shapeGeometry args={[shape]} />
-          <meshStandardMaterial
-            color={CEILING_HEX}
-            emissive={CEILING_HEX}
-            emissiveIntensity={0.22}
-            roughness={1}
-            side={DoubleSide}
-          />
-        </mesh>
-      )}
+      {/* the ceiling: plain white over the outline, facing down, so it
+          stands over an eye below it (the perspective, a walk) and not
+          in the overhead views, which look in over the open top; lit a
+          little of its own, as a ceiling is by the room's bounce */}
+      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, h, 0]}>
+        <shapeGeometry args={[shape]} />
+        <meshStandardMaterial
+          color={CEILING_HEX}
+          emissive={CEILING_HEX}
+          emissiveIntensity={CEILING_GLOW}
+          roughness={1}
+          side={FrontSide}
+        />
+      </mesh>
     </group>
   );
 }

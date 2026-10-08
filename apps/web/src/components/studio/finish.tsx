@@ -58,11 +58,12 @@ export const cloth = (colour: string): Finish => ({
   sheen: 0.5,
   grain: clothGrain(),
 });
-/** wood under a light lacquer: the grain's relief under a thin gloss */
+/** wood under a satin lacquer: the grain's relief under a soft gloss
+    that catches the window as a sheen across the panel */
 export const wood = (colour: string, grain = true): Finish => ({
   colour,
-  rough: 0.55,
-  coat: 0.12,
+  rough: 0.45,
+  coat: 0.25,
   grain: grain ? woodGrain() : undefined,
 });
 export const metal = (colour: string, rough = 0.35): Finish => ({
@@ -75,7 +76,7 @@ export const finishOf = (colour: string, texture: string): Finish => ({
   colour,
   rough: roughnessOf(texture),
   ...(texture === "Wood grain"
-    ? { grain: woodGrain(), coat: 0.12 }
+    ? { grain: woodGrain(), coat: 0.25 }
     : texture === "Linen"
       ? { grain: clothGrain(), sheen: 0.4 }
       : texture === "Satin"

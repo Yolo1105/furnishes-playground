@@ -190,16 +190,18 @@ const LIGHTS = {
     colour: "#fff3e2",
     from: [3, 6, 4] as Vector3Tuple,
     height: 4.2,
-    sky: 0.7,
+    // the sky's light fills the room so the walls read off-white, as a
+    // room is exposed for, with the window above it
+    sky: 2.4,
     // the sky's fill is cool against the warm sun, as daylight is
-    fill: "#d9e4f0",
+    fill: "#e0e7ee",
   },
   evening: {
     sun: 3.5,
     colour: "#ffd2a0",
     from: [2, 1.8, -7] as Vector3Tuple,
     height: 1.6,
-    sky: 0.15,
+    sky: 0.5,
     fill: "#9aa6ba",
   },
 } as const;
@@ -210,8 +212,9 @@ const SUN = { back: 5.5, aside: -1 };
     comes as a shadowed light from above, from how high, m, and how
     soft its shadow is */
 const SKY_SHADOW = { share: 0.45, height: 12, radius: 8 };
-/** what the floor gives back to the undersides */
-const GROUND_HEX = "#c9b9a6";
+/** what the floor gives back to the undersides: the floor's tone,
+    well down, so an underside and a ceiling stand darker than a wall */
+const GROUND_HEX = "#8f8273";
 
 /** the renderer's tone mapping and exposure follow the look */
 function Exposure({ value }: { value: number }) {
