@@ -54,9 +54,9 @@ export function useShortcuts(onHelp: () => void) {
         return;
       }
       if (mod) return;
-      // on a walk the letters steer (W A S D and the arrows are the
-      // walker's): only leaving, hiding the panels and help are heard
-      if (st.walk && !["g", "h", "?", "Escape"].includes(e.key)) return;
+      // on a walk W steers (with A, S, D and the arrows, which are the
+      // walker's own), so it is not the wall tool's key there
+      if (st.walk && e.key === "w") return;
       switch (e.key) {
         case "v":
           return st.setTool("select");
