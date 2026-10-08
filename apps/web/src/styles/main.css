@@ -690,6 +690,11 @@
 .main-progress[data-kind="render"] {
   --load: var(--preview-generate, 2.2s);
 }
+/* a photo's line is as long as its samples: set from their count */
+.main-progress[data-kind="photo"] {
+  animation: none;
+  transition: width 0.3s var(--ease);
+}
 @keyframes main-progress {
   from {
     width: 0;
@@ -720,6 +725,18 @@
   transition: clip-path var(--preview-reveal, 2.8s) var(--ease);
 }
 
+/* a photo: the view as it stood, a picture, fills the before side, and
+   the photo on the canvas needs no grade */
+.preview-was {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+}
+.preview[data-photo="true"] .preview-grade {
+  display: none;
+}
 /* the render: the view beneath, graded (deeper contrast and colour, a
    little lift, the corners drawn down); the before side is the view as
    it is, so the sweep and the compare show the grade coming in */

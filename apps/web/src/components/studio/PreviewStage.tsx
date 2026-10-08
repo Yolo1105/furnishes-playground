@@ -11,14 +11,15 @@ import { useStudio } from "./studio-store";
  * and the rendered view fills in behind it. With the panels hidden, the
  * compare button in the peek bar brings the divider in from the left to
  * the middle, the view as edited left of it and rendered right, to be
- * dragged. No renderer is wired yet: the render is the live view graded
- * (the 3D room with its shadows on and its handles away; the plan as
- * drawn), so the sweep and the compare are real while the picture is
- * the room itself.
+ * dragged. Where the renderer can trace a photo (WebGPU) the picture is
+ * the photo on the canvas and the before side a picture of the view as
+ * it stood; elsewhere the render is the live view graded (the 3D room
+ * with its shadows on and its handles away; the plan as drawn).
  */
 export function PreviewStage() {
   const status = useStudio((s) => s.preview);
   const split = useStudio((s) => s.split);
+  const photo = useStudio((s) => s.photo);
   const { revealed, setSplit } = useStudio.getState();
   const stage = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
@@ -56,7 +57,7 @@ export function PreviewStage() {
   };
 
   return (
-    <div className="preview" data-status={status}>
+    <div className="preview" data-status={status} data-photo={photo !== null}>
       <div
         ref={stage}
         className="preview-stage"
@@ -66,6 +67,13 @@ export function PreviewStage() {
         onPointerCancel={onPointerUp}
       >
         <div className="preview-before" aria-label="Before">
+          {photo && (
+            // the canvas holds the photo now: the view as it stood is a
+            // picture taken just before, a data URL that no image loader
+            // could serve better
+            // eslint-disable-next-line @next/next/no-img-element
+            <img className="preview-was" src={photo.before} alt="" />
+          )}
           <span className="preview-tag">Before</span>
         </div>
         <div

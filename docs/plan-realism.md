@@ -263,6 +263,22 @@ AGPL. `@salusoft89/planegcs` 1.3.0 is the only 2D constraint solver
   gets the phone's tier, so a machine without a GPU, the suite's
   Chromium among them, draws the room without the finish, the probes
   or the reflection; the five kept pictures ask for Full.
+- R6 is in, unchecked by eye: on a browser with WebGPU, Render traces
+  the light through the room with three-gpu-pathtracer's WebGPU tracer
+  (`apps/web/src/components/studio/Photo.tsx`) instead of grading the
+  view, the line under the toolbar runs by the samples' count, Open
+  Image Denoise cleans the result with weights the app serves itself
+  (`apps/web/public/oidn`), the before side of the compare is a picture
+  of the view as it stood, and Export's PNG reads the photo from the
+  canvas. One tracer serves the renderer for its life (0.0.26 leaks on
+  dispose, and 0.0.27 has not shipped), the bounces are fixed before
+  the first sample, fiber's loop is paused while the tracer presents, a
+  drawing buffer too small to trace is refused (#868), and a failure
+  falls back to the graded view. The sandbox's Chromium has no WebGPU
+  adapter, so the suite covers the graded path only: the photo waits
+  for a hand check in Chrome or Safari 26 before the step is called
+  done, and the samples per tier (256, 64, 64) are a first guess until
+  the minute-at-1080p gate is measured.
 
 ## The order of work
 

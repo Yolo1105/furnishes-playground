@@ -153,7 +153,12 @@ backdrop, and the edges are resolved over frames (TRAA); a desktop
 draws the occlusion at full size, a laptop at half, a phone skips it
 and smooths its edges in one pass (SMAA), the stage says which
 (`data-post`), and View settings' Picture picks Auto, Full, Light or
-Plain (Auto follows the device; a software GPU gets a phone's). The
+Plain (Auto follows the device; a software GPU gets a phone's). On a
+browser with WebGPU, Render takes a photo: the light is traced through
+the room (`apps/web/src/components/studio/Photo.tsx`), denoised with
+weights the app serves under `apps/web/public/oidn`, and the compare
+sets it against a picture of the view as it stood; elsewhere the
+render is the view graded. The
 room's own bounce light comes from a grid of light probes over the
 shell (`apps/web/src/components/studio/Probes.tsx`), baked over frames
 whenever the shell, its finish or its light changes and never under a

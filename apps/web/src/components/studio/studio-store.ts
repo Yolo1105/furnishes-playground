@@ -84,7 +84,10 @@ export type Angle = (typeof ANGLES)[View][number];
 
 /** what the line under the toolbar is waiting for: a view swap is quick,
     a render takes its time */
-type Loading = "view" | "render" | null;
+type Loading = "view" | "render" | "photo" | null;
+/** a photo under way or shown: the view before it, for the compare,
+    and how many samples a pixel has of those asked for */
+export type PhotoStatus = { before: string; samples: number; of: number };
 /** WebGPU, WebGL 2, or WebGL 2 on a software GPU (SwiftShader, llvmpipe) */
 export type Backend = "" | "webgpu" | "webgl" | "software";
 
@@ -120,6 +123,7 @@ type StudioState = {
   preview: PreviewStatus;
   /** the renderer's backend once it is up */
   backend: Backend;
+  photo: PhotoStatus | null;
   /** where the divider stands, as a percent of the stage's width */
   split: number;
   /** the plan's zoom (1 is the sheet fitted) and pan, px */
@@ -145,6 +149,8 @@ type StudioState = {
   readOnly: boolean;
   setMode: (mode: Mode) => void;
   setBackend: (backend: Backend) => void;
+  /** the photo's progress, or none once the view is edited again */
+  setPhoto: (patch: Partial<PhotoStatus> | null) => void;
   setTool: (tool: Tool) => void;
   setView: (view: View) => void;
   setAngle: (angle: Angle) => void;
@@ -205,6 +211,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   loadingAt: 0,
   preview: "idle",
   backend: "",
+  photo: null,
   split: 0,
   planZoom: 1,
   planPan: { x: 0, y: 0 },
@@ -217,6 +224,8 @@ export const useStudio = create<StudioState>((set, get) => ({
   tourOf: 0,
   carrying: null,
   readOnly: false,
+  // a render is a photo where the renderer can trace one (WebGPU),
+  // the view graded elsewhere
   setMode: (mode) =>
     set((s) =>
       mode === "preview"
@@ -224,10 +233,10 @@ export const useStudio = create<StudioState>((set, get) => ({
             mode,
             preview: "generating",
             split: 0,
-            loading: "render",
+            loading: s.backend === "webgpu" ? "photo" : "render",
             loadingAt: s.loadingAt + 1,
           }
-        : { mode, preview: "idle", split: 0, loading: null },
+        : { mode, preview: "idle", split: 0, loading: null, photo: null },
     ),
   // measuring and placing the tour's stops are done on the plan: those
   // tools bring the plan up, and leaving the plan puts them down
@@ -284,6 +293,13 @@ export const useStudio = create<StudioState>((set, get) => ({
         : {}),
     })),
   setBackend: (backend) => set({ backend }),
+  setPhoto: (patch) =>
+    set((s) => ({
+      photo:
+        patch === null
+          ? null
+          : { before: "", samples: 0, of: 0, ...s.photo, ...patch },
+    })),
   setFocus: (focusId) => set({ focusId }),
   setPanelTab: (panelTab) => set({ panelTab }),
   setEvaTab: (evaTab) => set({ evaTab }),
@@ -291,7 +307,8 @@ export const useStudio = create<StudioState>((set, get) => ({
   endLoading: () => {
     const s = get();
     set(
-      s.loading === "render" && s.preview === "generating"
+      (s.loading === "render" || s.loading === "photo") &&
+        s.preview === "generating"
         ? { loading: null, preview: "revealing", split: 100 }
         : { loading: null },
     );

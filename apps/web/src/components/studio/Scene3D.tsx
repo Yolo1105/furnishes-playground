@@ -50,6 +50,7 @@ import {
   useRoom,
   type RoomConfig,
 } from "./room-store";
+import { Photo } from "./Photo";
 import { backendOf, Post, tierOf, TONE_MAPPING } from "./Post";
 import { Probes } from "./Probes";
 import type { StillState } from "./capture";
@@ -1223,6 +1224,7 @@ export default function Scene3D() {
         )}
         <Exposure value={scene.exposure} />
         <Backend />
+        {tier && <Photo tier={tier} />}
         {post && <Post tier={post} onFailed={failPost(setPostFailed)} />}
         <hemisphereLight
           intensity={light.sky}
