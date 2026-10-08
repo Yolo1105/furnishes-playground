@@ -8,7 +8,8 @@ import {
   useMemo,
   useRef,
 } from "react";
-import type { Group, LightShadow, Scene, Texture } from "three";
+import type { Group, Texture } from "three";
+import { type StillState, stillOf } from "./capture";
 import { LightProbeGrid } from "three/examples/jsm/lighting/LightProbeGrid.js";
 import { LightProbeGridNode } from "three/examples/jsm/tsl/lighting/LightProbeGridNode.js";
 import type { WebGPURenderer } from "three/webgpu";
@@ -22,7 +23,8 @@ import type { WebGPURenderer } from "three/webgpu";
  * darker). The pieces are kept out of the probes' pictures: the seam
  * where a piece stands is the occlusion's work, and a room that bakes
  * only when its shell or its light changes never stalls under a drag.
- * The bake is spread over frames, a few probes each.
+ * The bake is spread over frames, a few probes each, the shadow maps
+ * serving from the last frame.
  */
 
 /** probes about this far apart, m */
@@ -47,31 +49,8 @@ const register = (renderer: WebGPURenderer) => {
   }
 };
 
-/** a bake's renders without the pieces, and without the shadow maps
-    drawn again for each of a probe's six sides (the last frame's serve) */
-const bakeOnly = (scene: Scene, pieces: Group | null, bake: () => void) => {
-  const shown = pieces?.visible ?? true;
-  if (pieces) pieces.visible = false;
-  const paused: LightShadow[] = [];
-  scene.traverse((o) => {
-    const shadow = (o as { shadow?: LightShadow }).shadow;
-    if (shadow?.autoUpdate) {
-      shadow.autoUpdate = false;
-      paused.push(shadow);
-    }
-  });
-  try {
-    bake();
-  } finally {
-    if (pieces) pieces.visible = shown;
-    for (const shadow of paused) shadow.autoUpdate = true;
-  }
-};
-
 /** how many probes a span takes, two at least */
 const probesAlong = (m: number) => Math.max(2, Math.round(m / SPACING) + 1);
-
-export type ProbeState = "baking" | "baked";
 
 export function Probes({
   w,
@@ -90,7 +69,7 @@ export function Probes({
   /** the pieces, left out of the probes' pictures */
   pieces: RefObject<Group | null>;
   /** whether a bake is under way or the probes are up to date */
-  onState: (state: ProbeState) => void;
+  onState: (state: StillState) => void;
 }) {
   const invalidate = useThree((s) => s.invalidate);
   const get = useThree((s) => s.get);
@@ -119,14 +98,14 @@ export function Probes({
     register(get().gl as unknown as WebGPURenderer);
     job.current = { at: 0, pass: 0 };
     due.current = 0;
-    onState("baking");
+    onState("pending");
     invalidate();
   }, [grid, get, invalidate, onState]);
   // a change to what the probes see waits a moment, so a run of changes
   // is baked once
   useEffect(() => {
     due.current = performance.now() + SETTLE_MS;
-    onState("baking");
+    onState("pending");
     invalidate();
   }, [grid, stamp, invalidate, onState]);
   useFrame((state) => {
@@ -135,7 +114,7 @@ export function Probes({
       seen.current = state.scene.environment;
       due.current = performance.now() + SETTLE_MS;
       job.current = null;
-      onState("baking");
+      onState("pending");
     }
     if (due.current) {
       if (performance.now() < due.current) {
@@ -151,7 +130,7 @@ export function Probes({
     const t0 = performance.now();
     do {
       const count = Math.min(PER_CALL, total - j.at);
-      bakeOnly(state.scene, pieces.current, () =>
+      stillOf(state.scene, [pieces.current], () =>
         grid.bake(state.gl as unknown as WebGPURenderer, state.scene, {
           cubemapSize: CUBEMAP,
           start: j.at,
@@ -164,7 +143,7 @@ export function Probes({
     if (j.at >= total) {
       if (j.pass >= BOUNCES) {
         job.current = null;
-        onState("baked");
+        onState("ready");
       } else job.current = { at: 0, pass: j.pass + 1 };
     }
     state.invalidate();

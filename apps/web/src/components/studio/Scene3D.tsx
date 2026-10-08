@@ -50,8 +50,9 @@ import {
   useRoom,
   type RoomConfig,
 } from "./room-store";
-import { Post, tierOf, TONE_MAPPING } from "./Post";
-import { Probes, type ProbeState } from "./Probes";
+import { backendOf, Post, tierOf, TONE_MAPPING } from "./Post";
+import { Probes } from "./Probes";
+import type { StillState } from "./capture";
 import { RoomLight, RoomShell } from "./Room3D";
 import { propsOf, useScene } from "./scene-store";
 import { useCoarse } from "./input";
@@ -117,15 +118,14 @@ const makeRendererCoarse = (props: RendererProps) => makeRenderer(props, false);
 /** the shadow map the WebGPU renderer keeps (it dropped the soft one) */
 const SHADOWS = { type: PCFShadowMap } as const;
 
-/** which backend the renderer came up on, for the stage to say */
-function Backend({ onKnown }: { onKnown: (backend: string) => void }) {
+/** which backend the renderer came up on, for the stage to say and
+    the store to know */
+function Backend() {
   const gl = useThree((s) => s.gl);
+  const setBackend = useStudio((s) => s.setBackend);
   useEffect(() => {
-    const backend = (
-      gl as unknown as { backend?: { isWebGPUBackend?: boolean } }
-    ).backend;
-    onKnown(backend?.isWebGPUBackend ? "webgpu" : "webgl");
-  }, [gl, onKnown]);
+    setBackend(backendOf(gl));
+  }, [gl, setBackend]);
   return null;
 }
 
@@ -953,6 +953,8 @@ function OtherRoom({
         }}
         walk={false}
         onWalkTo={() => undefined}
+        // another room's floor takes the surroundings: one picture is the room's
+        reflection={null}
       />
       {a.shown.map((n) => {
         const p = a.props.get(n.id)!;
@@ -1111,13 +1113,13 @@ export default function Scene3D() {
   const grid = scene.grid && !rendered;
   const edges = scene.edges && !rendered;
   const light = LIGHTS[scene.light];
-  const [backend, setBackend] = useState("");
+  const backend = useStudio((s) => s.backend);
   // the picture's finish follows the device once the backend is known; a
   // render has it whatever the View settings; a stage that fails on this
   // device turns it off for good
   const [postFailed, setPostFailed] = useState(false);
-  const tier = backend ? tierOf(coarse, backend) : null;
-  const post = tier && !postFailed && (scene.post || rendered) ? tier : null;
+  const tier = backend ? tierOf(scene.quality, coarse, backend) : null;
+  const post = tier && !postFailed ? tier : null;
   // the room's own bounce light, from probes over the shell: not on a
   // phone, and not for a piece looked at on its own
   const probes = tier !== null && tier !== "phone" && !a.focus;
@@ -1137,7 +1139,31 @@ export default function Scene3D() {
     shadows,
   ]);
   const pieces = useRef<Group>(null);
-  const [probeState, setProbeState] = useState<ProbeState>("baking");
+  // what the floor reflects: the shell and its light, the pieces as they
+  // stand and look, and the ceiling that walking puts overhead
+  const reflectStamp =
+    probeStamp +
+    JSON.stringify([
+      walk,
+      a.shown.map((n) => {
+        const p = a.props.get(n.id)!;
+        const at = a.spots.get(n.id)!;
+        return [
+          n.id,
+          at.x,
+          at.y,
+          p.rotation,
+          p.width,
+          p.height,
+          p.depth,
+          p.colour,
+          p.texture,
+          (n.children ?? []).map((c) => propsOf(c, a.overrides).colour),
+        ];
+      }),
+    ]);
+  const [probeState, setProbeState] = useState<StillState>("pending");
+  const [reflectState, setReflectState] = useState<StillState>("pending");
   return (
     <div
       ref={stage}
@@ -1162,6 +1188,7 @@ export default function Scene3D() {
       data-backend={backend}
       data-post={post ?? "off"}
       data-probes={probes ? probeState : "off"}
+      data-reflection={probes ? reflectState : "off"}
     >
       <Canvas
         // a frame only when something moves: the orbit, a glide, a walk, a
@@ -1195,7 +1222,7 @@ export default function Scene3D() {
           />
         )}
         <Exposure value={scene.exposure} />
-        <Backend onKnown={setBackend} />
+        <Backend />
         {post && <Post tier={post} onFailed={failPost(setPostFailed)} />}
         <hemisphereLight
           intensity={light.sky}
@@ -1251,6 +1278,9 @@ export default function Scene3D() {
               WALK.goto = { x, z };
               WALK.wake();
             }}
+            reflection={
+              probes ? { stamp: reflectStamp, onState: setReflectState } : null
+            }
           />
         )}
         {!a.focus &&

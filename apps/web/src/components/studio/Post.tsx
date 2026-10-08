@@ -30,6 +30,7 @@ import {
   velocity,
 } from "three/tsl";
 import { RenderPipeline, type WebGPURenderer } from "three/webgpu";
+import type { Backend, Quality } from "./studio-store";
 
 /**
  * The picture after the scene is drawn: ambient occlusion (the dark
@@ -53,14 +54,38 @@ const MEMORY_UNSAID = 8;
 /** a fine pointer with WebGPU and this much memory is a desktop */
 const DESKTOP_GB = 8;
 
-/** the tier a device gets: a finger means a phone or a tablet; WebGPU
-    with enough memory a desktop; the rest a laptop */
-export const tierOf = (coarse: boolean, backend: string): Tier => {
-  if (coarse) return "phone";
+/** the tier a device gets on its own: a finger means a phone or a
+    tablet, and so does a software GPU; WebGPU with enough memory a
+    desktop; the rest a laptop. View settings can pick one instead, or
+    none (plain: the room as drawn) */
+export const tierOf = (
+  quality: Quality,
+  coarse: boolean,
+  backend: Backend,
+): Tier | null => {
+  if (quality === "full") return "desktop";
+  if (quality === "light") return "laptop";
+  if (quality === "plain") return null;
+  if (coarse || backend === "software") return "phone";
   const memory =
     (navigator as Navigator & { deviceMemory?: number }).deviceMemory ??
     MEMORY_UNSAID;
   return backend === "webgpu" && memory >= DESKTOP_GB ? "desktop" : "laptop";
+};
+
+/** which backend a renderer came up on, and whether its GPU is a
+    software one (SwiftShader, llvmpipe), which gets the phone's tier */
+export const backendOf = (renderer: unknown): Backend => {
+  const r = renderer as {
+    backend?: { isWebGPUBackend?: boolean; gl?: WebGL2RenderingContext };
+  };
+  if (r.backend?.isWebGPUBackend) return "webgpu";
+  const gl = r.backend?.gl;
+  const info = gl?.getExtension("WEBGL_debug_renderer_info");
+  const name = info
+    ? String(gl!.getParameter(info.UNMASKED_RENDERER_WEBGL))
+    : "";
+  return /swiftshader|llvmpipe|software/i.test(name) ? "software" : "webgl";
 };
 
 /** the occlusion's reach, m, and how dark it goes */

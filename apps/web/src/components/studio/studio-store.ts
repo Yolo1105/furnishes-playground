@@ -41,9 +41,17 @@ export type SceneLook = {
   sky: Sky;
   /** how bright the picture is, as a camera's exposure */
   exposure: number;
-  /** ambient occlusion and smoothed edges after the scene is drawn */
-  post: boolean;
+  /** the picture's finish: auto follows the device (see Post.tsx), the
+      rest pick a tier, plain none */
+  quality: Quality;
 };
+export type Quality = "auto" | "full" | "light" | "plain";
+export const QUALITIES: { id: Quality; label: string; sub: string }[] = [
+  { id: "auto", label: "Auto", sub: "as the device allows" },
+  { id: "full", label: "Full", sub: "the finish at full size" },
+  { id: "light", label: "Light", sub: "the finish at half size" },
+  { id: "plain", label: "Plain", sub: "the room as drawn" },
+];
 /** the exposure's range: a dim room to a bright one */
 export const EXPOSURE = { min: 0.6, max: 1.8, step: 0.05 };
 export const SCENE_DEFAULT: SceneLook = {
@@ -54,7 +62,7 @@ export const SCENE_DEFAULT: SceneLook = {
   light: "day",
   sky: "panels",
   exposure: 1.2,
-  post: true,
+  quality: "auto",
 };
 /** how far the plan can be zoomed, and by how much a step zooms */
 export const ZOOM = { min: 0.5, max: 4, step: 1.15 };
@@ -77,6 +85,8 @@ export type Angle = (typeof ANGLES)[View][number];
 /** what the line under the toolbar is waiting for: a view swap is quick,
     a render takes its time */
 type Loading = "view" | "render" | null;
+/** WebGPU, WebGL 2, or WebGL 2 on a software GPU (SwiftShader, llvmpipe) */
+export type Backend = "" | "webgpu" | "webgl" | "software";
 
 type StudioState = {
   mode: Mode;
@@ -108,6 +118,8 @@ type StudioState = {
   /** counts each start, so a repeat of the same kind restarts the line */
   loadingAt: number;
   preview: PreviewStatus;
+  /** the renderer's backend once it is up */
+  backend: Backend;
   /** where the divider stands, as a percent of the stage's width */
   split: number;
   /** the plan's zoom (1 is the sheet fitted) and pan, px */
@@ -132,6 +144,7 @@ type StudioState = {
       moves, no actions */
   readOnly: boolean;
   setMode: (mode: Mode) => void;
+  setBackend: (backend: Backend) => void;
   setTool: (tool: Tool) => void;
   setView: (view: View) => void;
   setAngle: (angle: Angle) => void;
@@ -191,6 +204,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   loading: null,
   loadingAt: 0,
   preview: "idle",
+  backend: "",
   split: 0,
   planZoom: 1,
   planPan: { x: 0, y: 0 },
@@ -269,6 +283,7 @@ export const useStudio = create<StudioState>((set, get) => ({
         ? { preview: "done" as const, split: 100 }
         : {}),
     })),
+  setBackend: (backend) => set({ backend }),
   setFocus: (focusId) => set({ focusId }),
   setPanelTab: (panelTab) => set({ panelTab }),
   setEvaTab: (evaTab) => set({ evaTab }),

@@ -9,7 +9,7 @@ import {
   type View,
 } from "./studio-store";
 
-const KEY = "furnishes.view";
+export const LOOK_STORAGE_KEY = "furnishes.view";
 const TAB_KEY = "furnishes.view.tab";
 
 /**
@@ -23,7 +23,7 @@ const TAB_KEY = "furnishes.view.tab";
 export function useArrival() {
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(KEY);
+      const raw = localStorage.getItem(LOOK_STORAGE_KEY);
       const tab = sessionStorage.getItem(TAB_KEY);
       if (raw || tab) {
         const saved = JSON.parse(raw ?? "{}") as {
@@ -82,7 +82,7 @@ export function useArrival() {
           JSON.stringify({ view: s.view, angle: s.angle }),
         );
         localStorage.setItem(
-          KEY,
+          LOOK_STORAGE_KEY,
           JSON.stringify({
             wheelMode: s.wheelMode,
             magnet: s.magnet,

@@ -52,6 +52,7 @@ import { ComponentGlyph } from "./component-glyphs";
 import { propsOf, topLevelOf, useScene, useTopLevel } from "./scene-store";
 import {
   EXPOSURE,
+  QUALITIES,
   type ShelfTab,
   SKIES,
   type Tool,
@@ -323,16 +324,25 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
                           {scene.shadows === "auto" ? "auto" : scene.shadows}
                         </span>
                       </button>
-                      <button
-                        type="button"
-                        role="menuitemcheckbox"
-                        aria-checked={scene.post}
-                        className="shell-menu-row"
-                        onClick={() => setScene({ post: !scene.post })}
-                      >
-                        <span className="main-prefs-check" aria-hidden="true" />
-                        Ambient occlusion
-                      </button>
+                      <div className="shell-menu-sep" role="separator" />
+                      <p className="main-prefs-title">Picture</p>
+                      {QUALITIES.map((q) => (
+                        <button
+                          key={q.id}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={scene.quality === q.id}
+                          className="shell-menu-row"
+                          onClick={() => setScene({ quality: q.id })}
+                        >
+                          <span
+                            className="main-prefs-check"
+                            aria-hidden="true"
+                          />
+                          {q.label}
+                          <span className="main-prefs-sub">{q.sub}</span>
+                        </button>
+                      ))}
                       <div className="shell-menu-sep" role="separator" />
                       {(
                         [

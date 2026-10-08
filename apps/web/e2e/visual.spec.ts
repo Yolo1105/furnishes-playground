@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { GUIDE_STORAGE_KEY } from "../src/components/studio/guide-store";
+import { LOOK_STORAGE_KEY } from "../src/components/studio/useArrival";
 
 /**
  * The room as it looks: five fixed views of the first project, each
@@ -22,25 +23,46 @@ const DRIFT = {
 const SETTLE = 4000;
 
 test.beforeEach(async ({ page }) => {
+  // the full finish, whatever the test's GPU: the pictures are of it
   await page.addInitScript(
-    ({ key, value }) => localStorage.setItem(key, value),
-    { key: GUIDE_STORAGE_KEY, value: JSON.stringify({ intro: true }) },
+    ({ guides, look }) => {
+      localStorage.setItem(guides.key, guides.value);
+      localStorage.setItem(look.key, look.value);
+    },
+    {
+      guides: {
+        key: GUIDE_STORAGE_KEY,
+        value: JSON.stringify({ intro: true }),
+      },
+      look: {
+        key: LOOK_STORAGE_KEY,
+        value: JSON.stringify({ scene: { quality: "full" } }),
+      },
+    },
   );
   await page.goto("/rounded");
   await expect(page.locator('html[data-arrived="true"]')).toBeAttached({
     timeout: 20_000,
   });
-  await baked(page);
+  await settled(page);
 });
 
-/** the room's probes are baked over frames: the picture waits for them
-    (the software renderer takes a while over each) */
-const baked = async (page: Page) => {
+/** the room's probes are baked over frames and its floor's picture is
+    taken a moment after a change: the picture waits for both (the
+    software renderer takes a while over each) */
+const settled = async (page: Page) => {
   // the stage says off until the backend is known: wait for that first
-  await expect(stage(page)).toHaveAttribute("data-backend", /webgl|webgpu/, {
+  await expect(stage(page)).toHaveAttribute(
+    "data-backend",
+    /webgpu|webgl|software/,
+    {
+      timeout: 60_000,
+    },
+  );
+  await expect(stage(page)).toHaveAttribute("data-probes", /ready|off/, {
     timeout: 60_000,
   });
-  await expect(stage(page)).toHaveAttribute("data-probes", /baked|off/, {
+  await expect(stage(page)).toHaveAttribute("data-reflection", /ready|off/, {
     timeout: 60_000,
   });
   await page.waitForTimeout(SETTLE);
@@ -57,7 +79,7 @@ test("the room under a sunset", async ({ page }) => {
   const menu = page.getByRole("menu", { name: "View settings" });
   await menu.getByRole("menuitemradio", { name: "A sunset" }).click();
   await page.keyboard.press("Escape");
-  await baked(page);
+  await settled(page);
   await expect(stage(page)).toHaveScreenshot("day-sunset.png", DRIFT);
 });
 
@@ -66,7 +88,7 @@ test("the room in the evening, with its shadows", async ({ page }) => {
   const menu = page.getByRole("menu", { name: "View settings" });
   await menu.getByRole("menuitemradio", { name: "Evening" }).click();
   await page.keyboard.press("Escape");
-  await baked(page);
+  await settled(page);
   await expect(stage(page)).toHaveScreenshot("evening-panels.png", DRIFT);
 });
 

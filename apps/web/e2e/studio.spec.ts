@@ -3448,17 +3448,24 @@ test("View settings: edges, names, a floor grid, shadows and the light, kept for
   await expect(stage).toHaveAttribute("data-grid", "true");
   await menu.getByRole("menuitemcheckbox", { name: /^Shadows/ }).click();
   await expect(stage).toHaveAttribute("data-shadows", "false");
-  // the finish: occlusion and smoothed edges, at the device's tier (a
-  // mouse without WebGPU is a laptop's), or none
-  await expect(stage).toHaveAttribute("data-post", "laptop");
-  // the room's own bounce light, from probes baked over the shell
-  await expect(stage).toHaveAttribute("data-probes", "baked", {
+  // the picture's finish follows the device (a software GPU, as the
+  // test's, gets a phone's: smoothed edges alone), or a chosen tier
+  await expect(stage).toHaveAttribute("data-backend", "software");
+  await expect(stage).toHaveAttribute("data-post", "phone");
+  await expect(stage).toHaveAttribute("data-probes", "off");
+  await menu.getByRole("menuitemradio", { name: "Full" }).click();
+  await expect(stage).toHaveAttribute("data-post", "desktop");
+  // the room's own bounce light, from probes baked over the shell, and
+  // the room in its floor, from a picture taken from the middle
+  await expect(stage).toHaveAttribute("data-probes", "ready", {
     timeout: 60_000,
   });
-  await menu
-    .getByRole("menuitemcheckbox", { name: "Ambient occlusion" })
-    .click();
+  await expect(stage).toHaveAttribute("data-reflection", "ready", {
+    timeout: 60_000,
+  });
+  await menu.getByRole("menuitemradio", { name: "Plain" }).click();
   await expect(stage).toHaveAttribute("data-post", "off");
+  await expect(stage).toHaveAttribute("data-probes", "off");
   await menu.getByRole("menuitemradio", { name: "Evening" }).click();
   await expect(stage).toHaveAttribute("data-light", "evening");
   // the surroundings: a map lights and reflects in the room

@@ -241,6 +241,28 @@ AGPL. `@salusoft89/planegcs` 1.3.0 is the only 2D constraint solver
   the old WebGL renderer, not this renderer's WebGL backend, so one
   class serves both backends. SSGI on the desktop tier waits for a
   browser with WebGPU to check it in.
+- R5 is in: the room's floor reflects the room
+  (`apps/web/src/components/studio/Reflection.tsx`). One picture of
+  the room is taken from its middle into a cube map (the floor out of
+  it, the surroundings in through the open top), filtered by the
+  floor's roughness through `pmremTexture`, and each reflection is
+  projected on the room's box with `getParallaxCorrectNormal`, so a
+  window or a piece lands on the floor where it stands. The picture is
+  taken again a moment after the room, its pieces, its light or the
+  walk's ceiling change, and the stage says when the floor shows the
+  last change (`data-reflection`, with `data-probes` now `pending` or
+  `ready` the same way); the kept pictures and the suite wait for
+  both. The floor's material became a node material for its
+  `envNode`; another room's floor, and a phone's, take the surroundings
+  as before. Both stills share one helper (`capture.ts`) that hides
+  what should not be in them and lets the shadow maps serve from the
+  last frame. With it came the first of R7's tiers as a setting: View
+  settings' Picture (Auto, Full, Light, Plain) replaces the Ambient
+  occlusion switch; Auto follows the device, and a software GPU
+  (SwiftShader, llvmpipe: the stage says `data-backend="software"`)
+  gets the phone's tier, so a machine without a GPU, the suite's
+  Chromium among them, draws the room without the finish, the probes
+  or the reflection; the five kept pictures ask for Full.
 
 ## The order of work
 

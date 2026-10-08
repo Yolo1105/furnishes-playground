@@ -10,6 +10,7 @@ import {
   EquirectangularReflectionMapping,
   FrontSide,
   type Group,
+  type Mesh,
   Path,
   type Scene,
   Shape,
@@ -28,6 +29,8 @@ import { edgesOf, type Edge } from "./room-geometry";
 import { openingCentre } from "./room-health";
 import type { Point } from "./room-templates";
 import type { Sky } from "./studio-store";
+import type { StillState } from "./capture";
+import { FloorReflection, useFloorMaterial } from "./Reflection";
 import { floorTexture, reliefOf, shade, TILE_M } from "./textures";
 
 /**
@@ -450,16 +453,23 @@ export function RoomShell({
   r,
   walk,
   onWalkTo,
+  reflection,
 }: {
   r: RoomShape;
   /** inside, walking: the ceiling is overhead */
   walk: boolean;
   /** a click on the floor while walking: go there */
   onWalkTo: (x: number, z: number) => void;
+  /** what the floor reflects, when it does (a phone's floor does not):
+      a change to the stamp takes the room's picture again, and the
+      picture's state is reported */
+  reflection: { stamp: string; onState: (state: StillState) => void } | null;
 }) {
   const w = toMetres(r.W);
   const d = toMetres(r.D);
   const h = toMetres(r.height);
+  const floorMesh = useRef<Mesh>(null);
+  const { material, target } = useFloorMaterial(w, h, d, reflection !== null);
   const shape = useMemo(() => floorShape(r.outline, w, d), [r.outline, w, d]);
   const map = useMemo(
     () => floorTexture(r.floor, r.floorHex),
@@ -470,6 +480,7 @@ export function RoomShell({
   return (
     <group>
       <mesh
+        ref={floorMesh}
         rotation={[-Math.PI / 2, 0, 0]}
         receiveShadow
         onClick={(e) => {
@@ -479,7 +490,9 @@ export function RoomShell({
         }}
       >
         <shapeGeometry args={[shape]} />
-        <meshStandardMaterial
+        <primitive
+          object={material}
+          attach="material"
           map={map}
           normalMap={relief.normalMap}
           normalScale={FLOOR_RELIEF}
@@ -487,6 +500,15 @@ export function RoomShell({
           roughness={ROUGHNESS[r.floor]}
         />
       </mesh>
+      {reflection !== null && target && (
+        <FloorReflection
+          target={target}
+          floor={floorMesh}
+          h={h}
+          stamp={reflection.stamp}
+          onState={reflection.onState}
+        />
+      )}
       {edgesOf(r.outline).flatMap((e, i) =>
         runsOf(e, r.shared ?? []).map(({ e: run, both }, k) => (
           <WallRun
