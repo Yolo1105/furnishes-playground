@@ -62,6 +62,7 @@ export function Probes({
   d,
   stamp,
   pieces,
+  bounce,
   onState,
   onProgress,
 }: {
@@ -73,6 +74,9 @@ export function Probes({
   stamp: string;
   /** the pieces, left out of the probes' first pictures */
   pieces: RefObject<Group | null>;
+  /** whether the bounce pass runs (not on a software renderer, where
+      a second pass over the pieces would take minutes) */
+  bounce: boolean;
   /** whether a bake is under way or the probes are up to date */
   onState: (state: StillState) => void;
   /** how many probes of how many are baked, as the bake goes */
@@ -147,9 +151,10 @@ export function Probes({
       );
       j.at += count;
     } while (j.at < total && performance.now() - t0 < BAKE_MS);
-    onProgress?.(j.pass * total + j.at, total * (BOUNCES + 1));
+    const passes = bounce ? BOUNCES + 1 : 1;
+    onProgress?.(j.pass * total + j.at, total * passes);
     if (j.at >= total) {
-      if (j.pass >= BOUNCES) {
+      if (j.pass >= passes - 1) {
         job.current = null;
         onState("ready");
       } else job.current = { at: 0, pass: j.pass + 1 };

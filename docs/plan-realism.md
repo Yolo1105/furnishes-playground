@@ -446,7 +446,8 @@ AGPL. `@salusoft89/planegcs` 1.3.0 is the only 2D constraint solver
   shadow) so undersides and far corners darken as they do under an
   open sky, and the probe grid runs a second pass with the pieces in
   its pictures once a drag has settled, so a piece's colour bleeds
-  faintly onto the wall behind it. The grown surfaces are painted in
+  faintly onto the wall behind it (not on a software renderer, where
+  the second pass would take minutes; the suite runs the first alone). The grown surfaces are painted in
   a worker (`surface-paint.ts`, `surface.worker.ts`), a flat stand-in
   in the material's colour holding each one's place, and the canvas
   fades up on its first frame, so the studio opens over the shell

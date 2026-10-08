@@ -1551,6 +1551,7 @@ export default function Scene3D() {
             d={d}
             stamp={probeStamp}
             pieces={pieces}
+            bounce={backend !== "software"}
             onState={setProbeState}
             onProgress={(at, of) => setProbeDone({ at, of })}
           />
