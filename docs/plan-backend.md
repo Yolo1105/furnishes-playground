@@ -55,7 +55,10 @@ it, and what is left to a hand check or a later step.
   copy, which the browser merges with its own rules and pushes again;
   coming back to the tab pulls again; each document is checked
   against its shape and the whole against its weight before anything
-  is written; the user bar says when a save did not go through.
+  is written; the user bar says when a save did not go through; a
+  change is pushed as the document it is in alone (the whole after a
+  pull or a merge), so no push weighs more than one document at its
+  cap, well under the host's request limit.
 - Orders: the server numbers an order (`orderNumber`, the day's
   minute in base 36 and three characters, retried on a clash) and
   hands the number back, the browser's own being its handle until
@@ -108,6 +111,3 @@ it, and what is left to a hand check or a later step.
   sign-in with both halves set, the build command with `pnpm migrate`.
 - Error reporting beyond the log (a Sentry DSN, say) when the host's
   log search is not enough.
-- The mirror still pushes all five documents at once; a push of a
-  document at its cap is near Vercel's request limit. Pushing kinds
-  one at a time is the next step if a board of pictures grows large.

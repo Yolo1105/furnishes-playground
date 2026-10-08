@@ -210,7 +210,8 @@ room items made and the guide's record are pulled, merged with
 what is here (a project goes to the newer copy and stays gone where
 either side deleted it later; an order keeps the state that moved on
 from awaiting payment) and pushed back, then every change is pushed a
-moment later, saying the time the mirror was last seen at; a push the
+moment later as the document it is in, saying the time the mirror was
+last seen at; a push the
 account has moved past since (another device) comes back with the
 account's copy to merge and push again, and coming back to the tab
 pulls again; the user bar says when a save did not go through. The

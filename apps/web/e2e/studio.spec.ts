@@ -2957,9 +2957,10 @@ test("Generate makes a room item from a few words; without a provider a stock me
   // armchair has a stock mesh to stand in for it
   await words.fill("a rattan armchair");
   await strip.locator("form").getByRole("button", { name: "Generate" }).click();
+  // the first generation compiles its route under load
   await expect(
     strip.getByText("No image or mesh provider is connected"),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 20_000 });
   await expect(
     strip.getByText("a stock rattan armchair stands in"),
   ).toBeVisible();
@@ -4203,6 +4204,13 @@ test("signed in, the projects follow the account to another browser; the account
   await a.goto("/rounded");
   const dialogA = await account(a, email, "create");
   await expect(dialogA).toHaveCount(0, { timeout: 20_000 });
+  // a change goes up as the document it is in: the pushes after the
+  // first carry the projects alone
+  const pushes: string[][] = [];
+  a.on("request", (r) => {
+    if (r.method() === "PUT" && r.url().endsWith("/api/sync"))
+      pushes.push(Object.keys(r.postDataJSON() as object).sort());
+  });
   await a.getByRole("button", { name: /^Project, / }).click();
   await a.getByRole("menuitem", { name: "New project" }).click();
   await a.getByRole("button", { name: /^Project, / }).click();
@@ -4223,6 +4231,7 @@ test("signed in, the projects follow the account to another browser; the account
       { timeout: 15_000 },
     )
     .toContain("Study corner");
+  expect(pushes.at(-1)).toEqual(["ifAt", "projects"]);
   // the second browser, signed into the same account: the project is there
   const ctxB = await browser.newContext({
     viewport: { width: 1440, height: 900 },

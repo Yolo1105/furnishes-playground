@@ -34,9 +34,12 @@ export default defineConfig({
       },
     },
     {
-      // the five fixed views, compared with their kept pictures
+      // the five fixed views, compared with their kept pictures; each
+      // waits for the full finish (probes, the floor's picture, the
+      // shadows) on the software GPU, most of a minute by itself
       name: "visual",
       testMatch: /visual\.spec\.ts/,
+      timeout: 120_000,
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 1440, height: 900 },

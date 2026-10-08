@@ -13,8 +13,12 @@ import { useProjects, type Project } from "./project-store";
  * moment later, saying the time the mirror was last seen at; when
  * another device has pushed since, the account's copy comes back
  * instead, is merged the same way, and the merged whole goes up, so
- * two devices never write over each other. Coming back to the tab
- * pulls again. The merge is by id: a project goes to the newer copy
+ * two devices never write over each other. A change is pushed as the
+ * document it is in alone (a renamed project is the projects, a
+ * starred picture the board), so no push weighs more than one
+ * document; the first push after a pull, and the push after a merge,
+ * carry the whole. Coming back to the tab pulls again. The merge is
+ * by id: a project goes to the newer copy
  * and stays gone where either side deleted it later than it changed;
  * an order keeps the state that moved on from "awaiting payment"; a
  * generation stays gone where either side removed it, and is otherwise
@@ -128,6 +132,9 @@ const mergeGuides = (mine: Dismissed, theirs: Dismissed): Dismissed => {
   return out;
 };
 
+type Kind = keyof SyncBody;
+const KINDS: Kind[] = ["projects", "orders", "generations", "guides", "board"];
+
 /** what the browser holds, in the mirror's shape */
 const collect = (): SyncBody => {
   const p = useProjects.getState();
@@ -144,6 +151,8 @@ const collect = (): SyncBody => {
 
 /** the time the mirror was last seen at, said with every push */
 let seen: number | null = null;
+/** the documents changed since the last push went through */
+const changed = new Set<Kind>();
 
 /** the account's copy taken into the stores, merged with what is here */
 const takeIn = (data: Partial<SyncBody>) => {
@@ -166,28 +175,42 @@ const takeIn = (data: Partial<SyncBody>) => {
 
 type Mirror = { data: Partial<SyncBody>; at: number | null };
 
-const put = (body: SyncBody) =>
+const put = (body: Partial<SyncBody>) =>
   fetch("/api/sync", {
     method: "PUT",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ ...body, ifAt: seen }),
   });
 
-/** the browser's copy up to the account; the account's copy taken in
-    and the merge pushed when another device moved on since */
-const push = async (body: SyncBody) => {
+/** the browser's copy up to the account, whole or the documents
+    named; the account's copy taken in and the merged whole pushed
+    when another device moved on since */
+const push = async (kinds: Kind[] = KINDS) => {
+  if (!kinds.length) return;
   useSyncState.setState({ state: "syncing" });
-  let r = await put(body);
-  if (r.status === 409) {
-    const theirs = (await r.json()) as Mirror;
-    seen = theirs.at;
-    takeIn(theirs.data);
-    r = await put(collect());
+  // the marks go with the push: a change made while it is on its way
+  // marks its document anew for the next one; a push that fails
+  // gives its marks back
+  for (const k of kinds) changed.delete(k);
+  try {
+    const whole = collect();
+    let r = await put(
+      Object.fromEntries(kinds.map((k) => [k, whole[k]])) as Partial<SyncBody>,
+    );
+    if (r.status === 409) {
+      const theirs = (await r.json()) as Mirror;
+      seen = theirs.at;
+      takeIn(theirs.data);
+      r = await put(collect());
+    }
+    if (!r.ok) throw new Error(`sync ${r.status}`);
+    const { at } = (await r.json()) as { at: number };
+    seen = at;
+    useSyncState.setState({ state: "synced", at });
+  } catch (e) {
+    for (const k of kinds) changed.add(k);
+    throw e;
   }
-  if (!r.ok) throw new Error(`sync ${r.status}`);
-  const { at } = (await r.json()) as { at: number };
-  seen = at;
-  useSyncState.setState({ state: "synced", at });
 };
 
 /** the account's copy, merged into the stores; false when not signed in */
@@ -204,7 +227,7 @@ const pull = async () => {
 /** pull, merge and push, now */
 export const syncNow = async () => {
   try {
-    if (await pull()) await push(collect());
+    if (await pull()) await push();
   } catch {
     useSyncState.setState({ state: "failed" });
   }
@@ -217,16 +240,22 @@ export function useAccountSync(userId: string | null) {
       // a note already said (the confirmation's word, say) stays its
       // moment: the session is not known yet on the first render
       seen = null;
+      changed.clear();
       useSyncState.setState({ state: "idle", at: null });
       return;
     }
     let stopped = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const unsubs: (() => void)[] = [];
-    const soon = () => {
+    // a change marks its document; the push a moment later carries
+    // every document marked since the last one went through
+    const soon = (kind: Kind) => {
+      changed.add(kind);
       clearTimeout(timer);
       timer = setTimeout(() => {
-        push(collect()).catch(() => useSyncState.setState({ state: "failed" }));
+        push([...changed]).catch(() =>
+          useSyncState.setState({ state: "failed" }),
+        );
       }, PUSH_AFTER);
     };
     // back to the tab: what another device pushed meanwhile comes in
@@ -241,20 +270,22 @@ export function useAccountSync(userId: string | null) {
       if (stopped) return;
       unsubs.push(
         useProjects.subscribe((s, prev) => {
-          if (s.projects !== prev.projects || s.gone !== prev.gone) soon();
+          if (s.projects !== prev.projects || s.gone !== prev.gone)
+            soon("projects");
         }),
         useOrders.subscribe((s, prev) => {
-          if (s.orders !== prev.orders) soon();
+          if (s.orders !== prev.orders) soon("orders");
         }),
         useGenerations.subscribe((s, prev) => {
           if (s.generations !== prev.generations || s.gone !== prev.gone)
-            soon();
+            soon("generations");
         }),
         useGuide.subscribe((s, prev) => {
-          if (s.dismissed !== prev.dismissed) soon();
+          if (s.dismissed !== prev.dismissed) soon("guides");
         }),
         useBoard.subscribe((s, prev) => {
-          if (s.pictures !== prev.pictures || s.gone !== prev.gone) soon();
+          if (s.pictures !== prev.pictures || s.gone !== prev.gone)
+            soon("board");
         }),
       );
     });

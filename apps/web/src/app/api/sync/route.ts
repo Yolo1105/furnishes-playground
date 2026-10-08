@@ -18,8 +18,9 @@ import {
  * The account's mirror of what the browser keeps: the projects (with
  * what was deleted), the orders, the generations, the guide's record
  * and the board, one row per kind. GET hands them back with the time
- * they were last taken; PUT takes the merged whole from the browser
- * and keeps it, with the time. A PUT says the time it last saw
+ * they were last taken; PUT takes the documents the browser sends
+ * (the whole after a pull or a merge, else the ones that changed) and
+ * keeps them, with the time. A PUT says the time it last saw
  * (`ifAt`): when the account has moved on since (another device
  * pushed), nothing is written and the account's copy comes back as
  * 409 for the browser to merge and push again, so two devices never
