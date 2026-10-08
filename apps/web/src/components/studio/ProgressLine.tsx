@@ -13,6 +13,9 @@ import { minRenderMs, useStudio } from "./studio-store";
  */
 /** where the time floor waits for the work */
 const FLOOR_MAX = 0.9;
+/** where it starts: a line that has begun shows at once, before its
+    first tick, which a render's first frame can hold back */
+const FLOOR_START = 0.03;
 
 export function ProgressLine() {
   const loading = useStudio((s) => s.loading);
@@ -20,14 +23,17 @@ export function ProgressLine() {
   const work = useStudio((s) => s.work);
   const end = useStudio((s) => s.endLoading);
   const making = loading === "render" || loading === "photo";
-  const [floor, setFloor] = useState(0);
+  const [floor, setFloor] = useState(FLOOR_START);
   useEffect(() => {
     if (!making) return;
     const from = performance.now();
     const least = minRenderMs() || 1;
     let frame = 0;
     const tick = () => {
-      const t = Math.min(FLOOR_MAX, (performance.now() - from) / least);
+      const t = Math.max(
+        FLOOR_START,
+        Math.min(FLOOR_MAX, (performance.now() - from) / least),
+      );
       setFloor(t);
       if (t < FLOOR_MAX) frame = requestAnimationFrame(tick);
     };
