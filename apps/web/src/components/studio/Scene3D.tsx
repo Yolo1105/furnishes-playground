@@ -54,7 +54,7 @@ import { Photo } from "./Photo";
 import { backendOf, Post, tierOf, TONE_MAPPING } from "./Post";
 import { Probes } from "./Probes";
 import type { StillState } from "./capture";
-import { RoomLight, RoomShell } from "./Room3D";
+import { RoomLight, RoomShell, windowSun } from "./Room3D";
 import { usePartStore } from "./part-client";
 import { propsOf, useScene } from "./scene-store";
 import { useCoarse } from "./input";
@@ -140,24 +140,33 @@ const failPost = (set: (failed: boolean) => void) => (error: unknown) => {
 /** the sun in the room, the day's or an evening's (warmer and lower),
     and the sky's fill from above against the floor's from below; the
     rest comes from the surroundings (RoomLight), never from a flat
-    ambient term */
+    ambient term. The sun stands beyond the room's widest window
+    (windowSun: `height` up, `back` out, `aside` along the wall) so it
+    comes in through the glass and lays its patch on the floor, the
+    rest of the room in the window's shade, as a room is lit; a room
+    without a window takes it from above the open ceiling (`from`) */
 const LIGHTS = {
   day: {
-    sun: 1.6,
-    colour: "#ffffff",
+    sun: 7,
+    colour: "#fff3e2",
     from: [3, 6, 4] as Vector3Tuple,
-    sky: 0.9,
+    height: 4.2,
+    sky: 0.7,
+    // the sky's fill is cool against the warm sun, as daylight is
+    fill: "#d9e4f0",
   },
-  // the evening's sun stands low beyond the north wall, where the
-  // window is in every template, so it comes in through the glass and
-  // lays its patch on the floor; the rest of the room is in the dusk
   evening: {
-    sun: 2.4,
+    sun: 3.5,
     colour: "#ffd2a0",
     from: [2, 1.8, -7] as Vector3Tuple,
-    sky: 0.25,
+    height: 1.6,
+    sky: 0.15,
+    fill: "#9aa6ba",
   },
 } as const;
+/** how far beyond the window the sun stands, and how far along the
+    wall, m */
+const SUN = { back: 5.5, aside: -1 };
 /** what the floor gives back to the undersides */
 const GROUND_HEX = "#c9b9a6";
 
@@ -939,6 +948,7 @@ function OtherRoom({
   const wall =
     WALL_TONES.find((t) => t.id === rm.wallTone)?.hex ?? WALL_TONES[0].hex;
   const floor = FLOOR_TONES[rm.floor as Floor] ?? FLOOR_TONES.Vinyl;
+  const evening = useStudio((s) => s.scene.light === "evening");
   // from the active room's centre to this room's centre
   const dx =
     toMetres(rm.pos[0] - from.pos[0]) + w / 2 - toMetres(from.width) / 2;
@@ -964,6 +974,7 @@ function OtherRoom({
           floor: rm.floor as Floor,
           floorHex: floor,
           wallHex: wall,
+          evening,
           shared: sharedOf(st, rm),
         }}
         walk={false}
@@ -1139,6 +1150,17 @@ export default function Scene3D() {
   const grid = scene.grid && !rendered;
   const edges = scene.edges && !rendered;
   const light = LIGHTS[scene.light];
+  const sunFrom = useMemo(
+    () =>
+      windowSun(
+        { W: room.width, D: room.depth, outline },
+        openingsOf({ joins }, room),
+        light.height,
+        SUN.back,
+        SUN.aside,
+      ) ?? light.from,
+    [room, outline, joins, light],
+  );
   const backend = useStudio((s) => s.backend);
   // the picture's finish follows the device once the backend is known; a
   // render has it whatever the View settings; a stage that fails on this
@@ -1255,17 +1277,18 @@ export default function Scene3D() {
         {post && <Post tier={post} onFailed={failPost(setPostFailed)} />}
         <hemisphereLight
           intensity={light.sky}
-          color={light.colour}
+          color={light.fill}
           groundColor={GROUND_HEX}
         />
         <directionalLight
-          position={light.from}
+          position={sunFrom}
           intensity={light.sun}
           color={light.colour}
           castShadow
-          shadow-mapSize={[1024, 1024]}
-          shadow-radius={4}
-          shadow-bias={-0.0004}
+          shadow-mapSize={[2048, 2048]}
+          shadow-radius={3}
+          shadow-bias={-0.0003}
+          shadow-normalBias={0.02}
         />
         <RoomLight evening={scene.light === "evening"} sky={scene.sky} />
         {probes && (
@@ -1302,6 +1325,7 @@ export default function Scene3D() {
               floor: room.floor as Floor,
               floorHex: floor,
               wallHex: wall,
+              evening: scene.light === "evening",
             }}
             walk={walk}
             onWalkTo={(x, z) => {

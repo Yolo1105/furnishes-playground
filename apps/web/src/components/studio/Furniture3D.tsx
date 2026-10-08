@@ -8,12 +8,16 @@ import {
   BoxGeometry,
   DoubleSide,
   EdgesGeometry,
+  type Mesh,
+  MeshPhysicalMaterial,
+  type MeshStandardMaterial,
   Vector2,
   Vector3,
   type Vector3Tuple,
 } from "three";
 import type { AssetNode } from "./assets-data";
 import { recipeOf } from "./catalogue";
+import { propFor } from "./generation-store";
 import {
   ACCENT_HEX,
   bodyOf,
@@ -52,9 +56,16 @@ import { Panels3D } from "./Panels3D";
  * lamp with its base, stem and lit shade; a plant in its pot; a vase
  * turned on a lathe; a rug with a border; a bed with pillows and a
  * duvet; a screen on its feet. A finish of wood grain is painted on
- * from the palette. A generated item with a mesh of its own shows that.
+ * from the palette. A generated item with a mesh of its own shows
+ * that; and a room item with a stock mesh to its name (a sofa, an
+ * armchair, a chair, a coffee table, a plant, a vase, a desk lamp:
+ * the Poly Haven models under public/props) is drawn from it, the
+ * cloth taking the item's own colour over the model's own weave, the
+ * built form standing in until it loads or should it fail.
  */
 const PLINTH = 0.06;
+/** the gap between an overlay door and its neighbours, m */
+const DOOR_GAP = 0.003;
 const LEG = 0.1; // m, a sofa's legs
 const CUSHION = 0.65; // m, about one seat
 
@@ -111,11 +122,86 @@ const seedOf = (s: string) => {
     compressed mesh never reaches out to a third party for it */
 const DRACO = "/draco/";
 
+/** which of a stock mesh's materials are its cloth, to take the
+    item's colour; the rest (legs, a frame) keep their own */
+const STOCK_CLOTH: Record<string, RegExp> = {
+  sofa_02: /./,
+  modern_arm_chair_01: /pillow/,
+};
+/** the stock mesh a room item is drawn from, by its name, and which of
+    its materials take the item's colour; null for an item with none
+    (a rug, a bed, a floor lamp keep their built form) */
+const stockOf = (node: AssetNode) => {
+  const name = node.name.toLowerCase();
+  const cat = node.category;
+  const fits =
+    cat === "seating" ||
+    cat === "tables" ||
+    (cat === "lighting" && /desk|table/.test(name)) ||
+    (cat === "decor" &&
+      /plant|fig|palm|fern|vase|jug|bottle|basket/.test(name));
+  const src = fits ? propFor(name) : undefined;
+  if (!src) return null;
+  const file = src.slice(src.lastIndexOf("/") + 1).replace(/\.glb$/, "");
+  return { src, cloth: STOCK_CLOTH[file] ?? null };
+};
+
+/** the item's cloth over the model's own weave: its colour and sheen
+    with the model's normal and roughness maps kept */
+const clothOver = (own: MeshStandardMaterial, colour: string) => {
+  const m = new MeshPhysicalMaterial({
+    color: colour,
+    roughness: 0.9,
+    metalness: 0,
+    sheen: 0.5,
+    sheenColor: shade(colour, 0.1),
+    sheenRoughness: 0.8,
+    normalMap: own.normalMap,
+    normalScale: own.normalScale,
+    roughnessMap: own.roughnessMap,
+  });
+  m.userData.own = true;
+  return m;
+};
+
 /** a generated or stock mesh fitted into the item's size, standing on
-    the floor */
-function Model({ src, size }: { src: string; size: Vector3Tuple }) {
+    the floor: a copy of its own, so two of a kind can stand in one
+    room, its cloth in the item's colour when it has any */
+function Model({
+  src,
+  size,
+  cloth,
+}: {
+  src: string;
+  size: Vector3Tuple;
+  cloth: { colour: string; names: RegExp } | null;
+}) {
   const { scene } = useGLTF(src, DRACO);
-  const box = new Box3().setFromObject(scene);
+  const colour = cloth?.colour;
+  const names = cloth?.names;
+  const object = useMemo(() => {
+    const o = scene.clone(true);
+    o.traverse((child) => {
+      const mesh = child as Mesh;
+      if (!mesh.isMesh) return;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      const own = mesh.material as MeshStandardMaterial;
+      if (colour && names?.test(own.name))
+        mesh.material = clothOver(own, colour);
+    });
+    return o;
+  }, [scene, colour, names]);
+  useEffect(
+    () => () => {
+      object.traverse((child) => {
+        const m = (child as Mesh).material as MeshPhysicalMaterial | undefined;
+        if (m?.userData.own) m.dispose();
+      });
+    },
+    [object],
+  );
+  const box = new Box3().setFromObject(object);
   const dims = box.getSize(new Vector3());
   const k = Math.min(
     size[0] / (dims.x || 1),
@@ -125,7 +211,7 @@ function Model({ src, size }: { src: string; size: Vector3Tuple }) {
   const centre = box.getCenter(new Vector3());
   return (
     <group scale={k} position={[-centre.x * k, -box.min.y * k, -centre.z * k]}>
-      <primitive object={scene} />
+      <primitive object={object} />
     </group>
   );
 }
@@ -147,6 +233,13 @@ class ModelGuard extends Component<
 export function Furniture3D(p: Props) {
   const outline = p.clash || p.selected || p.edges || p.hovered;
   const form = <Form {...p} />;
+  // a generated item's own mesh, else the stock mesh its name has; a
+  // piece opened as panels is its panels
+  const stock = p.panels
+    ? null
+    : p.node.model
+      ? { src: p.node.model, cloth: null }
+      : stockOf(p.node);
   return (
     <group
       onClick={(e) => {
@@ -154,10 +247,16 @@ export function Furniture3D(p: Props) {
         p.onPick();
       }}
     >
-      {p.node.model ? (
+      {stock ? (
         <ModelGuard fallback={form}>
           <Suspense fallback={form}>
-            <Model src={p.node.model} size={p.size} />
+            <Model
+              src={stock.src}
+              size={p.size}
+              cloth={
+                stock.cloth ? { colour: p.colour, names: stock.cloth } : null
+              }
+            />
           </Suspense>
         </ModelGuard>
       ) : (
@@ -412,22 +511,25 @@ function Carcass({
             )}
             {doors && (
               <>
+                {/* an overlay door stands a board proud of the carcass,
+                    a gap to its neighbours, and throws its own line of
+                    shadow */}
                 <Slab
                   f={f}
                   colour={colour}
-                  at={[
-                    mid,
-                    PLINTH + PANEL + inner / 2,
-                    d / 2 - PANEL / 2 + 0.003,
+                  at={[mid, PLINTH + PANEL + inner / 2, d / 2 + PANEL / 2]}
+                  dims={[
+                    bayW + PANEL - DOOR_GAP,
+                    inner + PANEL - DOOR_GAP,
+                    PANEL,
                   ]}
-                  dims={[bayW - 0.006, inner - 0.006, PANEL]}
                 />
                 <Rod
                   f={metal(METAL)}
                   at={[
                     x0 + bayW - 0.05,
                     PLINTH + PANEL + inner * 0.5,
-                    d / 2 + 0.018,
+                    d / 2 + PANEL + 0.012,
                   ]}
                   r={0.005}
                   h={0.11}

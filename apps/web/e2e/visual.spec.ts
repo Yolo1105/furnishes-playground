@@ -100,6 +100,8 @@ test("the front elevation", async ({ page }) => {
 
 test("at eye level, walking", async ({ page }) => {
   await page.getByRole("button", { name: "Walk the room" }).click();
-  await page.waitForTimeout(SETTLE);
+  // the walk's ceiling changes the room: the probes and the floor's
+  // picture are taken again, and the picture waits for them
+  await settled(page);
   await expect(stage(page)).toHaveScreenshot("walk.png", DRIFT);
 });

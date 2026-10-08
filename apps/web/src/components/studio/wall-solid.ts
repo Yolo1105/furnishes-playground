@@ -54,6 +54,7 @@ export const wallTriangles = (
 ) => {
   const positions: number[] = [];
   const normals: number[] = [];
+  const uvs: number[] = [];
   const quad = (
     a: [number, number, number],
     b: [number, number, number],
@@ -76,9 +77,17 @@ export const wallTriangles = (
     nx /= l;
     ny /= l;
     nz /= l;
+    // a texture lies flat on the face: along the wall and up on its
+    // faces, along and through on its top and sills, through and up on
+    // its ends, metres
+    const flat = Math.abs(nz) >= Math.max(Math.abs(nx), Math.abs(ny));
+    const up = !flat && Math.abs(ny) >= Math.abs(nx);
     for (const p of [a, b, c, a, c, d]) {
       positions.push(...p);
       normals.push(nx, ny, nz);
+      if (flat) uvs.push(p[0], p[1]);
+      else if (up) uvs.push(p[0], p[2]);
+      else uvs.push(p[2], p[1]);
     }
   };
   const oz = t * outward;
@@ -104,5 +113,6 @@ export const wallTriangles = (
   return {
     positions: new Float32Array(positions),
     normals: new Float32Array(normals),
+    uvs: new Float32Array(uvs),
   };
 };

@@ -170,9 +170,10 @@ export const defaultProps = (n: AssetNode): PieceProps => {
   const [width, depth, height] = recipe
     ? recipeSize(recipe)
     : (SIZES_BY_NAME.find(([re]) => re.test(n.name))?.[1] ?? SIZES[n.category]);
+  // a Furnishes piece is plywood: it opens in its grain
   return {
     colour: "oak",
-    texture: "Matte",
+    texture: recipe ? "Wood grain" : "Matte",
     width,
     depth,
     height,

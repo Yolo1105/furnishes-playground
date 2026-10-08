@@ -381,6 +381,55 @@ AGPL. `@salusoft89/planegcs` 1.3.0 is the only 2D constraint solver
   follows the profile. The gates hold in the unit tests: a constrained
   sketch solves in under 50 ms, a solid and its STEP come in under a
   few seconds, and nothing of it runs on the main thread.
+- R8 is in: the live view, before Render, read as a drawing rather
+  than a room, and the review found why. The day's sun stood above
+  the open ceiling, where no sun stands in a room, and its shadows
+  were drowned by a fill (the light panels at 2, the sky at 0.9) that
+  lit every face the same; the materials were strokes on a canvas
+  with a faint relief; the sofas were rounded blocks. Now the sun
+  stands beyond the room's widest window (`windowSun`), 4.2 m up and
+  5.5 m out by day, 1.6 m up in the evening, so it comes in through
+  the glass and lays its patch on the floor with the rest of the room
+  in the window's shade, as a room is lit; a room without a window
+  keeps the sun from above. The fill is the sky's, cool against the
+  warm sun, at 0.3, and the surroundings stand back (the panels at
+  0.45); the exposure opens at 1.1; the occlusion reaches 0.45 m at
+  1.15. The surfaces are grown from noise (`textures.ts`): wood from
+  rings drifting along the grain with pores between, laid in boards
+  with a bevelled seam for the floors; a plain weave with its fuzz for
+  cloth; a fine grain for the walls' plaster, which now have UVs on
+  their solids; each a colour map, a normal map and a roughness map
+  from one height field, the wood and the cloth as light values that
+  take the material's colour, so one map serves the palette. Wood
+  wears a thin lacquer (a clearcoat at 0.12). A slab's geometry lays
+  its texture in metres with the grain along the panel's longer side
+  (`slabGeometry`: a top's along its length, a side's and a door's up
+  their height) over an edge eased by 2.5 mm, its four narrow faces a
+  shade darker as a board's edge band is and the eased edge darker
+  still, with the slab's twelve edges drawn as the hairline two boards
+  leave where they meet (`jointGeometry`), so where one board ends
+  and the next begins is read at a glance, which the review found was
+  what made a piece of panels hard to read; an overlay door stands a
+  board proud of its carcass with a 3 mm gap to its neighbours, as a
+  door does, and throws its own line of shadow; a Furnishes piece
+  opens in its wood grain (the Detail tab's texture, Matte before). The room's own items are
+  drawn from the Poly Haven models already under `public/props` (a
+  sofa, an armchair, a chair, a coffee table, a plant, a vase, a desk
+  lamp), a seat's cloth taking the item's colour over the model's own
+  normal and roughness maps, the built form standing in until the
+  model loads; a rug, a bed and a floor lamp keep their built forms.
+  A window looks onto a photograph of the outside (a park by day,
+  Venice's sunset in the evening; `public/sky`), sampled along the
+  eye's ray through the pane so the view turns as the room is looked
+  round, set in the opening at the wall's outer face (so the reveal
+  stands before it and nothing shows past the wall from above),
+  behind a clear pane with the room's faint reflection; the
+  photographs load apart from the scene's suspense, so a change of
+  light never takes the room down while its outside arrives. The
+  photographed CC0 texture sets the plan asked for still cannot be
+  fetched from the sandbox (the park came through npm, as
+  `@pmndrs/assets` carries Poly Haven's maps); the grown surfaces
+  stand until they can.
 
 ## The order of work
 

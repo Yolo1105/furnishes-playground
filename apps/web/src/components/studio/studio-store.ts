@@ -61,7 +61,7 @@ export const SCENE_DEFAULT: SceneLook = {
   grid: false,
   light: "day",
   sky: "panels",
-  exposure: 1.2,
+  exposure: 1.1,
   quality: "auto",
 };
 /** how far the plan can be zoomed, and by how much a step zooms */

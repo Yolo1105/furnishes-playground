@@ -1,10 +1,13 @@
 "use client";
 
 import { toMetres } from "@furnishes/scene";
+import { EXRLoader } from "three/examples/jsm/loaders/EXRLoader.js";
 import { HDRLoader } from "three/examples/jsm/loaders/HDRLoader.js";
+import { cameraPosition, equirectUV, positionWorld, texture } from "three/tsl";
+import { MeshBasicNodeMaterial } from "three/webgpu";
 import { LIGHT_WOOD_HEX } from "./piece-detail";
 import { useFrame, useLoader, useThree } from "@react-three/fiber";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BufferAttribute,
   BufferGeometry,
@@ -18,6 +21,7 @@ import {
   type Texture,
   Vector2,
   Vector3,
+  type Vector3Tuple,
 } from "three";
 import {
   type Floor,
@@ -33,7 +37,14 @@ import type { Point } from "./room-templates";
 import type { Sky } from "./studio-store";
 import type { StillState } from "./capture";
 import { FloorReflection, useFloorMaterial } from "./Reflection";
-import { floorTexture, reliefOf, shade, TILE_M } from "./textures";
+import {
+  floorTexture,
+  PLASTER_M,
+  plasterSurface,
+  reliefOf,
+  shade,
+  TILE_M,
+} from "./textures";
 
 /**
  * The room itself in 3D: the floor in its finish, a wall along every
@@ -49,8 +60,94 @@ const FRAME = 0.07;
 const FRAME_HEX = "#f7f3ec";
 const DOOR_HEX = LIGHT_WOOD_HEX;
 /** how strongly the floor's relief bends the light */
-const FLOOR_RELIEF = new Vector2(0.3, 0.3);
+const FLOOR_RELIEF = new Vector2(0.5, 0.5);
+/** how strongly the plaster's relief bends the light */
+const PLASTER_RELIEF = new Vector2(0.35, 0.35);
+/** the walls' plaster, its maps repeated by the metre */
+const plaster = () => {
+  const s = plasterSurface();
+  for (const t of [s.map, s.normalMap, s.roughnessMap])
+    if (t.repeat.x !== 1 / PLASTER_M)
+      t.repeat.set(1 / PLASTER_M, 1 / PLASTER_M);
+  return s;
+};
 const CEILING_HEX = "#f8f5f0";
+/** how far inside the wall's outer face a window's outside stands, m */
+const OUTSIDE_IN = 0.01;
+/** what a window looks onto: a photograph of the outside (a park by
+    day, Venice's sunset in the evening; public/sky, see its
+    LICENSES.md), and how bright it stands against the room */
+const OUTLOOK = {
+  day: { file: "/sky/park.exr", light: 1.6 },
+  evening: { file: "/sky/sunset.hdr", light: 1.1 },
+} as const;
+
+/** the outlook photographs, loaded once each and kept; loaded apart
+    from the scene's own suspense, so a change of light never takes the
+    room down while its outside arrives (the pane stands empty for the
+    moment instead) */
+const outlooks = new Map<string, Promise<Texture>>();
+const outlookOf = (file: string) => {
+  let p = outlooks.get(file);
+  if (!p) {
+    const loader = file.endsWith(".exr") ? new EXRLoader() : new HDRLoader();
+    p = loader.loadAsync(file);
+    outlooks.set(file, p);
+  }
+  return p;
+};
+const useOutlook = (file: string) => {
+  const [map, setMap] = useState<{ file: string; map: Texture } | null>(null);
+  useEffect(() => {
+    let live = true;
+    void outlookOf(file).then((m) => {
+      if (live) setMap({ file, map: m });
+    });
+    return () => {
+      live = false;
+    };
+  }, [file]);
+  return map?.file === file ? map.map : null;
+};
+
+/** the outside seen through a window: the photograph sampled along
+    the eye's ray through the pane, so it turns as the room is looked
+    round, as a view does; set in the opening behind the glass */
+function Outside({
+  evening,
+  width,
+  tall,
+  at,
+}: {
+  evening: boolean;
+  width: number;
+  tall: number;
+  at: [number, number, number];
+}) {
+  const look = evening ? OUTLOOK.evening : OUTLOOK.day;
+  const map = useOutlook(look.file);
+  const invalidate = useThree((s) => s.invalidate);
+  const material = useMemo(() => {
+    if (!map) return null;
+    const m = new MeshBasicNodeMaterial();
+    const ray = positionWorld.sub(cameraPosition).normalize();
+    m.colorNode = texture(map, equirectUV(ray)).mul(look.light);
+    m.side = DoubleSide;
+    return m;
+  }, [map, look]);
+  useEffect(() => {
+    invalidate();
+    return () => material?.dispose();
+  }, [material, invalidate]);
+  if (!material) return null;
+  return (
+    <mesh position={at} material={material}>
+      <planeGeometry args={[width, tall]} />
+    </mesh>
+  );
+}
+/** how much of the room a pane gives back */
+const GLASS_OPACITY = 0.12;
 
 const ROUGHNESS: Record<Floor, number> = {
   Vinyl: 0.7,
@@ -70,6 +167,8 @@ type RoomShape = {
   floor: Floor;
   floorHex: string;
   wallHex: string;
+  /** the evening outside the windows */
+  evening: boolean;
   /** stretches of its walls shared with another room, mm along the
       wall's axis: where two rooms stand wall to wall the wall is built
       once, by the earlier room (`both`: this room builds it and it shows
@@ -217,12 +316,32 @@ const inward = (wall: Wall): [number, number] =>
         : [-1, 0];
 
 /** an opening's middle on its wall, in metres about the room's middle */
-const placeOf = (r: RoomShape, o: Opening): [number, number] => {
+const placeOf = (
+  r: Pick<RoomShape, "W" | "D" | "outline">,
+  o: Opening,
+): [number, number] => {
   const { centre, at } = openingCentre(r, o);
   const horizontal = o.wall === "north" || o.wall === "south";
   const x = horizontal ? toMetres(centre) : toMetres(at);
   const z = horizontal ? toMetres(at) : toMetres(centre);
   return [x - toMetres(r.W) / 2, z - toMetres(r.D) / 2];
+};
+/** where the sun stands to come in through the room's widest window:
+    beyond that wall, `back` metres out and `height` up, shifted `aside`
+    along the wall so its patch falls into the room at a slant; null
+    for a room without a window */
+export const windowSun = (
+  r: Pick<RoomShape, "W" | "D" | "outline">,
+  openings: readonly Opening[],
+  height: number,
+  back: number,
+  aside: number,
+): Vector3Tuple | null => {
+  const window = openings.filter(isWindow).sort((a, b) => b.width - a.width)[0];
+  if (!window) return null;
+  const [x, z] = placeOf(r, window);
+  const [nx, nz] = inward(window.wall);
+  return [x - nx * back + nz * aside, height, z - nz * back - nx * aside];
 };
 /** the holes an edge's wall has: each opening on this edge, as a box
     along the wall (metres from the edge's middle) and up it */
@@ -298,7 +417,7 @@ function WallRun({
         y1: o.y1,
       })),
     );
-    const { positions, normals } = wallTriangles(
+    const { positions, normals, uvs } = wallTriangles(
       blocks,
       len,
       t,
@@ -309,6 +428,7 @@ function WallRun({
     const g = new BufferGeometry();
     g.setAttribute("position", new BufferAttribute(positions, 3));
     g.setAttribute("normal", new BufferAttribute(normals, 3));
+    g.setAttribute("uv", new BufferAttribute(uvs, 2));
     return g;
   }, [len, h, t, mitres, holes]);
   useEffect(() => () => geometry.dispose(), [geometry]);
@@ -326,7 +446,14 @@ function WallRun({
           receiveShadow
           castShadow
         >
-          <meshStandardMaterial color={wallHex} roughness={0.95} />
+          <meshStandardMaterial
+            color={wallHex}
+            map={plaster().map}
+            normalMap={plaster().normalMap}
+            normalScale={PLASTER_RELIEF}
+            roughnessMap={plaster().roughnessMap}
+            roughness={0.92}
+          />
         </mesh>
         {/* the skirting stands just inside the wall's face */}
         <mesh
@@ -366,7 +493,7 @@ function Face({
         color={colour}
         roughness={rough}
         emissive={emissive ?? "#000000"}
-        emissiveIntensity={emissive ? 0.9 : 0}
+        emissiveIntensity={emissive ? 0.6 : 0}
         side={both ? DoubleSide : FrontSide}
       />
     </mesh>
@@ -387,15 +514,29 @@ function Window({ r, o }: { r: RoomShape; o: Opening }) {
   return (
     <Inside normal={inward(o.wall)} always={o.join !== undefined}>
       <group position={[x, 0, z]} rotation={[0, yaw, 0]}>
-        {/* the glass, reading as daylight; the frame, a transom, the sill */}
-        <Face
-          at={[0, mid, 0.01]}
-          size={[width, tall]}
-          colour="#dfeaf2"
-          rough={0.15}
-          emissive="#eef5fa"
-          both
+        {/* the outside the glass looks onto, set in the opening at the
+            wall's outer face so the reveal stands in front of it from
+            an angle and nothing shows past the wall from outside; the
+            glass itself clear, with the room's faint reflection; the
+            frame, a transom, the sill */}
+        <Outside
+          evening={r.evening}
+          width={width}
+          tall={tall}
+          at={[0, mid, -toMetres(r.thickness) + OUTSIDE_IN]}
         />
+        <mesh position={[0, mid, 0.01]}>
+          <planeGeometry args={[width, tall]} />
+          <meshPhysicalMaterial
+            color="#ffffff"
+            transparent
+            opacity={GLASS_OPACITY}
+            roughness={0.05}
+            metalness={0}
+            depthWrite={false}
+            side={DoubleSide}
+          />
+        </mesh>
         {[-1, 1].map((s) => (
           <Face
             key={s}
@@ -527,6 +668,12 @@ export function RoomShell({
     [r.floor, r.floorHex],
   );
   const t = toMetres(r.thickness);
+  // both outlooks fetched as the room opens, so a change of light finds
+  // its outside ready
+  useEffect(() => {
+    void outlookOf(OUTLOOK.day.file);
+    void outlookOf(OUTLOOK.evening.file);
+  }, []);
   // where the walls' outer faces meet, for the mitre at each edge's ends
   const mitres = useMemo(
     () => mitresOf(r.outline, r.thickness),
@@ -637,7 +784,7 @@ export function RoomLight({ evening, sky }: { evening: boolean; sky: Sky }) {
   // the surroundings carry the day; in the evening they stand back so
   // the low sun through the window carries the room
   const intensity =
-    sky === "panels" ? (evening ? 0.5 : 2) : evening ? 0.4 : 1.5;
+    sky === "panels" ? (evening ? 0.2 : 0.35) : evening ? 0.25 : 0.4;
   useEffect(() => {
     const { scene, invalidate } = get();
     return surround(scene, map, intensity, invalidate);

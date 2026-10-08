@@ -89,7 +89,7 @@ export const backendOf = (renderer: unknown): Backend => {
 };
 
 /** the occlusion's reach, m, and how dark it goes */
-const AO = { radius: 0.3, scale: 0.8 };
+const AO = { radius: 0.6, scale: 1.4 };
 /** the frames a still picture takes to settle: TRAA blends each new
     frame into its history, so a change is followed by this many more */
 const SETTLE_FRAMES = 16;
