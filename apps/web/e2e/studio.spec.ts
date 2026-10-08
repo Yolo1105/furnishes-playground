@@ -1353,6 +1353,23 @@ test("a piece opens as panels: picked, typed in millimetres, added to, priced, c
   ).toHaveAttribute("aria-checked", "true");
   await page.getByRole("button", { name: "Remove Shelf" }).click();
   await expect(panels.getByRole("radio")).toHaveCount(count);
+  // machining on a side: shelf pins by the 32 mm system, listed and
+  // drawn; the panel's DXF and the piece's cut list come as files
+  await panels.getByRole("radio", { name: /^Side/ }).first().click();
+  await section.getByRole("button", { name: "Shelf pins" }).click();
+  const machining = section.getByRole("list", { name: "Machining" });
+  const pins = await machining.locator("li").count();
+  expect(pins).toBeGreaterThan(10);
+  await expect(machining.locator("li").first()).toContainText("5 mm hole");
+  await machining.getByRole("button", { name: /^Remove pin-1$/ }).click();
+  await expect(machining.locator("li")).toHaveCount(pins - 1);
+  const dxf = page.waitForEvent("download");
+  await section.getByRole("button", { name: "Side as DXF" }).click();
+  expect((await dxf).suggestedFilename()).toMatch(/side.*\.dxf$/);
+  const csv = page.waitForEvent("download");
+  await section.getByRole("button", { name: "Cut list" }).click();
+  expect((await csv).suggestedFilename()).toMatch(/cut-list\.csv$/);
+  await panels.getByRole("radio", { name: /^Side/ }).first().click();
   // in 3D, with the piece alone and seen from above, a click on it
   // picks the panel under the pointer: the top
   await page.getByRole("button", { name: "Show alone" }).click();

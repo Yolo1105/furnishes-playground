@@ -22,7 +22,7 @@ const stem = () => {
   return `${ROOM_NAMES[r.room].toLowerCase().replace(/\s+/g, "-")}-${st.flat}`;
 };
 
-const download = (name: string, blob: Blob) => {
+export const download = (name: string, blob: Blob) => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;

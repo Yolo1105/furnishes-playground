@@ -339,6 +339,29 @@ AGPL. `@salusoft89/planegcs` 1.3.0 is the only 2D constraint solver
   new size. The price is counted from the panels as parts, from the
   one table of rates. The panels ride in the piece's properties, so
   they are saved, synced and exported with the project.
+- M3 is in: machining, the cut list and the DXF. A panel carries its
+  features in its own frame (`features.ts`: a hole with its diameter
+  and depth, a groove from one point to another with its width and
+  depth, a cut-out through), on its front or back face; the Detail
+  tab's Machining lists them with a remove each and lays the shop's
+  presets on the picked panel (shelf pins by the 32 mm system, 5 mm
+  holes 13 deep 37 mm in from each edge, on the face that looks into
+  the piece; a hinge's 35 mm cups on a door's inside, two or three by
+  its height; a 6 mm back groove; a cut-out); in 3D they are drawn on
+  the face as marks, a disc a hole, a dark strip a groove or a cut-out
+  (`featureMark`). The cut list (`cutlist.ts`, Panelizer's MaxRects
+  nesting rewritten) nests the piece's panels on the shop's 2440 ×
+  1220 sheet with a 3 mm kerf and a 10 mm margin, a grained part
+  keeping its grain along the sheet, and comes as a CSV with a part a
+  line, its sheet and its place; each panel's face comes as a DXF R12
+  (`dxf.ts`: the outline on OUTLINE, holes as circles on HOLES_<depth>,
+  grooves and cut-outs as closed polylines on GROOVES_<depth> and
+  CUTOUTS, millimetres, a back-face feature mirrored so the drawing
+  is the face looked at). A twenty-panel cabinet is counted, nested
+  and drawn in under 200 ms (the unit test holds the gate). The
+  boolean subtraction on export (manifold-3d) is left out: the DXF
+  carries the machining to the shop, which is what the cut is made
+  from, and no export of the studio's meshes exists yet to subtract in.
 
 ## The order of work
 

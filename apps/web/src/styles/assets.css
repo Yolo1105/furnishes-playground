@@ -982,7 +982,24 @@
   color: var(--color-accent);
   border-color: rgb(from var(--color-accent) r g b / 0.14);
   background: rgb(from var(--color-accent) r g b / 0.07);
+} /* the picked panel's machining, a line each with its remove */
+.detail-features {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+  font-size: 11.5px;
 }
+.detail-features li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 3px 0 3px 10px;
+  border-left: 2px solid rgb(from var(--color-line) r g b / 0.2);
+}
+
 .detail-part-price {
   color: rgb(from var(--color-ink) r g b / 0.5);
 }

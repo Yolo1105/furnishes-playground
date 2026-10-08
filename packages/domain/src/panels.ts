@@ -9,6 +9,8 @@
  * about rendering, stores or units.
  */
 
+import type { Feature } from "./features";
+
 /** the axis a panel's thickness runs along; its face lies in the plane
     of the other two */
 export type Axis = "x" | "y" | "z";
@@ -22,7 +24,8 @@ export type PanelKind = "panel" | "door";
 export type Vec3 = [number, number, number];
 
 /** one rectangular panel: a face `length` × `width`, a `thickness`
-    along its `normal`, its centre at `position` */
+    along its `normal`, its centre at `position`, and the machining on
+    it (features.ts) */
 export type Panel = {
   id: string;
   name: string;
@@ -33,6 +36,7 @@ export type Panel = {
   position: Vec3;
   grain: Grain;
   kind: PanelKind;
+  features?: Feature[];
 };
 
 /** the thickness a new panel takes, mm */

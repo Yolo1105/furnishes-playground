@@ -1,7 +1,8 @@
 # Code brought into the domain package
 
 `src/panels.ts` carries Panelizer's panel model and its pure snapping,
-resizing, overlap and parts-list geometry (Sunny Pelletier,
+resizing, overlap and parts-list geometry, and `src/cutlist.ts` its
+MaxRects nesting of parts onto sheets (Sunny Pelletier,
 https://github.com/pelletier197/panelizer), rewritten to this package's
 conventions. Panelizer is MIT licensed:
 

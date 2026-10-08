@@ -2,12 +2,14 @@
 
 import {
   axisField,
+  featureMark,
   panelBoxSize,
   resizeAlongAxis,
   SNAP_MM,
   snapGroupDelta,
   snapHintOf,
   snapResizeFace,
+  type Feature,
   type Panel,
   type SnapHint,
   type Vec3,
@@ -38,7 +40,11 @@ import { useScene } from "./scene-store";
  * far edge held (Alt holds the centre), snapping the same way; the
  * thickness is typed in the Detail tab, never dragged. A drag is one
  * step to undo; letting go settles the piece's box round its panels.
+ * A panel's machining (features.ts) is drawn on its face as marks: a
+ * disc a hole, a dark strip a groove or a cut-out.
  */
+/** the marks' colour: the wood cut into, in shadow */
+const MARK_HEX = "#3a3129";
 
 type Axis3 = 0 | 1 | 2;
 /** what is drawn but never picked: the guide, the outline, the ball's
@@ -304,7 +310,39 @@ function PanelMesh({
         at={panel.position.map(toMetres) as Vector3Tuple}
         dims={panelBoxSize(panel).map(toMetres) as Vector3Tuple}
       />
+      {panel.features?.map((x) => (
+        <Mark key={x.id} panel={panel} feature={x} />
+      ))}
     </group>
+  );
+}
+
+/** one feature's mark on its panel's face */
+function Mark({ panel, feature }: { panel: Panel; feature: Feature }) {
+  const m = featureMark(panel, feature);
+  const centre = m.centre.map(toMetres) as Vector3Tuple;
+  if (!m.round)
+    return (
+      <mesh position={centre} raycast={unpickable}>
+        <boxGeometry args={m.size.map(toMetres) as Vector3Tuple} />
+        <meshStandardMaterial color={MARK_HEX} roughness={1} />
+      </mesh>
+    );
+  // a disc the hole's size, laid flat on the face: the cylinder stands
+  // along y, so it is turned to the panel's normal
+  const axis = panel.normal === "x" ? 0 : panel.normal === "y" ? 1 : 2;
+  const r = toMetres(m.size[axis === 0 ? 1 : 0] / 2);
+  const rotation: Vector3Tuple =
+    axis === 0
+      ? [0, 0, Math.PI / 2]
+      : axis === 2
+        ? [Math.PI / 2, 0, 0]
+        : [0, 0, 0];
+  return (
+    <mesh position={centre} rotation={rotation} raycast={unpickable}>
+      <cylinderGeometry args={[r, r, toMetres(m.size[axis]), 16]} />
+      <meshStandardMaterial color={MARK_HEX} roughness={1} />
+    </mesh>
   );
 }
 

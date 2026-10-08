@@ -168,7 +168,11 @@ meets the next. A carcass piece opens as panels in the Detail tab
 (Panelizer's model and snapping, rewritten into `packages/domain`):
 each panel is listed and typed in millimetres, added to, duplicated
 or removed, picked and dragged in 3D with its faces snapping to its
-neighbours, and the piece's size and price follow its panels. The
+neighbours, and the piece's size and price follow its panels; a
+panel takes the shop's machining (shelf pins by the 32 mm system,
+hinge cups, a back groove, a cut-out), drawn on its face, and comes
+as a DXF, the piece's panels nested on the shop's sheets as a cut
+list. The
 room's own bounce light comes from a grid of light probes over the
 shell (`apps/web/src/components/studio/Probes.tsx`), baked over frames
 whenever the shell, its finish or its light changes and never under a

@@ -2,17 +2,26 @@
 
 import {
   type Added,
+  backGroove,
   carcassPanels,
+  type Feature,
+  featureLabel,
   freeId,
+  hingeCups,
+  innerFace,
+  middleCutout,
   newPanel,
   type Panel,
+  systemHoles,
 } from "@furnishes/domain";
 import { CATEGORY_NAMES, sgd, type AssetNode } from "./assets-data";
 import {
   CartIcon,
   CheckIcon,
+  CloseIcon,
   CopyIcon,
   ExpandIcon,
+  ExportIcon,
   EyeIcon,
   EyeOffIcon,
   LockIcon,
@@ -35,6 +44,7 @@ import {
   squared,
 } from "./piece-detail";
 import { portraitOf, recipeOf } from "./catalogue";
+import { exportCutList, exportPanelDxf } from "./machining";
 import { ProductPage } from "./ProductPage";
 import { findNode, propsOf, useScene } from "./scene-store";
 import { useStudio } from "./studio-store";
@@ -121,6 +131,26 @@ export function DetailTab() {
     changePanels([...(panels ?? []), made]);
     selectPanel(made.id);
   };
+  // the picked panel's machining: a preset laid on its inner face, or
+  // one feature taken off
+  const machine = (made: (has: Feature[]) => Feature[]) =>
+    panel &&
+    editPanel({
+      features: [...(panel.features ?? []), ...made(panel.features ?? [])],
+    });
+  const PRESETS: [string, (p: Panel) => Feature[]][] = [
+    [
+      "Shelf pins",
+      (p) =>
+        systemHoles(p, p.features).map((h) => ({ ...h, face: innerFace(p) })),
+    ],
+    ["Hinge cups", (p) => hingeCups(p, p.features)],
+    [
+      "Back groove",
+      (p) => [{ ...backGroove(p, p.features), face: innerFace(p) }],
+    ],
+    ["Cut-out", (p) => [middleCutout(p, p.features)]],
+  ];
   const panelNum = (
     text: string,
     value: number,
@@ -571,6 +601,59 @@ export function DetailTab() {
                       <TrashIcon size={14} />
                       <span>Remove</span>
                     </button>
+                    <button
+                      type="button"
+                      className="main-btn"
+                      aria-label={`${panel.name} as DXF`}
+                      onClick={() => exportPanelDxf(piece.name, panel)}
+                    >
+                      <ExportIcon size={14} />
+                      <span>DXF</span>
+                    </button>
+                  </div>
+                  <div className="eva-pref-head">
+                    <span className="eva-pref-title">Machining</span>
+                    <span className="detail-of">
+                      {panel.features?.length
+                        ? `${panel.features.length} on ${panel.name}`
+                        : "none yet"}
+                    </span>
+                  </div>
+                  {panel.features && panel.features.length > 0 && (
+                    <ul className="detail-features" aria-label="Machining">
+                      {panel.features.map((x) => (
+                        <li key={x.id}>
+                          <span>{featureLabel(x)}</span>
+                          <button
+                            type="button"
+                            className="shell-iconbtn"
+                            aria-label={`Remove ${x.id}`}
+                            onClick={() =>
+                              editPanel({
+                                features: panel.features!.filter(
+                                  (y) => y.id !== x.id,
+                                ),
+                              })
+                            }
+                          >
+                            <CloseIcon size={12} />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className="detail-acts">
+                    {PRESETS.map(([name, made]) => (
+                      <button
+                        key={name}
+                        type="button"
+                        className="main-btn"
+                        onClick={() => machine(() => made(panel))}
+                      >
+                        <PlusIcon size={14} />
+                        <span>{name}</span>
+                      </button>
+                    ))}
                   </div>
                 </>
               )}
@@ -586,6 +669,14 @@ export function DetailTab() {
                     <span>{k[0]!.toUpperCase() + k.slice(1)}</span>
                   </button>
                 ))}
+                <button
+                  type="button"
+                  className="main-btn"
+                  onClick={() => exportCutList(piece.name, panels)}
+                >
+                  <ExportIcon size={14} />
+                  <span>Cut list</span>
+                </button>
                 <button
                   type="button"
                   className="main-btn"
