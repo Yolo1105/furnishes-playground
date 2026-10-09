@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { useLocalMirror } from "./local-mirror";
 import type { Address } from "@/lib/address";
-import { STATUS_NAMES, type OrderStatus } from "@/lib/orders";
+import { STATUS_NAMES, type OrderStatus } from "@/lib/order-status";
 import type { AssetCategory } from "./assets-data";
 
 /**

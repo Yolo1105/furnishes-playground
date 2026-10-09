@@ -6,7 +6,6 @@ import { useSession } from "@/lib/auth-client";
 import { EMAIL } from "@/lib/email";
 import { sgd, type AssetNode } from "./assets-data";
 import { Dialog } from "./Dialog";
-import { exportCartCsv } from "./export";
 import { CheckIcon, ExportIcon } from "./icons";
 import { STATUS_NAMES, useOrders, type Order } from "./order-store";
 import { useScene } from "./scene-store";
@@ -168,7 +167,13 @@ export function CheckoutDialog({
             </li>
           </ul>
           <div className="shell-dialog-acts">
-            <button type="button" className="main-btn" onClick={exportCartCsv}>
+            <button
+              type="button"
+              className="main-btn"
+              onClick={() =>
+                void import("./export").then((m) => m.exportCartCsv())
+              }
+            >
               <ExportIcon size={14} />
               <span>Download the list</span>
             </button>

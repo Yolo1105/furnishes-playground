@@ -19,7 +19,7 @@ import {
   updateSketch,
 } from "@furnishes/domain";
 import type { AssetNode } from "./assets-data";
-import { download } from "./export";
+import { download } from "./download";
 import { PlusIcon, TrashIcon } from "./icons";
 import { partStepOf, usePartStore } from "./part-client";
 import { rulesOfFace } from "./Part3D";

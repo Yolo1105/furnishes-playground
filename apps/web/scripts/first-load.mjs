@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
  * First-load JavaScript per route, read from a production build
- * (`.next/app-build-manifest.json`, the app router's manifest: the
- * script files a route's page needs, with the root layout's), each file
- * gzipped here as the server would send it. Run after `next build`:
+ * (Next's own `.next/diagnostics/route-bundle-stats.json`, which lists
+ * the script files each route loads first), each file gzipped here as
+ * the server would send it. Run after `next build`:
  *
  *   node scripts/first-load.mjs            # the table
  *   node scripts/first-load.mjs --check    # fails when /rounded is over budget
@@ -19,17 +19,30 @@ import path from "node:path";
 
 const root = path.resolve(new URL(".", import.meta.url).pathname, "..");
 const next = path.join(root, ".next");
-const manifestPath = path.join(next, "app-build-manifest.json");
-if (!existsSync(manifestPath)) {
-  console.error(
-    "no build: run `next build` first (missing " + manifestPath + ")",
-  );
-  process.exit(2);
-}
-const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
 const ROUTES = ["/rounded", "/studio", "/"];
 const BUDGET_KB = 450;
 const BUDGET_ROUTE = "/rounded";
+
+/** the files a route's first load needs, as Next's own build
+    diagnostics list them (`.next/diagnostics/route-bundle-stats.json`:
+    the runtime, the root layout's, the error and not-found boundaries'
+    and the page's chunks) */
+const stats = (() => {
+  const file = path.join(next, "diagnostics", "route-bundle-stats.json");
+  if (!existsSync(file)) {
+    console.error("no build: run `next build` first (missing " + file + ")");
+    process.exit(2);
+  }
+  return JSON.parse(readFileSync(file, "utf8"));
+})();
+const filesOf = (route) => {
+  const r = stats.find((x) => x.route === route);
+  if (!r) {
+    console.error(`no route ${route} in the build`);
+    process.exit(2);
+  }
+  return r.firstLoadChunkPaths.map((p) => p.replace(/^\.next\//, ""));
+};
 
 const gz = new Map();
 const gzipped = (file) => {
@@ -38,19 +51,6 @@ const gzipped = (file) => {
     gz.set(file, existsSync(p) ? gzipSync(readFileSync(p)).length : 0);
   }
   return gz.get(file);
-};
-/** the files a route's first load needs: its page's and its layouts' */
-const filesOf = (route) => {
-  const page = `${route === "/" ? "" : route}/page`;
-  const files = new Set(manifest.pages[page] ?? []);
-  for (const key of Object.keys(manifest.pages))
-    if (
-      key.endsWith("/layout") &&
-      (key === "/layout" ||
-        page.startsWith(key.slice(0, -"/layout".length) + "/"))
-    )
-      for (const f of manifest.pages[key]) files.add(f);
-  return [...files].filter((f) => f.endsWith(".js"));
 };
 const kb = (n) => (n / 1024).toFixed(1);
 const rows = ROUTES.map((route) => {

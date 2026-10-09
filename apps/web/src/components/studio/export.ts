@@ -1,3 +1,4 @@
+import { download } from "./download";
 import { propsOf, useScene } from "./scene-store";
 import {
   activeOf,
@@ -24,15 +25,6 @@ const stem = () => {
   const st = useRoom.getState();
   const r = activeOf(st);
   return `${ROOM_NAMES[r.room].toLowerCase().replace(/\s+/g, "-")}-${st.flat}`;
-};
-
-export const download = (name: string, blob: Blob) => {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  a.click();
-  requestAnimationFrame(() => URL.revokeObjectURL(url));
 };
 
 /** the SVG's styles come from the stylesheet; a file needs them inline */

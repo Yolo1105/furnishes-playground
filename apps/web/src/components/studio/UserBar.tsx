@@ -7,7 +7,7 @@ import { useSyncState } from "./account-sync";
 import { authClient, useSession } from "@/lib/auth-client";
 import { usePathname } from "next/navigation";
 import { useRef, useState } from "react";
-import { AccountDialog } from "./AccountDialog";
+import dynamic from "next/dynamic";
 import { BoardDialog } from "./BoardDialog";
 import { Dialog } from "./Dialog";
 import { FeedbackDialog } from "./FeedbackDialog";
@@ -42,6 +42,12 @@ type Sheet =
   | "profile"
   | "feedback"
   | null;
+
+/** the account dialog comes when it is opened, not with the studio */
+const AccountDialog = dynamic(
+  () => import("./AccountDialog").then((m) => m.AccountDialog),
+  { ssr: false },
+);
 
 export function UserBar() {
   const { data: session } = useSession();

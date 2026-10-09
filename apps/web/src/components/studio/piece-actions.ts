@@ -26,8 +26,8 @@ import {
   useTopLevel,
 } from "./scene-store";
 import { useStudio } from "./studio-store";
-import { usePartStore } from "./part-client";
-import { partOutline } from "./part-build";
+import { partOutline } from "./part-outline";
+import { usePartStore } from "./part-store";
 
 /**
  * The room as the planner reads it, where its pieces stand, and the

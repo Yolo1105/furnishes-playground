@@ -6,7 +6,7 @@ import {
   rectangleSketch,
   SHEET,
 } from "@furnishes/domain";
-import { download } from "./export";
+import { download } from "./download";
 import { stepOf } from "./part-client";
 
 /**

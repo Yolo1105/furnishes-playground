@@ -9,9 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { AccountDialog } from "./AccountDialog";
 import { AddStrip } from "./AddStrip";
-import { CheckoutDialog } from "./CheckoutDialog";
 import { ShareDialog } from "./ShareDialog";
 import { shareable, useProjects } from "./project-store";
 import { useSession } from "@/lib/auth-client";
@@ -19,12 +17,6 @@ import { toast } from "./account-sync";
 import { Floating } from "./Floating";
 import { ProgressLine } from "./ProgressLine";
 import { pieceTotals, sgd, type AssetNode } from "./assets-data";
-import {
-  exportPlanSvg,
-  exportRoomGlb,
-  exportRoomJson,
-  exportScenePng,
-} from "./export";
 import { useGuide } from "./guide-store";
 import {
   CartIcon,
@@ -202,6 +194,20 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
     exporting.close();
     go();
   };
+  /** an export, its code fetched on the click (three's glTF exporter
+      and the scene copy ride with it, not with the studio) */
+  const exportWith = (name: "plan" | "png" | "glb" | "json") =>
+    pick(() =>
+      import("./export").then((m) =>
+        name === "plan"
+          ? m.exportPlanSvg()
+          : name === "png"
+            ? m.exportScenePng()
+            : name === "glb"
+              ? m.exportRoomGlb()
+              : m.exportRoomJson(),
+      ),
+    );
   return (
     <>
       <div className="glass main-top" role="toolbar" aria-label="Studio tools">
@@ -622,9 +628,7 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
                     type="button"
                     role="menuitem"
                     className="shell-menu-row main-menu-row"
-                    onClick={() =>
-                      pick(view === "2d" ? exportPlanSvg : exportScenePng)
-                    }
+                    onClick={() => exportWith(view === "2d" ? "plan" : "png")}
                   >
                     <ExportIcon size={14} />
                     <span className="main-menu-row-text">
@@ -640,7 +644,7 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
                     type="button"
                     role="menuitem"
                     className="shell-menu-row main-menu-row"
-                    onClick={() => pick(exportRoomJson)}
+                    onClick={() => exportWith("json")}
                   >
                     <ExportIcon size={14} />
                     <span className="main-menu-row-text">
@@ -657,7 +661,7 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
                     // the 3D room is handed over from the stage: there is
                     // none to hand over while the plan has the main column
                     disabled={view !== "3d"}
-                    onClick={() => pick(exportRoomGlb)}
+                    onClick={() => exportWith("glb")}
                   >
                     <ExportIcon size={14} />
                     <span className="main-menu-row-text">
@@ -812,8 +816,16 @@ function ToolButton({
  * the cards away. Picking a card picks the same thing in the outliner,
  * and the other way round.
  */
-/** a part's history on the shelf: fetched the first time a part is
-    picked, not with the studio */
+/** the dialogs that open on a click, and a part's history on the
+    shelf: fetched when first wanted, not with the studio */
+const AccountDialog = dynamic(
+  () => import("./AccountDialog").then((m) => m.AccountDialog),
+  { ssr: false },
+);
+const CheckoutDialog = dynamic(
+  () => import("./CheckoutDialog").then((m) => m.CheckoutDialog),
+  { ssr: false },
+);
 const PartTimeline = dynamic(
   () => import("./PartTimeline").then((m) => m.PartTimeline),
   { ssr: false },
