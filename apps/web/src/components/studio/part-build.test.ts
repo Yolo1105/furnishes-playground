@@ -1,3 +1,4 @@
+import { silhouetteOf } from "./cut-solid";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -11,7 +12,7 @@ import {
   updateSketch,
 } from "@furnishes/domain";
 import type * as Replicad from "replicad";
-import { buildPart, hullOf, meshOf } from "./part-build";
+import { buildPart, hullOf, meshOf, partOutline } from "./part-build";
 
 /**
  * The part builder on the real kernel, in Node with its wasm read from
@@ -245,6 +246,55 @@ describe("the part builder", () => {
     expect(states(bracket)).toEqual(["ok", "ok", "ok", "ok"]);
     const bm = meshOf(bracket.body!);
     expect(bm.bounds[1].map((v) => Math.round(v) || 0)).toEqual([30, 120, 120]);
+    // the bracket seen from above, projected by the boolean kernel as
+    // the worker does it: the L stands upright (its arms run along y
+    // and up z), so from above it is the 30 by 120 bar of its foot with
+    // the front chamfer's slant at one end, one ring with no hole
+    // showing (the screw hole runs sideways); the outline for the
+    // clashes, if the ring is not the plain box, keeps to the box
+    {
+      const { default: Module } = await import("manifold-3d");
+      const mf = await Module({
+        locateFile: () =>
+          path.join(
+            path.dirname(require.resolve("manifold-3d/manifold.js")),
+            "manifold.wasm",
+          ),
+      });
+      mf.setup();
+      const rings = silhouetteOf(mf, bm.positions, bm.indices)!;
+      expect(rings.length).toBe(1);
+      const xs = rings[0]!.map((p) => p[0]);
+      const ys = rings[0]!.map((p) => p[1]);
+      expect(Math.round(Math.max(...xs) - Math.min(...xs))).toBe(30);
+      expect(Math.round(Math.max(...ys) - Math.min(...ys))).toBe(120);
+      const foot = partOutline({ ...bm, silhouette: rings });
+      if (foot)
+        for (const [x, y] of foot) {
+          expect(Math.abs(x)).toBeLessThanOrEqual(15.01);
+          expect(Math.abs(y)).toBeLessThanOrEqual(60.01);
+        }
+      // laid flat (the body turned so its L faces up), the outline is
+      // the L itself, six corners about the body's middle, a clash's
+      // polygon rather than its box
+      const flat = new Float32Array(bm.positions.length);
+      for (let i = 0; i < flat.length; i += 3) {
+        flat[i] = bm.positions[i + 1]!;
+        flat[i + 1] = bm.positions[i + 2]!;
+        flat[i + 2] = bm.positions[i]!;
+      }
+      const flatRings = silhouetteOf(mf, flat, bm.indices)!;
+      const outer = flatRings.reduce((a, b) => (b.length > a.length ? b : a));
+      expect(outer.length).toBeGreaterThanOrEqual(6);
+      const poly = partOutline({
+        silhouette: flatRings,
+        bounds: [
+          [0, 0, 0],
+          [120, 120, 30],
+        ],
+      })!;
+      expect(poly.length).toBe(outer.length);
+    }
     // the first sketch's reach typed anew: the bracket is longer, the
     // hole, the rounded corner and the chamfer all still there
     const longer = updateSketch(bracketPart(), "s1", {

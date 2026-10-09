@@ -26,6 +26,8 @@ import {
   useTopLevel,
 } from "./scene-store";
 import { useStudio } from "./studio-store";
+import { usePartStore } from "./part-client";
+import { partOutline } from "./part-build";
 
 /**
  * The room as the planner reads it, where its pieces stand, and the
@@ -73,6 +75,8 @@ export function usePieceActions(roomId?: string) {
   const { select, toggleLabel, setProps, placeAll, addProduct, addItem } =
     useScene.getState();
   const readOnly = useStudio((s) => s.readOnly);
+  // the parts as built, for their real outlines on the plan
+  const builtParts = usePartStore((s) => s.built);
   // a shared room reads as Inspect, with nothing offered on a click
   const tool = useStudio((s) => (readOnly ? "inspect" : s.tool));
   const focusId = useStudio((s) => s.focusId);
@@ -111,6 +115,7 @@ export function usePieceActions(roomId?: string) {
       const at = where(i);
       if (p.hidden || !at) return [];
       const f = footprint({ ...p, rotation: at.rotation });
+      const mesh = n.part ? builtParts[n.id]?.mesh : undefined;
       return [
         {
           id: n.id,
@@ -120,6 +125,7 @@ export function usePieceActions(roomId?: string) {
           ...f,
           h: p.height,
           own: { w: p.width, d: p.depth, rotation: at.rotation },
+          poly: mesh ? partOutline(mesh) : undefined,
         },
       ];
     });

@@ -10,7 +10,8 @@ import {
   systemHoles,
 } from "@furnishes/domain";
 import type { ManifoldToplevel } from "manifold-3d";
-import { cutMeshOf, slabManifold } from "./cut-solid";
+import { cutMeshOf, silhouetteOf, slabManifold } from "./cut-solid";
+import { hullOf } from "./part-build";
 
 /**
  * The real cuts on manifold-3d in Node, its wasm read from the
@@ -80,6 +81,50 @@ describe("the cut solid", () => {
     expect([...cut.tones].some((t) => t === 1)).toBe(true);
     expect([...cut.tones].some((t) => t < 1)).toBe(true);
   }, 60_000);
+
+  it("projects a body onto the floor as its exact outline: an L is an L, not its hull, and a hole is a ring of its own", () => {
+    // an L lying flat: two bars joined at a corner
+    const l = m.Manifold.cube([100, 20, 10], false).add(
+      m.Manifold.cube([20, 100, 10], false),
+    );
+    const lm = l.getMesh();
+    l.delete();
+    const rings = silhouetteOf(
+      m,
+      Float32Array.from(lm.vertProperties),
+      Uint32Array.from(lm.triVerts),
+    )!;
+    expect(rings.length).toBe(1);
+    const ring = rings[0]!;
+    expect(ring.length).toBe(6);
+    const area = (r: [number, number][]) =>
+      Math.abs(
+        r.reduce((a, [x1, y1], i) => {
+          const [x2, y2] = r[(i + 1) % r.length]!;
+          return a + x1 * y2 - x2 * y1;
+        }, 0) / 2,
+      );
+    expect(area(ring)).toBeCloseTo(100 * 20 + 20 * 100 - 20 * 20, 3);
+    // the hull round the same points is the bigger pentagon
+    expect(area(hullOf(ring))).toBeGreaterThan(area(ring) + 1000);
+    // a slab with a hole through it: the outer ring and the hole
+    const holed = m.Manifold.cube([80, 60, 10], false).subtract(
+      m.Manifold.cylinder(20, 10, 10, 24, false).translate(40, 30, -5),
+    );
+    const hm = holed.getMesh();
+    holed.delete();
+    const two = silhouetteOf(
+      m,
+      Float32Array.from(hm.vertProperties),
+      Uint32Array.from(hm.triVerts),
+    )!;
+    expect(two.length).toBe(2);
+    const [outer, hole] = [...two].sort((a, b) => area(b) - area(a));
+    expect(area(outer!)).toBeCloseTo(80 * 60, 3);
+    expect(Math.abs(area(hole!) - Math.PI * 100)).toBeLessThan(
+      Math.PI * 100 * 0.05,
+    );
+  });
 
   it("cuts a twenty-panel cabinet's machining in under half a second", () => {
     const panels = [

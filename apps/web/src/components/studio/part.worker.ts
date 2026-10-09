@@ -9,7 +9,7 @@ import {
   sketchSize,
 } from "@furnishes/domain";
 import type { ManifoldToplevel } from "manifold-3d";
-import { type CutMesh, cutMeshOf, welded } from "./cut-solid";
+import { type CutMesh, cutMeshOf, silhouetteOf, welded } from "./cut-solid";
 import type { GcsWrapper } from "@salusoft89/planegcs";
 import type * as Replicad from "replicad";
 import {
@@ -242,11 +242,18 @@ const answer = async (req: PartRequest): Promise<PartAnswer> => {
     case "build": {
       const r = await kernel();
       const built = await buildPart(r, req.part, req.upTo);
+      const mesh = built.body ? meshOf(built.body) : null;
+      // the plan's symbol and the clashes read the body's real outline
+      // from above, which the boolean kernel projects
+      if (mesh) {
+        const m = await manifold();
+        mesh.silhouette = silhouetteOf(m, mesh.positions, mesh.indices);
+      }
       return {
         id: req.id,
         ok: true,
         kind: "build",
-        mesh: built.body ? meshOf(built.body) : null,
+        mesh,
         statuses: built.statuses,
         ms: performance.now() - t0,
       };

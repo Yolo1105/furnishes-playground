@@ -137,6 +137,32 @@ export const welded = (
   return out;
 };
 
+/** a body seen from above: its projection onto the x-y plane, as the
+    kernel reads it, simplified to `tolerance` mm; the polygons of the
+    outline, outer rings counter-clockwise and holes clockwise, mm.
+    Null when the mesh does not weld into a solid (a caller then falls
+    back to the hull round the points). */
+export const silhouetteOf = (
+  m: ManifoldToplevel,
+  positions: Float32Array,
+  indices: Uint32Array,
+  tolerance = 0.5,
+): [number, number][][] | null => {
+  let body: Manifold;
+  try {
+    body = welded(m, positions, indices);
+  } catch {
+    return null;
+  }
+  const cross = body.project();
+  body.delete();
+  const simple = cross.simplify(tolerance);
+  cross.delete();
+  const polys = simple.toPolygons();
+  simple.delete();
+  return polys.map((p) => p.map(([x, y]) => [x, y] as [number, number]));
+};
+
 /** the tools, one solid each, where the features sit on the panel */
 export const toolsOf = (
   m: ManifoldToplevel,

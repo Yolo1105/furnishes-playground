@@ -1,5 +1,10 @@
 import { isRug, isSmall } from "./piece-detail";
-import { gapToWalls, rectInside, sideSpan } from "./room-geometry";
+import {
+  gapToWalls,
+  rectInside,
+  sideSpan,
+  insideOutline,
+} from "./room-geometry";
 import type { Point } from "./room-templates";
 import {
   MUST_HAVE_CHOICES,
@@ -43,6 +48,10 @@ type Box = {
   h: number;
   /** the piece's own size and turn, for one standing on the slant */
   own?: { w: number; d: number; rotation: number } | undefined;
+  /** the piece's own outline on the plan when it is not its box (a
+      part's body seen from above), about its middle before its turn,
+      mm; the overlaps are read by it */
+  poly?: [number, number][] | undefined;
 };
 export type Zone = { x: number; y: number; w: number; d: number };
 export type Issue = {
@@ -148,8 +157,8 @@ type Zones = ReturnType<typeof zonesOf>;
 export const meets = (a: Zone, b: Zone) =>
   a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.d && b.y < a.y + a.d;
 
-/** the four corners of a box, turned about its middle when it stands on
-    the slant */
+/** the piece's outline on the plan: its own polygon when it has one,
+    else the four corners of its box, either turned about its middle */
 const corners = (b: Box): [number, number][] => {
   const cx = b.x + b.w / 2;
   const cy = b.y + b.d / 2;
@@ -157,7 +166,7 @@ const corners = (b: Box): [number, number][] => {
   const a = (own.rotation * Math.PI) / 180;
   const c = Math.cos(a);
   const s = Math.sin(a);
-  const half: [number, number][] = [
+  const half: [number, number][] = b.poly ?? [
     [-own.w / 2, -own.d / 2],
     [own.w / 2, -own.d / 2],
     [own.w / 2, own.d / 2],
@@ -165,29 +174,47 @@ const corners = (b: Box): [number, number][] => {
   ];
   return half.map(([x, y]) => [cx + x * c - y * s, cy + x * s + y * c]);
 };
+/** whether two segments cross */
+const segmentsCross = (
+  [ax, ay]: [number, number],
+  [bx, by]: [number, number],
+  [cx, cy]: [number, number],
+  [dx, dy]: [number, number],
+) => {
+  const d1 = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+  const d2 = (bx - ax) * (dy - ay) - (by - ay) * (dx - ax);
+  const d3 = (dx - cx) * (ay - cy) - (dy - cy) * (ax - cx);
+  const d4 = (dx - cx) * (by - cy) - (dy - cy) * (bx - cx);
+  return d1 * d2 < 0 && d3 * d4 < 0;
+};
+/** whether two outlines stand over each other, concave ones included:
+    an edge of one crosses an edge of the other, or a corner of one is
+    inside the other (one wholly inside the other) */
+const outlinesMeet = (A: [number, number][], B: [number, number][]) => {
+  for (let i = 0; i < A.length; i++)
+    for (let j = 0; j < B.length; j++)
+      if (
+        segmentsCross(
+          A[i]!,
+          A[(i + 1) % A.length]!,
+          B[j]!,
+          B[(j + 1) % B.length]!,
+        )
+      )
+        return true;
+  return (
+    insideOutline(A[0]![0], A[0]![1], B) || insideOutline(B[0]![0], B[0]![1], A)
+  );
+};
 /** whether two pieces stand over each other: the boxes when both are
-    square, the turned outlines (separating axes) when either is not */
+    square boxes, the outlines (turned, or a part's own) when either is
+    not */
 const overlaps = (a: Box, b: Box) => {
   if (!meets(a, b)) return false;
-  const slant = (x: Box) => x.own && x.own.rotation % 90 !== 0;
-  if (!slant(a) && !slant(b)) return true;
-  const A = corners(a);
-  const B = corners(b);
-  for (const poly of [A, B])
-    for (let i = 0; i < 4; i++) {
-      const [x1, y1] = poly[i]!;
-      const [x2, y2] = poly[(i + 1) % 4]!;
-      const nx = y2 - y1;
-      const ny = x1 - x2;
-      const span = (pts: [number, number][]) => {
-        const ps = pts.map(([x, y]) => x * nx + y * ny);
-        return [Math.min(...ps), Math.max(...ps)] as const;
-      };
-      const [a0, a1] = span(A);
-      const [b0, b1] = span(B);
-      if (a1 <= b0 || b1 <= a0) return false;
-    }
-  return true;
+  const shaped = (x: Box) =>
+    x.poly !== undefined || (x.own !== undefined && x.own.rotation % 90 !== 0);
+  if (!shaped(a) && !shaped(b)) return true;
+  return outlinesMeet(corners(a), corners(b));
 };
 
 /** a rug lies under things; a small thing is walked round */

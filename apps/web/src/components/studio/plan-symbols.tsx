@@ -153,18 +153,40 @@ export function PlanSymbol({
     line(0, d / 2, w, d / 2);
   }
 
-  // a part modelled in the studio: its body seen from above (the hull
-  // round it, as the part worker reads it), its depth running north
+  // a part modelled in the studio: its body seen from above, its depth
+  // running north: the exact outline the worker projected (holes and
+  // all, as one even-odd path), else the hull round its points
   if (node.part && built) {
     const [lo] = built.bounds;
-    const pts = built.outline.map(([x, y]) => m(x - lo[0], d - (y - lo[1])));
-    parts.push(
-      <polygon
-        key={k++}
-        points={pts.map((p) => p.join(",")).join(" ")}
-        className="stage-piece-symbol-part"
-      />,
-    );
+    const at = ([x, y]: [number, number]) => m(x - lo[0], d - (y - lo[1]));
+    if (built.silhouette?.length) {
+      const path = built.silhouette
+        .map(
+          (ring) =>
+            ring
+              .map((p, i) => `${i === 0 ? "M" : "L"}${at(p).join(",")}`)
+              .join(" ") + " Z",
+        )
+        .join(" ");
+      parts.push(
+        <path
+          key={k++}
+          d={path}
+          fillRule="evenodd"
+          className="stage-piece-symbol-part"
+          data-exact="true"
+        />,
+      );
+    } else {
+      const pts = built.outline.map(at);
+      parts.push(
+        <polygon
+          key={k++}
+          points={pts.map((p) => p.join(",")).join(" ")}
+          className="stage-piece-symbol-part"
+        />,
+      );
+    }
   }
 
   if (parts.length === 0) return null;
