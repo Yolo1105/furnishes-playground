@@ -10,6 +10,7 @@ import {
 } from "react";
 import type { Group, Texture } from "three";
 import { type StillState, stillOf } from "./capture";
+import { devParam } from "./dev-flags";
 import { LightProbeGrid } from "three/examples/jsm/lighting/LightProbeGrid.js";
 import { LightProbeGridNode } from "three/examples/jsm/tsl/lighting/LightProbeGridNode.js";
 import type { WebGPURenderer } from "three/webgpu";
@@ -29,10 +30,15 @@ import type { WebGPURenderer } from "three/webgpu";
  * from the last frame.
  */
 
+/** the tests' quick bake (`?probes=fast`, development only): probes
+    twice as far apart (an eighth as many), the smallest pictures and no
+    bounce pass, so a software renderer bakes a room in seconds; the
+    visual baselines are taken with it */
+const FAST = devParam("probes") === "fast";
 /** probes about this far apart, m */
-const SPACING = 1.5;
+const SPACING = FAST ? 3 : 1.5;
 /** the sides of each probe's picture, px */
-const CUBEMAP = 8;
+const CUBEMAP = FAST ? 4 : 8;
 /** probes baked in one call */
 const PER_CALL = 2;
 /** the time a frame gives the bake, ms; the rest waits for the next */
@@ -153,7 +159,7 @@ export function Probes({
       );
       j.at += count;
     } while (j.at < total && performance.now() - t0 < BAKE_MS);
-    const passes = bounce ? BOUNCES + 1 : 1;
+    const passes = bounce && !FAST ? BOUNCES + 1 : 1;
     onProgress?.(j.pass * total + j.at, total * passes);
     if (j.at >= total) {
       if (j.pass >= passes - 1) {

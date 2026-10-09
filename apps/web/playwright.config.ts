@@ -13,6 +13,9 @@ import { defineConfig, devices } from "@playwright/test";
 const chromium = process.env.PLAYWRIGHT_CHROMIUM_PATH
   ? { launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH } }
   : {};
+/** the visual project's waits scale with this on a slow machine
+    (VISUAL_SLOW=3), as the spec's own do */
+const SLOW = Number(process.env.VISUAL_SLOW) || 1;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -39,10 +42,10 @@ export default defineConfig({
       // shadows) on the software GPU, most of a minute by itself
       name: "visual",
       testMatch: /visual\.spec\.ts/,
-      // a software renderer takes a minute or two to bake a room's
-      // probes before a picture can be taken, and the evening view
-      // bakes twice
-      timeout: 300_000,
+      // a software renderer takes a while to bake a room's probes
+      // (the quick bake, see the spec) before a picture can be taken,
+      // and the evening view bakes twice
+      timeout: 300_000 * SLOW,
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 1440, height: 900 },

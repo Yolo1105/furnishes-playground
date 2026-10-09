@@ -11,16 +11,27 @@ import { LOOK_STORAGE_KEY } from "../src/components/studio/useArrival";
  * fifth let it through), and a view may drift by half a percent of its
  * pixels (the software renderer's noise); more is a change to look at,
  * and `--update-snapshots` keeps it once it is meant.
+ *
+ * The pictures are taken with `?probes=fast`: the probe grid's quick
+ * bake (fewer probes, the smallest pictures, no bounce pass), so a
+ * software renderer bakes a room in seconds rather than minutes; the
+ * baselines are of that bake, and the full grid is judged by hand on
+ * WebGPU (the checklist). Every wait and timeout here scales with
+ * VISUAL_SLOW (1 by default; 3 on a slow machine), set in the shell.
  */
+/** how much slower than the machine the waits were tuned on */
+const SLOW = Number(process.env.VISUAL_SLOW) || 1;
 const DRIFT = {
   threshold: 0.05,
   maxDiffPixelRatio: 0.005,
   animations: "disabled",
   // a development server mid-compile, and the software renderer, are slow
-  timeout: 20_000,
+  timeout: 20_000 * SLOW,
 } as const;
 /** the surroundings, the props and the frame take a moment to settle */
-const SETTLE = 4000;
+const SETTLE = 4000 * SLOW;
+/** the longest a bake or a load is given */
+const LONG = 180_000 * SLOW;
 
 test.beforeEach(async ({ page }) => {
   // the full finish, whatever the test's GPU: the pictures are of it
@@ -45,9 +56,9 @@ test.beforeEach(async ({ page }) => {
       },
     },
   );
-  await page.goto("/rounded");
+  await page.goto("/rounded?probes=fast");
   await expect(page.locator('html[data-arrived="true"]')).toBeAttached({
-    timeout: 20_000,
+    timeout: 20_000 * SLOW,
   });
   await settled(page);
 });
@@ -62,37 +73,45 @@ const settled = async (page: Page) => {
   await expect(stage(page)).toHaveAttribute(
     "data-backend",
     /webgpu|webgl|software/,
-    {
-      timeout: 180_000,
-    },
+    { timeout: LONG },
   );
-  // the photographed sets listed are all in, so the picture is not
-  // taken with a surface still on its way
-  await expect(stage(page)).toHaveAttribute("data-materials-pending", "0", {
-    timeout: 180_000,
-  });
   await expect(stage(page)).toHaveAttribute("data-probes", /ready|off/, {
-    timeout: 180_000,
+    timeout: LONG,
   });
   await expect(stage(page)).toHaveAttribute("data-reflection", /ready|off/, {
-    timeout: 180_000,
+    timeout: LONG,
   });
-  // the edges resolved: TRAA's settle frames are through
-  await expect(stage(page)).toHaveAttribute("data-settled", "true", {
-    timeout: 180_000,
-  });
-  // the camera at rest: a glide to the angle is through (the stage
-  // says so once one has run; before any, the attribute is not there)
-  await expect(stage(page)).not.toHaveAttribute("data-gliding", "true", {
-    timeout: 60_000,
-  });
+  await still(page);
   await page.waitForTimeout(SETTLE);
+};
+
+/** the frame at rest, checked again right before every picture: the
+    photographed sets listed are all in (so no surface is still on its
+    way), TRAA's settle frames are through, and the camera's glide to
+    the angle is over (the stage says so once one has run; before any,
+    the attribute is not there) */
+const still = async (page: Page) => {
+  await expect(stage(page)).toHaveAttribute("data-materials-pending", "0", {
+    timeout: LONG,
+  });
+  await expect(stage(page)).toHaveAttribute("data-settled", "true", {
+    timeout: LONG,
+  });
+  await expect(stage(page)).not.toHaveAttribute("data-gliding", "true", {
+    timeout: 60_000 * SLOW,
+  });
+};
+
+/** the picture, once the frame is still */
+const picture = async (page: Page, name: string) => {
+  await still(page);
+  await expect(stage(page)).toHaveScreenshot(name, DRIFT);
 };
 
 const stage = (page: Page) => page.locator(".shell-stage .stage-3d");
 
 test("the room as it opens: the light panels by day", async ({ page }) => {
-  await expect(stage(page)).toHaveScreenshot("day-panels.png", DRIFT);
+  await picture(page, "day-panels.png");
 });
 
 test("the room under a sunset", async ({ page }) => {
@@ -101,7 +120,7 @@ test("the room under a sunset", async ({ page }) => {
   await menu.getByRole("menuitemradio", { name: "A sunset" }).click();
   await page.keyboard.press("Escape");
   await settled(page);
-  await expect(stage(page)).toHaveScreenshot("day-sunset.png", DRIFT);
+  await picture(page, "day-sunset.png");
 });
 
 test("the room in the evening, with its shadows", async ({ page }) => {
@@ -110,13 +129,13 @@ test("the room in the evening, with its shadows", async ({ page }) => {
   await menu.getByRole("menuitemradio", { name: "Evening" }).click();
   await page.keyboard.press("Escape");
   await settled(page);
-  await expect(stage(page)).toHaveScreenshot("evening-panels.png", DRIFT);
+  await picture(page, "evening-panels.png");
 });
 
 test("the front elevation", async ({ page }) => {
   await page.getByRole("radio", { name: "Front" }).click();
   await page.waitForTimeout(SETTLE);
-  await expect(stage(page)).toHaveScreenshot("elevation-front.png", DRIFT);
+  await picture(page, "elevation-front.png");
 });
 
 test("at eye level, walking", async ({ page }) => {
@@ -124,5 +143,5 @@ test("at eye level, walking", async ({ page }) => {
   // the walk's ceiling changes the room: the probes and the floor's
   // picture are taken again, and the picture waits for them
   await settled(page);
-  await expect(stage(page)).toHaveScreenshot("walk.png", DRIFT);
+  await picture(page, "walk.png");
 });
