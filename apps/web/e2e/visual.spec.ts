@@ -36,7 +36,12 @@ test.beforeEach(async ({ page }) => {
       },
       look: {
         key: LOOK_STORAGE_KEY,
-        value: JSON.stringify({ scene: { quality: "full" } }),
+        // the Full picture without the desktop extras: the reflections
+        // and the bounce light are judged by hand on WebGPU (the
+        // checklist), and would leave these pictures to settle longer
+        value: JSON.stringify({
+          scene: { quality: "full", reflections: false, bounce: false },
+        }),
       },
     },
   );
