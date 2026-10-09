@@ -18,7 +18,12 @@ import { toast } from "./account-sync";
 import { Floating } from "./Floating";
 import { ProgressLine } from "./ProgressLine";
 import { pieceTotals, sgd, type AssetNode } from "./assets-data";
-import { exportPlanSvg, exportRoomJson, exportScenePng } from "./export";
+import {
+  exportPlanSvg,
+  exportRoomGlb,
+  exportRoomJson,
+  exportScenePng,
+} from "./export";
 import { useGuide } from "./guide-store";
 import {
   CartIcon,
@@ -566,6 +571,23 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
                       Room and pieces as JSON
                       <span className="main-menu-row-sub">
                         Sizes, finishes, every piece and its settings
+                      </span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="shell-menu-row main-menu-row"
+                    // the 3D room is handed over from the stage: there is
+                    // none to hand over while the plan has the main column
+                    disabled={view !== "3d"}
+                    onClick={() => pick(exportRoomGlb)}
+                  >
+                    <ExportIcon size={14} />
+                    <span className="main-menu-row-text">
+                      3D model as GLB
+                      <span className="main-menu-row-sub">
+                        The room and its pieces, for Blender or any viewer
                       </span>
                     </span>
                   </button>

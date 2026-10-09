@@ -17,6 +17,7 @@ import {
   type Group,
   PCFShadowMap,
   Plane,
+  type Scene,
   Vector3,
   type Vector3Tuple,
   type WebGLRenderer,
@@ -60,6 +61,9 @@ import type { StillState } from "./capture";
 import { loadMaterials, useMaterials } from "./materials";
 import { RoomLight, RoomShell, windowSun } from "./Room3D";
 import { usePartStore } from "./part-client";
+import { cameraFor, EYE } from "./camera-bookmarks";
+import { setLive } from "./scene-handle";
+import { devFlag } from "./dev-flags";
 import { propsOf, useScene } from "./scene-store";
 import { useCoarse } from "./input";
 import {
@@ -142,6 +146,39 @@ function FirstFrame({ onDrawn }: { onDrawn: () => void }) {
     // same turn as the frame's callbacks
     onDrawn();
   });
+  return null;
+}
+
+/** the export's tags: what a copy of the scene keeps and what it
+    drops (scene-copy.ts) */
+const PIECES_TAG = { export: "piece" } as const;
+const HELPER_TAG = { export: "helper" } as const;
+
+/** the live scene handed to code outside the canvas (the glTF export)
+    while the room is on the stage, with its box and its sun */
+function LiveHandle({
+  w,
+  d,
+  h,
+  centre,
+  sun,
+}: {
+  w: number;
+  d: number;
+  h: number;
+  centre: readonly [number, number];
+  sun: { position: Vector3Tuple; colour: string; intensity: number };
+}) {
+  const scene = useThree((s) => s.scene);
+  const camera = useThree((s) => s.camera);
+  useEffect(() => {
+    setLive({ scene, camera, w, d, h, centre, sun });
+    // in development the scene is at hand in the console too, for
+    // hiding one thing at a time when a defect is hunted
+    if (process.env.NODE_ENV !== "production")
+      (window as unknown as { __scene?: Scene }).__scene = scene;
+    return () => setLive(null);
+  }, [scene, camera, w, d, h, centre, sun]);
   return null;
 }
 
@@ -233,7 +270,6 @@ function Exposure({ value }: { value: number }) {
 const GRID_HEX = "#b9a797";
 
 const FLOOR = new Plane(new Vector3(0, 1, 0), 0);
-const EYE = 1.6;
 const GLIDE = 0.6; // s, the camera's move between angles
 const WALK_SPEED = 1.6; // m/s
 const TOUR_SPEED = 0.9; // m/s, a slow walk to look about
@@ -301,40 +337,6 @@ const report = (stage: RefObject<HTMLDivElement | null>, p: Vector3) => {
   if (!el) return;
   const v = `${p.x.toFixed(2)},${p.y.toFixed(2)},${p.z.toFixed(2)}`;
   if (el.dataset.cam !== v) el.dataset.cam = v;
-};
-
-/** where the camera stands for each angle, scaled to the flat's box
-    and looking at its middle */
-const cameraFor = (
-  angle: Angle,
-  w: number,
-  d: number,
-  h: number,
-  centre: readonly [number, number],
-) => {
-  const r = Math.max(w, d);
-  const [cx, cz] = centre;
-  // the four sides look in over the near wall, which is open to the
-  // camera, from above the walls: the floor, the pieces and the far wall
-  // all in view, as a section through the room is drawn
-  const over = h * 1.3;
-  const side: Vector3Tuple = [cx, h / 3, cz];
-  const at: Record<string, Vector3Tuple> = {
-    // the perspective stands at eye height beyond the open near corner
-    // and looks a little down across the room, as a photograph of it
-    // is taken: the floor in view, the walls upright
-    Perspective: [cx, EYE * 0.6, cz],
-    Top: [cx, h / 2, cz],
-  };
-  const pos: Record<string, Vector3Tuple> = {
-    Perspective: [cx + r * 0.78, EYE, cz + r * 0.98],
-    Front: [cx, over, cz + r * 1.3],
-    Back: [cx, over, cz - r * 1.3],
-    Left: [cx - r * 1.3, over, cz],
-    Right: [cx + r * 1.3, over, cz],
-    Top: [cx, r * 1.8, cz + 0.01],
-  };
-  return { pos: pos[angle] ?? pos.Perspective!, at: at[angle] ?? side };
 };
 
 type Controls = { target: Vector3; update: () => void } | null;
@@ -875,6 +877,7 @@ function Piece({
     <group
       position={at}
       rotation={[0, turn, 0]}
+      userData={{ name: node.name }}
       onPointerDown={onDown}
       onPointerMove={onMove}
       onPointerUp={onUp}
@@ -930,6 +933,7 @@ function Piece({
             rotation={[-Math.PI / 2, 0, 0]}
             position={[0, RING_Y, 0]}
             raycast={unpickable}
+            userData={HELPER_TAG}
           >
             <ringGeometry args={[ringR - RING_W, ringR, 96]} />
             <meshBasicMaterial
@@ -1072,6 +1076,7 @@ function Halo({
       rotation={[-Math.PI / 2, 0, 0]}
       position={[0, RING_Y, 0]}
       raycast={unpickable}
+      userData={HELPER_TAG}
     >
       <planeGeometry args={[hw, hd]} />
       <meshBasicMaterial
@@ -1344,7 +1349,8 @@ export default function Scene3D() {
   const post = tier && !postFailed ? tier : null;
   // the room's own bounce light, from probes over the shell: not on a
   // phone, and not for a piece looked at on its own
-  const probes = tier !== null && tier !== "phone" && !a.focus;
+  const probes =
+    tier !== null && tier !== "phone" && !a.focus && !devFlag("noprobes");
   // what the probes see: the shell, its finish and its light
   const probeStamp = JSON.stringify([
     room.id,
@@ -1390,7 +1396,11 @@ export default function Scene3D() {
   const [probeDone, setProbeDone] = useState({ at: 0, of: 0 });
   const [settling, setSettling] = useState(0);
   const [drawn, setDrawn] = useState(false);
-  const skyShadow = shadows && tier === "desktop";
+  const skyShadow = shadows && tier === "desktop" && !devFlag("noskyshadow");
+  const liveSun = useMemo(
+    () => ({ position: sunFrom, colour: light.colour, intensity: light.sun }),
+    [sunFrom, light.colour, light.sun],
+  );
   const skyReach = Math.max(w, d) * 0.75;
   // a graded render is the work the stage does anyway, counted: the
   // light baked, the floor's picture, the edges settled; it ends when
@@ -1501,6 +1511,7 @@ export default function Scene3D() {
         <Exposure value={scene.exposure} />
         <Backend />
         <FirstFrame onDrawn={() => setDrawn(true)} />
+        <LiveHandle w={w} d={d} h={h} centre={centre} sun={liveSun} />
         {tier && <Photo tier={tier} />}
         {post && (
           <Post
@@ -1612,7 +1623,7 @@ export default function Scene3D() {
                 sun={sunFrom}
               />
             ))}
-        <group ref={pieces}>
+        <group ref={pieces} userData={PIECES_TAG}>
           {a.shown.map((n) => {
             const p = a.props.get(n.id)!;
             const size: Vector3Tuple = [

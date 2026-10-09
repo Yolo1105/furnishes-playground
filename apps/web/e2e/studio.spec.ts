@@ -4543,7 +4543,15 @@ test("Export hands the room over as a glTF binary: the shell, the pieces, camera
   // the JSON chunk names the room's parts, the cameras and the sun
   const jsonLength = bytes.readUInt32LE(12);
   const json = bytes.subarray(20, 20 + jsonLength).toString("utf8");
-  for (const name of ["Floor", "Wall", "Window", "Bookwall", "Front", "Walk", "Sun"])
+  for (const name of [
+    "Floor",
+    "Wall",
+    "Window",
+    "Bookwall",
+    "Front",
+    "Walk",
+    "Sun",
+  ])
     expect(json, name).toContain(`"name":"${name}`);
   expect(json).toContain("KHR_lights_punctual");
   expect(json).not.toContain("NodeMaterial");

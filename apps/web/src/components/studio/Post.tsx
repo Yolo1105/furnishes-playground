@@ -1,5 +1,6 @@
 "use client";
 
+import { devFlag } from "./dev-flags";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
 import {
@@ -229,15 +230,20 @@ const build = (
   scenePass.setMRT(mrt({ output, velocity }));
   // the occlusion from the depth alone (its normals are read back from
   // it), so the room is drawn once a frame
-  const occlusion = ao(depth, null as unknown as Node, camera);
-  occlusion.resolutionScale = tier === "desktop" ? 1 : 0.5;
-  occlusion.radius.value = AO.radius;
-  occlusion.scale.value = AO.scale;
-  occlusion.useTemporalFiltering = true;
+  // the occlusion can be switched off for diagnosis (dev-flags.ts)
+  const occlusion = devFlag("noao")
+    ? null
+    : ao(depth, null as unknown as Node, camera);
+  if (occlusion) {
+    occlusion.resolutionScale = tier === "desktop" ? 1 : 0.5;
+    occlusion.radius.value = AO.radius;
+    occlusion.scale.value = AO.scale;
+    occlusion.useTemporalFiltering = true;
+  }
   const frame = frameOf(
     scenePass,
     depth,
-    occlusion.getTextureNode().sample(screenUV).r,
+    occlusion ? occlusion.getTextureNode().sample(screenUV).r : null,
     backdrop,
   );
   const resolve = traa(
@@ -253,7 +259,7 @@ const build = (
     dispose: () => {
       resolve.dispose();
       frame.dispose();
-      occlusion.dispose();
+      occlusion?.dispose();
       scenePass.dispose();
       pipeline.dispose();
     },

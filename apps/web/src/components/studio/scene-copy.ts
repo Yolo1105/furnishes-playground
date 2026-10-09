@@ -1,6 +1,7 @@
 import {
   CanvasTexture,
   Color,
+  type DataTexture,
   DirectionalLight,
   DoubleSide,
   Group,
@@ -36,8 +37,9 @@ import {
  * copy's node.
  *
  * Materials are new instances the copy owns (dispose them with it);
- * geometries and the live scene's textures are shared by reference and
- * never disposed here; the sky pictures are the copy's own.
+ * geometries and the live scene's picture textures are shared by
+ * reference and never disposed here; the sky pictures and the canvas
+ * copies of the grown surfaces' raw maps are the copy's own.
  */
 export type ExportTag = "room" | "piece" | "prop" | "helper" | "outlook";
 export type CopyPurpose = "gltf" | "trace";
@@ -107,11 +109,133 @@ const givenName = (o: Object3D): string | null => {
 };
 
 type Classic = MeshStandardMaterial | MeshPhysicalMaterial;
-/** a material the exporter and the tracer read: a classic one is
-    cloned (textures shared); a node material becomes a Standard one
-    with the same colour and maps; anything else a Standard one in its
-    colour */
-const classicOf = (m: Material): Classic => {
+
+/** whether a texture's picture can be drawn to a canvas, which the
+    exporter does to embed it: an element, a bitmap, or raw data; a
+    render target's or an empty one cannot, and is left out */
+const drawable = (t: Texture | null | undefined): t is Texture => {
+  if (!t) return false;
+  const image = t.image as
+    { data?: unknown; width?: number } | HTMLImageElement | null | undefined;
+  if (!image) return false;
+  if (
+    typeof HTMLImageElement !== "undefined" &&
+    image instanceof HTMLImageElement
+  )
+    return image.complete && image.naturalWidth > 0;
+  if (
+    typeof HTMLCanvasElement !== "undefined" &&
+    image instanceof HTMLCanvasElement
+  )
+    return true;
+  if (typeof ImageBitmap !== "undefined" && image instanceof ImageBitmap)
+    return image.width > 0;
+  if (
+    typeof OffscreenCanvas !== "undefined" &&
+    image instanceof OffscreenCanvas
+  )
+    return true;
+  return (image as { data?: unknown }).data !== undefined;
+};
+/** a grown surface's map, raw bytes in a DataTexture, drawn into a
+    canvas the exporter can draw from (it packs roughness with
+    metalness by drawing, which raw bytes cannot be): the rows turned
+    over so the picture reads the same way up, the repeat and the wrap
+    kept; the copy's own, let go with it */
+const canvasOf = (t: DataTexture): CanvasTexture | null => {
+  if (typeof document === "undefined") return null;
+  const { data, width, height } = t.image as {
+    data: Uint8Array | Uint8ClampedArray;
+    width: number;
+    height: number;
+  };
+  const c = document.createElement("canvas");
+  c.width = width;
+  c.height = height;
+  const ctx = c.getContext("2d");
+  if (!ctx) return null;
+  const px = new Uint8ClampedArray(width * height * 4);
+  for (let y = 0; y < height; y++)
+    px.set(
+      data.subarray(y * width * 4, (y + 1) * width * 4),
+      (height - 1 - y) * width * 4,
+    );
+  ctx.putImageData(new ImageData(px, width, height), 0, 0);
+  const out = new CanvasTexture(c);
+  out.wrapS = t.wrapS;
+  out.wrapT = t.wrapT;
+  out.repeat.copy(t.repeat);
+  out.offset.copy(t.offset);
+  out.colorSpace = t.colorSpace;
+  out.anisotropy = t.anisotropy;
+  return out;
+};
+/** what a copy owns and shares: the materials and pictures it made,
+    and one canvas per raw map, so a map that a hundred panels share
+    goes out once */
+type Owned = {
+  made: { dispose: () => void }[];
+  canvases: Map<DataTexture, CanvasTexture | null>;
+};
+/** a texture the exporter can embed: a drawable one as it is, raw
+    bytes as a canvas (one per source), anything else left out */
+const embeddable = (
+  t: Texture | null | undefined,
+  own: Owned,
+): Texture | null => {
+  if (!t) return null;
+  if ((t as DataTexture).isDataTexture) {
+    const d = t as DataTexture;
+    if (!own.canvases.has(d)) {
+      const c = canvasOf(d);
+      if (c) own.made.push(c);
+      own.canvases.set(d, c);
+    }
+    return own.canvases.get(d) ?? null;
+  }
+  return drawable(t) ? t : null;
+};
+/** every map of a classic copy made embeddable or dropped */
+const withEmbeddableMaps = (m: Classic, own: Owned) => {
+  for (const key of [
+    "map",
+    "normalMap",
+    "roughnessMap",
+    "metalnessMap",
+    "emissiveMap",
+    "aoMap",
+    "alphaMap",
+    "bumpMap",
+    "clearcoatMap",
+    "clearcoatNormalMap",
+    "clearcoatRoughnessMap",
+    "sheenColorMap",
+    "sheenRoughnessMap",
+    "transmissionMap",
+    "thicknessMap",
+  ] as const) {
+    const any = m as unknown as Record<string, Texture | null | undefined>;
+    const t = any[key];
+    if (!t) continue;
+    const e = embeddable(t, own);
+    if (!e && process.env.NODE_ENV !== "production")
+      console.warn(
+        `scene copy: ${m.name || m.type}'s ${key} has no picture to embed; left out`,
+        (t as Texture).image,
+      );
+    any[key] = e;
+  }
+  // glTF packs roughness and metalness in one picture: a material with
+  // a roughness map and no metalness map would have the exporter draw
+  // a packed picture of its own, one per panel; the roughness map set
+  // as the metalness map too is packed once and shared (the metalness
+  // factor is nought, so what the map says of metalness is nothing)
+  if (m.roughnessMap && !m.metalnessMap && m.metalness === 0)
+    m.metalnessMap = m.roughnessMap;
+  return m;
+};
+
+const classicOf = (m: Material, own: Owned): Classic => {
   const any = m as Material & {
     isNodeMaterial?: boolean;
     isMeshPhysicalMaterial?: boolean;
@@ -127,15 +251,17 @@ const classicOf = (m: Material): Classic => {
     emissiveIntensity?: number;
   };
   if (!any.isNodeMaterial) {
-    if (any.isMeshPhysicalMaterial) return (m as MeshPhysicalMaterial).clone();
-    if (any.isMeshStandardMaterial) return (m as MeshStandardMaterial).clone();
+    if (any.isMeshPhysicalMaterial)
+      return withEmbeddableMaps((m as MeshPhysicalMaterial).clone(), own);
+    if (any.isMeshStandardMaterial)
+      return withEmbeddableMaps((m as MeshStandardMaterial).clone(), own);
   }
   const out = new MeshStandardMaterial({
     color: any.color ?? new Color("#ffffff"),
-    map: any.map ?? null,
-    normalMap: any.normalMap ?? null,
+    map: embeddable(any.map, own),
+    normalMap: embeddable(any.normalMap, own),
     roughness: any.roughness ?? 0.8,
-    roughnessMap: any.roughnessMap ?? null,
+    roughnessMap: embeddable(any.roughnessMap, own),
     metalness: any.metalness ?? 0,
     emissive: any.emissive ?? new Color("#000000"),
     emissiveIntensity: any.emissiveIntensity ?? 1,
@@ -146,7 +272,7 @@ const classicOf = (m: Material): Classic => {
   });
   if (any.normalScale)
     out.normalScale.set(any.normalScale.x, any.normalScale.y);
-  return out;
+  return withEmbeddableMaps(out, own);
 };
 
 /** the picture a window's outside glows with: the sky's gradient over
@@ -203,6 +329,7 @@ export const copyForExport = (
   pieceGroup.name = "Pieces";
   root.add(roomGroup, pieceGroup);
   const made: { dispose: () => void }[] = [];
+  const own: Owned = { made, canvases: new Map() };
   const counts = new Map<string, number>();
   const uniqueName = (base: string) => {
     const n = (counts.get(base) ?? 0) + 1;
@@ -245,7 +372,7 @@ export const copyForExport = (
     const sources = Array.isArray(mesh.material)
       ? mesh.material
       : [mesh.material];
-    const materials = sources.map(classicOf);
+    const materials = sources.map((m) => classicOf(m, own));
     for (const m of materials) made.push(m);
     const copy = new Mesh(
       mesh.geometry,
@@ -280,8 +407,11 @@ export const copyForExport = (
       );
       sun.name = "Sun";
       sun.position.set(...options.sun.position);
-      // a light looks down its -Z at what it lights, as glTF has it
+      // a light looks down its -Z at what it lights, as glTF has it;
+      // the exporter reads the direction from a target held as a child
       sun.lookAt(new Vector3(0, 0, 0));
+      sun.add(sun.target);
+      sun.target.position.set(0, 0, -1);
       root.add(sun);
     }
   } else {

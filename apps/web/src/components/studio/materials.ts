@@ -82,6 +82,9 @@ const load = (url: string, colour: boolean) =>
     t.wrapT = RepeatWrapping;
     t.colorSpace = colour ? SRGBColorSpace : NoColorSpace;
     t.anisotropy = 8;
+    // a JPEG goes out of a glTF export as a JPEG again, not re-drawn
+    // as a PNG four times the size (the exporter reads the hint)
+    if (/\.jpe?g$/i.test(url)) t.userData.mimeType = "image/jpeg";
     return t;
   });
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { devFlag } from "./dev-flags";
 import { toMetres } from "@furnishes/scene";
 import { HDRLoader } from "three/examples/jsm/loaders/HDRLoader.js";
 import {
@@ -70,6 +71,15 @@ const CEILING_HEX = "#f8f5f0";
 /** how much light a ceiling has of its own: the room's bounce, which
     the lights from above cannot reach its underside with */
 const CEILING_GLOW = 0.5;
+/** the export's tags and names: a copy of the scene keeps what stands
+    under the room's tag and names each part (scene-copy.ts) */
+const ROOM_TAG = { export: "room" } as const;
+const FLOOR_NAME = { name: "Floor" } as const;
+const CEILING_NAME = { name: "Ceiling" } as const;
+const WALL_NAME = { name: "Wall" } as const;
+const SKIRTING_NAME = { name: "Skirting" } as const;
+const WINDOW_NAME = { name: "Window" } as const;
+const DOOR_NAME = { name: "Door" } as const;
 /** how far inside the wall's outer face a window's outside stands, m */
 const OUTSIDE_IN = 0.01;
 
@@ -188,7 +198,11 @@ function Outside({
     return () => material.dispose();
   }, [material, invalidate]);
   return (
-    <mesh position={at} material={material}>
+    <mesh
+      position={at}
+      material={material}
+      userData={{ export: "outlook", outlook: { evening, sun } }}
+    >
       <planeGeometry args={[width, tall]} />
     </mesh>
   );
@@ -492,6 +506,7 @@ function WallRun({
       <group
         position={[(ax + bx) / 2, 0, (az + bz) / 2]}
         rotation={[0, yaw, 0]}
+        userData={WALL_NAME}
       >
         {/* the wall casts its shadow too: a low sun comes in through the
             openings alone and lays its patch on the floor */}
@@ -504,7 +519,7 @@ function WallRun({
           <meshStandardMaterial
             color={plaster.photo ? tintOver(wallHex) : wallHex}
             map={plasterMaps.map}
-            normalMap={plasterMaps.normalMap}
+            normalMap={devFlag("noplaster") ? null : plasterMaps.normalMap}
             normalScale={PLASTER_RELIEF}
             roughnessMap={plasterMaps.roughnessMap}
             roughness={0.92}
@@ -512,7 +527,12 @@ function WallRun({
         </mesh>
         {/* the skirting stands just proud of the wall's face, painted
             white as joinery is, so the wall's foot is drawn */}
-        <mesh position={[0, SKIRTING / 2, 0.008]} receiveShadow castShadow>
+        <mesh
+          position={[0, SKIRTING / 2, 0.008]}
+          receiveShadow
+          castShadow
+          userData={SKIRTING_NAME}
+        >
           <boxGeometry args={[len, SKIRTING, 0.016]} />
           <meshStandardMaterial color={FRAME_HEX} roughness={0.5} />
         </mesh>
@@ -612,7 +632,7 @@ function Window({ r, o }: { r: RoomShape; o: Opening }) {
   const sashDepth = depth * 0.6;
   return (
     <Inside normal={inward(o.wall)} always={o.join !== undefined}>
-      <group position={[x, 0, z]} rotation={[0, yaw, 0]}>
+      <group position={[x, 0, z]} rotation={[0, yaw, 0]} userData={WINDOW_NAME}>
         <Outside
           evening={r.evening}
           sun={r.sun}
@@ -711,7 +731,7 @@ function Door({ r, o }: { r: RoomShape; o: Opening }) {
           : [];
   return (
     <Inside normal={inward(o.wall)} always={o.join !== undefined}>
-      <group position={[x, 0, z]} rotation={[0, yaw, 0]}>
+      <group position={[x, 0, z]} rotation={[0, yaw, 0]} userData={DOOR_NAME}>
         {leaves.map((l, i) => (
           <group key={i}>
             <Face
@@ -791,9 +811,10 @@ export function RoomShell({
     [r.outline, r.thickness],
   );
   return (
-    <group>
+    <group userData={ROOM_TAG}>
       <mesh
         ref={floorMesh}
+        userData={FLOOR_NAME}
         rotation={[-Math.PI / 2, 0, 0]}
         receiveShadow
         onClick={(e) => {
@@ -850,7 +871,11 @@ export function RoomShell({
           stands over an eye below it (the perspective, a walk) and not
           in the overhead views, which look in over the open top; lit a
           little of its own, as a ceiling is by the room's bounce */}
-      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, h, 0]}>
+      <mesh
+        rotation={[Math.PI / 2, 0, 0]}
+        position={[0, h, 0]}
+        userData={CEILING_NAME}
+      >
         <shapeGeometry args={[shape]} />
         <meshStandardMaterial
           color={CEILING_HEX}

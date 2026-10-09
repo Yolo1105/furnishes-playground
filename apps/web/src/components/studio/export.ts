@@ -9,6 +9,10 @@ import {
 } from "./room-store";
 import { ROOM_NAMES } from "./room-data";
 import { sgd } from "./assets-data";
+import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
+import { BOOKMARKS, cameraFor, walkStart } from "./camera-bookmarks";
+import { copyForExport } from "./scene-copy";
+import { liveScene } from "./scene-handle";
 
 /**
  * What Export and Checkout hand over: the plan as the SVG on the stage,
@@ -70,6 +74,51 @@ export const exportScenePng = () => {
   canvas.toBlob((blob) => {
     if (blob) download(`${stem()}-3d.png`, blob);
   }, "image/png");
+  return true;
+};
+
+/** the largest side a texture goes out at, px */
+const GLB_TEXTURE_PX = 2048;
+
+/** the room as a .glb: a clean copy of the live scene (scene-copy.ts:
+    the shell, the pieces, each window's outside as a glowing plane,
+    classic materials, metres, Y up) with the named cameras and the sun;
+    false when no 3D room is on the stage. Opens in Blender and any
+    glTF viewer. */
+export const exportRoomGlb = async () => {
+  const live = liveScene();
+  if (!live) return false;
+  const cameras = [
+    ...BOOKMARKS.map((name) => {
+      const { pos, at } = cameraFor(name, live.w, live.d, live.h, live.centre);
+      return { name, position: pos, at };
+    }),
+    (() => {
+      const { pos, at } = walkStart(live.w, live.d);
+      return { name: "Walk", position: pos, at };
+    })(),
+  ];
+  const copy = copyForExport(live.scene, {
+    purpose: "gltf",
+    cameras,
+    sun: live.sun,
+  });
+  try {
+    const out = await new GLTFExporter().parseAsync(copy.root, {
+      binary: true,
+      embedImages: true,
+      maxTextureSize: GLB_TEXTURE_PX,
+      onlyVisible: true,
+    });
+    download(
+      `${stem()}-room.glb`,
+      new Blob([out as ArrayBuffer], { type: "model/gltf-binary" }),
+    );
+  } finally {
+    // the copy's own materials and pictures go; the live scene's
+    // geometries and textures were shared, and stay
+    copy.dispose();
+  }
   return true;
 };
 
