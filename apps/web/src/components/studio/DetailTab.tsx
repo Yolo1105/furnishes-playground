@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   type Added,
   backGroove,
@@ -12,7 +13,9 @@ import {
   cutCornerSketch,
   middleCutout,
   newPanel,
+  notchSketch,
   type Panel,
+  rectangleSketch,
   rounded,
   type Sketch,
   sketchSize,
@@ -53,6 +56,7 @@ import {
 import { portraitOf, recipeOf } from "./catalogue";
 import { exportCutList, exportPanelDxf, exportPanelStep } from "./machining";
 import { solveSketch, usePartStore } from "./part-client";
+import { SketchEditor } from "./SketchEditor";
 import { ProductPage } from "./ProductPage";
 import { ACCESSORIES, dimensionSummary, priceOf } from "@furnishes/domain";
 import { findNode, propsOf, useScene } from "./scene-store";
@@ -60,11 +64,12 @@ import { useStudio } from "./studio-store";
 
 /** the shapes a panel is given, at its size: a rectangle is no
     profile at all; a cut takes a fifth of the shorter side, a taper a
-    quarter of the length */
+    quarter of the length, an L a third each way */
 const SHAPES: [string, ((L: number, W: number) => Sketch) | null][] = [
   ["Rectangle", null],
   ["Cut corner", (L, W) => cutCornerSketch(L, W, Math.min(L, W) / 5)],
   ["Taper", (L, W) => taperSketch(L, W, L / 4)],
+  ["L shape", (L, W) => notchSketch(L, W, L / 3, W / 3)],
 ];
 
 /** the shop's machining presets, laid on a panel's inner face */
@@ -94,6 +99,7 @@ const PRESETS: [string, (p: Panel) => Feature[]][] = [
  * size, all kept over the defaults in the scene store.
  */
 export function DetailTab() {
+  const [sketching, setSketching] = useState(false);
   const groups = useScene((s) => s.groups);
   const selectedId = useScene((s) => s.selectedId);
   const overrides = useScene((s) => s.overrides);
@@ -827,6 +833,29 @@ export function DetailTab() {
                       </button>
                     ))}
                   </div>
+                  <div className="detail-acts">
+                    <button
+                      type="button"
+                      className="main-btn"
+                      onClick={() => setSketching(true)}
+                    >
+                      <span>Edit sketch</span>
+                    </button>
+                  </div>
+                  {sketching && (
+                    <SketchEditor
+                      name={panel.name}
+                      sketch={
+                        panel.profile ??
+                        rectangleSketch(panel.length, panel.width)
+                      }
+                      onClose={() => setSketching(false)}
+                      onDone={(s) => {
+                        setSketching(false);
+                        editPanel({ profile: s, ...sketchSize(s) });
+                      }}
+                    />
+                  )}
                   {panel.profile && (
                     <div className="room-dims detail-panel">
                       {panelNum(

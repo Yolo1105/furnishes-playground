@@ -197,6 +197,43 @@ export const cutCornerSketch = (
   };
 };
 
+/** the rectangle with a square `cut` long by `deep` wide taken out of
+    its far top corner: an L, every edge level or upright, the notch
+    held by its two distances */
+export const notchSketch = (
+  length: number,
+  width: number,
+  cut: number,
+  deep: number,
+): Sketch => {
+  const c = Math.round(Math.min(cut, length / 2));
+  const d = Math.round(Math.min(deep, width / 2));
+  return {
+    points: [
+      point("a", 0, 0, true),
+      point("b", length, 0),
+      point("c", length, width - d),
+      point("e", length - c, width - d),
+      point("f", length - c, width),
+      point("d", 0, width),
+    ],
+    loop: ["a", "b", "c", "e", "f", "d"],
+    constraints: [
+      { id: "ab", kind: "horizontal", a: "a", b: "b" },
+      { id: "bc", kind: "vertical", a: "b", b: "c" },
+      { id: "ce", kind: "horizontal", a: "c", b: "e" },
+      { id: "ef", kind: "vertical", a: "e", b: "f" },
+      { id: "fd", kind: "horizontal", a: "f", b: "d" },
+      { id: "da", kind: "vertical", a: "d", b: "a" },
+      { id: "len", kind: "distance", a: "a", b: "b", mm: length },
+      { id: "wid", kind: "distance", a: "d", b: "a", mm: width },
+      { id: "cut", kind: "distance", a: "c", b: "e", mm: c, name: "notch" },
+      { id: "deep", kind: "distance", a: "e", b: "f", mm: d, name: "depth" },
+    ],
+    corners: {},
+  };
+};
+
 /** the rectangle narrowed at the top by `taper` on the far side: the
     top edge level and shorter, the far edge on the slant */
 export const taperSketch = (
@@ -430,6 +467,16 @@ const loopPoints = (s: Sketch, loop: readonly string[]): [number, number][] => {
 /** the holes' outlines, mm, each in order */
 export const holesOf = (s: Sketch): [number, number][][] =>
   (s.holes ?? []).map((h) => loopPoints(s, h));
+
+/** the round holes: every circle drawn is cut through, mm */
+export const roundsOf = (s: Sketch): { x: number; y: number; r: number }[] => {
+  const at = new Map(s.points.map((p) => [p.id, p]));
+  return (s.geometry ?? []).flatMap((g) => {
+    if (g.kind !== "circle") return [];
+    const c = at.get(g.centre)!;
+    return [{ x: c.x, y: c.y, r: g.radius }];
+  });
+};
 
 /** how many degrees of freedom a sketch has before any constraint:
     two a free point, one more a circle's radius */

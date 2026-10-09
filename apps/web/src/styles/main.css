@@ -702,6 +702,137 @@
   }
 }
 
+/* ---- the sketcher ---- */
+:root {
+  --sketch-free: #3b6fd1;
+}
+.sketch-card {
+  position: relative;
+  width: min(1100px, calc(100% - 32px));
+  height: min(760px, calc(100% - 32px));
+  border-radius: var(--r-panel, 14px);
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  overflow: hidden;
+}
+.sketch-head,
+.sketch-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+}
+.sketch-title {
+  font-weight: 600;
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+.sketch-dof {
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--sketch-free);
+}
+.sketch-dof[data-held="true"] {
+  color: rgb(from var(--color-ink) r g b / 0.7);
+}
+.sketch-dof[data-trouble="true"] {
+  color: var(--color-danger);
+}
+.sketch-acts {
+  display: flex;
+  gap: 8px;
+}
+.sketch-body {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  min-height: 0;
+}
+.sketch-tools {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  padding: 10px;
+  overflow: auto;
+  border-right: 1px solid rgb(from var(--color-ink) r g b / 0.08);
+}
+.sketch-tools .main-btn[aria-pressed="true"] {
+  background: var(--color-accent);
+  color: #fff;
+}
+.sketch-canvas {
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  background: rgb(from var(--color-ink) r g b / 0.03);
+  cursor: crosshair;
+}
+.sketch-canvas[data-tool="select"] {
+  cursor: default;
+}
+.sketch-outline,
+.sketch-hole {
+  fill: rgb(from var(--color-accent) r g b / 0.05);
+}
+.sketch-hole {
+  fill: rgb(from var(--color-ink) r g b / 0.08);
+}
+.sketch-line,
+.sketch-curve {
+  fill: none;
+}
+.sketch-line[data-hover="true"],
+.sketch-point[data-hover="true"] {
+  stroke: var(--color-accent);
+}
+.sketch-point[data-fixed="true"] {
+  stroke: var(--color-ink);
+  stroke-width: 0.5px;
+}
+.sketch-point[data-picked="true"],
+.sketch-line[data-picked="true"],
+.sketch-curve[data-picked="true"] {
+  stroke: var(--color-accent);
+}
+.sketch-stroke {
+  stroke: var(--color-accent);
+  stroke-dasharray: 4 3;
+}
+.sketch-dim {
+  fill: var(--color-ink);
+  font-family: var(--font-app);
+  font-weight: 500;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  cursor: text;
+  /* a halo of the sheet's colour keeps the figure legible over a line */
+  paint-order: stroke fill;
+  stroke: var(--color-cream);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.sketch-dim[data-trouble="true"] {
+  fill: var(--color-danger);
+}
+.sketch-note {
+  font-size: 11px;
+  fill: rgb(from var(--color-ink) r g b / 0.6);
+}
+.sketch-hint {
+  font-size: 12.5px;
+  color: rgb(from var(--color-ink) r g b / 0.7);
+}
+.sketch-dim-edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+}
+.sketch-dim-edit input {
+  width: 100px;
+}
+
 /* ---- the development panels: the frame bench and the checklist ---- */
 .dev-panel {
   /* over the stage's middle, clear of the rails the stage runs under */

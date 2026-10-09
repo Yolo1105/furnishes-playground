@@ -1449,6 +1449,104 @@ test("a piece opens as panels: picked, typed in millimetres, added to, priced, c
   await expect(page.locator(".detail-price")).toHaveText(was);
 });
 
+test("the sketcher: an L-shaped shelf with a 20 mm round hole, fully held; one dimension changed moves the solid, the DXF and the STEP", async ({
+  page,
+}) => {
+  await page.goto("/rounded");
+  const bookwall = top.find((a) => a.children?.length)!;
+  await page
+    .locator(".main-shelf")
+    .getByRole("button", { name: bookwall.name, exact: true })
+    .click();
+  await page.getByRole("tab", { name: "Detail" }).click();
+  const section = page.getByRole("region", { name: "Panels" });
+  await section.getByRole("button", { name: "Open as panels" }).click();
+  const panels = section.getByRole("radiogroup", { name: "Panels" });
+  await panels
+    .getByRole("radio", { name: /^Shelf/ })
+    .first()
+    .click();
+  const shape = section.getByRole("radiogroup", { name: "Shape" });
+  await shape.getByRole("radio", { name: "L shape" }).click();
+  await expect(section).toContainText("6 corners");
+  // the sketcher opens on the L, held already by its presets
+  await section.getByRole("button", { name: "Edit sketch" }).click();
+  const dialog = page.getByRole("dialog", { name: /^Sketch of Shelf/ });
+  const dof = dialog.locator(".sketch-dof");
+  await expect(dof).toHaveAttribute("data-held", "true");
+  await expect(dof).toHaveText("fully held");
+  // a circle drawn in the middle is a round hole; its radius is typed
+  // as 20 mm and its centre fixed, and the sketch is held again
+  const sheet = dialog.locator("svg.sketch-canvas");
+  const box = (await sheet.boundingBox())!;
+  const centre = { x: box.width * 0.45, y: box.height * 0.5 };
+  await dialog.getByRole("button", { name: "Circle" }).click();
+  await sheet.click({ position: centre });
+  await sheet.click({ position: { x: centre.x + 30, y: centre.y } });
+  await expect(dof).toHaveAttribute("data-held", "false");
+  await expect(dof).toHaveText("2 degrees of freedom");
+  await dialog.locator("text.sketch-dim", { hasText: /^R\d/ }).click();
+  const value = dialog.getByRole("textbox", { name: "Dimension value" });
+  await value.fill("20");
+  await value.press("Enter");
+  await expect(dialog.locator("text.sketch-dim", { hasText: /^R/ })).toHaveText(
+    "R20",
+  );
+  await dialog.getByRole("button", { name: "Select" }).click();
+  await sheet.click({ position: centre });
+  await expect(dialog.locator(".sketch-point[data-picked='true']")).toHaveCount(
+    1,
+  );
+  await dialog.getByRole("button", { name: "Fix" }).click();
+  await expect(dof).toHaveAttribute("data-held", "true");
+  await expect(dof).toHaveText("fully held");
+  await dialog.getByRole("button", { name: "Done" }).click();
+  await expect(dialog).toBeHidden();
+  // the part is made anew with the hole through it: STEP and DXF carry it
+  await expect(section).toContainText("6 corners");
+  const stage3d = page.locator(".stage-3d");
+  await expect(stage3d).toHaveAttribute("data-parts", "0", {
+    timeout: 90_000,
+  });
+  await expect(section).not.toContainText("could not be made");
+  const step1 = page.waitForEvent("download");
+  await section.getByRole("button", { name: "Shelf as STEP" }).click();
+  const stepBefore = readFileSync((await (await step1).path())!, "utf8");
+  expect(stepBefore).toContain("ISO-10303-21");
+  const dxf1 = page.waitForEvent("download");
+  await section.getByRole("button", { name: "Shelf as DXF" }).click();
+  const dxfBefore = readFileSync((await (await dxf1).path())!, "utf8");
+  expect(dxfBefore).toContain("0\nCIRCLE\n8\nCUTOUTS");
+  expect(dxfBefore).toContain("\n40\n20.00");
+  const outlineOf = (dxf: string) =>
+    dxf.split("0\nPOLYLINE\n8\nOUTLINE")[1]!.split("SEQEND")[0]!;
+  expect(outlineOf(dxfBefore).split("0\nVERTEX").length - 1).toBe(6);
+  // one dimension typed anew: the solver moves the outline, the solid
+  // is made again, and the drawings follow
+  const length = page.getByRole("spinbutton", {
+    name: "Shelf length in millimetres",
+  });
+  const was = Number(await length.inputValue());
+  const next = was - 100;
+  await length.fill(String(next));
+  await expect(length).toHaveValue(String(next), { timeout: 20_000 });
+  await expect(stage3d).toHaveAttribute("data-parts", "0", {
+    timeout: 90_000,
+  });
+  await expect(section).not.toContainText("could not be made");
+  const dxf2 = page.waitForEvent("download");
+  await section.getByRole("button", { name: "Shelf as DXF" }).click();
+  const dxfAfter = readFileSync((await (await dxf2).path())!, "utf8");
+  expect(outlineOf(dxfAfter)).toContain(`10\n${next.toFixed(2)}\n`);
+  expect(outlineOf(dxfAfter)).not.toContain(`10\n${was.toFixed(2)}\n`);
+  expect(dxfAfter).toContain("\n40\n20.00");
+  const step2 = page.waitForEvent("download");
+  await section.getByRole("button", { name: "Shelf as STEP" }).click();
+  const stepAfter = readFileSync((await (await step2).path())!, "utf8");
+  expect(stepAfter).toContain("ISO-10303-21");
+  expect(stepAfter).not.toBe(stepBefore);
+});
+
 test("Eva answers a message; New chat opens a thread; suggestions fill the box", async ({
   page,
 }) => {

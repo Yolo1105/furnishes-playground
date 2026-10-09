@@ -2,6 +2,7 @@ import {
   type Sketch,
   type SketchSolve,
   holesOf,
+  roundsOf,
   outlineOf,
 } from "@furnishes/domain";
 import type { GcsWrapper } from "@salusoft89/planegcs";
@@ -89,6 +90,8 @@ const shape = async (sketch: Sketch, thickness: number) => {
     for (const p of hole.slice(1)) h = h.lineTo(p);
     drawing = drawing.cut(h.close());
   }
+  for (const round of roundsOf(sketch))
+    drawing = drawing.cut(r.drawCircle(round.r).translate(round.x, round.y));
   return drawing.sketchOnPlane("XY").extrude(thickness);
 };
 

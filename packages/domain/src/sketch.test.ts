@@ -5,11 +5,14 @@ import {
   edgeId,
   freeDof,
   holesOf,
+  notchSketch,
   outlineOf,
   outlineWithCorners,
   type Primitive,
   rectangleSketch,
   rounded,
+  roundsOf,
+  type Sketch,
   sketchSize,
   solved,
   taperSketch,
@@ -39,6 +42,31 @@ describe("the presets", () => {
     expect(outlineOf(taper)[2]).toEqual([450, 400]);
     // a cut past half is held to half
     expect(outlineOf(cutCornerSketch(600, 400, 900))[2]).toEqual([600, 200]);
+  });
+  it("an L: the far corner notched out, held by its two distances", () => {
+    const l = notchSketch(600, 400, 200, 100);
+    expect(outlineOf(l)).toEqual([
+      [0, 0],
+      [600, 0],
+      [600, 300],
+      [400, 300],
+      [400, 400],
+      [0, 400],
+    ]);
+    expect(sketchSize(l)).toEqual({ length: 600, width: 400 });
+    expect(freeDof(l) - l.constraints.length).toBe(0);
+    expect(l.constraints.find((c) => c.id === "cut")?.name).toBe("notch");
+    // a notch past half is held to half
+    expect(outlineOf(notchSketch(600, 400, 900, 900))[3]).toEqual([300, 200]);
+  });
+  it("roundsOf: every circle drawn is a round hole", () => {
+    const s: Sketch = {
+      ...rectangleSketch(600, 400),
+      geometry: [{ id: "c1", kind: "circle", centre: "ctr", radius: 20 }],
+    };
+    s.points.push({ id: "ctr", x: 100, y: 200, fixed: false });
+    expect(roundsOf(s)).toEqual([{ x: 100, y: 200, r: 20 }]);
+    expect(roundsOf(rectangleSketch(1, 1))).toEqual([]);
   });
 });
 

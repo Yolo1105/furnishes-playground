@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { dxfOf } from "./dxf";
 import { backGroove, hingeCups, middleCutout, systemHoles } from "./features";
-import { cutCornerSketch, rounded } from "./sketch";
+import { cutCornerSketch, rectangleSketch, rounded } from "./sketch";
 
 const side = { length: 400, width: 740 };
 
@@ -44,6 +44,28 @@ describe("dxfOf", () => {
     expect(outline).not.toContain("10\n400.00\n20\n740.00");
     expect(outline).not.toContain("10\n400.00\n20\n680.00");
     expect(outline).toContain("10\n20.00\n20\n740.00");
+  });
+  it("draws a profile's holes and round holes on CUTOUTS", () => {
+    const profile = rectangleSketch(side.length, side.width);
+    profile.points.push(
+      { id: "h1", x: 50, y: 50, fixed: false },
+      { id: "h2", x: 150, y: 50, fixed: false },
+      { id: "h3", x: 150, y: 150, fixed: false },
+      { id: "h4", x: 50, y: 150, fixed: false },
+      { id: "ctr", x: 300, y: 300, fixed: false },
+    );
+    const dxf = dxfOf({
+      ...side,
+      profile: {
+        ...profile,
+        holes: [["h1", "h2", "h3", "h4"]],
+        geometry: [{ id: "c1", kind: "circle", centre: "ctr", radius: 20 }],
+      },
+    });
+    const count = (s: string) => dxf.split(s).length - 1;
+    expect(count("0\nPOLYLINE\n8\nCUTOUTS")).toBe(1);
+    expect(count("0\nCIRCLE\n8\nCUTOUTS")).toBe(1);
+    expect(dxf).toContain("10\n300.00\n20\n300.00\n40\n20.00");
   });
   it("mirrors a feature on the back face across the length", () => {
     const [cup] = hingeCups(side);

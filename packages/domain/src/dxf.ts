@@ -1,12 +1,13 @@
 import { type Feature, featureRect } from "./features";
 import type { Panel } from "./panels";
-import { outlineWithCorners, type Sketch } from "./sketch";
+import { holesOf, outlineWithCorners, roundsOf, type Sketch } from "./sketch";
 
 /**
  * A panel's face as DXF R12, the plainest drawing a shop's software
  * reads: the outline as a closed polyline on OUTLINE (the profile's,
  * its rounded corners as short runs, when the face is not a
- * rectangle), each hole a
+ * rectangle, with the profile's own holes and round holes through it
+ * on CUTOUTS), each hole a
  * circle on HOLES (its depth in the layer's name, HOLES_13), each
  * groove a closed polyline on GROOVES_<depth>, each cut-out one on
  * CUTOUTS. Millimetres, the face's corner at the origin, u along x
@@ -86,6 +87,10 @@ export const dxfOf = (
     p.profile
       ? polyline("OUTLINE", outlineWithCorners(p.profile))
       : rect("OUTLINE", 0, 0, p.length, p.width),
+    ...(p.profile ? holesOf(p.profile) : []).map((h) => polyline("CUTOUTS", h)),
+    ...(p.profile ? roundsOf(p.profile) : []).map((r) =>
+      circle("CUTOUTS", r.x, r.y, r.r),
+    ),
     ...(p.features ?? []).map((f) => entity(p, f)),
     pair(0, "ENDSEC"),
     pair(0, "EOF"),
