@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import {
   expect,
   test,
@@ -4516,4 +4517,44 @@ test("the Board keeps uploaded pictures with a title and a note, sized down, and
   await expect(page.getByRole("dialog", { name: "Board" })).toContainText(
     "Nothing on the board yet",
   );
+});
+
+test("Export hands the room over as a glTF binary: the shell, the pieces, cameras and the sun", async ({
+  page,
+}) => {
+  await page.goto("/rounded");
+  await arrived(page);
+  const stage = page.locator(".stage-3d");
+  await expect(stage).toHaveAttribute("data-drawn", "true", {
+    timeout: 60_000,
+  });
+  await page.getByRole("button", { name: "Export" }).click();
+  const menu = page.getByRole("menu", { name: "Export" });
+  const glb = menu.getByRole("menuitem", { name: /3D model as GLB/ });
+  await expect(glb).toBeEnabled();
+  const download = page.waitForEvent("download");
+  await glb.click();
+  const file = await download;
+  expect(file.suggestedFilename()).toMatch(/-room\.glb$/);
+  const bytes = readFileSync((await file.path())!);
+  // a glTF binary opens with its magic, and the room is no toy
+  expect(bytes.subarray(0, 4).toString("ascii")).toBe("glTF");
+  expect(bytes.length).toBeGreaterThan(50_000);
+  // the JSON chunk names the room's parts, the cameras and the sun
+  const jsonLength = bytes.readUInt32LE(12);
+  const json = bytes.subarray(20, 20 + jsonLength).toString("utf8");
+  for (const name of ["Floor", "Wall", "Window", "Bookwall", "Front", "Walk", "Sun"])
+    expect(json, name).toContain(`"name":"${name}`);
+  expect(json).toContain("KHR_lights_punctual");
+  expect(json).not.toContain("NodeMaterial");
+  // the view on the stage is as it was: the export took a copy
+  await expect(stage).toHaveAttribute("data-drawn", "true");
+  // with the plan in the main column there is no 3D room to hand over
+  await page.getByRole("button", { name: "Show 2D plan in main" }).click();
+  await page.getByRole("button", { name: "Export" }).click();
+  await expect(
+    page.getByRole("menu", { name: "Export" }).getByRole("menuitem", {
+      name: /3D model as GLB/,
+    }),
+  ).toBeDisabled();
 });

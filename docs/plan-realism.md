@@ -508,6 +508,36 @@ line names what to look at and what the stage says.
 9. The walk: 60 fps on a desktop GPU with the shadows on; no
    shimmer on the edges after the TRAA settles.
 
+## Reference renders
+
+A ground truth to judge the live view against, made on a machine with
+Blender 4.x (the sandbox has none):
+
+1. In the studio, Export > 3D model writes `<room>-room.glb`: the
+   shell, the pieces, each window's outside as a glowing plane, the
+   named cameras (Perspective, Front, Back, Left, Right, Top, Walk) and
+   the sun.
+2. `blender -b -P tools/blender/reference.py -- --glb room.glb --out refs/ --samples 512`
+   renders one PNG per camera at the stage's size with Cycles (the GPU
+   when there is one, OpenImageDenoise), the same HDRI file the studio
+   uses (`--hdri`, default `apps/web/public/sky/apartment.hdr`) plus the
+   exported sun, AgX and the studio's exposure (`--exposure`, default
+   1.1).
+3. `node tools/studio-shots.mjs --url http://localhost:3000/rounded --out shots/`
+   takes the studio's own views in headed Chrome on WebGPU at Full
+   quality, one PNG of `.stage-3d` per bookmark and the walk, named
+   like the references (`perspective.png`, `front.png`...), each once
+   the stage says its probes, its reflection and its edges have
+   settled.
+4. `node tools/compare-refs.mjs --studio shots/ --refs refs/ --out compare/`
+   prints, per view, the SSIM (over 8 px windows of luminance) and the
+   mean luminance difference, writes a side-by-side PNG per view and a
+   `report.json`. Plain Node, no dependency: it reads and writes PNGs
+   itself.
+
+Starting targets: SSIM at least 0.80 for the live day view and 0.90
+for a path-traced photo; mean luminance within 10% of the reference.
+
 ## The order of work
 
 | Step | What ships                                                                                                       | Gate                                                                                   |
