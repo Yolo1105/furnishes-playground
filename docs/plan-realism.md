@@ -189,9 +189,11 @@ AGPL. `@salusoft89/planegcs` 1.3.0 is the only 2D constraint solver
   surroundings plus a sky-against-floor light (3xdezine keeps the same
   low hemisphere light), every texture's colour space set, and a relief
   (normal and roughness maps) read from each painted grain. The CC0
-  texture sets could not be fetched from the build sandbox, so the
-  panels and floors keep their painted grain with its relief; the
-  photographed sets go in when the assets can be brought in.
+  texture sets could not be fetched from the build sandbox at the
+  time, so the panels and floors kept their painted grain with its
+  relief; Prompt 1 later brought the photographed sets in (see "Prompt
+  1" under the fixes after review), and the grown surfaces are the
+  fallback until a set loads.
 - R2 is in: the room renders with three's `WebGPURenderer`, made in
   React Three Fiber's async factory, which asks for a WebGPU adapter
   first and otherwise runs the WebGL 2 backend on a context of its own
@@ -422,8 +424,8 @@ AGPL. `@salusoft89/planegcs` 1.3.0 is the only 2D constraint solver
   outer face (so the reveal stands before it and nothing shows past
   the wall from above), behind a clear pane with the room's faint
   reflection. The photographed CC0 texture sets the plan asked for
-  still cannot be fetched from the sandbox; the grown surfaces stand
-  until they can.
+  could not be fetched from the sandbox then; they are in now (Prompt
+  1), and the grown surfaces stand only until a set loads.
 - R9 is in, as far as the sandbox lets it be: the four things that
   still stood between the live view and a photograph. The materials
   come from files when there are any: `public/materials/<name>/` holds
@@ -467,7 +469,9 @@ AGPL. `@salusoft89/planegcs` 1.3.0 is the only 2D constraint solver
   the wall, so the wall's foot is drawn. The sky's fill is up (2.4)
   and less blue, so the walls read off-white as a room is exposed for,
   and the hemisphere's ground tone is well down, so undersides stand
-  darker than walls. The wood is grown again: fine rings whose spacing
+  darker than walls. The grown wood (the fallback, replaced by the
+  photographed `wood` set the moment it loads) is grown again: fine
+  rings whose spacing
   wanders, latewood a narrow band with a sharp late edge that leans
   warm (the colour map keeps the tint's red and loses a little green
   and blue there, so every colour of the palette warms the same way),
@@ -617,6 +621,22 @@ AGPL. `@salusoft89/planegcs` 1.3.0 is the only 2D constraint solver
 
 ## Fixed after review
 
+- Prompt 1 is in: the photographed sets. `public/materials/` holds
+  `wood` (ambientCG Wood049), `parquet` (ambientCG WoodFloor050),
+  `plaster` (ambientCG PaintedPlaster017) and `cloth` (the SheenChair
+  fabric from Khronos's glTF sample assets), all CC0, resized to 1K,
+  the ambientCG sets by way of Open3D's GitHub data release (the
+  sandbox reaches neither ambientcg.com nor polyhaven.com). Each is
+  listed in `index.json` with the stretch one tile covers, and the
+  loader (`materials.ts`) takes a listed set in place of the grown
+  surface the moment it arrives; the grown wood, cloth, plaster and
+  floors are the fallback, nothing more. Tiles, vinyl and concrete are
+  not listed, so they stay grown; two louder floors (ambientCG
+  Tiles074 and Terrazzo018) wait unlisted under `optional/`. A set's
+  colour map for `wood` or `cloth` must be light (an average luminance
+  well above 0.75): a piece's finish multiplies it by the piece's own
+  colour, and the loader warns in development when a set is too dark.
+  `public/materials/README.md` and its `LICENSES.md` say the rest.
 - The speckle on the walls in the kept pictures, and the pictures
   drifting by one or two percent between runs, was not the occlusion,
   the probes, the sky's shadow or the plaster: with each switched off
@@ -694,10 +714,14 @@ The photo (Render on WebGPU traces a copy of the room, Photo.tsx):
 14. `/rounded?bench=photo` takes three 1080p photos back to back and
     leaves `window.__photoBench` (times, memory, adapter); in Chrome's
     task manager the GPU memory does not keep growing across ten
-    photos (0.0.26 leaks per tracer, not per photo; 0.0.27, out on
-    2026-10-08, says it releases the compute kernels on every reset
-    and dispose, takes three's SunLight and render-target textures:
-    the bump is proposed, not made, until it is agreed).
+    photos. 0.0.26 leaked per tracer, not per photo; the studio is on
+    0.0.27 (out 2026-10-08), whose changelog records the compute
+    kernels released on every reset, scene change and dispose, the
+    full-screen quads' materials disposed, the FSR upscaler's leak
+    closed, three's SunLight and render-target textures taken, and
+    lights sampled by their contribution. One tracer still serves the
+    renderer for its life (Photo.tsx says why). The photo itself is
+    checked by hand on WebGPU: the sandbox's Chromium has no adapter.
 15. A second photo of the same room starts tracing at once: the copy
     is kept until the room or the pieces change.
 
@@ -769,6 +793,7 @@ for a path-traced photo; mean luminance within 10% of the reference.
 | M2   | Free panels with snapping and typed millimetres                                                                  | a 600 mm base cabinet with two shelves in under two minutes                                 |
 | M3   | Machining features, cut list, DXF                                                                                | a 20-panel cabinet recomputes under 200 ms                                                  |
 | M4   | Sketch constraints and free-form parts in a worker, STEP out                                                     | a constrained sketch solves under 50 ms; the main thread never blocks over 16 ms            |
+| P1   | Photographed CC0 sets for wood, parquet, plaster and cloth, with the grown surfaces as the fallback               | the five baselines rerun; a set's colour map is light (the loader warns)                   |
 | P6a  | The sketcher: lines, arcs, circles, holes, every hold, named dimensions                                          | an L shelf with a round hole fully held; the solid, DXF and STEP follow a change            |
 | P6b  | The feature history: extrude, revolve, fillet, chamfer, mirror, pattern, rules for edges, the timeline           | a ten-feature part under 1 s; a failing fillet reports, the rest not built                  |
 | P6c  | Parts as items: placed, finished, quoted on request, STEP in and out, kept and shared                            | a part survives a reload; the STEP round trip within 0.1 mm; old snapshots load             |
@@ -779,8 +804,77 @@ The earlier plan's own estimate was 55 to 85 developer-days for
 rendering and 47 to 74 for modelling. With the studio's base already in
 place the rendering steps R0 to R5 are about 25 to 35 days, R6 and R7
 about 15, and M1 to M4 about 40 to 60; the WebGPU switch (R2) and the
-probe grid (R4) are where the risk is, and R6 depends on
-three-gpu-pathtracer shipping 0.0.27 with the leak fixes.
+probe grid (R4) are where the risk is, and R6 depended on
+three-gpu-pathtracer shipping 0.0.27 with the leak fixes (it did, on
+2026-10-08, and the studio is on it).
+
+## Where it stands
+
+Each step as of 2026-10-09: what is done in the code, and what still
+waits on a check by hand (a real WebGPU GPU, Blender), which the
+sandbox cannot give.
+
+| Step | Stands | Waiting on a check by hand                                                       |
+| ---- | ------ | -------------------------------------------------------------------------------- |
+| R0   | done   | the photo spike in Chrome and Safari 26                                          |
+| R1   | done   | —                                                                                |
+| R2   | done   | the WebGPU backend's own pictures (the checklist, items 1–3)                     |
+| R3   | done   | post under 6 ms at 1440p (`?bench=walk`)                                         |
+| R4   | done   | the SSGI default: on only if post stays at or under 6 ms with it on              |
+| R5   | done   | whether SSR needs the stochastic path with the denoiser (the floor items)        |
+| R6   | done   | the photo itself: 1080p at 256 samples under a minute; ten shots, no VRAM growth |
+| R7   | done   | 60 fps desktop and 30 fps phone from the bench                                   |
+| M1   | done   | —                                                                                |
+| M2   | done   | —                                                                                |
+| M3   | done   | —                                                                                |
+| M4   | done   | —                                                                                |
+| P1   | done   | calmer sets for tiles, vinyl and concrete, to be supplied                        |
+| P2   | done   | —                                                                                |
+| P3   | done   | the glTF opened in Blender                                                       |
+| P4   | done   | `WINDOW_LIGHT` and the sample counts against the 60 s gate                       |
+| P5   | done   | the Cycles references: SSIM at or above 0.80 live and 0.90 photo, luminance ±10% |
+| P6a  | done   | —                                                                                |
+| P6b  | done   | —                                                                                |
+| P6c  | done   | —                                                                                |
+| P7   | done   | —                                                                                |
+| P8   | done   | sharp floor reflections, post under 6 ms at 1440p with SSR on                    |
+| P9   | open   | optional: baked showcase rooms for the landing                                   |
+| KTX2 | open   | optional: measured and left (see below); the maps stay JPG                       |
+| CI   | open   | optional: WebGPU in CI on a software adapter                                     |
+
+## KTX2 textures: measured, left as JPG
+
+KTX-Software 4.3.2's `toktx` was run on the wood set (1K, from the
+release's Linux build, which the sandbox can fetch): the colour map at
+ETC1S (`--clevel 1 --qlevel 128`, mipmaps) comes to 157 KB against the
+245 KB JPG, but the normal and roughness maps at UASTC with zstd
+(`--uastc_quality 1 --zcmp 18`, mipmaps) come to 1,007 KB and 995 KB
+against 210 KB and 332 KB: UASTC is 8 bits a pixel before
+supercompression and a photographed relief map does not zstd well, so
+the set grows from 788 KB to 2.16 MB on the wire while shrinking on
+the GPU (4 MB a map uncompressed with mips, 1 MB UASTC, 128 KB ETC1S).
+ETC1S for the relief maps would make the download smaller but reads
+as blocky lighting on a flat panel. Neither `@gltf-transform/cli` nor
+KTX-Software is in the repository (no dependency was added), so the
+step stands as this measurement: the maps stay JPG until a smaller
+wire size matters more than the relief's quality, when the colour maps
+alone could go ETC1S for a third off their bytes.
+
+## WebGPU in CI: tried, not possible here
+
+The visual project was tried on the sandbox's Chromium with the flags
+that expose a software WebGPU adapter on Linux: `--enable-unsafe-webgpu
+--enable-features=Vulkan --use-angle=swiftshader
+--use-webgpu-adapter=swiftshader --ignore-gpu-blocklist`, the same with
+`--use-vulkan=swiftshader`, and the plain `--enable-unsafe-webgpu
+--ignore-gpu-blocklist` over the ANGLE/SwiftShader GL the suite already
+runs on. Under every set `navigator.gpu` is undefined before any adapter
+is asked for: this Chromium build (Playwright's, headless shell) ships
+without WebGPU, so `data-backend` never reads `webgpu` and there is no
+adapter to put the five views on. A separate CI job would need a
+Chromium with Dawn built in and a Vulkan loader on the runner (Mesa's
+lavapipe); until that is set up, the WebGPU look is judged by hand
+through the checklist, and the baselines stay WebGL 2.
 
 ## What was dropped from the earlier plan, and why
 

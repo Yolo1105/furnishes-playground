@@ -48,6 +48,20 @@ Notes:
   bump is one line in four package.json files once the linter allows it.
 - `pnpm e2e` on a machine with its own Chromium: set
   `PLAYWRIGHT_CHROMIUM_PATH=/path/to/chromium`.
+- The five fixed views are taken with the probe grid's quick bake
+  (`?probes=fast`, development only: fewer probes, the smallest
+  pictures, no bounce pass), so a software GPU bakes the room in
+  seconds; the full grid is judged by hand on WebGPU. On a slow
+  machine, `VISUAL_SLOW=3 pnpm e2e` scales every wait and timeout of
+  the visual project by three (any factor works; 1 is the default).
+- The machining speed check (`cut-solid.test.ts`) reads the median of
+  five runs against half a second; `PERF_FACTOR=2 pnpm test` doubles
+  the limit for a slow CI runner alone.
+- After `pnpm build`, `node apps/web/scripts/first-load.mjs` prints the
+  first-load JavaScript of `/rounded`, `/studio` and `/` as gzipped,
+  and `--check` fails when `/rounded` is over its 450 KB budget (CI
+  runs it after the build). The fonts are served from
+  `apps/web/src/app/fonts/`, so the build needs no network.
 
 ## Devices and browsers
 
@@ -172,8 +186,8 @@ neighbours, and the piece's size and price follow its panels; a
 panel takes the shop's machining (shelf pins by the 32 mm system,
 hinge cups, a back groove, a cut-out), drawn on its face, and comes
 as a DXF, the piece's panels nested on the shop's sheets as a cut
-list (a CSV, or a page to print with each sheet drawn and the parts
-tabled), and the machining is cut for real in 3D by manifold-3d where
+list (a CSV, or a page to print to PDF with each sheet drawn and the
+parts tabled), and the machining is cut for real in 3D by manifold-3d where
 the device allows or View settings ask ("Show machining as cut"), the
 STEP of a panel carrying the same cuts; a panel can be given a shape (a corner cut off, a top narrowed,
 the corners rounded) as a sketch FreeCAD's constraint solver settles
@@ -199,7 +213,15 @@ reflects the room from one picture taken from its middle, each
 reflection projected on the room's box
 (`apps/web/src/components/studio/Reflection.tsx`), taken again a
 moment after the room or its pieces change; the stage says when a bake
-or a picture is on its way (`data-probes`, `data-reflection`). The gear's Board
+or a picture is on its way (`data-probes`, `data-reflection`). Two
+development pages measure all of this: `/rounded?bench=walk` times
+the frame along the tour and `?bench=photo` three photos back to
+back, each with a Copy JSON, and `/rounded?check=webgpu` walks a
+checklist of the WebGPU look with a Copy report; `tools/blender/
+reference.py` renders the exported room in Cycles, `tools/studio-
+shots.mjs` takes the studio's own pictures of the same views and
+`tools/compare-refs.mjs` scores them against each other (SSIM and
+mean luminance). The gear's Board
 keeps pictures with a title and a note, uploaded (sized down in the
 browser first) or saved from a generated room item's tile, with the
 starred room items beside them; it is mirrored to the account as a
