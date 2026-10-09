@@ -33,14 +33,19 @@ export const EDGE_MM = 2.5;
     eased edge itself */
 export const BAND = 0.86;
 export const SEAM = 0.72;
-/** a hole's wall in facets */
+/** a hole's wall in facets: a small hole (a system hole, a dowel)
+    takes fewer, the boolean's cost running with the triangle count,
+    and at its size the facets are under a millimetre apart */
 const ROUND = 24;
-/** a polygon of that many sides inscribed in the hole's circle takes
-    1.1% less area than the circle; drawn this much wider it takes the
-    circle's own area, so the volume a hole takes is the hole's */
-const AREA_TRUE = Math.sqrt(
-  (2 * Math.PI) / (ROUND * Math.sin((2 * Math.PI) / ROUND)),
-);
+const ROUND_SMALL = 12;
+const SMALL_HOLE = 10;
+const facetsOf = (d: number) => (d < SMALL_HOLE ? ROUND_SMALL : ROUND);
+/** a polygon of n sides inscribed in the hole's circle takes less area
+    than the circle (1.1% at 24 sides, 4.5% at 12); drawn this much
+    wider it takes the circle's own area, so the volume a hole takes is
+    the hole's whatever its facets */
+const areaTrue = (n: number) =>
+  Math.sqrt((2 * Math.PI) / (n * Math.sin((2 * Math.PI) / n)));
 /** how far a tool reaches past the face it enters, so the boolean never
     leaves a skin, mm */
 const PAST = 0.5;
@@ -73,6 +78,27 @@ export const slabManifold = (m: ManifoldToplevel, p: Dims): Manifold => {
     slabs.delete(oldest);
   }
   slabs.set(key, made);
+  return made;
+};
+
+/** the drills made, by their size and reach: a hole's cylinder is the
+    same wherever it goes, so one serves every hole of its kind, moved
+    into place (a move is a transform the kernel keeps, not a new solid) */
+const drills = new Map<string, Manifold>();
+const DRILLS_KEPT = 16;
+const drillOf = (m: ManifoldToplevel, d: number, h: number): Manifold => {
+  const key = `${d},${h}`;
+  const had = drills.get(key);
+  if (had) return had;
+  const n = facetsOf(d);
+  const r = (d / 2) * areaTrue(n);
+  const made = m.Manifold.cylinder(h, r, r, n, false);
+  if (drills.size >= DRILLS_KEPT) {
+    const oldest = drills.keys().next().value!;
+    drills.get(oldest)!.delete();
+    drills.delete(oldest);
+  }
+  drills.set(key, made);
   return made;
 };
 
@@ -128,13 +154,11 @@ export const toolsOf = (
     const h = through ? p.thickness + 2 * PAST : depth + PAST;
     const w0 = through ? -PAST : face === "front" ? p.thickness - depth : -PAST;
     if (f.kind === "hole")
-      return m.Manifold.cylinder(
-        h,
-        (f.d / 2) * AREA_TRUE,
-        (f.d / 2) * AREA_TRUE,
-        ROUND,
-        false,
-      ).translate(face === "front" ? f.u : p.length - f.u, f.v, w0);
+      return drillOf(m, f.d, h).translate(
+        face === "front" ? f.u : p.length - f.u,
+        f.v,
+        w0,
+      );
     return m.Manifold.cube([r.w, r.h, h], false).translate(u0, r.v, w0);
   });
 
