@@ -5,10 +5,11 @@ import { create } from "zustand";
  * middle, and then a walk through the studio: each step puts a focus
  * border on a panel and says what it does; Skip ends it at any step,
  * and the Guide mark in the toolbar runs the same tour again. The wall
- * how-to is a small card of its own. Whether each was seen is kept in
- * the browser.
+ * how-to is a small card of its own; the turn hint is a line beside a
+ * picked piece's knob in 3D until the piece is first turned. Whether
+ * each was seen is kept in the browser.
  */
-type GuideId = "intro" | "walls";
+export type GuideId = "intro" | "walls" | "turn";
 
 type Guide = {
   id: GuideId;
@@ -51,7 +52,18 @@ export const GUIDES: Record<GuideId, Guide> = {
       "A room already there has handles: drag a wall in or out, drag a corner, or double-click a wall to split it.",
     ],
   },
+  turn: {
+    id: "turn",
+    title: "How to turn a piece",
+    lines: [
+      "Drag anywhere round the ring to turn the piece, in steps of 15 degrees; hold Shift for any angle.",
+      "Click the knob for a quarter turn.",
+    ],
+  },
 };
+/** the turn hint's line, beside the knob */
+export const TURN_HINT =
+  "Drag round the ring to turn it, or click for a quarter turn";
 
 /** where a tour step's card stands against its target */
 export type TourSide = "center" | "right" | "left" | "below" | "above";

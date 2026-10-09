@@ -24,7 +24,8 @@ import {
 } from "three";
 import { CATEGORY_NAMES, type AssetNode } from "./assets-data";
 import { Furniture3D } from "./Furniture3D";
-import { ArrowLeftIcon, LockIcon } from "./icons";
+import { ArrowLeftIcon, LockIcon, RotateIcon } from "./icons";
+import { TURN_HINT, useGuide } from "./guide-store";
 import { usePieceActions } from "./piece-actions";
 import { PieceActions } from "./PieceActions";
 import {
@@ -835,31 +836,46 @@ function Piece({
   labels: boolean;
   edges: boolean;
 }) {
-  // the knob on the ring: a click turns a quarter; a drag round the
-  // piece turns it by the angle the pointer makes about the piece's
-  // middle on the screen, snapped unless Shift is held
+  // the ring and its knob: a click on the knob turns a quarter; a drag
+  // round the piece, from the knob or anywhere on the ring, turns it by
+  // the angle the pointer makes about the piece's middle on the screen,
+  // snapped unless Shift is held. The first turn puts the hint away.
   const camera = useThree((s) => s.camera);
   const canvas = useThree((s) => s.gl.domElement);
   const spin = useRef<{ a0: number; r0: number; moved: boolean } | null>(null);
   const spinSkip = useRef(false);
   const [spinning, setSpinning] = useState(false);
-  const angleAbout = (e: React.PointerEvent) => {
+  const [ringHover, setRingHover] = useState(false);
+  const turnSeen = useGuide((s) => !s.hydrated || s.dismissed.turn === true);
+  const turned = () => {
+    if (!useGuide.getState().dismissed.turn)
+      useGuide.getState().setDismissed("turn", true);
+  };
+  const angleAbout = (e: { clientX: number; clientY: number }) => {
     const c = new Vector3(at[0], 0, at[2]).project(camera);
     const r = canvas.getBoundingClientRect();
     const cx = r.left + ((c.x + 1) / 2) * r.width;
     const cy = r.top + ((1 - c.y) / 2) * r.height;
     return Math.atan2(e.clientY - cy, e.clientX - cx);
   };
-  const onSpinDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+  /** the drag begins; `hold` keeps the pointer on what was pressed */
+  const spinStart = (
+    e: { clientX: number; clientY: number; button: number },
+    hold: () => void,
+  ) => {
     if (e.button !== 0) return;
     spin.current = { a0: angleAbout(e), r0: props.rotation, moved: false };
     try {
-      e.currentTarget.setPointerCapture(e.pointerId);
+      hold();
     } catch {
       /* a pointer the browser no longer knows */
     }
   };
-  const onSpinMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+  const spinMove = (e: {
+    clientX: number;
+    clientY: number;
+    shiftKey: boolean;
+  }) => {
     const s = spin.current;
     if (!s) return;
     let da = ((angleAbout(e) - s.a0) * 180) / Math.PI;
@@ -890,6 +906,7 @@ function Piece({
     if (s.moved) {
       useScene.getState().dragEnd();
       spinSkip.current = true;
+      turned();
     }
   };
   // the ring's reach round the footprint, m
@@ -1019,9 +1036,46 @@ function Piece({
             <meshBasicMaterial
               color={ACCENT_HEX}
               transparent
-              opacity={spinning ? 0.95 : 0.7}
+              opacity={spinning || ringHover ? 0.95 : 0.7}
               depthWrite={false}
             />
+          </mesh>
+          {/* the ring's reach for the pointer: a wider band, unseen,
+              that takes a drag from anywhere round the piece */}
+          <mesh
+            rotation={[-Math.PI / 2, 0, 0]}
+            position={[0, RING_Y, 0]}
+            userData={HELPER_TAG}
+            onPointerOver={(e) => {
+              e.stopPropagation();
+              setRingHover(true);
+            }}
+            onPointerOut={() => setRingHover(false)}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              // the canvas's event system holds the pointer on the mesh
+              spinStart(e.nativeEvent, () =>
+                (
+                  e.target as unknown as {
+                    setPointerCapture: (id: number) => void;
+                  }
+                ).setPointerCapture(e.pointerId),
+              );
+            }}
+            onPointerMove={(e) => {
+              if (!spin.current) return;
+              e.stopPropagation();
+              spinMove(e.nativeEvent);
+            }}
+            onPointerUp={(e) => {
+              if (!spin.current) return;
+              e.stopPropagation();
+              onSpinUp();
+            }}
+            onPointerCancel={onSpinUp}
+          >
+            <ringGeometry args={[ringR - RING_REACH, ringR + RING_REACH, 64]} />
+            <meshBasicMaterial transparent opacity={0} depthWrite={false} />
           </mesh>
           <Html
             portal={portal}
@@ -1032,11 +1086,15 @@ function Piece({
             <button
               type="button"
               className="stage-turn-knob shell-tip"
-              data-tooltip="Turn: drag round the ring, or click for a quarter turn"
+              data-tooltip={TURN_HINT}
               aria-label={`Turn ${node.name}`}
               data-spinning={spinning}
-              onPointerDown={onSpinDown}
-              onPointerMove={onSpinMove}
+              onPointerDown={(e) =>
+                spinStart(e, () =>
+                  e.currentTarget.setPointerCapture(e.pointerId),
+                )
+              }
+              onPointerMove={spinMove}
               onPointerUp={onSpinUp}
               onPointerCancel={onSpinUp}
               onClick={() => {
@@ -1045,8 +1103,16 @@ function Piece({
                   return;
                 }
                 onTurn();
+                turned();
               }}
-            />
+            >
+              <RotateIcon size={13} />
+            </button>
+            {!turnSeen && !spinning && (
+              <span className="stage-turn-hint" role="status">
+                {TURN_HINT}
+              </span>
+            )}
           </Html>
           {spinning && (
             <Html
@@ -1086,10 +1152,13 @@ function Piece({
           {actions}
         </Html>
       )}
-      {(labels || hovered) && (
+      {/* the name floats just over the piece: the one under the pointer
+          and the one picked carry theirs, every piece with the View
+          setting on; a piece being turned shows its degrees instead */}
+      {(labels || hovered || selected) && !spinning && (
         <Html
           portal={portal}
-          position={[0, -0.02, size[2] / 2 + 0.05]}
+          position={[0, size[1] + 0.05, 0]}
           center
           zIndexRange={[20, 10]}
           style={{ pointerEvents: "none" }}
@@ -1111,6 +1180,8 @@ const unpickable = () => null;
 const RING_OUT = 0.1;
 const RING_W = 0.012;
 const RING_Y = 0.006;
+/** how far either side of the ring a press still takes hold of it, m */
+const RING_REACH = 0.045;
 /** the halo's margin round the footprint, m, and its picture's size */
 const HALO_OUT = 0.12;
 const HALO_PX = 256;

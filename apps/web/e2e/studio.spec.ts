@@ -2636,12 +2636,14 @@ test("in 3D a piece is dragged over the floor, the camera glides between angles,
   await page.keyboard.press("Escape");
   const tag = stage.locator(".stage-3d-name", { hasText: first.name }).first();
   const t = (await tag.boundingBox())!;
-  // over the piece the canvas shows a hand: it can be dragged
-  await page.mouse.move(t.x + t.width / 2, t.y - 22);
+  // the name floats just over the piece: under it is the piece itself,
+  // where the canvas shows a hand: it can be dragged
+  const ty = t.y + t.height + 22;
+  await page.mouse.move(t.x + t.width / 2, ty);
   await expect(stage).toHaveAttribute("data-hover", "grab");
   await page.mouse.down();
-  await page.mouse.move(t.x + t.width / 2 + 60, t.y - 22, { steps: 8 });
-  await page.mouse.move(t.x + t.width / 2 + 120, t.y - 22, { steps: 8 });
+  await page.mouse.move(t.x + t.width / 2 + 60, ty, { steps: 8 });
+  await page.mouse.move(t.x + t.width / 2 + 120, ty, { steps: 8 });
   await expect(stage).toHaveAttribute("data-dragging", "true");
   await page.mouse.up();
   await expect(stage).toHaveAttribute("data-dragging", "false");
@@ -4168,6 +4170,62 @@ test("the room is its outline: a notch is a wall, the layouts keep out of it, th
     .trim()
     .split(" ");
   expect(tapped.length).toBeGreaterThanOrEqual(6);
+});
+
+test("in 3D a picked piece carries its name and a knob with a hint, until its first turn; the hint stays away next time", async ({
+  page,
+}) => {
+  await page.goto("/rounded");
+  const stage = page.locator(".shell-stage .stage-3d");
+  await expect(stage).toHaveAttribute("data-settled", "true", {
+    timeout: 60_000,
+  });
+  // nothing picked: no names, no knob, no hint
+  await expect(stage.locator(".stage-3d-name")).toHaveCount(0);
+  await expect(stage.locator(".stage-turn-hint")).toHaveCount(0);
+  // (the project comes back from the browser a moment after the stage
+  // settles, and a pick before that is lost: pick until it holds)
+  const pick = () =>
+    expect(async () => {
+      await page.getByRole("treeitem", { name: "Sofa", exact: true }).click();
+      await expect(stage.locator(".stage-3d-name")).toHaveText("Sofa", {
+        timeout: 2_000,
+      });
+    }).toPass({ timeout: 20_000 });
+  await pick();
+  const knob = stage.getByRole("button", { name: "Turn Sofa" });
+  await expect(knob).toBeVisible();
+  await expect(stage.getByRole("status")).toHaveText(
+    "Drag round the ring to turn it, or click for a quarter turn",
+  );
+  // a click on the knob is a quarter turn, and the hint is done with
+  await knob.click();
+  await page.getByRole("tab", { name: "Detail", exact: true }).click();
+  await expect(
+    page.getByRole("spinbutton", { name: "Sofa turn in degrees" }),
+  ).toHaveValue("90");
+  await expect(stage.locator(".stage-turn-hint")).toHaveCount(0);
+  expect(
+    await page.evaluate(
+      () => JSON.parse(localStorage.getItem("furnishes.guides")!).turn,
+    ),
+  ).toBe(true);
+  // (the tests' own seed writes the guide record afresh on every load:
+  // the next load carries what this one kept)
+  await page.addInitScript(
+    ({ key, value }) => localStorage.setItem(key, value),
+    {
+      key: GUIDE_STORAGE_KEY,
+      value: JSON.stringify({ intro: true, turn: true }),
+    },
+  );
+  await page.reload();
+  await expect(stage).toHaveAttribute("data-settled", "true", {
+    timeout: 60_000,
+  });
+  await pick();
+  await expect(stage.getByRole("button", { name: "Turn Sofa" })).toBeVisible();
+  await expect(stage.locator(".stage-turn-hint")).toHaveCount(0);
 });
 
 test("View settings: edges, names, a floor grid, shadows and the light, kept for next time", async ({

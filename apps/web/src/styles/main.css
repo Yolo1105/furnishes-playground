@@ -1594,12 +1594,15 @@
    and a readout of the degrees above the piece while it turns */
 .stage-turn-knob {
   appearance: none;
-  width: 18px;
-  height: 18px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
   padding: 0;
   border-radius: 50%;
   border: 2px solid var(--color-accent);
   background: var(--color-glass);
+  color: var(--color-accent);
   box-shadow: 0 2px 6px -2px rgb(from var(--color-shadow) r g b / 0.4);
   cursor: grab;
   touch-action: none;
@@ -1607,11 +1610,31 @@
 }
 .stage-turn-knob:hover,
 .stage-turn-knob[data-spinning="true"] {
-  transform: scale(1.25);
+  transform: scale(1.15);
 }
 .stage-turn-knob[data-spinning="true"] {
   cursor: grabbing;
   background: var(--color-accent);
+  color: var(--color-paper);
+}
+/* the first-time hint beside the knob, until the piece is first turned */
+.stage-turn-hint {
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 4px 9px;
+  border-radius: var(--r-chip);
+  background: rgb(from var(--color-glass) r g b / 0.95);
+  border: 1px solid rgb(from var(--color-line) r g b / 0.2);
+  box-shadow: 0 4px 12px -6px rgb(from var(--color-shadow) r g b / 0.4);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: rgb(from var(--color-ink) r g b / 0.8);
+  white-space: nowrap;
+  pointer-events: none;
 }
 .stage-turn-readout {
   display: inline-block;
@@ -1885,13 +1908,13 @@
 }
 .stage-3d-name {
   display: inline-block;
-  padding: 2px 6px;
+  padding: 1px 5px;
   border-radius: var(--r-chip);
-  background: rgb(from var(--color-glass) r g b / 0.8);
-  font-size: 10px;
+  background: rgb(from var(--color-glass) r g b / 0.7);
+  font-size: 9px;
   font-weight: 600;
-  letter-spacing: 0.02em;
-  color: rgb(from var(--color-ink) r g b / 0.6);
+  letter-spacing: 0.03em;
+  color: rgb(from var(--color-ink) r g b / 0.55);
   white-space: nowrap;
 }
 .stage-piece-tag-3d {
