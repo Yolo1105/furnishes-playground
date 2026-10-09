@@ -27,6 +27,7 @@ import {
   type Vector3Tuple,
 } from "three";
 import { type Finish, Mat, metal, METAL, Slab } from "./finish";
+import { MirrorFace } from "./Mirror";
 import { useProfileGeometry } from "./part-client";
 import { ACCENT_HEX } from "./piece-detail";
 import { useScene } from "./scene-store";
@@ -334,9 +335,31 @@ function PanelMesh({
         panel.features?.map((x) => (
           <Mark key={x.id} panel={panel} feature={x} />
         ))}
+      {f.mirror && panel.kind === "door" && (
+        <MirrorFace
+          id={`${pieceId}-${panel.id}`}
+          at={mirrorAt(panel)}
+          size={[toMetres(panel.length), toMetres(panel.width)]}
+          rotation={mirrorTurn(panel)}
+        />
+      )}
     </group>
   );
 }
+
+/** a door panel's mirror: on its front face, turned to its normal */
+const mirrorAt = (p: Panel): Vector3Tuple => {
+  const at = [...p.position] as Vec3;
+  const i = p.normal === "x" ? 0 : p.normal === "y" ? 1 : 2;
+  at[i] += p.thickness / 2;
+  return at.map(toMetres) as Vector3Tuple;
+};
+const mirrorTurn = (p: Panel): Vector3Tuple =>
+  p.normal === "x"
+    ? [0, Math.PI / 2, 0]
+    : p.normal === "y"
+      ? [-Math.PI / 2, 0, 0]
+      : [0, 0, 0];
 
 /** one feature's mark on its panel's face */
 function Mark({ panel, feature }: { panel: Panel; feature: Feature }) {

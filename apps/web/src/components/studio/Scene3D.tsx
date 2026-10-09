@@ -55,7 +55,16 @@ import {
   type RoomConfig,
 } from "./room-store";
 import { Photo, PhotoBench } from "./Photo";
-import { backendOf, Post, textureSideOf, tierOf, TONE_MAPPING } from "./Post";
+import {
+  backendOf,
+  EFFECTS_OFF,
+  type EffectStates,
+  MRT_BYTES,
+  Post,
+  textureSideOf,
+  tierOf,
+  TONE_MAPPING,
+} from "./Post";
 import { Probes } from "./Probes";
 import type { StillState } from "./capture";
 import { loadMaterials, useMaterials } from "./materials";
@@ -106,12 +115,19 @@ const makeRenderer = async (props: RendererProps, antialias: boolean) => {
     ? await navigator.gpu.requestAdapter().catch(() => null)
     : null;
   const webgl = !adapter;
+  // the desktop extras draw the scene with four attachments a sample
+  // (32 bytes, the floor every device has); more is asked for where the
+  // adapter allows it, as headroom for a fifth
+  const bytes = adapter?.limits.maxColorAttachmentBytesPerSample ?? 0;
   const renderer = new WebGPURenderer({
     canvas,
     antialias,
     alpha: true,
     powerPreference: "high-performance",
     forceWebGL: webgl,
+    ...(bytes >= 2 * MRT_BYTES
+      ? { requiredLimits: { maxColorAttachmentBytesPerSample: 2 * MRT_BYTES } }
+      : {}),
     // the frame bench reads the GPU's time per frame where the device
     // has the timestamp query (WebGPUBackend: trackTimestamp)
     trackTimestamp: devParam("bench") === "walk",
@@ -214,7 +230,7 @@ function Backend() {
   const gl = useThree((s) => s.gl);
   const setBackend = useStudio((s) => s.setBackend);
   useEffect(() => {
-    setBackend(backendOf(gl), textureSideOf(gl));
+    setBackend(backendOf(gl), textureSideOf(gl), bytesPerSampleOf(gl));
   }, [gl, setBackend]);
   // leaving the main column (the plan takes it), the view's last
   // picture is kept for the small panel, as it stood
@@ -234,6 +250,19 @@ function Backend() {
 }
 
 /** a stage of the picture's finish failed: say so once, draw plain */
+/** the bytes a sample of colour attachments may hold on the device:
+    the WebGPU device's limit, or WebGPU's floor on the WebGL backend */
+const bytesPerSampleOf = (renderer: unknown): number => {
+  const r = renderer as {
+    backend?: {
+      device?: { limits?: { maxColorAttachmentBytesPerSample?: number } };
+    };
+  };
+  return (
+    r.backend?.device?.limits?.maxColorAttachmentBytesPerSample ?? MRT_BYTES
+  );
+};
+
 const failPost = (set: (failed: boolean) => void) => (error: unknown) => {
   console.warn("The picture's finish is off on this device.", error);
   set(true);
@@ -1402,6 +1431,9 @@ export default function Scene3D() {
   // render has it whatever the View settings; a stage that fails on this
   // device turns it off for good
   const [postFailed, setPostFailed] = useState(false);
+  // which of the desktop extras the chain draws (Post.tsx says)
+  const [fx, setFx] = useState<EffectStates>(EFFECTS_OFF);
+  const bytesPerSample = useStudio((s) => s.bytesPerSample);
   const tier = backend ? tierOf(scene.quality, coarse, backend) : null;
   // the studio reads the tier too (the machining's cuts follow it)
   useEffect(() => useStudio.getState().setTier(tier), [tier]);
@@ -1541,6 +1573,8 @@ export default function Scene3D() {
       data-drawn={drawn}
       data-settled={settling === 0}
       data-post={post ?? "off"}
+      data-ssr={post === "desktop" ? fx.ssr : "off"}
+      data-ssgi={post === "desktop" ? fx.ssgi : "off"}
       data-probes={probes ? probeState : "off"}
       data-reflection={probes ? reflectState : "off"}
     >
@@ -1585,8 +1619,11 @@ export default function Scene3D() {
         {post && (
           <Post
             tier={post}
+            effects={{ reflections: scene.reflections, bounce: scene.bounce }}
+            bytesPerSample={bytesPerSample}
             onFailed={failPost(setPostFailed)}
             onSettle={setSettling}
+            onEffects={setFx}
           />
         )}
         <hemisphereLight

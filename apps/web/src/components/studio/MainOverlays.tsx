@@ -180,6 +180,7 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
   const cutsOn = useStudio((s) => s.cutsOn());
   const backend = useStudio((s) => s.backend);
   const photoMax = useStudio((s) => s.photoMax);
+  const tier = useStudio((s) => s.tier);
   const { setScene } = useStudio.getState();
   const looking = useFixedMenu();
   const { wrap: lookWrap, menu: lookMenu } = looking;
@@ -371,6 +372,28 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
                           <span className="main-prefs-sub">{q.sub}</span>
                         </button>
                       ))}
+                      {tier === "desktop" &&
+                        (
+                          [
+                            ["reflections", "Reflections"],
+                            ["bounce", "Bounce light (experimental)"],
+                          ] as const
+                        ).map(([key, label]) => (
+                          <button
+                            key={key}
+                            type="button"
+                            role="menuitemcheckbox"
+                            aria-checked={scene[key]}
+                            className="shell-menu-row"
+                            onClick={() => setScene({ [key]: !scene[key] })}
+                          >
+                            <span
+                              className="main-prefs-check"
+                              aria-hidden="true"
+                            />
+                            {label}
+                          </button>
+                        ))}
                       {backend === "webgpu" && (
                         <>
                           <div className="shell-menu-sep" role="separator" />

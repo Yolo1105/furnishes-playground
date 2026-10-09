@@ -94,7 +94,13 @@ export const COLOURS = [
   { id: "sage", name: "Sage", hex: "#b8bfa5" },
 ] as const;
 
-export const TEXTURES = ["Matte", "Satin", "Wood grain", "Linen"] as const;
+export const TEXTURES = [
+  "Matte",
+  "Satin",
+  "Wood grain",
+  "Linen",
+  "Mirror",
+] as const;
 
 /** a colour's hex, where a canvas needs one (three.js, the mini views) */
 export const colourHex = (id: string) =>

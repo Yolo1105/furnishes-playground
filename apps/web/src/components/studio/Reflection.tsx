@@ -44,6 +44,12 @@ const FAR = 50;
 /** the floor's material and, when it reflects, the picture it reflects:
     the room's box (w, h, d) stands on the floor's plane about the origin;
     a floor that does not reflect takes the surroundings like the rest */
+/** the floor's picture of the room, for a mirror that is not the one
+    reflector in view (Mirror.tsx) to reflect */
+export const floorCube: { current: CubeRenderTarget | null } = {
+  current: null,
+};
+
 export const useFloorMaterial = (
   w: number,
   h: number,
@@ -61,7 +67,13 @@ export const useFloorMaterial = (
     t.texture.mapping = CubeReflectionMapping;
     return t;
   }, [reflects]);
-  useEffect(() => () => target?.dispose(), [target]);
+  useEffect(() => {
+    floorCube.current = target;
+    return () => {
+      if (floorCube.current === target) floorCube.current = null;
+      target?.dispose();
+    };
+  }, [target]);
   const material = useMemo(() => {
     const m = new MeshStandardNodeMaterial();
     if (target) {

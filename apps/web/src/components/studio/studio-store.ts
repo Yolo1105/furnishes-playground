@@ -50,6 +50,10 @@ export type SceneLook = {
   /** a panel's machining cut for real in 3D (cut-solid.ts): auto is on
       for the desktop tier, where the cuts cost nothing to notice */
   cuts: "auto" | "on" | "off";
+  /** the desktop tier's extras (Post.tsx): screen-space reflections,
+      and bounce light, which is experimental and off until asked */
+  reflections: boolean;
+  bounce: boolean;
 };
 export type Quality = "auto" | "full" | "light" | "plain";
 export const QUALITIES: { id: Quality; label: string; sub: string }[] = [
@@ -83,6 +87,8 @@ export const SCENE_DEFAULT: SceneLook = {
   quality: "auto",
   photoSize: "screen",
   cuts: "auto",
+  reflections: true,
+  bounce: false,
 };
 /** how far the plan can be zoomed, and by how much a step zooms */
 export const ZOOM = { min: 0.5, max: 4, step: 1.15 };
@@ -179,6 +185,9 @@ type StudioState = {
   /** the largest side a texture can have on this device, px: what a
       photo's size is kept to */
   photoMax: number;
+  /** the bytes a sample of colour attachments may hold on the device
+      (WebGPU's maxColorAttachmentBytesPerSample; 32 is the floor) */
+  bytesPerSample: number;
   photo: PhotoStatus | null;
   /** what the render is doing now, while it generates */
   work: Work | null;
@@ -209,7 +218,11 @@ type StudioState = {
       moves, no actions */
   readOnly: boolean;
   setMode: (mode: Mode) => void;
-  setBackend: (backend: Backend, photoMax?: number) => void;
+  setBackend: (
+    backend: Backend,
+    photoMax?: number,
+    bytesPerSample?: number,
+  ) => void;
   setTier: (tier: StudioState["tier"]) => void;
   /** the photo's progress, or none once the view is edited again */
   setPhoto: (patch: Partial<PhotoStatus> | null) => void;
@@ -282,6 +295,7 @@ export const useStudio = create<StudioState>((set, get) => ({
     );
   },
   photoMax: 4096,
+  bytesPerSample: 32,
   photo: null,
   work: null,
   lastFrame: null,
@@ -374,8 +388,12 @@ export const useStudio = create<StudioState>((set, get) => ({
         ? { preview: "done" as const, split: 100 }
         : {}),
     })),
-  setBackend: (backend, photoMax) =>
-    set((s) => ({ backend, photoMax: photoMax ?? s.photoMax })),
+  setBackend: (backend, photoMax, bytesPerSample) =>
+    set((s) => ({
+      backend,
+      photoMax: photoMax ?? s.photoMax,
+      bytesPerSample: bytesPerSample ?? s.bytesPerSample,
+    })),
   setTier: (tier) => set((s) => (s.tier === tier ? {} : { tier })),
   setPhoto: (patch) =>
     set((s) => ({

@@ -54,6 +54,20 @@ export const CHECKS: readonly Check[] = [
     set: () => st().setScene({ shadows: "on" }),
   },
   {
+    id: "ssr",
+    title: "Screen-space reflections",
+    look: "On the Full picture with Reflections on: the floor shows the sideboard and the window reflected sharply where they stand on the screen, and panning shows no seam where the floor's own picture takes over at the edges. The bench's post-processing line stays under 6 ms at 1440p.",
+    reads: ["post", "ssr", "settled"],
+    set: () => st().setScene({ quality: "full", reflections: true }),
+  },
+  {
+    id: "ssgi",
+    title: "Bounce light",
+    look: "With Bounce light on: a lit wall warms the floor beside it and the underside of a shelf takes light from the board below, with no flicker once the picture settles; the laptop and phone pictures are unchanged.",
+    reads: ["post", "ssgi", "settled"],
+    set: () => st().setScene({ quality: "full", bounce: true }),
+  },
+  {
     id: "render",
     title: "Render's steps",
     look: "Render (stage 03): the steps card runs light, floor, edges, grade; the line's pace follows the counts; the picture grades without a jump.",

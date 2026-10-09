@@ -42,6 +42,7 @@ import {
   Soft,
   wood,
 } from "./finish";
+import { MirrorFace } from "./Mirror";
 import { Panels3D } from "./Panels3D";
 import { Part3D } from "./Part3D";
 
@@ -367,6 +368,7 @@ function Form(p: Props) {
   if (body === "carcass")
     return (
       <Carcass
+        id={p.node.id}
         w={w}
         h={h}
         d={d}
@@ -446,6 +448,7 @@ function Form(p: Props) {
 /* ---------- the Furnishes pieces: 18 mm panels ---------- */
 
 function Carcass({
+  id,
   w,
   h,
   d,
@@ -456,6 +459,8 @@ function Carcass({
   hooks,
   seed,
 }: {
+  /** the piece's id: its mirrors are named after it */
+  id: string;
   w: number;
   h: number;
   d: number;
@@ -530,6 +535,13 @@ function Carcass({
                     PANEL,
                   ]}
                 />
+                {f.mirror && (
+                  <MirrorFace
+                    id={`${id}-door-${i}`}
+                    at={[mid, PLINTH + PANEL + inner / 2, d / 2 + PANEL]}
+                    size={[bayW + PANEL - DOOR_GAP, inner + PANEL - DOOR_GAP]}
+                  />
+                )}
                 <Rod
                   f={metal(METAL)}
                   at={[

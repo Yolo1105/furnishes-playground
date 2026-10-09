@@ -28,7 +28,7 @@ export const METAL = "#8d8780";
 
 /** how a finish catches the light */
 export const roughnessOf = (texture: string) =>
-  texture === "Satin"
+  texture === "Satin" || texture === "Mirror"
     ? 0.4
     : texture === "Linen"
       ? 0.95
@@ -51,6 +51,9 @@ export type Finish = {
   /** glaze: a clear coat over the colour */
   coat?: number;
   metal?: number;
+  /** the doors' faces are mirrors (Mirror.tsx); the body keeps the
+      satin finish */
+  mirror?: boolean;
 };
 export const cloth = (colour: string): Finish => ({
   colour,
@@ -81,7 +84,9 @@ export const finishOf = (colour: string, texture: string): Finish => ({
       ? { grain: clothGrain(), sheen: 0.4 }
       : texture === "Satin"
         ? { coat: 0.3 }
-        : {}),
+        : texture === "Mirror"
+          ? { coat: 0.3, mirror: true }
+          : {}),
 });
 
 /** how strongly a grain's relief bends the light */

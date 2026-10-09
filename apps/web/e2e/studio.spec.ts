@@ -1528,6 +1528,94 @@ test("machining cut for real: shelf pins, a groove and a cup show as holes in th
   await print.close();
 });
 
+test("the desktop extras: Reflections and Bounce light stand behind View settings on the Full picture and the stage says which draw; a Mirror finish puts a reflector on a door, one at a time", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  await page.goto("/rounded");
+  const stage3d = page.locator(".stage-3d");
+  await expect(stage3d).toHaveAttribute("data-drawn", "true", {
+    timeout: 90_000,
+  });
+  // on the sandbox's software graphics the picture is the phone's: no
+  // extras, and none on offer
+  await expect(stage3d).toHaveAttribute("data-ssr", "off");
+  await expect(stage3d).toHaveAttribute("data-ssgi", "off");
+  await page.getByRole("button", { name: "View settings" }).click();
+  const menu = page.getByRole("menu", { name: "View settings" });
+  await expect(
+    menu.getByRole("menuitemcheckbox", { name: "Reflections" }),
+  ).toHaveCount(0);
+  // the Full picture is the desktop's: the reflections are on by
+  // default and drawn, the bounce light off until asked
+  await menu.getByRole("menuitemradio", { name: "Full" }).click();
+  await expect(stage3d).toHaveAttribute("data-post", "desktop");
+  const reflections = menu.getByRole("menuitemcheckbox", {
+    name: "Reflections",
+  });
+  const bounce = menu.getByRole("menuitemcheckbox", {
+    name: "Bounce light (experimental)",
+  });
+  await expect(reflections).toHaveAttribute("aria-checked", "true");
+  await expect(bounce).toHaveAttribute("aria-checked", "false");
+  await expect(stage3d).toHaveAttribute("data-ssr", "on", { timeout: 90_000 });
+  await expect(stage3d).toHaveAttribute("data-ssgi", "off");
+  await bounce.click();
+  await expect(stage3d).toHaveAttribute("data-ssgi", "on", { timeout: 90_000 });
+  // the chain draws, and settles, with both on: the device did not
+  // fall back to the plain room
+  await expect(stage3d).toHaveAttribute("data-post", "desktop");
+  await expect(stage3d).toHaveAttribute("data-settled", "true", {
+    timeout: 90_000,
+  });
+  await reflections.click();
+  await expect(stage3d).toHaveAttribute("data-ssr", "off", { timeout: 90_000 });
+  await expect(stage3d).toHaveAttribute("data-ssgi", "on");
+  // back to Auto: the phone's picture again, the extras gone from the menu
+  await menu.getByRole("menuitemradio", { name: "Auto" }).click();
+  await expect(stage3d).toHaveAttribute("data-ssgi", "off");
+  await expect(reflections).toHaveCount(0);
+  await page.getByRole("button", { name: "View settings" }).click();
+  // a Mirror finish on a piece with doors: each door takes a mirror
+  // face; the first holds the reflector, the rest polished metal
+  const sideboard = top.find((a) => /sideboard/i.test(a.name))!;
+  await page
+    .locator(".main-shelf")
+    .getByRole("button", { name: sideboard.name, exact: true })
+    .click();
+  await page.getByRole("tab", { name: "Detail" }).click();
+  const doors = page.getByRole("switch", { name: `${sideboard.name} doors` });
+  if ((await doors.getAttribute("aria-checked")) !== "true")
+    await doors.click();
+  await page
+    .getByRole("radiogroup", { name: "Texture" })
+    .getByRole("radio", { name: "Mirror" })
+    .click();
+  const mirrors = () =>
+    page.evaluate(() => {
+      const out: boolean[] = [];
+      (
+        window as unknown as {
+          __scene: {
+            traverse: (
+              f: (o: {
+                userData: { mirror?: boolean; first?: boolean };
+              }) => void,
+            ) => void;
+          };
+        }
+      ).__scene.traverse((o) => {
+        if (o.userData.mirror) out.push(!!o.userData.first);
+      });
+      return out;
+    });
+  await expect.poll(mirrors, { timeout: 60_000 }).toHaveLength(3);
+  expect((await mirrors()).filter(Boolean)).toHaveLength(1);
+  await expect(stage3d).toHaveAttribute("data-settled", "true", {
+    timeout: 90_000,
+  });
+});
+
 test("the sketcher: an L-shaped shelf with a 20 mm round hole, fully held; one dimension changed moves the solid, the DXF and the STEP", async ({
   page,
 }) => {

@@ -7,6 +7,7 @@ import { useEffect, useRef } from "react";
 import {
   AgXToneMapping,
   type Camera,
+  type PerspectiveCamera,
   type Scene,
   SRGBColorSpace,
   Vector2,
@@ -15,14 +16,22 @@ import {
 import type { Node, PassNode, TextureNode } from "three/webgpu";
 import { ao } from "three/examples/jsm/tsl/display/GTAONode.js";
 import { smaa } from "three/examples/jsm/tsl/display/SMAANode.js";
+import { ssgi } from "three/examples/jsm/tsl/display/SSGINode.js";
+import { ssr } from "three/examples/jsm/tsl/display/SSRNode.js";
 import { traa } from "three/examples/jsm/tsl/display/TRAANode.js";
 import {
+  float,
   Fn,
+  max,
+  metalness,
   mix,
   mrt,
+  normalView,
   output,
   pass,
+  pow,
   renderOutput,
+  roughness,
   rtt,
   screenUV,
   uniform,
@@ -108,6 +117,28 @@ export const backendOf = (renderer: unknown): Backend => {
 
 /** the occlusion's reach, m, and how dark it goes */
 const AO = { radius: 0.6, scale: 1.4 };
+/** the desktop extras: screen-space reflections and bounce light,
+    each behind a View setting (Reflections, Bounce light) */
+export type Effects = { reflections: boolean; bounce: boolean };
+export type EffectState = "on" | "off" | "unsupported";
+export type EffectStates = { ssr: EffectState; ssgi: EffectState };
+export const EFFECTS_OFF: EffectStates = { ssr: "off", ssgi: "off" };
+/** the reflections' reach, m, how thick a surface is taken to be for a
+    hit, m, their share of the picture, and the share of the stage's
+    size they are traced at */
+const SSR = { maxDistance: 6, thickness: 0.05, intensity: 0.6, scale: 0.5 };
+/** a glossy dielectric reflects too: its weight is this much of its
+    glossiness squared (a metal's is its metalness) */
+const SSR_GLOSS = 0.35;
+/** the bounce light: slices and steps a pixel (the node's medium
+    preset with temporal filtering), its reach, m, and the share of it
+    laid over the picture (conservative; the bench judges more) */
+const SSGI = { slices: 2, steps: 8, radius: 2.5, share: 0.5 };
+/** the bytes a sample of colour attachments must hold for the scene
+    pass with its normals and material beside the colour and motion:
+    four half-float attachments, packed (the bounce light needs no
+    more than the reflections do); WebGPU's floor is this much */
+export const MRT_BYTES = 32;
 /** the frames a still picture takes to settle: TRAA blends each new
     frame into its history, so a change is followed by this many more */
 const SETTLE_FRAMES = 16;
@@ -188,8 +219,11 @@ const frameOf = (
   depth: TextureNode,
   occlusion: Node<"float"> | null,
   backdrop: Node<"vec3">,
+  /** light added before the tone mapping: reflections, bounce */
+  added: Node<"vec3"> | null = null,
 ) => {
-  const lit = occlusion ? scenePass.rgb.mul(occlusion) : scenePass.rgb;
+  const shaded = occlusion ? scenePass.rgb.mul(occlusion) : scenePass.rgb;
+  const lit = added ? shaded.add(added) : shaded;
   return rtt(
     vec4(
       mix(
@@ -208,6 +242,8 @@ type Chain = {
   place: Place;
   /** whether the picture is built over frames and needs them to settle */
   temporal: boolean;
+  /** which of the desktop extras the chain draws */
+  fx: EffectStates;
 };
 
 /** the passes for a tier, in three's render pipeline: the scene drawn
@@ -217,6 +253,8 @@ const build = (
   scene: Scene,
   camera: Camera,
   tier: Tier,
+  effects: Effects,
+  bytesPerSample: number,
 ): Chain => {
   const pipeline = new RenderPipeline(renderer);
   // the frame carries the page's values already: nothing more at the end
@@ -246,9 +284,26 @@ const build = (
       },
       place,
       temporal: false,
+      fx: EFFECTS_OFF,
     };
   }
-  scenePass.setMRT(mrt({ output, velocity }));
+  // the desktop extras need the scene's normals and its material beside
+  // the colour and the motion: the normal with the metalness in its
+  // fourth channel, the roughness in the motion's third, so the pass
+  // stays within the bytes a sample may hold on any device
+  const extras = tier === "desktop" && (effects.reflections || effects.bounce);
+  const fits = bytesPerSample >= MRT_BYTES;
+  const wantSsr = extras && effects.reflections && fits;
+  const wantSsgi = extras && effects.bounce && fits;
+  if (extras && fits)
+    scenePass.setMRT(
+      mrt({
+        output,
+        velocity: vec4(velocity as unknown as Node<"vec2">, roughness, 0),
+        normal: vec4(normalView, metalness),
+      }),
+    );
+  else scenePass.setMRT(mrt({ output, velocity }));
   // the occlusion from the depth alone (its normals are read back from
   // it), so the room is drawn once a frame
   // the occlusion can be switched off for diagnosis (dev-flags.ts)
@@ -261,11 +316,63 @@ const build = (
     occlusion.scale.value = AO.scale;
     occlusion.useTemporalFiltering = true;
   }
+  // the reflections: a single mirror ray a pixel, softened by the
+  // roughness, on metals by their metalness and on glossy dielectrics
+  // (the satin panels, the floor) by their glossiness; added before the
+  // tone mapping. The floor's own box-projected picture stays under
+  // them, which fills where a ray leaves the screen
+  let added: Node<"vec3"> | null = null;
+  let reflections: ReturnType<typeof ssr> | null = null;
+  let bounce: ReturnType<typeof ssgi> | null = null;
+  if (wantSsr || wantSsgi) {
+    const normalTex = scenePass.getTextureNode("normal");
+    const motionTex = scenePass.getTextureNode("velocity");
+    if (wantSsr) {
+      const weight = max(
+        normalTex.a,
+        pow(motionTex.b.oneMinus(), 2).mul(SSR_GLOSS),
+      );
+      reflections = ssr(
+        scenePass.getTextureNode("output"),
+        depth,
+        // the node samples the normals itself: the texture, not a swizzle
+        normalTex as unknown as Node<"vec3">,
+        {
+          metalnessNode: weight,
+          roughnessNode: motionTex.b,
+          reflectNonMetals: true,
+          camera,
+        },
+      );
+      reflections.maxDistance.value = SSR.maxDistance;
+      reflections.thickness.value = SSR.thickness;
+      reflections.intensity.value = SSR.intensity;
+      reflections.resolutionScale = SSR.scale;
+      added = reflections.rgb;
+    }
+    // the bounce light: screen-space GI with temporal filtering, which
+    // the TRAA after it settles; a conservative share of it is added
+    if (wantSsgi) {
+      bounce = ssgi(
+        scenePass.getTextureNode("output"),
+        depth,
+        normalTex,
+        camera as PerspectiveCamera,
+      );
+      bounce.sliceCount.value = SSGI.slices;
+      bounce.stepCount.value = SSGI.steps;
+      bounce.radius.value = SSGI.radius;
+      bounce.useTemporalFiltering = true;
+      const gi = bounce.getGINode().rgb.mul(float(SSGI.share));
+      added = added ? added.add(gi) : gi;
+    }
+  }
   const frame = frameOf(
     scenePass,
     depth,
     occlusion ? occlusion.getTextureNode().sample(screenUV).r : null,
     backdrop,
+    added,
   );
   const resolve = traa(
     frame,
@@ -284,12 +391,19 @@ const build = (
     dispose: () => {
       resolve.dispose();
       frame.dispose();
+      reflections?.dispose();
+      bounce?.dispose();
       occlusion?.dispose();
       scenePass.dispose();
       pipeline.dispose();
     },
     place,
     temporal: true,
+    fx: {
+      ssr:
+        !extras || !effects.reflections ? "off" : fits ? "on" : "unsupported",
+      ssgi: !extras || !effects.bounce ? "off" : fits ? "on" : "unsupported",
+    },
   };
 };
 
@@ -302,46 +416,59 @@ const placeOf = (canvas: HTMLCanvasElement, place: Place) => {
 
 export function Post({
   tier,
+  effects = { reflections: false, bounce: false },
+  bytesPerSample = MRT_BYTES,
   onFailed,
   onSettle,
+  onEffects,
 }: {
   tier: Tier;
+  /** the desktop extras asked for (View settings) */
+  effects?: Effects;
+  /** what a sample of colour attachments may hold on this device */
+  bytesPerSample?: number;
   /** a stage failed on this device: the room is drawn plain from now on */
   onFailed: (error: unknown) => void;
   /** how many settle frames remain after a change, 0 once the picture
       has settled */
   onSettle?: (remaining: number) => void;
+  /** which extras the chain draws, once built */
+  onEffects?: (fx: EffectStates) => void;
 }) {
   const invalidate = useThree((s) => s.invalidate);
   // the passes are built on the first frame that needs them and let go
-  // when the tier changes or the room leaves
-  const kept = useRef<{ tier: Tier; chain: Chain } | null>(null);
+  // when the tier or the extras change or the room leaves
+  const key = `${tier}:${effects.reflections}:${effects.bounce}:${bytesPerSample}`;
+  const kept = useRef<{ key: string; chain: Chain } | null>(null);
   useEffect(() => {
     invalidate();
     return () => {
       kept.current?.chain.dispose();
       kept.current = null;
     };
-  }, [tier, invalidate]);
+  }, [key, invalidate]);
   const settle = useRef(0);
   // this takes the frame over from the canvas: the pipeline draws, or the
   // renderer alone after one of its stages fails
   useFrame((state) => {
     let have = kept.current;
-    if (!have || have.tier !== tier) {
-      have?.chain.dispose();
-      have = {
-        tier,
-        chain: build(
-          state.gl as unknown as WebGPURenderer,
-          state.scene,
-          state.camera,
-          tier,
-        ),
-      };
-      kept.current = have;
-    }
     try {
+      if (!have || have.key !== key) {
+        have?.chain.dispose();
+        have = {
+          key,
+          chain: build(
+            state.gl as unknown as WebGPURenderer,
+            state.scene,
+            state.camera,
+            tier,
+            effects,
+            bytesPerSample,
+          ),
+        };
+        kept.current = have;
+        onEffects?.(have.chain.fx);
+      }
       placeOf(state.gl.domElement, have.chain.place);
       have.chain.render();
     } catch (error) {
