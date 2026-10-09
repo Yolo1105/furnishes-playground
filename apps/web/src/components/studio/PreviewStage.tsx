@@ -27,7 +27,12 @@ const NOTE: Record<"photo" | "render", string> = {
 function RenderSteps() {
   const work = useStudio((s) => s.work);
   const loading = useStudio((s) => s.loading);
+  const photo = useStudio((s) => s.photo);
   if (!work || (loading !== "render" && loading !== "photo")) return null;
+  const size =
+    loading === "photo" && photo && photo.width > 0
+      ? ` At ${photo.width} × ${photo.height}.`
+      : "";
   const now = work.plan.indexOf(work.step);
   return (
     <section
@@ -55,7 +60,10 @@ function RenderSteps() {
           );
         })}
       </ol>
-      <p className="render-steps-note">{NOTE[loading]}</p>
+      <p className="render-steps-note">
+        {NOTE[loading]}
+        {size}
+      </p>
     </section>
   );
 }

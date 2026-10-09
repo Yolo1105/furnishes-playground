@@ -11,6 +11,10 @@ import {
   type Material,
   type Object3D,
   PerspectiveCamera,
+  Quaternion,
+  RectAreaLight,
+  type Scene,
+  Scene as SceneClass,
   SRGBColorSpace,
   type Texture,
   Vector3,
@@ -28,7 +32,11 @@ import {
  * meshes in world space with classic Standard or Physical materials,
  * each named; a window's outside becomes a plane that glows with a
  * picture of the same sky; a glTF copy adds the cameras asked for and
- * the sun as a light, a tracing copy keeps the scene's lights.
+ * the sun as a light. A tracing copy (the photo) is a Scene with the
+ * live scene's surroundings, the sun kept, the fills a raster needs
+ * (the sky's hemisphere, the sky shadow) left out since a tracer sees
+ * the sky itself, and an area light in each window's opening facing
+ * in, so daylight comes through the glass in the photo.
  *
  * Tags: `userData.export` on any ancestor. "room" and "piece" and "prop"
  * are kept; "helper" is dropped whatever stands under it; "outlook" is
@@ -59,7 +67,7 @@ export type OutlookData = {
 };
 
 export type Copy = {
-  root: Group;
+  root: Scene;
   /** the materials and pictures the copy made, let go */
   dispose: () => void;
 };
@@ -83,6 +91,10 @@ const SKY = {
     light: 1.3,
   },
 } as const;
+/** the light an area light in a window's opening gives a tracer, by
+    day and in the evening: a starting value, to be set by eye against
+    the sun on a WebGPU machine (the plan's checklist) */
+const WINDOW_LIGHT = { day: 6, evening: 1.8 } as const;
 /** the sky picture's size: wide, half of it the ground */
 const SKY_W = 1024;
 const SKY_H = 512;
@@ -321,7 +333,7 @@ export const copyForExport = (
     sun?: Sun;
   },
 ): Copy => {
-  const root = new Group();
+  const root = new SceneClass();
   root.name = "Furnishes room";
   const roomGroup = new Group();
   roomGroup.name = "Room";
@@ -367,6 +379,27 @@ export const copyForExport = (
       copy.name = uniqueName("Window outside");
       place(copy, o);
       roomGroup.add(copy);
+      if (options.purpose === "trace" && data) {
+        // an area light the size of the opening, facing into the room
+        // (the outside's plane faces in; a rect light shines down its
+        // -Z, so it is turned about)
+        mesh.geometry.computeBoundingBox();
+        const box = mesh.geometry.boundingBox!;
+        const light = new RectAreaLight(
+          data.evening ? "#ffc9a0" : "#eef3ff",
+          data.evening ? WINDOW_LIGHT.evening : WINDOW_LIGHT.day,
+          (box.max.x - box.min.x) * copy.scale.x,
+          (box.max.y - box.min.y) * copy.scale.y,
+        );
+        light.name = uniqueName("Window light");
+        light.position.copy(copy.position);
+        light.quaternion
+          .copy(copy.quaternion)
+          .multiply(new Quaternion(0, 1, 0, 0));
+        // a touch inside the plane, so the light is not inside the wall
+        light.translateZ(-0.02);
+        roomGroup.add(light);
+      }
       return;
     }
     const sources = Array.isArray(mesh.material)
@@ -423,12 +456,21 @@ export const copyForExport = (
     scene.traverse((o) => {
       const l = o as DirectionalLight;
       if (!l.isDirectionalLight || !l.visible) return;
+      // the sky's shadow light is a raster's fill, tagged a helper
+      if (tagOf(o) === "helper") return;
       const copy = l.clone();
       copy.castShadow = false;
       place(copy, o);
+      copy.add(copy.target);
+      copy.target.position.set(0, 0, -1);
       lights.add(copy);
     });
     if (lights.children.length) root.add(lights);
+    const live = scene as Scene;
+    root.environment = live.environment ?? null;
+    root.background = live.background ?? null;
+    root.environmentIntensity = live.environmentIntensity ?? 1;
+    root.backgroundIntensity = live.backgroundIntensity ?? 1;
   }
   return {
     root,

@@ -76,6 +76,22 @@ export const tierOf = (
 
 /** which backend a renderer came up on, and whether its GPU is a
     software one (SwiftShader, llvmpipe), which gets the phone's tier */
+/** the largest side a texture can have on the device, px, read from
+    the WebGPU device's limits or the WebGL context */
+export const textureSideOf = (renderer: unknown): number => {
+  const r = renderer as {
+    backend?: {
+      device?: { limits?: { maxTextureDimension2D?: number } };
+      gl?: WebGL2RenderingContext;
+    };
+  };
+  const gpu = r.backend?.device?.limits?.maxTextureDimension2D;
+  if (gpu) return gpu;
+  const gl = r.backend?.gl;
+  const side = gl ? Number(gl.getParameter(gl.MAX_TEXTURE_SIZE)) : 0;
+  return side > 0 ? side : 4096;
+};
+
 export const backendOf = (renderer: unknown): Backend => {
   const r = renderer as {
     backend?: { isWebGPUBackend?: boolean; gl?: WebGL2RenderingContext };

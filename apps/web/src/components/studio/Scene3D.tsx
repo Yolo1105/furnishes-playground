@@ -54,8 +54,8 @@ import {
   useRoom,
   type RoomConfig,
 } from "./room-store";
-import { Photo } from "./Photo";
-import { backendOf, Post, tierOf, TONE_MAPPING } from "./Post";
+import { Photo, PhotoBench } from "./Photo";
+import { backendOf, Post, textureSideOf, tierOf, TONE_MAPPING } from "./Post";
 import { Probes } from "./Probes";
 import type { StillState } from "./capture";
 import { loadMaterials, useMaterials } from "./materials";
@@ -188,7 +188,7 @@ function Backend() {
   const gl = useThree((s) => s.gl);
   const setBackend = useStudio((s) => s.setBackend);
   useEffect(() => {
-    setBackend(backendOf(gl));
+    setBackend(backendOf(gl), textureSideOf(gl));
   }, [gl, setBackend]);
   // leaving the main column (the plan takes it), the view's last
   // picture is kept for the small panel, as it stood
@@ -1242,6 +1242,7 @@ export default function Scene3D() {
   );
   // how many listed sets are still on their way (-1 before the index
   // is read): a picture taken before they land would be taken again
+  const photo = useStudio((s) => s.photo);
   const materialsPending = useMaterials((s) =>
     s.listed === null ? -1 : s.listed.length - Object.keys(s.loaded).length,
   );
@@ -1499,6 +1500,10 @@ export default function Scene3D() {
       data-sky={scene.sky}
       data-materials={photographed}
       data-materials-pending={materialsPending}
+      data-photo={photo?.state ?? "idle"}
+      data-photo-samples={photo?.samples ?? 0}
+      data-photo-ms={photo?.ms ?? 0}
+      data-photo-size={photo ? `${photo.width}x${photo.height}` : ""}
       data-exposure={scene.exposure}
       data-backend={backend}
       data-drawn={drawn}
@@ -1542,7 +1547,8 @@ export default function Scene3D() {
         <Backend />
         <FirstFrame onDrawn={() => setDrawn(true)} />
         <LiveHandle w={w} d={d} h={h} centre={centre} sun={liveSun} />
-        {tier && <Photo tier={tier} />}
+        {tier && <Photo tier={tier} stamp={reflectStamp} />}
+        <PhotoBench />
         {post && (
           <Post
             tier={post}

@@ -18,3 +18,10 @@ const read = (): Set<DevFlag> => {
 };
 let flags: Set<DevFlag> | null = null;
 export const devFlag = (f: DevFlag) => (flags ??= read()).has(f);
+/** a named parameter of the page's query in development (`?bench=photo`),
+    null otherwise */
+export const devParam = (name: string): string | null => {
+  if (process.env.NODE_ENV === "production" || typeof window === "undefined")
+    return null;
+  return new URLSearchParams(window.location.search).get(name);
+};

@@ -1,5 +1,6 @@
 "use client";
 
+import { PHOTO_SIZES } from "./photo-size";
 import { Portrait } from "./Portrait";
 import {
   useEffect,
@@ -175,6 +176,8 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
   const { startTour: playTour, stopTour } = useStudio.getState();
   const { clearStops } = useRoom.getState();
   const scene = useStudio((s) => s.scene);
+  const backend = useStudio((s) => s.backend);
+  const photoMax = useStudio((s) => s.photoMax);
   const { setScene } = useStudio.getState();
   const looking = useFixedMenu();
   const { wrap: lookWrap, menu: lookMenu } = looking;
@@ -354,6 +357,36 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
                           <span className="main-prefs-sub">{q.sub}</span>
                         </button>
                       ))}
+                      {backend === "webgpu" && (
+                        <>
+                          <div className="shell-menu-sep" role="separator" />
+                          <p className="main-prefs-title">Photo</p>
+                          {PHOTO_SIZES.map((p) => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              role="menuitemradio"
+                              aria-checked={scene.photoSize === p.id}
+                              className="shell-menu-row"
+                              // a size the device cannot hold in one
+                              // texture is not offered
+                              disabled={p.tall > photoMax}
+                              onClick={() => setScene({ photoSize: p.id })}
+                            >
+                              <span
+                                className="main-prefs-check"
+                                aria-hidden="true"
+                              />
+                              {p.name}
+                              <span className="main-prefs-sub">
+                                {p.tall === 0
+                                  ? "the stage as it is"
+                                  : `${p.tall} px tall, the stage's shape`}
+                              </span>
+                            </button>
+                          ))}
+                        </>
+                      )}
                       <div className="shell-menu-sep" role="separator" />
                       {(
                         [

@@ -1,3 +1,4 @@
+import type { PhotoSize } from "./photo-size";
 import { create } from "zustand";
 import type { Carried } from "./dnd";
 import type { WheelMode } from "./input";
@@ -44,6 +45,8 @@ export type SceneLook = {
   /** the picture's finish: auto follows the device (see Post.tsx), the
       rest pick a tier, plain none */
   quality: Quality;
+  /** the size a photo is traced at (photo-size.ts) */
+  photoSize: PhotoSize;
 };
 export type Quality = "auto" | "full" | "light" | "plain";
 export const QUALITIES: { id: Quality; label: string; sub: string }[] = [
@@ -75,6 +78,7 @@ export const SCENE_DEFAULT: SceneLook = {
   sky: "panels",
   exposure: 1.1,
   quality: "auto",
+  photoSize: "screen",
 };
 /** how far the plan can be zoomed, and by how much a step zooms */
 export const ZOOM = { min: 0.5, max: 4, step: 1.15 };
@@ -97,9 +101,23 @@ export type Angle = (typeof ANGLES)[View][number];
 /** what the line under the toolbar is waiting for: a view swap is quick,
     a render takes its time */
 type Loading = "view" | "render" | "photo" | null;
+/** where a photo stands: idle, the scene being copied, the light
+    traced, the picture cleaned, done, or failed and the graded view
+    standing in */
+export type PhotoState =
+  "idle" | "scene" | "trace" | "denoise" | "done" | "failed";
 /** a photo under way or shown: the view before it, for the compare,
-    and how many samples a pixel has of those asked for */
-export type PhotoStatus = { before: string; samples: number; of: number };
+    how many samples a pixel has of those asked for, where it stands,
+    the time it has taken, ms, and its size, px */
+export type PhotoStatus = {
+  before: string;
+  samples: number;
+  of: number;
+  state: PhotoState;
+  ms: number;
+  width: number;
+  height: number;
+};
 /** a step of the work a render takes: the scene prepared and the light
     traced and denoised (a photo), or the light baked into the room, the
     floor's picture taken and the edges resolved (the view graded), or
@@ -149,6 +167,9 @@ type StudioState = {
   preview: PreviewStatus;
   /** the renderer's backend once it is up */
   backend: Backend;
+  /** the largest side a texture can have on this device, px: what a
+      photo's size is kept to */
+  photoMax: number;
   photo: PhotoStatus | null;
   /** what the render is doing now, while it generates */
   work: Work | null;
@@ -179,7 +200,7 @@ type StudioState = {
       moves, no actions */
   readOnly: boolean;
   setMode: (mode: Mode) => void;
-  setBackend: (backend: Backend) => void;
+  setBackend: (backend: Backend, photoMax?: number) => void;
   /** the photo's progress, or none once the view is edited again */
   setPhoto: (patch: Partial<PhotoStatus> | null) => void;
   setWork: (work: Work | null) => void;
@@ -243,6 +264,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   loadingAt: 0,
   preview: "idle",
   backend: "",
+  photoMax: 4096,
   photo: null,
   work: null,
   lastFrame: null,
@@ -335,13 +357,24 @@ export const useStudio = create<StudioState>((set, get) => ({
         ? { preview: "done" as const, split: 100 }
         : {}),
     })),
-  setBackend: (backend) => set({ backend }),
+  setBackend: (backend, photoMax) =>
+    set((s) => ({ backend, photoMax: photoMax ?? s.photoMax })),
   setPhoto: (patch) =>
     set((s) => ({
       photo:
         patch === null
           ? null
-          : { before: "", samples: 0, of: 0, ...s.photo, ...patch },
+          : {
+              before: "",
+              samples: 0,
+              of: 0,
+              state: "idle",
+              ms: 0,
+              width: 0,
+              height: 0,
+              ...s.photo,
+              ...patch,
+            },
     })),
   setWork: (work) =>
     set((s) =>

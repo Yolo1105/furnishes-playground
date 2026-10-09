@@ -9,8 +9,11 @@ import {
   MeshBasicMaterial,
   MeshPhysicalMaterial,
   MeshStandardMaterial,
+  type Object3D,
   PlaneGeometry,
+  type RectAreaLight,
   Scene,
+  Texture,
 } from "three";
 import { describe, expect, it } from "vitest";
 import { copyForExport } from "./scene-copy";
@@ -67,11 +70,13 @@ const room = () => {
   const grid = new Mesh(new PlaneGeometry(9, 9), new MeshBasicMaterial());
   const sun = new DirectionalLight("#fff3e2", 7);
   sun.position.set(3, 6, 4);
-  scene.add(shell, pieces, grid, sun);
+  const skyShadow = new DirectionalLight("#e0e7ee", 1);
+  skyShadow.userData.export = "helper";
+  scene.add(shell, pieces, grid, sun, skyShadow);
   return scene;
 };
 
-const meshesOf = (g: Group) => {
+const meshesOf = (g: Object3D) => {
   const out: Mesh[] = [];
   g.traverse((o) => {
     if ((o as Mesh).isMesh) out.push(o as Mesh);
@@ -130,11 +135,29 @@ describe("the copy for export", () => {
     expect(sun.isDirectionalLight).toBe(true);
     expect(sun.intensity).toBe(7);
   });
-  it("keeps the scene's sun in a tracing copy and leaves the cameras out", () => {
+  it("keeps the scene's sun in a tracing copy, not the sky's shadow, and leaves the cameras out", () => {
     const { root } = copyForExport(room(), { purpose: "trace" });
     const lights = root.getObjectByName("Lights")!;
     expect(lights.children).toHaveLength(1);
     expect(root.getObjectByName("Cameras")).toBeUndefined();
+  });
+  it("lights a window's opening for the tracer, facing in", () => {
+    const { root } = copyForExport(room(), { purpose: "trace" });
+    const light = root.getObjectByName("Window light") as RectAreaLight;
+    expect(light.isRectAreaLight).toBe(true);
+    expect(light.width).toBeCloseTo(1);
+    expect(light.intensity).toBeGreaterThan(0);
+    // a glTF copy has no such light
+    const glb = copyForExport(room(), { purpose: "gltf" });
+    expect(glb.root.getObjectByName("Window light")).toBeUndefined();
+  });
+  it("is a scene with the live surroundings for the tracer", () => {
+    const live = room();
+    const env = new Texture();
+    live.environment = env;
+    const { root } = copyForExport(live, { purpose: "trace" });
+    expect(root.isScene).toBe(true);
+    expect(root.environment).toBe(env);
   });
   it("makes a window's outside glow", () => {
     const { root } = copyForExport(room(), { purpose: "gltf" });

@@ -852,6 +852,8 @@ test("Render runs a line along the top, sweeps the render in over the view, then
     "data-shadows",
     "true",
   );
+  // no WebGPU here: no photo was traced, the stage says so
+  await expect(page.locator(".stage-3d")).toHaveAttribute("data-photo", "idle");
   await expect(page.locator(".stage-3d .stage-3d-name")).toHaveCount(0);
   // the sweep runs between the rails and ends at the right one: all render
   const sb = (await page.locator(".preview-stage").boundingBox())!;
