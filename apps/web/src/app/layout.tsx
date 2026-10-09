@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Archivo, Space_Mono, Syne } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import "@/styles/shell.css";
 import "@/styles/main.css";
@@ -14,23 +14,28 @@ import { SITE } from "@/lib/site";
  * --font-app in globals.css so every surface reads one variable. The
  * landing and the inner pages are set as the production pages are:
  * Archivo along its width axis (compressed) and Space Mono for the
- * caps labels.
+ * caps labels. The files are the Google Fonts latin subsets, kept in
+ * ./fonts (SIL OFL 1.1, LICENSES.md) so a build needs no network: the
+ * same variable fonts and weights next/font/google served before, with
+ * the same CSS variables and display.
  */
-const syne = Syne({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+const syne = localFont({
+  src: [{ path: "./fonts/syne-latin.woff2", weight: "400 800" }],
   display: "swap",
   variable: "--font-syne",
 });
-const archivo = Archivo({
-  subsets: ["latin"],
-  axes: ["wdth"],
+const archivo = localFont({
+  src: [{ path: "./fonts/archivo-latin.woff2", weight: "100 900" }],
+  // the width axis, 62% to 125%, as font-stretch
+  declarations: [{ prop: "font-stretch", value: "62% 125%" }],
   display: "swap",
   variable: "--font-archivo",
 });
-const spaceMono = Space_Mono({
-  subsets: ["latin"],
-  weight: ["400", "700"],
+const spaceMono = localFont({
+  src: [
+    { path: "./fonts/space-mono-400-latin.woff2", weight: "400" },
+    { path: "./fonts/space-mono-700-latin.woff2", weight: "700" },
+  ],
   display: "swap",
   variable: "--font-mono",
 });

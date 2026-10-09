@@ -20,3 +20,20 @@ replaced by another build as their licences provide:
   (`src/components/studio/cut-solid.ts`); nothing of it was changed.
 
 Their licence texts are in the packages under `node_modules`.
+
+# Fonts served from the app
+
+The typefaces are kept in `src/app/fonts/` as the Google Fonts latin
+subset files (woff2), served by `next/font/local` from
+`src/app/layout.tsx` so a build needs no network. Each is under the
+SIL Open Font License 1.1 (https://openfontlicense.org); nothing in
+the files was changed:
+
+- Syne (Bonjour Monde; https://fonts.google.com/specimen/Syne):
+  `syne-latin.woff2`, the variable font, weights 400–800.
+- Archivo (Omnibus-Type; https://fonts.google.com/specimen/Archivo):
+  `archivo-latin.woff2`, the variable font, weights 100–900 and widths
+  62–125%.
+- Space Mono (Colophon Foundry;
+  https://fonts.google.com/specimen/Space+Mono):
+  `space-mono-400-latin.woff2` and `space-mono-700-latin.woff2`.
