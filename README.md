@@ -175,7 +175,16 @@ as a DXF, the piece's panels nested on the shop's sheets as a cut
 list; a panel can be given a shape (a corner cut off, a top narrowed,
 the corners rounded) as a sketch FreeCAD's constraint solver settles
 and a solid Open CASCADE makes, both as WebAssembly in a worker loaded
-only when a shape is asked for, and comes as STEP. The
+only when a shape is asked for, and comes as STEP; Edit sketch opens
+the shape in a sketcher (lines, arcs, circles, holes, dimensions and
+the holds, the sketch blue until it is held). A part of one's own is
+modelled from Add's Model chips (a block, a drawer knob, a shelf
+bracket, or a STEP file brought in): sketches on planes and a history
+of features (extrude, revolve, fillet, chamfer, mirror, pattern) run
+in order by the worker, shown as a timeline on the shelf where a chip
+is edited, dragged, suppressed or rolled back to, an edge named by a
+rule that finds it again after any rebuild; the part stands in the
+room like a piece, quoted on request, and goes out as STEP. The
 room's own bounce light comes from a grid of light probes over the
 shell (`apps/web/src/components/studio/Probes.tsx`), baked over frames
 whenever the shell, its finish or its light changes and never under a

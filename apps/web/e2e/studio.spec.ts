@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { copyFileSync, readFileSync } from "node:fs";
+import path from "node:path";
 import {
   expect,
   test,
@@ -1545,6 +1546,235 @@ test("the sketcher: an L-shaped shelf with a 20 mm round hole, fully held; one d
   const stepAfter = readFileSync((await (await step2).path())!, "utf8");
   expect(stepAfter).toContain("ISO-10303-21");
   expect(stepAfter).not.toBe(stepBefore);
+});
+
+/** a build later than the last one waited for has come back (a
+    change is built a moment after it is made, so the worker may not
+    be busy yet), the worker is idle and the chips are settled */
+let buildsSeen = 0;
+const partsBuilt = async (page: Page) => {
+  const stage = page.locator(".stage-3d");
+  await expect
+    .poll(async () => Number(await stage.getAttribute("data-part-builds")), {
+      timeout: 90_000,
+    })
+    .toBeGreaterThan(buildsSeen);
+  buildsSeen = Number(await stage.getAttribute("data-part-builds"));
+  await expect(stage).toHaveAttribute("data-parts", "0", { timeout: 90_000 });
+  await expect(page.locator(".part-chip[data-state='building']")).toHaveCount(
+    0,
+    { timeout: 90_000 },
+  );
+};
+const chipStates = (page: Page) =>
+  page
+    .locator(".part-chip")
+    .evaluateAll((es) =>
+      es.map((e) => `${e.textContent}:${(e as HTMLElement).dataset.state}`),
+    );
+
+test("a part modelled here: the shelf bracket stands in the room with its history on the shelf; a feature edited rebuilds, the menu suppresses and deletes, the marker rolls back, a drag reorders; STEP out; it survives a reload", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  await page.goto("/rounded");
+  buildsSeen = 0;
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  const strip = page.getByRole("dialog", { name: "Add to the room" });
+  await strip.getByRole("button", { name: "Model" }).click();
+  await strip.getByRole("button", { name: "Model a shelf bracket" }).click();
+  // the item is picked, the Detail tab open on it: custom, no price
+  const detail = page.locator(".shell-rail-left");
+  await expect(detail.locator(".detail-name")).toHaveText("Shelf bracket");
+  await expect(detail.locator(".detail-meta")).toContainText(
+    "custom, quoted on request",
+  );
+  await partsBuilt(page);
+  expect(await chipStates(page)).toEqual([
+    "Extrude L:ok",
+    "Screw hole:ok",
+    "Round the corner:ok",
+    "Chamfer the front:ok",
+  ]);
+  // the item's size is the body's box, mm
+  await expect(
+    page.getByRole("spinbutton", {
+      name: "Shelf bracket width in millimetres",
+    }),
+  ).toHaveValue("30");
+  await expect(
+    page.getByRole("spinbutton", {
+      name: "Shelf bracket height in millimetres",
+    }),
+  ).toHaveValue("120");
+  // on the shelf, quoted on request, and in the cart without a price
+  const card = page.locator(".shelf-card[data-kind='part']");
+  await expect(card).toContainText("Quoted on request");
+  const was = (await page.locator(".main-shelf-sum").textContent()) ?? "";
+  await detail.getByRole("button", { name: "Add to cart" }).click();
+  await expect(page.locator(".main-shelf-sum")).toHaveText(was);
+  // a chip opens the feature; its radius typed anew rebuilds the part
+  await page.locator(".part-chip", { hasText: "Round the corner" }).click();
+  const part = page.getByRole("region", { name: "Part" });
+  const radius = page.getByRole("spinbutton", {
+    name: "Fillet radius in millimetres",
+  });
+  await expect(radius).toHaveValue("8");
+  await expect(part.locator(".part-rule")).toContainText(
+    "along x and through 15, 0, 0",
+  );
+  await radius.fill("12");
+  await partsBuilt(page);
+  expect(await chipStates(page)).toContain("Round the corner:ok");
+  // a radius too large for the arm: the fillet fails with the kernel's
+  // words, the chamfer after it is not built, the part still stands
+  await radius.fill("200");
+  await partsBuilt(page);
+  expect(await chipStates(page)).toEqual([
+    "Extrude L:ok",
+    "Screw hole:ok",
+    "Round the corner:failed",
+    "Chamfer the front:notBuilt",
+  ]);
+  await expect(part.locator(".part-failed")).toBeVisible();
+  await radius.fill("8");
+  await partsBuilt(page);
+  // the chip's menu suppresses the screw hole, and takes the chamfer out
+  const hole = page.locator(".part-chip", { hasText: "Screw hole" });
+  await hole.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Suppress" }).click();
+  await partsBuilt(page);
+  expect(await chipStates(page)).toContain("Screw hole:suppressed");
+  await page
+    .locator(".part-chip", { hasText: "Chamfer the front" })
+    .click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Delete" }).click();
+  await expect(page.locator(".part-chip")).toHaveCount(3);
+  await partsBuilt(page);
+  // the marker before the fillet rolls the history back to the L alone
+  await page
+    .getByRole("button", { name: "Roll back to before Round the corner" })
+    .click();
+  await partsBuilt(page);
+  expect(await chipStates(page)).toEqual([
+    "Extrude L:ok",
+    "Screw hole:suppressed",
+    "Round the corner:notBuilt",
+  ]);
+  await page.getByRole("button", { name: "Build the whole history" }).click();
+  await partsBuilt(page);
+  expect(await chipStates(page)).toContain("Round the corner:ok");
+  // a chip dragged onto the first marker goes first; the fillet now
+  // finds no body, so it fails, and moved back it builds again
+  await page
+    .locator(".part-chip", { hasText: "Round the corner" })
+    .dragTo(
+      page.getByRole("button", { name: "Roll back to before Extrude L" }),
+    );
+  await expect(page.locator(".part-chip").first()).toHaveText(
+    "Round the corner",
+  );
+  await partsBuilt(page);
+  expect(await chipStates(page)).toEqual([
+    "Round the corner:failed",
+    "Extrude L:notBuilt",
+    "Screw hole:suppressed",
+  ]);
+  await page.locator(".part-chip", { hasText: "Round the corner" }).click();
+  await part.getByRole("button", { name: "Later" }).click();
+  await partsBuilt(page);
+  await part.getByRole("button", { name: "Later" }).click();
+  await partsBuilt(page);
+  expect(await chipStates(page)).toEqual([
+    "Extrude L:ok",
+    "Screw hole:suppressed",
+    "Round the corner:ok",
+  ]);
+  // STEP out, the kernel's own file
+  const step = page.waitForEvent("download");
+  await part.getByRole("button", { name: "Shelf bracket as STEP" }).click();
+  const file = await (await step).path();
+  expect(readFileSync(file!, "utf8").startsWith("ISO-10303-21")).toBe(true);
+  // a reload: the part is still there, as it was, and builds again
+  await page.reload();
+  buildsSeen = 0;
+  await page
+    .locator(".main-shelf")
+    .getByRole("button", { name: "Shelf bracket", exact: true })
+    .click();
+  await partsBuilt(page);
+  expect(await chipStates(page)).toEqual([
+    "Extrude L:ok",
+    "Screw hole:suppressed",
+    "Round the corner:ok",
+  ]);
+  // and the STEP comes back in as a part of its own, the same size
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await strip.getByRole("button", { name: "Model" }).click();
+  const stepFile = path.join(path.dirname(file!), "shelf-bracket.step");
+  copyFileSync(file!, stepFile);
+  await strip.getByLabel("Import a STEP file").setInputFiles(stepFile);
+  // the kernel reads it, then it stands as a part of its own, named
+  // after the file; the strip closes on placing it
+  await expect(detail.locator(".detail-name")).toHaveText("shelf-bracket", {
+    timeout: 60_000,
+  });
+  await partsBuilt(page);
+  await expect(
+    page.getByRole("spinbutton", {
+      name: "shelf-bracket height in millimetres",
+    }),
+  ).toHaveValue("120");
+});
+
+test("a block's fillet takes the face picked in 3D as a rule that survives a rebuild", async ({
+  page,
+}) => {
+  await page.goto("/rounded");
+  buildsSeen = 0;
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  const strip = page.getByRole("dialog", { name: "Add to the room" });
+  await strip.getByRole("button", { name: "Model" }).click();
+  await strip.getByRole("button", { name: "Model a block" }).click();
+  await partsBuilt(page);
+  const part = page.getByRole("region", { name: "Part" });
+  await part.getByRole("button", { name: "Add fillet" }).click();
+  await expect(part.locator(".part-rule")).toHaveText("Edges every edge");
+  // seen from above with the block alone, a click on it is its top
+  await page.getByRole("button", { name: "Show alone" }).click();
+  await page
+    .getByRole("radiogroup", { name: "View angle" })
+    .getByRole("radio", { name: "Top" })
+    .click();
+  await part.getByRole("button", { name: "Pick a face" }).click();
+  await expect(part.locator(".part-rule")).toHaveAttribute(
+    "data-picking",
+    "true",
+  );
+  const stage = page.locator(".shell-stage canvas");
+  await expect
+    .poll(
+      async () => {
+        await stage.click({ position: await centreOf(stage) });
+        return part.locator(".part-rule").textContent();
+      },
+      { timeout: 20_000 },
+    )
+    .toBe("Edges in the XY plane at 18 mm");
+  // the face's other readings are on offer; the rule stays on rebuild
+  const rule = part.getByRole("combobox", { name: "Edge rule" });
+  await expect(rule.locator("option")).toHaveCount(4);
+  await partsBuilt(page);
+  expect(await chipStates(page)).toEqual(["Extrude:ok", "Fillet 3 mm:ok"]);
+  await page
+    .getByRole("spinbutton", { name: "Fillet radius in millimetres" })
+    .fill("5");
+  await partsBuilt(page);
+  expect(await chipStates(page)).toEqual(["Extrude:ok", "Fillet 5 mm:ok"]);
+  await rule.selectOption("all");
+  await expect(part.locator(".part-rule")).toHaveText("Edges every edge");
+  await partsBuilt(page);
+  expect(await chipStates(page)).toEqual(["Extrude:ok", "Fillet 5 mm:ok"]);
 });
 
 test("Eva answers a message; New chat opens a thread; suggestions fill the box", async ({

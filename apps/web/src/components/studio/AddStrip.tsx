@@ -21,7 +21,10 @@ import {
   useGenerations,
   type Generation,
 } from "./generation-store";
-import { BoardIcon, CloseIcon, StarIcon } from "./icons";
+import { BoardIcon, CloseIcon, CubeIcon, ExportIcon, StarIcon } from "./icons";
+import { boxPart, bracketPart, knobPart, type Part } from "@furnishes/domain";
+import { checkStepText } from "./part-client";
+import { useStudio } from "./studio-store";
 import { useBoard } from "./board-store";
 import { useScene } from "./scene-store";
 
@@ -38,7 +41,7 @@ import { useScene } from "./scene-store";
  * says so. Every item made is kept as a tile to use again; a star keeps
  * the ones worth coming back to, and Starred shows only those.
  */
-type Chip = "all" | "openings" | AssetCategory | "generate";
+type Chip = "all" | "openings" | AssetCategory | "model" | "generate";
 /** every category with something to add, All first, Generate last */
 const CHIPS: Chip[] = [
   "all",
@@ -46,12 +49,14 @@ const CHIPS: Chip[] = [
   ...(Object.keys(CATEGORY_NAMES) as AssetCategory[]).filter((c) =>
     products.some((p) => p.category === c),
   ),
+  "model",
   "generate",
 ];
 
 export function AddStrip({ onAdded }: { onAdded: (id: string) => void }) {
   const add = useScene((s) => s.addProduct);
   const addItem = useScene((s) => s.addItem);
+  const addPart = useScene((s) => s.addPart);
   const select = useScene((s) => s.select);
   const addOpening = useRoom((s) => s.addOpening);
   const activeId = useRoom((s) => s.activeId);
@@ -98,13 +103,24 @@ export function AddStrip({ onAdded }: { onAdded: (id: string) => void }) {
               ? "All"
               : c === "openings"
                 ? "Openings"
-                : c === "generate"
-                  ? "Generate"
-                  : CATEGORY_NAMES[c]}
+                : c === "model"
+                  ? "Model"
+                  : c === "generate"
+                    ? "Generate"
+                    : CATEGORY_NAMES[c]}
           </button>
         ))}
       </div>
-      {category === "generate" ? (
+      {category === "model" ? (
+        <ModelPane
+          onPlace={(part) => {
+            const id = addPart(part, activeId);
+            select(id, false);
+            useStudio.getState().setPanelTab("detail");
+            onAdded(id);
+          }}
+        />
+      ) : category === "generate" ? (
         <Generate
           onMade={(g) => place(g, false)}
           onPlace={(g) => place(g, true)}
@@ -166,6 +182,99 @@ export function AddStrip({ onAdded }: { onAdded: (id: string) => void }) {
               </button>
             ))}
         </div>
+      )}
+    </div>
+  );
+}
+
+/** the largest STEP file taken in, bytes */
+export const STEP_MAX_BYTES = 20 * 1024 * 1024;
+
+/** the parts to start from: a block, the two worked examples, and a
+    STEP file of one's own, read by the kernel before it stands */
+function ModelPane({ onPlace }: { onPlace: (part: Part) => void }) {
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const starters: [string, string, () => Part][] = [
+    ["block", "Block", () => boxPart("Block", 300, 200, 18)],
+    ["knob", "Drawer knob", knobPart],
+    ["bracket", "Shelf bracket", bracketPart],
+  ];
+  const importStep = async (files: FileList | null) => {
+    const file = files?.[0];
+    if (!file || busy) return;
+    if (file.size > STEP_MAX_BYTES) {
+      setNote(
+        `${file.name} is ${Math.round(file.size / 1024 / 1024)} MB; a STEP file up to 20 MB can come in.`,
+      );
+      return;
+    }
+    setBusy(true);
+    setNote(`Reading ${file.name}…`);
+    try {
+      const step = await file.text();
+      if (!step.startsWith("ISO-10303-21"))
+        throw new Error(
+          "not a STEP file (it does not start with ISO-10303-21)",
+        );
+      const bounds = await checkStepText(step);
+      const size = bounds[1]!.map((v, i) => Math.round(v - bounds[0]![i]!));
+      const name = file.name.replace(/\.(step|stp)$/i, "") || "Imported part";
+      setNote(`${name}: ${size.join(" × ")} mm.`);
+      onPlace({
+        id: "imported",
+        name,
+        units: "mm",
+        sketches: [],
+        features: [],
+        base: { name: file.name, step },
+      });
+    } catch (error) {
+      setNote(
+        `${file.name} could not be read: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="add-strip-row no-scrollbar" data-busy={busy}>
+      {starters.map(([id, name, make]) => (
+        <button
+          key={id}
+          type="button"
+          className="add-tile"
+          aria-label={`Model a ${name.toLowerCase()}`}
+          onClick={() => onPlace(make())}
+        >
+          <span className="add-tile-pic add-tile-part" aria-hidden="true">
+            <CubeIcon size={28} />
+          </span>
+          <span className="add-tile-name">{name}</span>
+          <span className="add-tile-price">sketch and features</span>
+        </button>
+      ))}
+      <label className="add-tile" aria-label="Import a STEP file">
+        <input
+          type="file"
+          accept=".step,.stp,application/step"
+          className="add-tile-file"
+          disabled={busy}
+          onChange={(e) => {
+            void importStep(e.target.files);
+            e.target.value = "";
+          }}
+        />
+        <span className="add-tile-pic add-tile-part" aria-hidden="true">
+          <ExportIcon size={28} />
+        </span>
+        <span className="add-tile-name">Import STEP</span>
+        <span className="add-tile-price">up to 20 MB</span>
+      </label>
+      {note && (
+        <p className="add-gen-note add-model-note" role="status">
+          {note}
+        </p>
       )}
     </div>
   );

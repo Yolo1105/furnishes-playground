@@ -1,12 +1,18 @@
 import {
+  type FeatureStatus,
+  type Part,
   type Sketch,
   type SketchSolve,
-  holesOf,
-  roundsOf,
-  outlineOf,
 } from "@furnishes/domain";
 import type { GcsWrapper } from "@salusoft89/planegcs";
 import type * as Replicad from "replicad";
+import {
+  buildPart,
+  drawingOf,
+  MESH,
+  meshOf,
+  type PartMesh,
+} from "./part-build";
 import { solveWith } from "./part-solve";
 
 /**
@@ -22,7 +28,12 @@ import { solveWith } from "./part-solve";
 export type PartRequest =
   | { id: number; kind: "solve"; sketch: Sketch }
   | { id: number; kind: "solid"; sketch: Sketch; thickness: number }
-  | { id: number; kind: "step"; sketch: Sketch; thickness: number };
+  | { id: number; kind: "step"; sketch: Sketch; thickness: number }
+  /** a part built through its history, up to a rollback marker */
+  | { id: number; kind: "build"; part: Part; upTo?: number }
+  | { id: number; kind: "partStep"; part: Part }
+  /** a STEP file's text read by the kernel: its box, or why not */
+  | { id: number; kind: "checkStep"; step: string };
 
 export type Solid = {
   /** the profile's frame: u along x, v along y, the thickness along z
@@ -41,10 +52,24 @@ export type PartAnswer =
   | ({ id: number; ok: true; kind: "solve"; ms: number } & SketchSolve)
   | { id: number; ok: true; kind: "solid"; solid: Solid; ms: number }
   | { id: number; ok: true; kind: "step"; step: string; ms: number }
+  | {
+      id: number;
+      ok: true;
+      kind: "build";
+      /** none when nothing built (every feature off or failed first) */
+      mesh: PartMesh | null;
+      statuses: FeatureStatus[];
+      ms: number;
+    }
+  | { id: number; ok: true; kind: "partStep"; step: string; ms: number }
+  | {
+      id: number;
+      ok: true;
+      kind: "checkStep";
+      bounds: [number, number, number][];
+      ms: number;
+    }
   | { id: number; ok: false; error: string };
-
-/** how finely a solid is meshed, mm and radians */
-const MESH = { tolerance: 0.2, angularTolerance: 0.3 };
 
 let gcs: Promise<GcsWrapper> | undefined;
 const solver = () =>
@@ -74,25 +99,11 @@ const kernel = () =>
 
 const solve = async (sketch: Sketch) => solveWith(await solver(), sketch);
 
-/** the profile drawn, its corners rounded where asked, and extruded */
+/** the profile drawn (part-build.ts: corners rounded, holes and rounds
+    cut) and extruded */
 const shape = async (sketch: Sketch, thickness: number) => {
   const r = await kernel();
-  const pts = outlineOf(sketch);
-  let pen = r.draw(pts[0]);
-  for (const p of pts.slice(1)) pen = pen.lineTo(p);
-  let drawing = pen.close();
-  const radii = sketch.loop.map((id) => sketch.corners[id] ?? 0);
-  const radius = Math.max(...radii);
-  if (radius > 0) drawing = drawing.fillet(radius);
-  // the holes cut from the profile before it is made solid
-  for (const hole of holesOf(sketch)) {
-    let h = r.draw(hole[0]);
-    for (const p of hole.slice(1)) h = h.lineTo(p);
-    drawing = drawing.cut(h.close());
-  }
-  for (const round of roundsOf(sketch))
-    drawing = drawing.cut(r.drawCircle(round.r).translate(round.x, round.y));
-  return drawing.sketchOnPlane("XY").extrude(thickness);
+  return drawingOf(r, sketch).sketchOnPlane("XY").extrude(thickness);
 };
 
 const answer = async (req: PartRequest): Promise<PartAnswer> => {
@@ -131,6 +142,43 @@ const answer = async (req: PartRequest): Promise<PartAnswer> => {
         ms: performance.now() - t0,
       };
     }
+    case "build": {
+      const r = await kernel();
+      const built = await buildPart(r, req.part, req.upTo);
+      return {
+        id: req.id,
+        ok: true,
+        kind: "build",
+        mesh: built.body ? meshOf(built.body) : null,
+        statuses: built.statuses,
+        ms: performance.now() - t0,
+      };
+    }
+    case "partStep": {
+      const r = await kernel();
+      const built = await buildPart(r, req.part);
+      if (!built.body) throw new Error("the part has no body to write");
+      return {
+        id: req.id,
+        ok: true,
+        kind: "partStep",
+        step: await built.body.blobSTEP().text(),
+        ms: performance.now() - t0,
+      };
+    }
+    case "checkStep": {
+      const r = await kernel();
+      const shape = await r.importSTEP(new Blob([req.step]));
+      const bounds = shape.boundingBox.bounds;
+      shape.mesh(MESH);
+      return {
+        id: req.id,
+        ok: true,
+        kind: "checkStep",
+        bounds,
+        ms: performance.now() - t0,
+      };
+    }
   }
 };
 
@@ -149,7 +197,14 @@ self.onmessage = (e: MessageEvent<PartRequest>) => {
               a.solid.normals.buffer,
               a.solid.indices.buffer,
             ]
-          : [];
+          : a.ok && a.kind === "build" && a.mesh
+            ? [
+                a.mesh.positions.buffer,
+                a.mesh.normals.buffer,
+                a.mesh.indices.buffer,
+                a.mesh.edges.buffer,
+              ]
+            : [];
       self.postMessage(a, { transfer });
     });
 };

@@ -474,6 +474,73 @@ AGPL. `@salusoft89/planegcs` 1.3.0 is the only 2D constraint solver
   a wide cathedral figure on a flat-cut face, under a satin lacquer
   (roughness 0.45, clear coat 0.25) that catches the window as a
   sheen across a panel.
+- Prompt 6a is in: the sketcher. The sketch model grew to lines, arcs
+  and circles beside the outline, holes as inner loops, and every
+  constraint planegcs offers that a panel needs (coincident, parallel,
+  perpendicular, tangent, equal, radius, diameter, angle, point on
+  line or curve, fix, symmetric), each with an id and an optional name
+  so a dimension reads "notch = 191". The worker's solve answers with
+  the freedom left and the constraints that fight or repeat (planegcs
+  reports both), and the sketcher (`SketchEditor.tsx`, over the stage)
+  draws the sheet in millimetres: tools for lines, rectangular holes,
+  circles, arcs and dimensions, the holds as buttons, snapping to
+  points and to level or upright, undo and redo, the whole sketch
+  blue until it is held and red where constraints fight. Every circle
+  drawn is a round hole, cut in the solid and drawn on CUTOUTS in the
+  DXF with the sketch's own holes; the L shape joined the presets.
+  Checked in e2e: an L-shaped shelf with a 20 mm round hole, fully
+  held, one dimension typed anew, and the solid, the DXF and the STEP
+  all follow.
+- Prompt 6b is in: the feature history (`packages/domain/src/part.ts`,
+  `part-build.ts`). A part is sketches on planes (XY, XZ, YZ, each a
+  distance along its normal) and an ordered history of extrudes (one
+  way, both ways, two distances; new body, join or cut), revolves
+  (about a sketch axis or one of its lines), fillets, chamfers, a
+  mirror and patterns (in a line or a ring), each suppressible. An
+  edge is never kept by its index in the kernel (the topological
+  naming problem) but by a rule that finds it again: the edges in a
+  plane, parallel to one, along an axis, of a length, through a
+  point, within a box, straight or round; a fillet on "the edges in
+  the XY plane at 18 mm" stays on the top when the sketch under it
+  grows. The worker builds the history in order and reports each
+  feature's state (built, failed with the kernel's words, suppressed,
+  not built); a failure stops the build and leaves the body as it
+  stood, so a bad radius never empties the room. The mesh comes with
+  its faces named for picking, its edges as lines, its box and its
+  outline from above. The timeline on the shelf (`PartTimeline.tsx`)
+  is the history as chips coloured by state: a click opens the
+  feature's form in Detail (`PartTab.tsx`), a drag moves it, the menu
+  suppresses or deletes, the markers between chips roll the history
+  back. Pick a face turns the next click on the part into a rule, the
+  face's other readings on offer. A build runs 150 ms after the last
+  change and the stage counts it (`data-parts`, `data-part-builds`).
+  The gates hold on the kernel in Node (`part-build.test.ts`): a box
+  with a cut hole and filleted top edges builds; the fillet stays on
+  the top edges when the first sketch's width changes; a ten-feature
+  part builds in well under a second; a failing fillet reports its
+  message without throwing; the drawer knob (revolve and fillet) and
+  the shelf bracket (extrude, cut, fillet and chamfer) build and
+  rebuild after an early edit.
+- Prompt 6c is in: parts as items in the room. A part is an item of
+  its own kind on the shelf and in the outliner (the snapshot's shape
+  is 2 now, an older project brought up as it is read), placed,
+  turned and moved like any piece, drawn from the body the worker
+  built with texture coordinates laid in metres by the face's axis
+  and the grain along the longest side, its edges as fine lines, its
+  size the body's box; the plan draws the hull round it from above
+  (the exact silhouette waits for manifold-3d's projection in
+  Prompt 7). It takes a finish like a piece, goes in the cart as
+  custom work quoted on request, never counts in a total and never
+  reaches checkout; Eva reads it as a room item. The Model chips in
+  Add start a block, the drawer knob, the shelf bracket, or bring a
+  STEP file in (up to 20 MB, read by the kernel before it stands;
+  the file's text rides in the part, so a large import weighs on the
+  document limit as a large project would). STEP goes out per part
+  and the parts ride in the room's glTF with the pieces. Checked in
+  e2e: the bracket made, edited, suppressed, rolled back, reordered,
+  written as STEP, kept across a reload and read back in at the same
+  size; a block's fillet taking the top face picked in 3D. The STEP
+  round trip keeps the box within a tenth of a millimetre (Node).
 
 ## Fixed after review
 
@@ -629,6 +696,9 @@ for a path-traced photo; mean luminance within 10% of the reference.
 | M2   | Free panels with snapping and typed millimetres                                                                  | a 600 mm base cabinet with two shelves in under two minutes                            |
 | M3   | Machining features, cut list, DXF                                                                                | a 20-panel cabinet recomputes under 200 ms                                             |
 | M4   | Sketch constraints and free-form parts in a worker, STEP out                                                     | a constrained sketch solves under 50 ms; the main thread never blocks over 16 ms       |
+| P6a  | The sketcher: lines, arcs, circles, holes, every hold, named dimensions                                          | an L shelf with a round hole fully held; the solid, DXF and STEP follow a change       |
+| P6b  | The feature history: extrude, revolve, fillet, chamfer, mirror, pattern, rules for edges, the timeline           | a ten-feature part under 1 s; a failing fillet reports, the rest not built             |
+| P6c  | Parts as items: placed, finished, quoted on request, STEP in and out, kept and shared                            | a part survives a reload; the STEP round trip within 0.1 mm; old snapshots load        |
 
 The earlier plan's own estimate was 55 to 85 developer-days for
 rendering and 47 to 74 for modelling. With the studio's base already in

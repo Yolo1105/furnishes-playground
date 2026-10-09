@@ -55,6 +55,7 @@ import { useRoom } from "./room-store";
 import { portraitOf } from "./catalogue";
 import type { PieceProps } from "./piece-detail";
 import { PlanSymbol } from "./plan-symbols";
+import { PartTimeline } from "./PartTimeline";
 import { ComponentGlyph } from "./component-glyphs";
 import { propsOf, topLevelOf, useScene, useTopLevel } from "./scene-store";
 import {
@@ -784,7 +785,9 @@ export function MainShelf() {
   const ordered = orderedIds(useOrders((s) => s.orders));
   const scroller = useRef<HTMLDivElement>(null);
   const selected = topLevelOf(groups, selectedId);
-  const pieces = items.filter((n) => n.kind === "piece");
+  // the shelf holds the pieces and the parts modelled here; a part has
+  // no catalogue price and never counts in a total
+  const pieces = items.filter((n) => n.kind === "piece" || n.kind === "part");
   const t = pieceTotals(pieces);
   const inCart = pieces.filter((n) => cart.includes(n.id));
   const c = pieceTotals(inCart);
@@ -828,6 +831,7 @@ export function MainShelf() {
       aria-label="Pieces"
       data-collapsed={collapsed}
     >
+      <PartTimeline />
       <div className="main-shelf-head">
         <div className="shell-tabs-inline" role="tablist" aria-label="Shelf">
           {(
@@ -890,7 +894,7 @@ export function MainShelf() {
           )}
           {checkout && (
             <CheckoutDialog
-              pieces={inCart}
+              pieces={inCart.filter((n) => n.kind === "piece")}
               total={c.total}
               onClose={() => setCheckout(false)}
             />
@@ -982,7 +986,7 @@ function ShelfCard({
   onSelect: () => void;
   onCart: () => void;
 }) {
-  const piece = n.kind === "piece";
+  const piece = n.kind === "piece" || n.kind === "part";
   const portrait = portraitOf(n);
   // where the piece stands in the work: ordered, decided (in the cart),
   // with Eva (labelled), or placed in the room
@@ -1050,7 +1054,11 @@ function ShelfCard({
           {n.name}
         </span>
         <span className="shelf-card-price f-num">
-          {piece && n.price !== undefined ? sgd(n.price) : "Room"}
+          {n.kind === "part"
+            ? "Quoted on request"
+            : piece && n.price !== undefined
+              ? sgd(n.price)
+              : "Room"}
         </span>
       </div>
       {piece && (

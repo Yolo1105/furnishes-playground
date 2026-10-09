@@ -1275,6 +1275,7 @@ export default function Scene3D() {
   useEffect(() => loadMaterials(), []);
   // the part worker's requests under way, for the stage to say
   const partsPending = usePartStore((s) => s.pending);
+  const partBuilds = usePartStore((s) => s.builds);
   const walk = useStudio((s) => s.walk);
   const room = useActiveRoom();
   const rooms = useRoom((s) => s.rooms);
@@ -1509,6 +1510,7 @@ export default function Scene3D() {
       className="stage-3d"
       data-focus={a.focus !== null}
       data-parts={partsPending}
+      data-part-builds={partBuilds}
       data-walk={walk}
       data-dragging={dragging}
       data-hover={

@@ -56,6 +56,7 @@ import {
 import { portraitOf, recipeOf } from "./catalogue";
 import { exportCutList, exportPanelDxf, exportPanelStep } from "./machining";
 import { solveSketch, usePartStore } from "./part-client";
+import { PartTab } from "./PartTab";
 import { SketchEditor } from "./SketchEditor";
 import { ProductPage } from "./ProductPage";
 import { ACCESSORIES, dimensionSummary, priceOf } from "@furnishes/domain";
@@ -133,7 +134,9 @@ export function DetailTab() {
   const { node, parent } = found;
   const piece = parent ?? node;
   // a room item sets the scene and is not for sale: no cart, no finish
-  const item = piece.kind !== "piece";
+  // (a part modelled here is edited and finished like a piece, and
+  // goes in the cart as custom work, quoted on request)
+  const item = piece.kind !== "piece" && piece.kind !== "part";
   const parts = piece.children ?? [];
   // what the finish and size apply to: the picked part, or the whole piece
   const whole = node.id === piece.id;
@@ -385,6 +388,7 @@ export function DetailTab() {
           <p className="detail-meta">
             {CATEGORY_NAMES[piece.category]}
             {item && " · room item"}
+            {piece.kind === "part" && " · custom, quoted on request"}
             {parts.length > 0 && ` · ${parts.length} parts`}
           </p>
         </div>
@@ -613,6 +617,7 @@ export function DetailTab() {
       {recipe && whole && (
         <ProductPage recipe={recipe} config={config ?? undefined} />
       )}
+      {piece.part && whole && <PartTab node={piece} />}
       {carcass && (
         <section className="eva-pref" aria-label="Panels">
           <div className="eva-pref-head">

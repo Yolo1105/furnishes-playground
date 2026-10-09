@@ -1,6 +1,7 @@
 import {
   boundsOf,
   type Panel,
+  type Part,
   priceOf,
   priceOfPanels,
   settledPanels,
@@ -75,6 +76,17 @@ type SceneState = {
   redo: () => void;
   /** put a catalogue product into a room; returns the new node's id */
   addProduct: (p: Product, roomId: string) => string;
+  /** put a part modelled in the studio into a room, as its own item;
+      returns the new node's id */
+  addPart: (part: Part, roomId: string) => string;
+  /** a part item's sketches or history changed: one undo step */
+  setPart: (id: string, part: Part) => void;
+  /** a part item's size as its body was built: follows the build, so
+      not a step to undo */
+  sizePart: (
+    id: string,
+    size: Pick<PieceProps, "width" | "depth" | "height">,
+  ) => void;
   /** put a room item into a room: something that sets the scene and is
       not for sale; returns the new node's id */
   addItem: (
@@ -293,6 +305,43 @@ export const useScene = create<SceneState>((set, get) => {
       }));
       return node.id;
     },
+    addPart: (part, roomId) => {
+      const n = get()
+        .groups.flatMap((g) => g.items)
+        .filter((a) => a.name === part.name).length;
+      const node: AssetNode = {
+        id: newId("part"),
+        name: n === 0 ? part.name : `${part.name} ${n + 1}`,
+        kind: "part",
+        category: "components",
+        part,
+      };
+      set((s) => ({
+        groups: into(s.groups, node),
+        overrides: { ...held(s), [node.id]: { roomId } },
+        ...remember(s),
+      }));
+      return node.id;
+    },
+    sizePart: (id, size) =>
+      set((s) => {
+        const o = s.overrides[id] ?? {};
+        if (
+          o.width === size.width &&
+          o.depth === size.depth &&
+          o.height === size.height
+        )
+          return {};
+        return { overrides: { ...s.overrides, [id]: { ...o, ...size } } };
+      }),
+    setPart: (id, part) =>
+      set((s) => ({
+        groups: s.groups.map((g) => ({
+          ...g,
+          items: g.items.map((n) => (n.id === id ? { ...n, part } : n)),
+        })),
+        ...remember(s),
+      })),
     addItem: (item, roomId) => {
       const node = itemNode(get().groups, item);
       set((s) => ({

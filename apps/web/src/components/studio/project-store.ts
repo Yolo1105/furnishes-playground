@@ -11,7 +11,7 @@ import {
 import type { Point } from "./room-templates";
 import { type RoomSpec, useRoom } from "./room-store";
 import { useScene } from "./scene-store";
-import type { AssetNode } from "./assets-data";
+import { ASSET_KINDS, type AssetNode } from "./assets-data";
 import { products } from "./catalogue";
 
 /**
@@ -32,7 +32,7 @@ import { products } from "./catalogue";
 const KEY = "furnishes.projects";
 /** the shape of a snapshot: raised when the shape changes, with a step
     in `upgrade` that brings the older shape up */
-const SNAPSHOT_VERSION = 1;
+const SNAPSHOT_VERSION = 2;
 const SAVE_AFTER = 600; // ms after the last change
 
 type RoomData = ReturnType<typeof useRoom.getState>;
@@ -218,8 +218,19 @@ const toV1 = (node: AssetNode): AssetNode => {
   };
 };
 
+/** to 2: parts modelled in the studio came in (kind "part", with the
+    part's sketches and history); a node of a kind this studio does
+    not know stands as a room item, and a part says its units */
+const toV2 = (node: AssetNode): AssetNode => {
+  if (!(ASSET_KINDS as readonly string[]).includes(node.kind))
+    return { ...node, kind: "decor" };
+  if (node.kind === "part" && node.part && !node.part.units)
+    return { ...node, part: { ...node.part, units: "mm" } };
+  return node;
+};
+
 /** a snapshot brought up to the current shape, step by step */
-const upgrade = (data: Snapshot): Snapshot => {
+export const upgrade = (data: Snapshot): Snapshot => {
   const v = data.v ?? 0;
   if (v >= SNAPSHOT_VERSION) return data;
   let out = data;
@@ -231,6 +242,17 @@ const upgrade = (data: Snapshot): Snapshot => {
         groups: out.scene.groups.map((g) => ({
           ...g,
           items: g.items.map(toV1),
+        })),
+      },
+    };
+  if (v < 2)
+    out = {
+      ...out,
+      scene: {
+        ...out.scene,
+        groups: out.scene.groups.map((g) => ({
+          ...g,
+          items: g.items.map(toV2),
         })),
       },
     };

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { sgd } from "./assets-data";
 import { importProject, showSnapshot, type Snapshot } from "./project-store";
+import { PartBuilder } from "./PartBuilder";
 import Scene3D from "./Scene3D";
 import { propsOf, useScene, useTopLevel } from "./scene-store";
 import { useStudio } from "./studio-store";
@@ -103,7 +104,14 @@ export function SharePage({ id }: { id: string }) {
         </div>
       </header>
       <section className="glass share-stage" aria-label="The room">
-        {room ? <Scene3D /> : <p className="assets-empty">One moment.</p>}
+        {room ? (
+          <>
+            <Scene3D />
+            <PartBuilder />
+          </>
+        ) : (
+          <p className="assets-empty">One moment.</p>
+        )}
       </section>
       <section className="glass account-card">
         <h2 className="eva-pref-title">Furnishes pieces in the room</h2>

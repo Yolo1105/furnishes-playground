@@ -11,6 +11,7 @@ import { ClashCard } from "./ClashCard";
 import { GuideCard } from "./GuideCard";
 import { MainTopBar } from "./MainOverlays";
 import { PeekBar } from "./PeekBar";
+import { PartBuilder } from "./PartBuilder";
 import { PreviewStage } from "./PreviewStage";
 import { Tour } from "./Tour";
 import { ViewCube } from "./ViewCube";
@@ -187,6 +188,7 @@ export function StudioShell({
       >
         <MainView view={view} />
         <PreviewStage />
+        <PartBuilder />
       </div>
       <PeekBar />
       <Tour />

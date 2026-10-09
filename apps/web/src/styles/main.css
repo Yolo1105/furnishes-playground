@@ -2576,3 +2576,187 @@
   flex: 1 1 90px;
   min-width: 90px;
 }
+
+/* ---- parts modelled in the studio: the timeline on the shelf, the
+   feature forms in Detail, the Model tiles in Add ---- */
+.part-timeline {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 34px;
+  margin: 0 -4px 6px;
+  padding: 0 4px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.part-timeline::-webkit-scrollbar {
+  display: none;
+}
+.part-timeline-name {
+  flex: 0 0 auto;
+  margin-right: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(from var(--color-ink) r g b / 0.5);
+}
+.part-chip-wrap {
+  position: relative;
+  flex: 0 0 auto;
+}
+.part-chip {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px 0 8px;
+  border-radius: var(--r-control);
+  border: 1px solid rgb(from var(--color-line) r g b / 0.16);
+  background: rgba(255, 255, 255, 0.5);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgb(from var(--color-ink) r g b / 0.85);
+  cursor: grab;
+  white-space: nowrap;
+}
+.part-chip:hover {
+  background: rgba(255, 255, 255, 0.75);
+}
+.part-chip[aria-pressed="true"] {
+  color: var(--color-accent);
+  background: rgb(from var(--color-accent) r g b / 0.08);
+}
+.part-chip[data-rolled="true"],
+.part-feature[data-rolled="true"] {
+  opacity: 0.45;
+}
+.part-chip[data-state="suppressed"] {
+  text-decoration: line-through;
+}
+/* the state dot: built, failed, suppressed, not built, building */
+.part-state {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4c9a5a;
+  flex: 0 0 auto;
+}
+[data-state="failed"] .part-state {
+  background: var(--color-danger);
+}
+[data-state="suppressed"] .part-state,
+[data-state="notBuilt"] .part-state {
+  background: rgb(from var(--color-ink) r g b / 0.25);
+}
+[data-state="building"] .part-state {
+  background: var(--sketch-free);
+}
+.part-chip-menu {
+  top: calc(100% + 4px);
+  left: 0;
+}
+/* the rollback marker between chips: a hairline that grows on hover,
+   accent where the history is rolled back to */
+.part-marker {
+  appearance: none;
+  flex: 0 0 auto;
+  width: 10px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+}
+.part-marker::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 1px;
+  background: rgb(from var(--color-ink) r g b / 0.14);
+}
+.part-marker:hover::after {
+  background: rgb(from var(--color-ink) r g b / 0.4);
+}
+.part-marker[aria-pressed="true"]::after {
+  top: 2px;
+  bottom: 2px;
+  width: 3px;
+  background: var(--color-accent);
+}
+.part-marker:last-child[aria-pressed="true"]::after {
+  background: rgb(from var(--color-ink) r g b / 0.14);
+}
+.part-sub {
+  margin-top: 10px;
+}
+.part-sub .main-btn {
+  height: 26px;
+  padding: 0 8px;
+  font-size: 11.5px;
+}
+.part-form {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+.part-select {
+  padding-right: 7px;
+  appearance: auto;
+}
+.part-rule {
+  margin: 0;
+}
+.part-rule[data-picking="true"] {
+  color: var(--color-accent);
+}
+.part-rule-pick {
+  width: auto;
+  max-width: 100%;
+  flex: 1 1 160px;
+}
+.part-failed {
+  margin: 6px 0 0;
+  color: var(--color-danger);
+}
+.part-feature .detail-part-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.add-tile-part {
+  display: grid;
+  place-items: center;
+  color: rgb(from var(--color-ink) r g b / 0.55);
+}
+.add-tile-file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+}
+label.add-tile {
+  position: relative;
+  cursor: pointer;
+}
+label.add-tile:focus-within .add-tile-pic {
+  border-color: rgb(from var(--color-accent) r g b / 0.5);
+}
+.add-model-note {
+  flex: 1 0 200px;
+  align-self: center;
+}
+.stage-piece-symbol-part {
+  fill: rgb(from var(--color-ink) r g b / 0.08);
+}
+.part-rule {
+  text-align: left;
+}

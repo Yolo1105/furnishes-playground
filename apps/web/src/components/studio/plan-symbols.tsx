@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { AssetNode } from "./assets-data";
+import { usePartStore } from "./part-client";
 import { isRug, type PieceProps } from "./piece-detail";
 
 /**
@@ -41,6 +42,7 @@ export function PlanSymbol({
   /** the quarter turn the plan box stands at (a free turn is on the box) */
   turn: number;
 }) {
+  const built = usePartStore((s) => s.built[node.id]?.mesh ?? null);
   const { width: w, depth: d, height: h } = props;
   const m = frameOf(turn, w, d);
   const square = turn % 180 === 0;
@@ -149,6 +151,20 @@ export function PlanSymbol({
     circle(w / 2, d / 2, r * 0.6);
   } else if (cat === "components") {
     line(0, d / 2, w, d / 2);
+  }
+
+  // a part modelled in the studio: its body seen from above (the hull
+  // round it, as the part worker reads it), its depth running north
+  if (node.part && built) {
+    const [lo] = built.bounds;
+    const pts = built.outline.map(([x, y]) => m(x - lo[0], d - (y - lo[1])));
+    parts.push(
+      <polygon
+        key={k++}
+        points={pts.map((p) => p.join(",")).join(" ")}
+        className="stage-piece-symbol-part"
+      />,
+    );
   }
 
   if (parts.length === 0) return null;

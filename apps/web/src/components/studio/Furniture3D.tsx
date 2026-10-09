@@ -43,6 +43,7 @@ import {
   wood,
 } from "./finish";
 import { Panels3D } from "./Panels3D";
+import { Part3D } from "./Part3D";
 
 /**
  * A piece's form in 3D, built from what it is, at the size the Detail
@@ -306,6 +307,9 @@ function Form(p: Props) {
   const cat = p.node.category;
   const own = finishOf(p.colour, p.texture);
   const seed = seedOf(p.node.id);
+
+  // a part modelled in the studio: the body the part worker built
+  if (p.node.part) return <Part3D node={p.node} f={own} size={p.size} />;
 
   // opened as panels: the panels are the piece
   if (p.panels)

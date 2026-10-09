@@ -13,8 +13,9 @@
  * recipes, so their size and price are the recipe's; the room items are
  * the things a room has.
  */
+import type { Part } from "@furnishes/domain";
 import { productOf } from "./catalogue";
-export const ASSET_KINDS = ["piece", "decor", "fixed"] as const;
+export const ASSET_KINDS = ["piece", "decor", "fixed", "part"] as const;
 export type AssetKind = (typeof ASSET_KINDS)[number];
 
 export const ASSET_CATEGORIES = [
@@ -54,6 +55,9 @@ export type AssetNode = {
   /** a generated room item's picture and mesh, when a provider made them */
   image?: string;
   model?: string;
+  /** a part modelled in the studio (kind "part"): its sketches and
+      feature history, built by the part worker */
+  part?: Part;
 };
 
 export type AssetGroup = {
