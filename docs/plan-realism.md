@@ -823,7 +823,7 @@ sandbox cannot give.
 | R4   | done   | the SSGI default: on only if post stays at or under 6 ms with it on              |
 | R5   | done   | whether SSR needs the stochastic path with the denoiser (the floor items)        |
 | R6   | done   | the photo itself: 1080p at 256 samples under a minute; ten shots, no VRAM growth |
-| R7   | done   | 60 fps desktop and 30 fps phone from the bench                                   |
+| R7   | done   | 60 fps desktop and 30 fps phone from the bench (first-load JS 387 KB gzip, 2026-10-09) |
 | M1   | done   | —                                                                                |
 | M2   | done   | —                                                                                |
 | M3   | done   | —                                                                                |
@@ -841,6 +841,22 @@ sandbox cannot give.
 | P9   | open   | optional: baked showcase rooms for the landing                                   |
 | KTX2 | open   | optional: measured and left (see below); the maps stay JPG                       |
 | CI   | open   | optional: WebGPU in CI on a software adapter                                     |
+
+## First-load JavaScript, re-measured
+
+Next 16 prints no size column; `scripts/first-load.mjs` reads Next's
+own `.next/diagnostics/route-bundle-stats.json` and gzips each chunk a
+route loads first (CI runs it with `--check` after the build). Before
+this round /rounded loaded 1,029 KB gzip: the bench and checklist
+panels, the part editor, the sketcher, the part timeline, the cut
+list's page and the mirror came with the shell, three's core rode in
+through the exporters (reached from the checkout dialog and the export
+menu) and the part client, and zod with Node's crypto through the
+order status names in lib/orders. With those fetched on demand and the
+light parts split off (order-status.ts, download.ts, part-store.ts,
+part-outline.ts) it loads 387 KB gzip, under the 450 KB budget; the
+landing (`/`) 179 KB. No chunk in the first load carries a kernel or
+the tracer.
 
 ## KTX2 textures: measured, left as JPG
 
