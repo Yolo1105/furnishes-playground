@@ -3459,6 +3459,81 @@ test("the flat has rooms: one added stands beside the active room, a click on it
   ).toHaveCount(0);
 });
 
+test("a room widened into its neighbour is a finding: both rooms flush red on the plan, the card names it and Settle moves the room clear; with the magnet on a width typed near the neighbour lands wall to wall", async ({
+  page,
+}) => {
+  await page.goto("/rounded");
+  await page.getByRole("button", { name: "Show 2D plan in main" }).click();
+  const svg = page.locator(".shell-stage .plan-svg");
+  const card = page.getByRole("region", { name: "Overlaps" });
+  const marked = svg.locator('.plan-room[data-overlap="true"]');
+  const stage = page.locator(".stage-3d");
+  const rooms = page.getByRole("radiogroup", { name: "Rooms" });
+  await page.getByRole("tab", { name: "Room", exact: true }).click();
+  // the bedroom east of the living room, then a third room east of it
+  await page.getByRole("button", { name: "Add a room" }).click();
+  await page.getByRole("button", { name: "Add a room" }).click();
+  await expect(svg.locator(".plan-room")).toHaveCount(3);
+  const third = (await rooms.getByRole("radio").nth(2).textContent())!;
+  // side by side, a wall apart: nothing to say
+  await expect(card).toHaveCount(0);
+  await expect(marked).toHaveCount(0);
+  await expect(stage).toHaveAttribute("data-rooms-overlap", "0");
+  // the bedroom again, to widen it eastwards into the third room
+  const floor = svg.getByRole("button", { name: "Work on the Master bedroom" });
+  const fb = (await floor.boundingBox())!;
+  await floor.click({ position: { x: 10, y: fb.height - 10 } });
+  const bedroom = svg.locator('.plan-room[data-active="true"]');
+  await expect(bedroom).toHaveAttribute("transform", "translate(6800 0)");
+  const width = page.getByRole("spinbutton", {
+    name: "width in millimetres",
+    exact: true,
+  });
+  const w = Number(await width.inputValue());
+  // the magnet on (as it starts): a width typed a little into the
+  // neighbour lands wall to wall, where it was
+  await width.fill(String(w + 200));
+  await expect(width).toHaveValue(String(w));
+  await expect(card).toHaveCount(0);
+  // the magnet off: the width stands as typed, a metre into the neighbour
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page
+    .getByRole("menu")
+    .getByRole("menuitem", { name: "Settings" })
+    .click();
+  await page
+    .getByRole("radiogroup", { name: "Magnet to the walls" })
+    .getByRole("radio", { name: "Off" })
+    .click();
+  await page.keyboard.press("Escape");
+  await width.fill(String(w + 1000));
+  await expect(width).toHaveValue(String(w + 1000));
+  // both rooms are marked, the card says which stands into which, the
+  // stage says so for the 3D view, and Eva's room health lists it
+  await expect(marked).toHaveCount(2);
+  await expect(card).toContainText("1 overlap");
+  await expect(card.locator(".clash-card-pick")).toHaveText(
+    `The Master bedroom stands into the ${third}`,
+  );
+  await expect(stage).toHaveAttribute("data-rooms-overlap", "1");
+  await page.locator(".agent-plan > summary").click();
+  await expect(
+    page.locator(".agent").getByRole("list", { name: "Room health" }),
+  ).toContainText(`stands into the ${third}`);
+  // Settle: west is the nearest way out, but the living room stands
+  // there, so the bedroom goes the nearest way that clears them both,
+  // north or south of the row; it keeps its new width
+  await card.getByRole("button", { name: /^Settle:/ }).click();
+  await expect(marked).toHaveCount(0);
+  await expect(card).toHaveCount(0);
+  await expect(bedroom).toHaveAttribute(
+    "transform",
+    /^translate\(6800 -?[1-9]\d*\)$/,
+  );
+  await expect(width).toHaveValue(String(w + 1000));
+  await expect(stage).toHaveAttribute("data-rooms-overlap", "0");
+});
+
 test("Generate makes a room item from a few words; without a provider a stock mesh stands in, or a shape", async ({
   page,
 }) => {

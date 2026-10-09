@@ -473,6 +473,8 @@
   padding: 5px 6px 6px 10px;
   border-radius: var(--r-card);
   display: grid;
+  /* a long line trims to the card instead of widening it */
+  grid-template-columns: minmax(0, 1fr);
   gap: 3px;
 }
 .clash-card-head {
@@ -498,6 +500,7 @@
   margin: 0;
   padding: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1px;
   max-height: 180px;
   overflow: auto;
@@ -1930,6 +1933,14 @@
 }
 .plan-room[data-active="false"] .plan-floor:hover {
   fill: rgb(from var(--color-accent) r g b / 0.08);
+}
+/* a room standing into another: its floor flushes and its faces go red,
+   on both rooms, until one is settled */
+.plan-room[data-overlap="true"] .plan-floor {
+  fill: rgb(from var(--color-danger) r g b / 0.12);
+}
+.plan-room[data-overlap="true"] .plan-face {
+  stroke: var(--color-danger);
 }
 .plan-room-name {
   font-size: 200px;

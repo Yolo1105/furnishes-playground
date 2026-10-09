@@ -227,14 +227,14 @@ export function AgentTab() {
                   className="agent-plan-warn"
                 >
                   <span>{i.text}</span>
-                  {(i.fix || i.add) && (
+                  {(i.fix || i.add || i.kind === "rooms") && (
                     <button
                       type="button"
                       className="agent-fix"
-                      aria-label={`${i.add ? "Add" : "Fix"}: ${i.text}`}
+                      aria-label={`${i.add ? "Add" : i.kind === "rooms" ? "Settle" : "Fix"}: ${i.text}`}
                       onClick={() => stage.fix(i)}
                     >
-                      {i.add ? "Add" : "Fix"}
+                      {i.add ? "Add" : i.kind === "rooms" ? "Settle" : "Fix"}
                     </button>
                   )}
                 </li>

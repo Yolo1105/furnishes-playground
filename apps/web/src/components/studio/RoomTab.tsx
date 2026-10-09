@@ -39,6 +39,7 @@ import {
 import { CloseIcon, PlusIcon } from "./icons";
 import { RoomStart } from "./RoomStart";
 import { WALL_RANGE } from "./room-geometry";
+import { useStudio } from "./studio-store";
 import { openingCentre, wallSpan } from "./room-health";
 import {
   activeOf,
@@ -79,6 +80,9 @@ export function RoomTab() {
   const st = useRoom();
   /** the active room's fields with the flat's and the actions, as one */
   const s = { ...st, ...activeOf(st) };
+  // a typed width or depth lands wall to wall with a neighbour when the
+  // magnet is on, as a dragged room does
+  const magnet = useStudio((x) => x.magnet);
   const start = s.start;
   const walls = wallsOf(s);
   let n = 0;
@@ -116,7 +120,7 @@ export function RoomTab() {
           onChange={(e) =>
             key === "thickness"
               ? s.set({ thickness: Number(e.target.value) })
-              : s.setSize({ [key]: Number(e.target.value) })
+              : s.setSize({ [key]: Number(e.target.value) }, magnet)
           }
         />
         <span className="room-dim-unit">mm</span>

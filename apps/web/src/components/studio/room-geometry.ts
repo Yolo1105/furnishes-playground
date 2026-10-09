@@ -461,3 +461,81 @@ export const magnetRoom = (
       }
   return { dx: dx ?? 0, dy: dy ?? 0 };
 };
+
+/** two rooms standing over each other: their outlines' boxes cross by
+    more than `slack`, mm (two rooms wall to wall never touch: their
+    inner outlines stand a wall's thickness apart) */
+export const roomsOverlap = (
+  a: readonly Point[],
+  b: readonly Point[],
+  slack = 1,
+) => {
+  const p = boxOf(a);
+  const q = boxOf(b);
+  return (
+    p.x + p.w > q.x + slack &&
+    q.x + q.w > p.x + slack &&
+    p.y + p.h > q.y + slack &&
+    q.y + q.h > p.y + slack
+  );
+};
+
+/** the four shifts that stand a room over a neighbour clear of it, a
+    wall's thickness `t` from the neighbour's wall: out of the way east,
+    west, south or north, the nearest first; none when the two do not
+    overlap */
+export const settleWays = (
+  moving: readonly Point[],
+  other: readonly Point[],
+  t: number,
+): { dx: number; dy: number }[] => {
+  if (!roomsOverlap(moving, other)) return [];
+  const p = boxOf(moving);
+  const q = boxOf(other);
+  return [
+    { dx: q.x + q.w + t - p.x, dy: 0 },
+    { dx: q.x - t - (p.x + p.w), dy: 0 },
+    { dx: 0, dy: q.y + q.h + t - p.y },
+    { dx: 0, dy: q.y - t - (p.y + p.h) },
+  ].sort(
+    (a, b) => Math.abs(a.dx) + Math.abs(a.dy) - Math.abs(b.dx) - Math.abs(b.dy),
+  );
+};
+
+/** the nearest of those ways; none when the two do not overlap */
+export const settleRoom = (
+  moving: readonly Point[],
+  other: readonly Point[],
+  t: number,
+): { dx: number; dy: number } | null => settleWays(moving, other, t)[0] ?? null;
+
+/** a room resized: its east and south walls, the ones that move, drawn
+    to a neighbour's facing wall when they come within reach, so a
+    width or depth typed near the neighbour lands wall to wall rather
+    than a little short or into it; the change to the size */
+export const magnetSize = (
+  resized: readonly Point[],
+  others: readonly (readonly Point[])[],
+  t: number,
+): { dw: number; dd: number } => {
+  let dw: number | null = null;
+  let dd: number | null = null;
+  const nearer = (cur: number | null, v: number) =>
+    cur === null || Math.abs(v) < Math.abs(cur) ? v : cur;
+  for (const other of others)
+    for (const ea of edgesOf(resized)) {
+      if (ea.wall !== "east" && ea.wall !== "south") continue;
+      for (const eb of edgesOf(other)) {
+        if (eb.wall !== FACING[ea.wall]) continue;
+        const { gap, span, outward, horizontal } = wallFrame(ea, eb);
+        if (gap > t + ROOM_REACH || gap < -ROOM_REACH) continue;
+        const [a0, a1] = span(ea);
+        const [b0, b1] = span(eb);
+        if (a1 < b0 - ROOM_REACH || a0 > b1 + ROOM_REACH) continue;
+        const shift = (gap - t) * outward;
+        if (horizontal) dd = nearer(dd, shift);
+        else dw = nearer(dw, shift);
+      }
+    }
+  return { dw: dw ?? 0, dd: dd ?? 0 };
+};

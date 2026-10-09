@@ -38,6 +38,9 @@ const WEIGHT: Record<Issue["kind"], number> = {
   window: 0.5,
   bed: 1,
   missing: 0,
+  // a layout moves the pieces, never the room: a room standing into
+  // another weighs the same whichever way its pieces stand
+  rooms: 0,
 };
 /** past this a priority is spoken of; under its mirror, the other way */
 const LEANS = 70;

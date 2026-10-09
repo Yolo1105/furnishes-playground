@@ -33,6 +33,7 @@ import {
   footprintOf,
   openingsOf,
   roomLabel,
+  roomOverlaps,
   type RoomSpec,
   sheetBox,
   sheetOutline,
@@ -778,7 +779,8 @@ export function Plan2D({
         </defs>
 
         {/* the other rooms of the flat, faint, each a click away from
-            being the active one; its name sits on its floor */}
+            being the active one; its name sits on its floor; a room
+            standing into another is marked, both of them */}
         {rooms
           .filter((rm) => rm.id !== active.id)
           .map((rm) => {
@@ -789,6 +791,7 @@ export function Plan2D({
                 key={rm.id}
                 className="plan-room"
                 data-active="false"
+                data-overlap={roomOverlaps(rooms, rm.id).length > 0}
                 data-room={rm.id}
                 transform={`translate(${rm.pos[0]} ${rm.pos[1]})`}
               >
@@ -823,6 +826,7 @@ export function Plan2D({
         <g
           className="plan-room"
           data-active="true"
+          data-overlap={roomOverlaps(rooms, active.id).length > 0}
           data-room={active.id}
           transform={`translate(${pos[0]} ${pos[1]})`}
         >

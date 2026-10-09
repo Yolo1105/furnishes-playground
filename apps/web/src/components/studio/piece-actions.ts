@@ -12,6 +12,8 @@ import { MUST_HAVE_CHOICES } from "./room-data";
 import {
   footprintOf,
   openingsOf,
+  overlapText,
+  roomOverlaps,
   useRoom,
   type Join,
   type RoomSpec,
@@ -125,7 +127,17 @@ export function usePieceActions(roomId?: string) {
     ...laid[i]!,
     rotation: props.get(pieces[i]!.id)!.rotation,
   });
-  const issues: Issue[] = healthOf(boxes(now), room);
+  // the room's own standing in the flat comes first: a room over
+  // another is wrong before anything in it is
+  const issues: Issue[] = [
+    ...roomOverlaps(rooms, spec.id).map((other): Issue => ({
+      kind: "rooms",
+      text: overlapText(rooms, spec, other),
+      pieceId: null,
+      roomId: other.id,
+    })),
+    ...healthOf(boxes(now), room),
+  ];
   const clashes = new Set(
     issues
       .filter((i) => i.kind === "overlap")
@@ -226,7 +238,8 @@ export function usePieceActions(roomId?: string) {
     issues,
     /** move a piece to its Fix, or add what is missing: one undo step */
     fix: (i: Issue) => {
-      if (i.add) add(i.add);
+      if (i.kind === "rooms") useRoom.getState().settleRoom(spec.id);
+      else if (i.add) add(i.add);
       else if (i.fix && i.pieceId) setProps(i.pieceId, i.fix);
     },
     /** the room laid out four ways, and which Eva would pick */

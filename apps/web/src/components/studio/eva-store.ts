@@ -31,7 +31,14 @@ import { layoutsOf } from "./piece-actions";
 import { describeItem } from "./generation-store";
 import { products } from "./catalogue";
 import { healthOf } from "./room-health";
-import { activeOf, footprintOf, openingsOf, useRoom } from "./room-store";
+import {
+  activeOf,
+  footprintOf,
+  openingsOf,
+  overlapText,
+  roomOverlaps,
+  useRoom,
+} from "./room-store";
 import { inRoom, propsOf, standingOf, useScene } from "./scene-store";
 import { newId } from "./ids";
 import { useStudio } from "./studio-store";
@@ -135,32 +142,35 @@ const contextOf = (
       const f = footprint(p);
       return { ...n, at: { ...spot, w: f.w, d: f.d, rotation: p.rotation } };
     });
-  // what the planner flags, in its words: the same findings the plan shows
-  const findings = healthOf(
-    pieces.flatMap((n) =>
-      n.at
-        ? [
-            {
-              id: n.id,
-              name: n.name,
-              ...n.at,
-              h: propsOf(n, sc.overrides).height,
-            },
-          ]
-        : [],
-    ),
-    {
-      W: r.width,
-      D: r.depth,
-      outline: footprintOf(r),
-      openings: openingsOf(st, r),
-      rules: r.rules,
-      thickness: r.thickness,
-    },
-  )
-    .filter((i) => i.kind !== "missing")
-    .map((i) => i.text)
-    .slice(0, 8);
+  // what the planner flags, in its words: the same findings the plan
+  // shows, the room's own standing in the flat first
+  const findings = [
+    ...roomOverlaps(st.rooms, r.id).map((o) => overlapText(st.rooms, r, o)),
+    ...healthOf(
+      pieces.flatMap((n) =>
+        n.at
+          ? [
+              {
+                id: n.id,
+                name: n.name,
+                ...n.at,
+                h: propsOf(n, sc.overrides).height,
+              },
+            ]
+          : [],
+      ),
+      {
+        W: r.width,
+        D: r.depth,
+        outline: footprintOf(r),
+        openings: openingsOf(st, r),
+        rules: r.rules,
+        thickness: r.thickness,
+      },
+    )
+      .filter((i) => i.kind !== "missing")
+      .map((i) => i.text),
+  ].slice(0, 8);
   return {
     room: {
       id: r.room,

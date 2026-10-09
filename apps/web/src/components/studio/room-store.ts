@@ -25,8 +25,11 @@ import {
   insideOutline,
   boxOf,
   FACING,
+  magnetSize,
   normalizeOutline,
   outlineFromCells,
+  roomsOverlap,
+  settleWays,
   sharedRuns,
   WALL_MM,
 } from "./room-geometry";
@@ -103,8 +106,12 @@ type ActiveRoom = RoomSpec & Pick<RoomConfig, "flat">;
 type RoomState = RoomConfig & {
   setFlat: (flat: FlatType) => void;
   setRoom: (room: RoomId) => void;
+  /** the active room resized; with `magnet`, a width or depth that
+      brings its east or south wall within reach of a neighbour's lands
+      wall to wall */
   setSize: (
     patch: Partial<Pick<RoomSpec, "width" | "depth" | "height">>,
+    magnet?: boolean,
   ) => void;
   set: (
     patch: Partial<Pick<RoomSpec, "floor" | "wallTone" | "thickness">>,
@@ -145,6 +152,10 @@ type RoomState = RoomConfig & {
   /** a room stood elsewhere on the sheet; `done` once the move ends, so
       the doorways between rooms are settled */
   moveRoom: (id: string, pos: Point, done?: boolean) => void;
+  /** a room standing into its neighbours moved the shortest way out
+      of them, a wall's thickness from the nearest; what stands in it
+      goes with it */
+  settleRoom: (id: string) => void;
   /** the doorways between rooms read afresh from where the rooms stand:
       one for each wall two rooms share, kept where it was while the
       shared stretch still holds it, gone when the rooms part */
@@ -271,6 +282,27 @@ export const sheetOutline = (r: RoomSpec): Point[] =>
 /** the room whose floor a point of the sheet is on, if any */
 export const roomAt = (rooms: readonly RoomSpec[], p: Point) =>
   rooms.find((r) => insideOutline(p[0], p[1], sheetOutline(r))) ?? null;
+
+/** the other rooms a room stands into: two rooms' floors over each
+    other, where rooms side by side stand a wall apart */
+export const roomOverlaps = (
+  rooms: readonly RoomSpec[],
+  id: string,
+): RoomSpec[] => {
+  const r = rooms.find((x) => x.id === id);
+  if (!r) return [];
+  const mine = sheetOutline(r);
+  return rooms.filter(
+    (other) => other.id !== id && roomsOverlap(mine, sheetOutline(other)),
+  );
+};
+
+/** the overlap in words, from the room's side */
+export const overlapText = (
+  rooms: readonly RoomSpec[],
+  r: RoomSpec,
+  other: RoomSpec,
+) => `The ${roomLabel(rooms, r)} stands into the ${roomLabel(rooms, other)}`;
 
 /** what a room is called in the flat: its kind, numbered past the first
     of that kind */
@@ -460,10 +492,26 @@ export const useRoom = create<RoomState>((set, get) => {
       });
       get().settleJoins();
     },
-    setSize: (patch) => {
-      active((r) => ({
-        ...stretched(r, patch.width ?? r.width, patch.depth ?? r.depth),
+    setSize: (patch, magnet = false) => {
+      const s = get();
+      const r = activeOf(s);
+      let width = patch.width ?? r.width;
+      let depth = patch.depth ?? r.depth;
+      if (magnet && (patch.width !== undefined || patch.depth !== undefined)) {
+        const grown = { ...r, ...stretched(r, width, depth), width, depth };
+        const pull = magnetSize(
+          sheetOutline(grown),
+          s.rooms.filter((o) => o.id !== r.id).map(sheetOutline),
+          r.thickness,
+        );
+        if (patch.width !== undefined) width += pull.dw;
+        if (patch.depth !== undefined) depth += pull.dd;
+      }
+      active((cur) => ({
+        ...stretched(cur, width, depth),
         ...patch,
+        width,
+        depth,
         preset: false,
       }));
       get().settleJoins();
@@ -663,6 +711,30 @@ export const useRoom = create<RoomState>((set, get) => {
         rooms: s.rooms.map((r) => (r.id === id ? { ...r, pos } : r)),
       }));
       if (done) get().settleJoins();
+    },
+    settleRoom: (id) => {
+      const s = get();
+      const r = s.rooms.find((x) => x.id === id);
+      if (!r) return;
+      const others = s.rooms.filter((o) => o.id !== id).map(sheetOutline);
+      const clearAt = (pos: Point) => {
+        const mine = sheetOutline({ ...r, pos });
+        return others.every((o) => !roomsOverlap(mine, o));
+      };
+      let pos = r.pos;
+      // out of one neighbour may be into the next (a room between two):
+      // the nearest way out that clears them all, else the nearest way
+      // out of this one and another round
+      for (let round = 0; round < 4 && !clearAt(pos); round++) {
+        const mine = sheetOutline({ ...r, pos });
+        const hit = others.find((o) => roomsOverlap(mine, o))!;
+        const ways = settleWays(mine, hit, r.thickness);
+        const way =
+          ways.find((w) => clearAt([pos[0] + w.dx, pos[1] + w.dy])) ?? ways[0]!;
+        pos = [pos[0] + way.dx, pos[1] + way.dy];
+      }
+      if (pos === r.pos) return;
+      get().moveRoom(id, pos, true);
     },
     settleJoins: () =>
       set((s) => {

@@ -47,6 +47,7 @@ import {
   footprintOf,
   openingsOf,
   roomAt,
+  roomOverlaps,
   type RoomSpec,
   sharedOf,
   sheetBox,
@@ -1310,6 +1311,8 @@ export default function Scene3D() {
   const rooms = useRoom((s) => s.rooms);
   const joins = useRoom((s) => s.joins);
   const outline = footprintOf(room);
+  // how many rooms the active one stands into, for the stage to say
+  const roomsOver = roomOverlaps(rooms, room.id).length;
   // standing room for the walk: any room's floor, or a doorway between
   // two, from a point in metres about the active room's middle
   const walkable = useMemo(() => {
@@ -1544,6 +1547,7 @@ export default function Scene3D() {
       ref={stage}
       className="stage-3d"
       data-focus={a.focus !== null}
+      data-rooms-overlap={roomsOver}
       data-parts={partsPending}
       data-part-builds={partBuilds}
       data-walk={walk}

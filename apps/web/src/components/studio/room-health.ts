@@ -47,12 +47,23 @@ type Box = {
 export type Zone = { x: number; y: number; w: number; d: number };
 export type Issue = {
   kind:
-    "outside" | "overlap" | "door" | "window" | "walkway" | "bed" | "missing";
+    | "outside"
+    | "overlap"
+    | "door"
+    | "window"
+    | "walkway"
+    | "bed"
+    | "missing"
+    /** the room itself stands into another room of the flat */
+    | "rooms";
   text: string;
-  /** the piece it is about; none when the room is missing something */
+  /** the piece it is about; none when the room is missing something,
+      or stands into another room */
   pieceId: string | null;
   /** the other piece of an overlap or a narrow walkway */
   otherId?: string | undefined;
+  /** the other room, when the rooms overlap */
+  roomId?: string | undefined;
   /** where the piece could stand instead, if a spot was found */
   fix?: { x: number; y: number } | undefined;
   /** what the room is missing, by its must-have key */
