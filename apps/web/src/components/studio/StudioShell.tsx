@@ -28,6 +28,9 @@ import { useShortcuts } from "./shortcuts";
 import { useArrival } from "./useArrival";
 import { useInputMode } from "./useInputMode";
 import { HelpDialog } from "./HelpDialog";
+import { BenchPanel } from "./BenchPanel";
+import { CheckPanel } from "./CheckPanel";
+import { devParam } from "./dev-flags";
 import { UserBar } from "./UserBar";
 import { useSession } from "@/lib/auth-client";
 import { MainView, ViewPanel } from "./ViewPanel";
@@ -188,6 +191,8 @@ export function StudioShell({
       <PeekBar />
       <Tour />
       {keys && <HelpDialog tab="keyboard" onClose={() => setKeys(false)} />}
+      {devParam("bench") === "walk" && <BenchPanel />}
+      {devParam("check") === "webgpu" && <CheckPanel />}
 
       {/* ---- left: the project ---- */}
       <aside className="shell-rail shell-rail-left" aria-label="Project">

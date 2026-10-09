@@ -63,7 +63,8 @@ import { RoomLight, RoomShell, windowSun } from "./Room3D";
 import { usePartStore } from "./part-client";
 import { cameraFor, EYE } from "./camera-bookmarks";
 import { setLive } from "./scene-handle";
-import { devFlag } from "./dev-flags";
+import { recordFrame, recorder } from "./bench";
+import { devFlag, devParam } from "./dev-flags";
 import { propsOf, useScene } from "./scene-store";
 import { useCoarse } from "./input";
 import {
@@ -111,6 +112,9 @@ const makeRenderer = async (props: RendererProps, antialias: boolean) => {
     alpha: true,
     powerPreference: "high-performance",
     forceWebGL: webgl,
+    // the frame bench reads the GPU's time per frame where the device
+    // has the timestamp query (WebGPUBackend: trackTimestamp)
+    trackTimestamp: devParam("bench") === "walk",
     ...(webgl
       ? {
           context:
@@ -179,6 +183,28 @@ function LiveHandle({
       (window as unknown as { __scene?: Scene }).__scene = scene;
     return () => setLive(null);
   }, [scene, camera, w, d, h, centre, sun]);
+  return null;
+}
+
+/** the frame bench's hook: each frame's time by the wall clock while
+    a bench runs, and the GPU's time read back where the device says */
+function BenchFrames() {
+  const gl = useThree((s) => s.gl);
+  const last = useRef({ at: 0 });
+  useFrame(() => {
+    if (!recorder.running) {
+      last.current.at = 0;
+      return;
+    }
+    const dt = stepOf(last.current);
+    if (dt <= 0) return;
+    const r = gl as unknown as {
+      info: { render: { timestamp: number } };
+      resolveTimestampsAsync?: (type: string) => Promise<unknown>;
+    };
+    recordFrame(dt * 1000, r.info.render.timestamp || undefined);
+    void r.resolveTimestampsAsync?.("render").catch(() => undefined);
+  });
   return null;
 }
 
@@ -1545,6 +1571,7 @@ export default function Scene3D() {
         )}
         <Exposure value={scene.exposure} />
         <Backend />
+        <BenchFrames />
         <FirstFrame onDrawn={() => setDrawn(true)} />
         <LiveHandle w={w} d={d} h={h} centre={centre} sun={liveSun} />
         {tier && <Photo tier={tier} stamp={reflectStamp} />}

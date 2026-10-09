@@ -561,6 +561,28 @@ The photo (Render on WebGPU traces a copy of the room, Photo.tsx):
 15. A second photo of the same room starts tracing at once: the copy
     is kept until the room or the pieces change.
 
+## The bench and the checklist pages
+
+Two development pages make the by-hand work measurable, both on the
+WebGL backend too (the suite covers them there):
+
+- `/rounded?bench=walk` (BenchPanel.tsx, bench.ts) walks the tour's
+  round for twenty seconds once the room is up, takes every frame's
+  time by the wall clock as it is drawn and the post-processing's
+  share round its render, on WebGPU the GPU's time per frame where the
+  device has the timestamp query (the renderer is made with
+  `trackTimestamp` for the bench), and reports P50, P95 and P99, the
+  frame rate and the post's share against the plan's budgets, pass or
+  fail a line (desktop: P95 ≤ 16.7 ms and post ≤ 6 ms at 1440p;
+  laptop ≥ 45 fps at 1080p; phone ≥ 30 fps), on the panel with a Copy
+  JSON button and on `window.__bench`.
+- `/rounded?check=webgpu` (CheckPanel.tsx, webgpu-checks.ts) walks
+  through the by-hand checks below one at a time, sets the view each
+  needs, says what to look at, reads the stage's attributes as they
+  stand, takes Pass or Fail with a note, runs the bench from its last
+  item, and copies a markdown report out (browser, adapter, each
+  check's result, the two benches), shown in the panel as well.
+
 ## Reference renders
 
 A ground truth to judge the live view against, made on a machine with

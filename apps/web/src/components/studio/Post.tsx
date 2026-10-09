@@ -1,5 +1,6 @@
 "use client";
 
+import { recordPost } from "./bench";
 import { devFlag } from "./dev-flags";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
@@ -232,7 +233,11 @@ const build = (
     const edges = smaa(frame);
     pipeline.outputNode = edges;
     return {
-      render: () => pipeline.render(),
+      render: () => {
+        const t0 = performance.now();
+        pipeline.render();
+        recordPost(performance.now() - t0);
+      },
       dispose: () => {
         edges.dispose();
         frame.dispose();
@@ -271,7 +276,11 @@ const build = (
   resolve.useSubpixelCorrection = false;
   pipeline.outputNode = resolve;
   return {
-    render: () => pipeline.render(),
+    render: () => {
+      const t0 = performance.now();
+      pipeline.render();
+      recordPost(performance.now() - t0);
+    },
     dispose: () => {
       resolve.dispose();
       frame.dispose();

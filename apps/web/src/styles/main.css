@@ -702,6 +702,78 @@
   }
 }
 
+/* ---- the development panels: the frame bench and the checklist ---- */
+.dev-panel {
+  position: absolute;
+  top: 56px;
+  right: 12px;
+  z-index: 7;
+  width: min(380px, calc(100% - 24px));
+  max-height: calc(100% - 80px);
+  overflow: auto;
+  padding: 12px 14px;
+  border-radius: var(--r-panel, 14px);
+  display: grid;
+  gap: 8px;
+  font-size: 12.5px;
+}
+.dev-panel-title {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(from var(--color-ink) r g b / 0.6);
+}
+.dev-panel-head {
+  font-weight: 600;
+}
+.dev-panel-text {
+  color: rgb(from var(--color-ink) r g b / 0.8);
+}
+.dev-panel-lines {
+  display: grid;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.dev-panel-lines li[data-pass="false"] {
+  color: var(--color-danger, #b3261e);
+}
+.dev-panel-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.dev-panel-btn {
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgb(from var(--color-ink) r g b / 0.06);
+  color: var(--color-ink);
+}
+.dev-panel-btn[data-on="true"] {
+  background: var(--color-accent);
+  color: #fff;
+}
+.dev-panel-btn:disabled {
+  opacity: 0.5;
+}
+.dev-panel-input {
+  flex: 1;
+  min-width: 120px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: rgb(from var(--color-ink) r g b / 0.06);
+}
+.dev-panel-report {
+  width: 100%;
+  min-height: 160px;
+  padding: 8px;
+  border-radius: 10px;
+  font:
+    11px/1.4 ui-monospace,
+    monospace;
+  background: rgb(from var(--color-ink) r g b / 0.06);
+}
+
 /* ---- the steps a render takes, while it generates ---- */
 .render-steps {
   position: absolute;

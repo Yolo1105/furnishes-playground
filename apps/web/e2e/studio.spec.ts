@@ -4568,3 +4568,61 @@ test("Export hands the room over as a glTF binary: the shell, the pieces, camera
     }),
   ).toBeDisabled();
 });
+
+test("the frame bench walks the room and reports its percentiles against the tier's budget", async ({
+  page,
+}) => {
+  // a twenty-second walk, after the room's first frames
+  test.setTimeout(120_000);
+  await page.goto("/rounded?bench=walk");
+  await arrived(page);
+  const panel = page.getByRole("status", { name: "Frame bench" });
+  await expect(panel).toBeVisible();
+  await expect(panel).toContainText("Walking the room", { timeout: 30_000 });
+  await expect(panel.getByRole("button", { name: "Copy JSON" })).toBeVisible({
+    timeout: 60_000,
+  });
+  await expect(panel).toContainText(/frame P50 [\d.]+ ms · P95 [\d.]+ ms/);
+  await expect(panel).toContainText(/post-processing P50/);
+  const budgets = panel.getByRole("list", { name: "Budgets" }).locator("li");
+  expect(await budgets.count()).toBeGreaterThan(0);
+  await expect(budgets.first()).toContainText(/^(pass|fail) · /);
+  const report = await page.evaluate(
+    () =>
+      (window as unknown as { __bench?: { frames: number; fps: number } })
+        .__bench,
+  );
+  expect(report!.frames).toBeGreaterThan(5);
+  expect(report!.fps).toBeGreaterThan(0);
+  // the walk is over: the stage is back at its angle
+  await expect(page.locator(".stage-3d")).toHaveAttribute("data-walk", "false");
+});
+
+test("the WebGPU checklist guides through the plan's checks and makes a report", async ({
+  page,
+}) => {
+  await page.goto("/rounded?check=webgpu");
+  await arrived(page);
+  const panel = page.getByRole("region", { name: "WebGPU checklist" });
+  await expect(panel).toBeVisible();
+  await expect(panel).toContainText("WebGPU check 1 of");
+  await expect(panel).toContainText("WebGPU is up");
+  // the stage's attributes are read as they stand
+  await expect(panel.getByRole("list", { name: "Stage" })).toContainText(
+    /backend: (software|webgl|webgpu)/,
+    { timeout: 60_000 },
+  );
+  await panel.getByRole("button", { name: "Fail" }).click();
+  await panel.getByRole("textbox", { name: "Note" }).fill("no adapter here");
+  await panel.getByRole("button", { name: "Next" }).click();
+  await expect(panel).toContainText("WebGPU check 2 of");
+  await panel.getByRole("button", { name: "Pass" }).click();
+  await panel.getByRole("button", { name: "Copy report" }).click();
+  const report = panel.getByRole("textbox", { name: "Report" });
+  await expect(report).toBeVisible();
+  const text = await report.inputValue();
+  expect(text).toContain("# WebGPU check");
+  expect(text).toMatch(/\| 1 \| WebGPU is up \| fail \| no adapter here \|/);
+  expect(text).toMatch(/\| 2 \| The first frame \| pass \|/);
+  expect(text).toContain("## Frame bench");
+});
