@@ -100,7 +100,7 @@ const PRESETS: [string, (p: Panel) => Feature[]][] = [
  */
 /** the part editor and the sketcher come when a part or a sketch is
     opened, not with the studio: a line stands in while they load */
-const loading = () => <p className="detail-meta">Loading the editor…</p>;
+const loading = () => <p className="detail-loading">Loading the editor…</p>;
 const PartTab = dynamic(() => import("./PartTab").then((m) => m.PartTab), {
   ssr: false,
   loading,

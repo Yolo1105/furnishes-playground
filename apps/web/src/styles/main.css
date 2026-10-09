@@ -1636,6 +1636,12 @@
   white-space: nowrap;
   pointer-events: none;
 }
+/* the part editor or the sketcher on its way: a quiet line in the tab */
+.detail-loading {
+  margin: 8px 0;
+  font-size: 11.5px;
+  color: rgb(from var(--color-ink) r g b / 0.55);
+}
 .stage-turn-readout {
   display: inline-block;
   padding: 3px 8px;

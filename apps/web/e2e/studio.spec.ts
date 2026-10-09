@@ -1762,6 +1762,12 @@ test("a part modelled here: the shelf bracket stands in the room with its histor
     "Round the corner:ok",
     "Chamfer the front:ok",
   ]);
+  // on the plan the part's symbol is its body's own outline from above,
+  // projected by the kernel (the front chamfer's slant at one end), not
+  // the hull round its points
+  await expect(
+    page.locator('.stage-piece-symbol-part[data-exact="true"]').first(),
+  ).toBeAttached({ timeout: 20_000 });
   // the item's size is the body's box, mm
   await expect(
     page.getByRole("spinbutton", {
@@ -4231,6 +4237,9 @@ test("in 3D a picked piece carries its name and a knob with a hint, until its fi
 test("View settings: edges, names, a floor grid, shadows and the light, kept for next time", async ({
   page,
 }) => {
+  // the Full picture bakes the probes and takes the floor's picture
+  // on the software GPU, most of a minute each on a busy machine
+  test.setTimeout(240_000);
   await page.goto("/rounded");
   const stage = page.locator(".shell-stage .stage-3d");
   // no names until asked: the hovered piece alone shows its own
