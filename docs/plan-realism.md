@@ -490,6 +490,18 @@ AGPL. `@salusoft89/planegcs` 1.3.0 is the only 2D constraint solver
   clock, the stage says `data-gliding` while the camera moves and
   `data-materials-pending` while a listed set is still on its way,
   and the pictures wait for both.
+- The pale quad past the floor's front edge could not be found on the
+  pictures as they stand. Every visible mesh's world bounds were read
+  from the live scene (the development handle on the window): only
+  the far walls' thickness and the far window's joinery stand past
+  the floor's outline, nothing past its near edges and nothing below
+  it, and no plane writes depth there; the pixels just below the
+  floor's near edge are the page's own gradient to within three
+  levels of 255. What the review saw in the earlier pictures was the
+  sunlit floor itself, which the eye-level perspective takes to the
+  frame's edge at the open corner, read as a pale sheet past the
+  floor. Nothing to clip; the probe stays in the scene handle for the
+  next hunt.
 
 ## Checked by hand on WebGPU
 
