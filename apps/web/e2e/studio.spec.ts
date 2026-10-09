@@ -1395,7 +1395,7 @@ test("a piece opens as panels: picked, typed in millimetres, added to, priced, c
   await section.getByRole("button", { name: "Side as DXF" }).click();
   expect((await dxf).suggestedFilename()).toMatch(/side.*\.dxf$/);
   const csv = page.waitForEvent("download");
-  await section.getByRole("button", { name: "Cut list" }).click();
+  await section.getByRole("button", { name: "Cut list", exact: true }).click();
   expect((await csv).suggestedFilename()).toMatch(/cut-list\.csv$/);
   // a shape: a corner cut off and the corners rounded; the part worker
   // makes the solid (the stage counts its work) and hands over a STEP
