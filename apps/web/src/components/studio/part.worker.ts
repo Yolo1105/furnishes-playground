@@ -1,11 +1,12 @@
 import {
-  outlineOf,
   type Sketch,
-  solved,
-  toPrimitives,
+  type SketchSolve,
+  holesOf,
+  outlineOf,
 } from "@furnishes/domain";
 import type { GcsWrapper } from "@salusoft89/planegcs";
 import type * as Replicad from "replicad";
+import { solveWith } from "./part-solve";
 
 /**
  * The part worker: a sketch solved by FreeCAD's constraint solver
@@ -36,7 +37,7 @@ export type PartAsk = {
 }[PartRequest["kind"]];
 
 export type PartAnswer =
-  | { id: number; ok: true; kind: "solve"; sketch: Sketch; ms: number }
+  | ({ id: number; ok: true; kind: "solve"; ms: number } & SketchSolve)
   | { id: number; ok: true; kind: "solid"; solid: Solid; ms: number }
   | { id: number; ok: true; kind: "step"; step: string; ms: number }
   | { id: number; ok: false; error: string };
@@ -70,14 +71,7 @@ const kernel = () =>
     return replicad;
   })());
 
-const solve = async (sketch: Sketch) => {
-  const w = await solver();
-  w.clear_data();
-  w.push_primitives_and_params(toPrimitives(sketch));
-  w.solve();
-  w.apply_solution();
-  return solved(sketch, w.sketch_index.get_primitives() as never);
-};
+const solve = async (sketch: Sketch) => solveWith(await solver(), sketch);
 
 /** the profile drawn, its corners rounded where asked, and extruded */
 const shape = async (sketch: Sketch, thickness: number) => {
@@ -89,6 +83,12 @@ const shape = async (sketch: Sketch, thickness: number) => {
   const radii = sketch.loop.map((id) => sketch.corners[id] ?? 0);
   const radius = Math.max(...radii);
   if (radius > 0) drawing = drawing.fillet(radius);
+  // the holes cut from the profile before it is made solid
+  for (const hole of holesOf(sketch)) {
+    let h = r.draw(hole[0]);
+    for (const p of hole.slice(1)) h = h.lineTo(p);
+    drawing = drawing.cut(h.close());
+  }
   return drawing.sketchOnPlane("XY").extrude(thickness);
 };
 
@@ -98,9 +98,9 @@ const answer = async (req: PartRequest): Promise<PartAnswer> => {
     case "solve":
       return {
         id: req.id,
-        ok: true,
         kind: "solve",
-        sketch: await solve(req.sketch),
+        ...(await solve(req.sketch)),
+        ok: true,
         ms: performance.now() - t0,
       };
     case "solid": {

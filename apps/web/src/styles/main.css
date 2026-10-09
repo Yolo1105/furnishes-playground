@@ -704,9 +704,11 @@
 
 /* ---- the development panels: the frame bench and the checklist ---- */
 .dev-panel {
+  /* over the stage's middle, clear of the rails the stage runs under */
   position: absolute;
   top: 56px;
-  right: 12px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 7;
   width: min(380px, calc(100% - 24px));
   max-height: calc(100% - 80px);

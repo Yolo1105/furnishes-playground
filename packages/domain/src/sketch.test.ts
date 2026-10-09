@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  constraintIdOf,
   cutCornerSketch,
+  edgeId,
+  freeDof,
+  holesOf,
   outlineOf,
   outlineWithCorners,
+  type Primitive,
   rectangleSketch,
   rounded,
   sketchSize,
@@ -81,5 +86,91 @@ describe("rounded corners", () => {
     expect(pts[0]![1]).toBeCloseTo(50, 6);
     expect(pts[4]![0]).toBeCloseTo(50, 6);
     expect(pts[4]![1]).toBeCloseTo(0, 6);
+  });
+});
+
+describe("geometry beyond the outline and the wider constraints", () => {
+  const withHole = () => {
+    const s = rectangleSketch(600, 400);
+    s.points.push(
+      { id: "ctr", x: 300, y: 200, fixed: false },
+      { id: "h1", x: 100, y: 100, fixed: false },
+      { id: "h2", x: 200, y: 100, fixed: false },
+      { id: "h3", x: 200, y: 180, fixed: false },
+      { id: "h4", x: 100, y: 180, fixed: false },
+    );
+    s.geometry = [{ id: "ring", kind: "circle", centre: "ctr", radius: 50 }];
+    s.holes = [["h1", "h2", "h3", "h4"]];
+    s.constraints.push(
+      { id: "r", kind: "radius", c: "ring", mm: 40, name: "ring" },
+      { id: "hh", kind: "horizontal", a: "h1", b: "h2" },
+      {
+        id: "par",
+        kind: "parallel",
+        l1: edgeId("h1", "h2"),
+        l2: edgeId("a", "b"),
+      },
+      { id: "sym", kind: "symmetric", a: "h1", b: "h2", l: edgeId("b", "c") },
+      { id: "fx", kind: "fix", p: "ctr", x: 300, y: 200 },
+      { id: "tan", kind: "tangent", l: edgeId("h3", "h4"), c: "ring" },
+    );
+    return s;
+  };
+  it("speaks the solver's words for circles, holes and the constraints", () => {
+    const prims = toPrimitives(withHole());
+    const types = prims.map((p) => p.type);
+    expect(types).toContain("circle");
+    expect(prims.filter((p) => p.type === "line")).toHaveLength(8);
+    expect(types).toContain("circle_radius");
+    expect(types).toContain("parallel");
+    expect(types).toContain("p2p_symmetric_ppl");
+    expect(types).toContain("coordinate_x");
+    expect(types).toContain("coordinate_y");
+    expect(types).toContain("tangent_lc");
+    expect(constraintIdOf("fx-x")).toBe("fx");
+  });
+  it("draws an arc with its rules, radius and angles from its points", () => {
+    const s = rectangleSketch(600, 400);
+    s.points.push(
+      { id: "c", x: 300, y: 200, fixed: false },
+      { id: "s", x: 350, y: 200, fixed: false },
+      { id: "e", x: 300, y: 250, fixed: false },
+    );
+    s.geometry = [
+      { id: "bow", kind: "arc", centre: "c", start: "s", end: "e" },
+    ];
+    s.constraints.push({ id: "r", kind: "radius", c: "bow", mm: 50 });
+    const prims = toPrimitives(s);
+    const arc = prims.find((p) => p.type === "arc") as Extract<
+      Primitive,
+      { type: "arc" }
+    >;
+    expect(arc.radius).toBeCloseTo(50);
+    expect(arc.start_angle).toBeCloseTo(0);
+    expect(arc.end_angle).toBeCloseTo(Math.PI / 2);
+    expect(prims.map((p) => p.type)).toContain("arc_rules");
+    expect(prims.map((p) => p.type)).toContain("arc_radius");
+  });
+  it("takes a circle's radius back from the solver, and counts the freedom", () => {
+    const s = withHole();
+    const back = solved(s, [
+      { id: "ring", type: "circle", c_id: "c", radius: 40 },
+    ]);
+    expect(back.geometry![0]).toMatchObject({ kind: "circle", radius: 40 });
+    expect(holesOf(s)).toEqual([
+      [
+        [100, 100],
+        [200, 100],
+        [200, 180],
+        [100, 180],
+      ],
+    ]);
+    // 3 free corners of the rectangle, 5 more points, a circle's radius
+    expect(freeDof(s)).toBe((3 + 5) * 2 + 1);
+  });
+  it("still reads an old sketch, with no geometry or holes", () => {
+    const s = rectangleSketch(600, 400);
+    expect(toPrimitives(s)).toHaveLength(4 + 4 + 6);
+    expect(holesOf(s)).toEqual([]);
   });
 });

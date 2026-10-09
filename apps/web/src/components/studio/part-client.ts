@@ -1,6 +1,6 @@
 "use client";
 
-import type { Panel, Sketch } from "@furnishes/domain";
+import type { Panel, Sketch, SketchSolve } from "@furnishes/domain";
 import { toMetres } from "@furnishes/scene";
 import { useEffect, useState } from "react";
 import { BufferAttribute, BufferGeometry } from "three";
@@ -46,6 +46,16 @@ const ask = (req: PartAsk) =>
 const failed = (error: string) => {
   usePartStore.setState({ failed: error });
   throw new Error(error);
+};
+
+/** the sketch solved, with its freedom and the constraints that
+    fight or repeat (the sketcher reads these) */
+export const solveSketchFull = async (sketch: Sketch): Promise<SketchSolve> => {
+  const a = await ask({ kind: "solve", sketch });
+  if (!a.ok || a.kind !== "solve")
+    return { sketch, dof: 0, conflicting: [], redundant: [], ok: false };
+  const { sketch: s, dof, conflicting, redundant, ok } = a;
+  return { sketch: s, dof, conflicting, redundant, ok };
 };
 
 /** the sketch with its constraints solved */
