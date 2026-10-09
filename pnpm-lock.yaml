@@ -84,8 +84,8 @@ importers:
         specifier: 0.186.1
         version: 0.186.1
       three-gpu-pathtracer:
-        specifier: 0.0.26
-        version: 0.0.26(three-mesh-bvh@0.9.15(three@0.186.1))(three@0.186.1)(xatlas-web@0.1.0)
+        specifier: 0.0.27
+        version: 0.0.27(three-mesh-bvh@0.9.15(three@0.186.1))(three@0.186.1)(xatlas-web@0.1.0)
       three-mesh-bvh:
         specifier: 0.9.15
         version: 0.9.15(three@0.186.1)
@@ -3361,8 +3361,8 @@ packages:
     resolution: {integrity: sha512-uxc/zpqFg6x7C8vOE7lh6Lbda8eEL9zmVm/PLeTPBRhh1xCgdWaQ+J1CUieGpIfm2HdtsUpRv+HshiasBMcc6A==}
     engines: {node: '>=6'}
 
-  three-gpu-pathtracer@0.0.26:
-    resolution: {integrity: sha512-LtLnv7xu39HjwvH9JGD5a0PISLOBcPHBYp6BcxE2+Unp5xhUGxC0U0UWhlE3dZSk32fBN3K2BnjtNjHE7ayvkQ==}
+  three-gpu-pathtracer@0.0.27:
+    resolution: {integrity: sha512-NLUYnL9nSLcUFurIHHLHbnmpKLaXi8JbGqfTeWRSx4h+l7Ndpllwj2DK2uOYTSUaN5+PuZ1JRqv1ynHEB1XCwQ==}
     peerDependencies:
       three: '>=0.185.0'
       three-mesh-bvh: '>=0.9.15'
@@ -6688,7 +6688,7 @@ snapshots:
 
   tapable@2.3.3: {}
 
-  three-gpu-pathtracer@0.0.26(three-mesh-bvh@0.9.15(three@0.186.1))(three@0.186.1)(xatlas-web@0.1.0):
+  three-gpu-pathtracer@0.0.27(three-mesh-bvh@0.9.15(three@0.186.1))(three@0.186.1)(xatlas-web@0.1.0):
     dependencies:
       three: 0.186.1
       three-mesh-bvh: 0.9.15(three@0.186.1)

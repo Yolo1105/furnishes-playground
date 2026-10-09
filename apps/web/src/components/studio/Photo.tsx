@@ -25,16 +25,25 @@ import { useStudio } from "./studio-store";
  * settings > Photo): the drawing buffer is set to it for the shot and
  * the tracer follows, so Export's PNG reads the full picture.
  *
- * One tracer serves the renderer for its life (making one a shot
- * leaks in 0.0.26; 0.0.27, out on 2026-10-08, says it releases its
- * compute kernels on every reset, scene change and dispose, and takes
- * three's SunLight: a bump to it waits for the word), the bounces are
- * fixed before the first sample, the loop is paused while the tracer
- * presents, and a drawing buffer too small to trace is refused. A
- * failure falls back to the graded view. The stage says where the
- * photo stands (`data-photo`, its samples, its time and its size), and
- * `?bench=photo` takes three photos at 1080p back to back and leaves
- * their times on `window.__photoBench`.
+ * One tracer serves the renderer for its life. 0.0.26 leaked on
+ * every reset, scene change and dispose (the compute kernels were
+ * never released), so a tracer a shot was out of the question; the
+ * studio is on 0.0.27 (2026-10-08), which releases them, disposes its
+ * full-screen quads' materials and closes the upscaler's leak, and
+ * takes three's SunLight and render-target textures. One tracer is
+ * still the choice: a tracer a shot would build its pipelines and
+ * bindings again for every photo, and the one kept costs nothing
+ * between shots (the copy of the room is what setScene reads anew).
+ * The bounces are fixed before the first sample (0.0.27 also mends the
+ * black frame after maxBounces changed on a settled render), the loop
+ * is paused while the tracer presents, and a drawing buffer too small
+ * to trace is refused (#868, still a guard here: nothing in 0.0.27
+ * speaks to it). maxSamples, maxBounces and getSampleCountsAsync are
+ * as the 0.0.27 types declare them. A failure falls back to the graded
+ * view. The stage says where the photo stands (`data-photo`, its
+ * samples, its time and its size), and `?bench=photo` takes three
+ * photos at 1080p back to back and leaves their times on
+ * `window.__photoBench`.
  */
 
 /** samples per pixel by tier: a desktop's GPU takes more in the time */
