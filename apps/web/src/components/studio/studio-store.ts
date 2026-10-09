@@ -47,6 +47,9 @@ export type SceneLook = {
   quality: Quality;
   /** the size a photo is traced at (photo-size.ts) */
   photoSize: PhotoSize;
+  /** a panel's machining cut for real in 3D (cut-solid.ts): auto is on
+      for the desktop tier, where the cuts cost nothing to notice */
+  cuts: "auto" | "on" | "off";
 };
 export type Quality = "auto" | "full" | "light" | "plain";
 export const QUALITIES: { id: Quality; label: string; sub: string }[] = [
@@ -79,6 +82,7 @@ export const SCENE_DEFAULT: SceneLook = {
   exposure: 1.1,
   quality: "auto",
   photoSize: "screen",
+  cuts: "auto",
 };
 /** how far the plan can be zoomed, and by how much a step zooms */
 export const ZOOM = { min: 0.5, max: 4, step: 1.15 };
@@ -167,6 +171,11 @@ type StudioState = {
   preview: PreviewStatus;
   /** the renderer's backend once it is up */
   backend: Backend;
+  /** the picture's tier as the scene decided it (Post.tsx), once drawn */
+  tier: "desktop" | "laptop" | "phone" | null;
+  /** whether the machining is cut for real: the setting, or on the
+      desktop tier when it is auto */
+  cutsOn: () => boolean;
   /** the largest side a texture can have on this device, px: what a
       photo's size is kept to */
   photoMax: number;
@@ -201,6 +210,7 @@ type StudioState = {
   readOnly: boolean;
   setMode: (mode: Mode) => void;
   setBackend: (backend: Backend, photoMax?: number) => void;
+  setTier: (tier: StudioState["tier"]) => void;
   /** the photo's progress, or none once the view is edited again */
   setPhoto: (patch: Partial<PhotoStatus> | null) => void;
   setWork: (work: Work | null) => void;
@@ -264,6 +274,13 @@ export const useStudio = create<StudioState>((set, get) => ({
   loadingAt: 0,
   preview: "idle",
   backend: "",
+  tier: null,
+  cutsOn: () => {
+    const s = get();
+    return (
+      s.scene.cuts === "on" || (s.scene.cuts === "auto" && s.tier === "desktop")
+    );
+  },
   photoMax: 4096,
   photo: null,
   work: null,
@@ -359,6 +376,7 @@ export const useStudio = create<StudioState>((set, get) => ({
     })),
   setBackend: (backend, photoMax) =>
     set((s) => ({ backend, photoMax: photoMax ?? s.photoMax })),
+  setTier: (tier) => set((s) => (s.tier === tier ? {} : { tier })),
   setPhoto: (patch) =>
     set((s) => ({
       photo:

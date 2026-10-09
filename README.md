@@ -172,7 +172,10 @@ neighbours, and the piece's size and price follow its panels; a
 panel takes the shop's machining (shelf pins by the 32 mm system,
 hinge cups, a back groove, a cut-out), drawn on its face, and comes
 as a DXF, the piece's panels nested on the shop's sheets as a cut
-list; a panel can be given a shape (a corner cut off, a top narrowed,
+list (a CSV, or a page to print with each sheet drawn and the parts
+tabled), and the machining is cut for real in 3D by manifold-3d where
+the device allows or View settings ask ("Show machining as cut"), the
+STEP of a panel carrying the same cuts; a panel can be given a shape (a corner cut off, a top narrowed,
 the corners rounded) as a sketch FreeCAD's constraint solver settles
 and a solid Open CASCADE makes, both as WebAssembly in a worker loaded
 only when a shape is asked for, and comes as STEP; Edit sketch opens

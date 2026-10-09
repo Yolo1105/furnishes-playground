@@ -1,6 +1,7 @@
 "use client";
 
 import type {
+  Feature,
   FeatureStatus,
   Panel,
   Part,
@@ -11,6 +12,7 @@ import { toMetres } from "@furnishes/scene";
 import { useEffect, useState } from "react";
 import { BufferAttribute, BufferGeometry } from "three";
 import { create } from "zustand";
+import type { CutMesh } from "./cut-solid";
 import type { FaceInfo, PartMesh } from "./part-build";
 import type { PartAnswer, PartAsk, Solid } from "./part.worker";
 
@@ -125,9 +127,18 @@ export const solveSketch = async (sketch: Sketch) => {
   return a.kind === "solve" ? a.sketch : sketch;
 };
 
-/** the profile as STEP, the kernel's own file */
-export const stepOf = async (sketch: Sketch, thickness: number) => {
-  const a = await ask({ kind: "step", sketch, thickness });
+/** the profile as STEP, the kernel's own file, its machining cut */
+export const stepOf = async (
+  sketch: Sketch,
+  thickness: number,
+  features?: Feature[],
+) => {
+  const a = await ask({
+    kind: "step",
+    sketch,
+    thickness,
+    ...(features?.length ? { features } : {}),
+  });
   if (!a.ok) return failed(a.error);
   return a.kind === "step" ? a.step : "";
 };
@@ -178,30 +189,70 @@ const solidOf = (sketch: Sketch, thickness: number) => {
   return p;
 };
 
+/** the cuts made, by the panel's shape and machining */
+const cuts = new Map<string, Promise<CutMesh>>();
+const cutOf = (p: Panel) => {
+  const panel = {
+    length: p.length,
+    width: p.width,
+    thickness: p.thickness,
+    ...(p.features?.length ? { features: p.features } : {}),
+    ...(p.profile ? { profile: p.profile } : {}),
+  };
+  const key = JSON.stringify(panel);
+  let c = cuts.get(key);
+  if (!c) {
+    c = ask({ kind: "cut", panel }).then((a) => {
+      if (!a.ok) return failed(a.error);
+      if (a.kind !== "cut") throw new Error("not a cut");
+      return a.solid;
+    });
+    cuts.set(key, c);
+    if (cuts.size > KEEP) cuts.delete(cuts.keys().next().value!);
+  }
+  return c;
+};
+
 /** the solid's points brought into the piece's frame, metres: the
     profile's u, v and thickness laid along the panel's axes as its
-    face is (features.ts says which), about the panel's centre */
-const geometryOf = (p: Panel, s: Solid) => {
+    face is (features.ts says which), about the panel's centre; with
+    the normals, texture coordinates and tones when the worker made
+    them (a cut), else the normals from the triangles */
+const geometryOf = (
+  p: Panel,
+  s: Solid & { uvs?: Float32Array; tones?: Float32Array },
+) => {
   const L = p.length;
   const W = p.width;
   const T = p.thickness;
   const n = s.positions.length / 3;
   const positions = new Float32Array(n * 3);
+  const normals = s.uvs ? new Float32Array(n * 3) : null;
   // u, v, w about the panel's centre, then onto the axes
   const put = (i: number, x: number, y: number, z: number) => {
     positions[i * 3] = toMetres(x + p.position[0]);
     positions[i * 3 + 1] = toMetres(y + p.position[1]);
     positions[i * 3 + 2] = toMetres(z + p.position[2]);
   };
+  const turn = (x: number, y: number, z: number): [number, number, number] =>
+    p.normal === "z" ? [x, y, z] : p.normal === "y" ? [x, z, y] : [z, y, x];
   // swapping two axes mirrors the solid: the triangles are turned back
   const mirrored = p.normal !== "z";
   for (let i = 0; i < n; i++) {
     const u = s.positions[i * 3]! - L / 2;
     const v = s.positions[i * 3 + 1]! - W / 2;
     const w = s.positions[i * 3 + 2]! - T / 2;
-    if (p.normal === "z") put(i, u, v, w);
-    else if (p.normal === "y") put(i, u, w, v);
-    else put(i, w, v, u);
+    put(i, ...turn(u, v, w));
+    if (normals) {
+      const [nx, ny, nz] = turn(
+        s.normals[i * 3]!,
+        s.normals[i * 3 + 1]!,
+        s.normals[i * 3 + 2]!,
+      );
+      normals[i * 3] = nx;
+      normals[i * 3 + 1] = ny;
+      normals[i * 3 + 2] = nz;
+    }
   }
   const indices = new Uint32Array(s.indices);
   if (mirrored)
@@ -213,27 +264,49 @@ const geometryOf = (p: Panel, s: Solid) => {
   const g = new BufferGeometry();
   g.setAttribute("position", new BufferAttribute(positions, 3));
   g.setIndex(new BufferAttribute(indices, 1));
-  g.computeVertexNormals();
+  if (normals && s.uvs && s.tones) {
+    g.setAttribute("normal", new BufferAttribute(normals, 3));
+    g.setAttribute("uv", new BufferAttribute(s.uvs, 2));
+    // the band's tone as the vertex colour the slab's material reads
+    const colour = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++)
+      colour[i * 3] = colour[i * 3 + 1] = colour[i * 3 + 2] = s.tones[i]!;
+    g.setAttribute("color", new BufferAttribute(colour, 3));
+  } else g.computeVertexNormals();
   return g;
 };
 
-/** a panel's profile as a geometry, once the worker has made it;
-    null meanwhile, and for a panel with no profile */
-export const useProfileGeometry = (p: Panel) => {
+/** a panel's solid as a geometry, once the worker has made it: its
+    machining cut for real when `cut` is asked and it has any (or a
+    shape), else its profile's solid; null meanwhile, and for a plain
+    panel, which is drawn as a slab */
+export const useProfileGeometry = (p: Panel, cut = false) => {
   // the geometry made, with the key it was made for: a panel whose
   // profile or place has changed shows the slab until its own comes
   const [made, setMade] = useState<{
     key: string;
     geometry: BufferGeometry;
   } | null>(null);
-  const key = p.profile
-    ? JSON.stringify([p.profile, p.thickness, p.position, p.normal])
-    : null;
+  const cutting = cut && ((p.features?.length ?? 0) > 0 || !!p.profile);
+  const key = cutting
+    ? JSON.stringify([
+        "cut",
+        p.length,
+        p.width,
+        p.thickness,
+        p.features,
+        p.profile,
+        p.position,
+        p.normal,
+      ])
+    : p.profile
+      ? JSON.stringify([p.profile, p.thickness, p.position, p.normal])
+      : null;
   useEffect(() => {
-    if (!key || !p.profile) return;
+    if (!key) return;
     let live = true;
     let geometry: BufferGeometry | null = null;
-    solidOf(p.profile, p.thickness)
+    (cutting ? cutOf(p) : solidOf(p.profile!, p.thickness))
       .then((s) => {
         if (!live) return;
         geometry = geometryOf(p, s);

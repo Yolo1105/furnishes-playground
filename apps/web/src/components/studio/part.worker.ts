@@ -1,9 +1,15 @@
 import {
+  type Feature,
   type FeatureStatus,
+  featureRect,
+  type Panel,
   type Part,
   type Sketch,
   type SketchSolve,
+  sketchSize,
 } from "@furnishes/domain";
+import type { ManifoldToplevel } from "manifold-3d";
+import { type CutMesh, cutMeshOf, welded } from "./cut-solid";
 import type { GcsWrapper } from "@salusoft89/planegcs";
 import type * as Replicad from "replicad";
 import {
@@ -28,7 +34,22 @@ import { solveWith } from "./part-solve";
 export type PartRequest =
   | { id: number; kind: "solve"; sketch: Sketch }
   | { id: number; kind: "solid"; sketch: Sketch; thickness: number }
-  | { id: number; kind: "step"; sketch: Sketch; thickness: number }
+  | {
+      id: number;
+      kind: "step";
+      sketch: Sketch;
+      thickness: number;
+      features?: Feature[];
+    }
+  /** a panel's machining cut for real (cut-solid.ts) */
+  | {
+      id: number;
+      kind: "cut";
+      panel: Pick<
+        Panel,
+        "length" | "width" | "thickness" | "features" | "profile"
+      >;
+    }
   /** a part built through its history, up to a rollback marker */
   | { id: number; kind: "build"; part: Part; upTo?: number }
   | { id: number; kind: "partStep"; part: Part }
@@ -52,6 +73,7 @@ export type PartAnswer =
   | ({ id: number; ok: true; kind: "solve"; ms: number } & SketchSolve)
   | { id: number; ok: true; kind: "solid"; solid: Solid; ms: number }
   | { id: number; ok: true; kind: "step"; step: string; ms: number }
+  | { id: number; ok: true; kind: "cut"; solid: CutMesh; ms: number }
   | {
       id: number;
       ok: true;
@@ -97,7 +119,51 @@ const kernel = () =>
     return replicad;
   })());
 
+let mf: Promise<ManifoldToplevel> | undefined;
+/** manifold-3d, for the booleans that cut a panel's machining: loaded
+    the first time a cut is asked for, its wasm served as its own file */
+const manifold = () =>
+  (mf ??= (async () => {
+    const { default: Module } = await import("manifold-3d");
+    const wasm = new URL("manifold-3d/manifold.wasm", import.meta.url).href;
+    const m = await Module({ locateFile: () => wasm });
+    m.setup();
+    return m;
+  })());
+
 const solve = async (sketch: Sketch) => solveWith(await solver(), sketch);
+
+/** the machining cut from a solid in the kernel's own way, for STEP:
+    a cylinder a hole, a box a groove or a cut-out, each from its face */
+const machined = (
+  r: typeof Replicad,
+  solid: Replicad.Shape3D,
+  p: { length: number; thickness: number },
+  features: readonly Feature[],
+) => {
+  const past = 0.5;
+  let out = solid;
+  for (const f of features) {
+    const rect = featureRect(f);
+    const face = f.kind === "cutout" ? "front" : f.face;
+    const depth = f.kind === "cutout" ? p.thickness : f.depth;
+    const through = depth >= p.thickness;
+    const h = through ? p.thickness + 2 * past : depth + past;
+    const w0 = through ? -past : face === "front" ? p.thickness - depth : -past;
+    const u0 = face === "front" ? rect.u : p.length - rect.u - rect.w;
+    const tool =
+      f.kind === "hole"
+        ? r.makeCylinder(
+            f.d / 2,
+            h,
+            [face === "front" ? f.u : p.length - f.u, f.v, w0],
+            [0, 0, 1],
+          )
+        : r.makeBox([u0, rect.v, w0], [u0 + rect.w, rect.v + rect.h, w0 + h]);
+    out = out.cut(tool);
+  }
+  return out;
+};
 
 /** the profile drawn (part-build.ts: corners rounded, holes and rounds
     cut) and extruded */
@@ -133,12 +199,44 @@ const answer = async (req: PartRequest): Promise<PartAnswer> => {
       };
     }
     case "step": {
-      const s = await shape(req.sketch, req.thickness);
+      const r = await kernel();
+      let s = (await shape(req.sketch, req.thickness)) as Replicad.Shape3D;
+      if (req.features?.length)
+        s = machined(
+          r,
+          s,
+          { length: sketchSize(req.sketch).length, thickness: req.thickness },
+          req.features,
+        );
       return {
         id: req.id,
         ok: true,
         kind: "step",
         step: await s.blobSTEP().text(),
+        ms: performance.now() - t0,
+      };
+    }
+    case "cut": {
+      const m = await manifold();
+      const p = req.panel;
+      // a shaped panel starts from the profile's solid, welded for the
+      // kernel; a plain one from the eased slab
+      let slab;
+      if (p.profile) {
+        const mesh = (await shape(p.profile, p.thickness)).mesh(MESH);
+        slab = welded(
+          m,
+          Float32Array.from(mesh.vertices),
+          Uint32Array.from(mesh.triangles),
+        );
+      }
+      const solid = cutMeshOf(m, p, p.features ?? [], slab);
+      slab?.delete();
+      return {
+        id: req.id,
+        ok: true,
+        kind: "cut",
+        solid,
         ms: performance.now() - t0,
       };
     }
@@ -197,14 +295,22 @@ self.onmessage = (e: MessageEvent<PartRequest>) => {
               a.solid.normals.buffer,
               a.solid.indices.buffer,
             ]
-          : a.ok && a.kind === "build" && a.mesh
+          : a.ok && a.kind === "cut"
             ? [
-                a.mesh.positions.buffer,
-                a.mesh.normals.buffer,
-                a.mesh.indices.buffer,
-                a.mesh.edges.buffer,
+                a.solid.positions.buffer,
+                a.solid.normals.buffer,
+                a.solid.uvs.buffer,
+                a.solid.tones.buffer,
+                a.solid.indices.buffer,
               ]
-            : [];
+            : a.ok && a.kind === "build" && a.mesh
+              ? [
+                  a.mesh.positions.buffer,
+                  a.mesh.normals.buffer,
+                  a.mesh.indices.buffer,
+                  a.mesh.edges.buffer,
+                ]
+              : [];
       self.postMessage(a, { transfer });
     });
 };

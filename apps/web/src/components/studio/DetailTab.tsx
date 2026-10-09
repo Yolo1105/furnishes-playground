@@ -54,6 +54,7 @@ import {
   squared,
 } from "./piece-detail";
 import { portraitOf, recipeOf } from "./catalogue";
+import { printCutList } from "./cut-list-print";
 import { exportCutList, exportPanelDxf, exportPanelStep } from "./machining";
 import { solveSketch, usePartStore } from "./part-client";
 import { PartTab } from "./PartTab";
@@ -861,21 +862,22 @@ export function DetailTab() {
                       }}
                     />
                   )}
-                  {panel.profile && (
+                  {(panel.profile || panel.features?.length) && (
                     <div className="room-dims detail-panel">
-                      {panelNum(
-                        "Radius",
-                        Math.max(0, ...Object.values(panel.profile.corners)),
-                        `${panel.name} corner radius in millimetres`,
-                        (radius) =>
-                          editPanel({
-                            profile: rounded(
-                              panel.profile!,
-                              Math.max(0, radius),
-                            ),
-                          }),
-                        5,
-                      )}
+                      {panel.profile &&
+                        panelNum(
+                          "Radius",
+                          Math.max(0, ...Object.values(panel.profile.corners)),
+                          `${panel.name} corner radius in millimetres`,
+                          (radius) =>
+                            editPanel({
+                              profile: rounded(
+                                panel.profile!,
+                                Math.max(0, radius),
+                              ),
+                            }),
+                          5,
+                        )}
                       <button
                         type="button"
                         className="main-btn"
@@ -909,6 +911,14 @@ export function DetailTab() {
                 >
                   <ExportIcon size={14} />
                   <span>Cut list</span>
+                </button>
+                <button
+                  type="button"
+                  className="main-btn"
+                  onClick={() => printCutList(piece.name, panels)}
+                >
+                  <ExportIcon size={14} />
+                  <span>Cut list (PDF)</span>
                 </button>
                 <button
                   type="button"

@@ -1450,6 +1450,84 @@ test("a piece opens as panels: picked, typed in millimetres, added to, priced, c
   await expect(page.locator(".detail-price")).toHaveText(was);
 });
 
+test("machining cut for real: shelf pins, a groove and a cup show as holes in the panel when the setting is on, STEP carries them, and the cut list prints with every sheet and part", async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  await page.goto("/rounded");
+  const bookwall = top.find((a) => a.children?.length)!;
+  await page
+    .locator(".main-shelf")
+    .getByRole("button", { name: bookwall.name, exact: true })
+    .click();
+  await page.getByRole("tab", { name: "Detail" }).click();
+  const section = page.getByRole("region", { name: "Panels" });
+  await section.getByRole("button", { name: "Open as panels" }).click();
+  const panels = section.getByRole("radiogroup", { name: "Panels" });
+  await panels.getByRole("radio", { name: /^Side/ }).first().click();
+  await section.getByRole("button", { name: "Shelf pins" }).click();
+  // on the sandbox's software graphics the tier is not the desktop's:
+  // the marks are drawn, and the View setting turns the cuts on
+  const stage3d = page.locator(".stage-3d");
+  const cutMeshes = () =>
+    page.evaluate(() => {
+      let n = 0;
+      (
+        window as unknown as {
+          __scene: {
+            traverse: (f: (o: { userData: { cut?: boolean } }) => void) => void;
+          };
+        }
+      ).__scene.traverse((o) => {
+        if (o.userData.cut) n++;
+      });
+      return n;
+    });
+  await expect(stage3d).toHaveAttribute("data-cuts", "off");
+  expect(await cutMeshes()).toBe(0);
+  await page.getByRole("button", { name: "View settings" }).click();
+  await page
+    .getByRole("menuitemcheckbox", { name: "Show machining as cut" })
+    .click();
+  await page.getByRole("button", { name: "View settings" }).click();
+  await expect(stage3d).toHaveAttribute("data-cuts", "on");
+  // the side stays picked
+  const side = panels.getByRole("radio", { name: /^Side/ }).first();
+  if ((await side.getAttribute("aria-checked")) !== "true") await side.click();
+  // the part worker cuts the side (manifold-3d loads the first time)
+  await expect(stage3d).toHaveAttribute("data-parts", "0", {
+    timeout: 90_000,
+  });
+  await expect.poll(cutMeshes, { timeout: 60_000 }).toBe(1);
+  // a groove on the same side: cut again; the STEP carries the cuts
+  await section.getByRole("button", { name: "Back groove" }).click();
+  await expect(stage3d).toHaveAttribute("data-parts", "0", {
+    timeout: 90_000,
+  });
+  await expect.poll(cutMeshes, { timeout: 60_000 }).toBe(1);
+  const step = page.waitForEvent("download");
+  await section.getByRole("button", { name: "Side as STEP" }).click();
+  const stepText = readFileSync((await (await step).path())!, "utf8");
+  expect(stepText.startsWith("ISO-10303-21")).toBe(true);
+  // a cylinder's face in the STEP: the holes are in the solid
+  expect(stepText).toContain("CYLINDRICAL_SURFACE");
+  // the cut list prints: a page of its own with every sheet and part
+  const popup = page.waitForEvent("popup");
+  await section.getByRole("button", { name: "Cut list (PDF)" }).click();
+  const print = await popup;
+  await print.waitForLoadState();
+  await expect(print.locator("h1")).toHaveText(bookwall.name);
+  const names = await panels.getByRole("radio").allTextContents();
+  const body = (await print.locator("body").textContent()) ?? "";
+  for (const n of names)
+    expect(body).toContain(n.replace(/\d+ × .*$/, "").trim());
+  const sheets = await print.locator("svg.sheet").count();
+  expect(sheets).toBeGreaterThan(0);
+  await expect(print.locator("header p")).toContainText(`${sheets} sheet`);
+  await expect(print.locator("table tbody tr").first()).toBeVisible();
+  await print.close();
+});
+
 test("the sketcher: an L-shaped shelf with a 20 mm round hole, fully held; one dimension changed moves the solid, the DXF and the STEP", async ({
   page,
 }) => {

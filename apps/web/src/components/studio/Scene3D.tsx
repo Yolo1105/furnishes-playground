@@ -1403,6 +1403,9 @@ export default function Scene3D() {
   // device turns it off for good
   const [postFailed, setPostFailed] = useState(false);
   const tier = backend ? tierOf(scene.quality, coarse, backend) : null;
+  // the studio reads the tier too (the machining's cuts follow it)
+  useEffect(() => useStudio.getState().setTier(tier), [tier]);
+  const cutsOn = useStudio((s) => s.cutsOn());
   const post = tier && !postFailed ? tier : null;
   // the room's own bounce light, from probes over the shell: not on a
   // phone, and not for a piece looked at on its own
@@ -1521,6 +1524,7 @@ export default function Scene3D() {
             : "pick"
       }
       data-edges={edges}
+      data-cuts={cutsOn ? "on" : "off"}
       data-shadows={shadows}
       data-labels={labels}
       data-grid={grid}

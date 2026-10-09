@@ -30,6 +30,7 @@ import { type Finish, Mat, metal, METAL, Slab } from "./finish";
 import { useProfileGeometry } from "./part-client";
 import { ACCENT_HEX } from "./piece-detail";
 import { useScene } from "./scene-store";
+import { useStudio } from "./studio-store";
 
 /**
  * A piece opened as panels: each panel a slab in the piece's finish.
@@ -222,7 +223,11 @@ function PanelMesh({
 }) {
   const camera = useThree((s) => s.camera);
   const invalidate = useThree((s) => s.invalidate);
-  const solid = useProfileGeometry(panel);
+  // the machining cut for real where the device allows (or asks): the
+  // marks then stay off, the cuts being there to see
+  const cutsOn = useStudio((s) => s.cutsOn());
+  const cut = cutsOn && (panel.features?.length ?? 0) > 0;
+  const solid = useProfileGeometry(panel, cutsOn);
   const drag = useRef<{
     plane: Plane;
     hit: Vector3;
@@ -310,8 +315,13 @@ function PanelMesh({
       }}
     >
       {solid ? (
-        <mesh geometry={solid} castShadow receiveShadow>
-          <Mat f={f} />
+        <mesh
+          geometry={solid}
+          castShadow
+          receiveShadow
+          userData={{ cut: cut && !!solid.getAttribute("uv") }}
+        >
+          <Mat f={f} banded={!!solid.getAttribute("color")} />
         </mesh>
       ) : (
         <Slab
@@ -320,9 +330,10 @@ function PanelMesh({
           dims={panelBoxSize(panel).map(toMetres) as Vector3Tuple}
         />
       )}
-      {panel.features?.map((x) => (
-        <Mark key={x.id} panel={panel} feature={x} />
-      ))}
+      {!(cut && solid) &&
+        panel.features?.map((x) => (
+          <Mark key={x.id} panel={panel} feature={x} />
+        ))}
     </group>
   );
 }

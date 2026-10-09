@@ -177,6 +177,7 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
   const { startTour: playTour, stopTour } = useStudio.getState();
   const { clearStops } = useRoom.getState();
   const scene = useStudio((s) => s.scene);
+  const cutsOn = useStudio((s) => s.cutsOn());
   const backend = useStudio((s) => s.backend);
   const photoMax = useStudio((s) => s.photoMax);
   const { setScene } = useStudio.getState();
@@ -322,6 +323,18 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
                           {label}
                         </button>
                       ))}
+                      <button
+                        type="button"
+                        role="menuitemcheckbox"
+                        aria-checked={cutsOn}
+                        className="shell-menu-row"
+                        onClick={() =>
+                          setScene({ cuts: cutsOn ? "off" : "on" })
+                        }
+                      >
+                        <span className="main-prefs-check" aria-hidden="true" />
+                        Show machining as cut
+                      </button>
                       <button
                         type="button"
                         role="menuitemcheckbox"

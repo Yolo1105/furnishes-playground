@@ -1,4 +1,11 @@
-import { cutListCsv, dxfOf, nest, SHEET, type Panel } from "@furnishes/domain";
+import {
+  cutListCsv,
+  dxfOf,
+  nest,
+  type Panel,
+  rectangleSketch,
+  SHEET,
+} from "@furnishes/domain";
 import { download } from "./export";
 import { stepOf } from "./part-client";
 
@@ -18,8 +25,12 @@ export const exportPanelDxf = (piece: string, panel: Panel) =>
   );
 
 export const exportPanelStep = async (piece: string, panel: Panel) => {
-  if (!panel.profile) return;
-  const step = await stepOf(panel.profile, panel.thickness);
+  if (!panel.profile && !panel.features?.length) return;
+  const step = await stepOf(
+    panel.profile ?? rectangleSketch(panel.length, panel.width),
+    panel.thickness,
+    panel.features,
+  );
   download(
     `${slug(piece)}-${slug(panel.name)}-${panel.id}.step`,
     new Blob([step], { type: "application/step" }),

@@ -541,6 +541,39 @@ AGPL. `@salusoft89/planegcs` 1.3.0 is the only 2D constraint solver
   written as STEP, kept across a reload and read back in at the same
   size; a block's fillet taking the top face picked in 3D. The STEP
   round trip keeps the box within a tenth of a millimetre (Node).
+- Prompt 7 is in: the machining cut for real, and a cut list to print.
+  manifold-3d (Apache-2.0, pinned at 3.5.4, its wasm served as its
+  own file, `apps/web/LICENSES.md`) joins the part worker, loaded the
+  first time a cut is asked for: the slab with its edges eased (the
+  stage's own eased box, welded for the kernel), or a shaped panel's
+  solid from Open CASCADE, minus a cylinder a hole from its face to
+  its depth, a box a groove or a cut-out, in one boolean
+  (`cut-solid.ts`). A hole's polygon is drawn a hair wider than its
+  circle so the volume it takes is the hole's (24 facets inscribed
+  take 1.1% less). The mesh comes back with normals smooth across the
+  eased edges and sharp at the cuts, texture coordinates laid in
+  metres by each face's axis as the slab's are, and the band's tone
+  on the narrow faces and inside the cuts; the piece's frame takes it
+  as it takes a profile's solid. The cut shows when the piece is open
+  as panels, under View settings' "Show machining as cut" (auto: on
+  for the desktop tier, where the scene says which tier it drew;
+  `data-cuts` on the stage); elsewhere the marks stay, cheap. The
+  room's glTF copies what is drawn, so the cuts ride in it when they
+  are shown; a panel's STEP cuts the same holes, grooves and cut-outs
+  in the kernel, for a plain panel as well as a shaped one. The cut
+  list prints from "Cut list (PDF)" beside the CSV: a page of its own
+  (A4 landscape, one sheet a page, the browser's Print to PDF, no PDF
+  library), each sheet drawn as SVG with its parts, their sizes and
+  grain arrows, a table of the parts by size with their count, grain,
+  edge banding (a door all round, a board its front edge) and
+  machining, and the totals (`cut-list-print.ts`). Gates in Node: the
+  volume a hole, a cup, a groove and a cut-out take within 1%; a
+  twenty-panel cabinet's cuts in well under half a second; the page
+  draws every sheet and lists every part, the same parts as the CSV.
+  In e2e: pins and a groove cut on a side, the STEP with cylindrical
+  faces, the page with every sheet and part. The exact silhouette for
+  a part's plan symbol (noted under 6c) can now come from manifold's
+  projection; it stays the hull for the moment.
 
 ## Fixed after review
 
@@ -682,23 +715,24 @@ for a path-traced photo; mean luminance within 10% of the reference.
 
 ## The order of work
 
-| Step | What ships                                                                                                       | Gate                                                                                   |
-| ---- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| R0   | Five camera bookmarks, Playwright screenshot baselines on both backends, the Photo spike in Chrome and Safari 26 | baselines rerun within 0.5%                                                            |
-| R1   | AgX, exposure, no ambient, colour spaces, PBR texture sets on panels, cloth and floors                           | white walls read off-white; no flat colour blocks                                      |
-| R2   | `WebGPURenderer` with fallback, PCF shadows, the panel rig replaced                                              | the suite green on the WebGL2 backend; WebGPU by hand                                  |
-| R3   | GTAO and TRAA, the three tiers                                                                                   | post under 6 ms at 1440p on a desktop GPU                                              |
-| R4   | Probe grid, incremental and on change; SSGI on desktop                                                           | furniture bases darken; no leaks across walls                                          |
-| R5   | Box-projected floor reflections                                                                                  | a window reflects in the right place on the floor                                      |
-| R6   | Photo mode                                                                                                       | 1080p at 256 samples in under a minute on a desktop GPU; ten shots with no VRAM growth |
-| R7   | Tiers, budgets, the visual-target review                                                                         | 60 fps desktop, 30 fps phone; first-load JS under 450 KB gzip                          |
-| M1   | Wall thickness and height, extruded walls with holes                                                             | 2D and 3D never disagree; openings follow a moved wall                                 |
-| M2   | Free panels with snapping and typed millimetres                                                                  | a 600 mm base cabinet with two shelves in under two minutes                            |
-| M3   | Machining features, cut list, DXF                                                                                | a 20-panel cabinet recomputes under 200 ms                                             |
-| M4   | Sketch constraints and free-form parts in a worker, STEP out                                                     | a constrained sketch solves under 50 ms; the main thread never blocks over 16 ms       |
-| P6a  | The sketcher: lines, arcs, circles, holes, every hold, named dimensions                                          | an L shelf with a round hole fully held; the solid, DXF and STEP follow a change       |
-| P6b  | The feature history: extrude, revolve, fillet, chamfer, mirror, pattern, rules for edges, the timeline           | a ten-feature part under 1 s; a failing fillet reports, the rest not built             |
-| P6c  | Parts as items: placed, finished, quoted on request, STEP in and out, kept and shared                            | a part survives a reload; the STEP round trip within 0.1 mm; old snapshots load        |
+| Step | What ships                                                                                                       | Gate                                                                                    |
+| ---- | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| R0   | Five camera bookmarks, Playwright screenshot baselines on both backends, the Photo spike in Chrome and Safari 26 | baselines rerun within 0.5%                                                             |
+| R1   | AgX, exposure, no ambient, colour spaces, PBR texture sets on panels, cloth and floors                           | white walls read off-white; no flat colour blocks                                       |
+| R2   | `WebGPURenderer` with fallback, PCF shadows, the panel rig replaced                                              | the suite green on the WebGL2 backend; WebGPU by hand                                   |
+| R3   | GTAO and TRAA, the three tiers                                                                                   | post under 6 ms at 1440p on a desktop GPU                                               |
+| R4   | Probe grid, incremental and on change; SSGI on desktop                                                           | furniture bases darken; no leaks across walls                                           |
+| R5   | Box-projected floor reflections                                                                                  | a window reflects in the right place on the floor                                       |
+| R6   | Photo mode                                                                                                       | 1080p at 256 samples in under a minute on a desktop GPU; ten shots with no VRAM growth  |
+| R7   | Tiers, budgets, the visual-target review                                                                         | 60 fps desktop, 30 fps phone; first-load JS under 450 KB gzip                           |
+| M1   | Wall thickness and height, extruded walls with holes                                                             | 2D and 3D never disagree; openings follow a moved wall                                  |
+| M2   | Free panels with snapping and typed millimetres                                                                  | a 600 mm base cabinet with two shelves in under two minutes                             |
+| M3   | Machining features, cut list, DXF                                                                                | a 20-panel cabinet recomputes under 200 ms                                              |
+| M4   | Sketch constraints and free-form parts in a worker, STEP out                                                     | a constrained sketch solves under 50 ms; the main thread never blocks over 16 ms        |
+| P6a  | The sketcher: lines, arcs, circles, holes, every hold, named dimensions                                          | an L shelf with a round hole fully held; the solid, DXF and STEP follow a change        |
+| P6b  | The feature history: extrude, revolve, fillet, chamfer, mirror, pattern, rules for edges, the timeline           | a ten-feature part under 1 s; a failing fillet reports, the rest not built              |
+| P6c  | Parts as items: placed, finished, quoted on request, STEP in and out, kept and shared                            | a part survives a reload; the STEP round trip within 0.1 mm; old snapshots load         |
+| P7   | Machining cut for real (manifold-3d), the setting, STEP with cuts, a cut list to print                           | a hole's volume within 1%; twenty panels cut under 500 ms; every sheet and part printed |
 
 The earlier plan's own estimate was 55 to 85 developer-days for
 rendering and 47 to 74 for modelling. With the studio's base already in
