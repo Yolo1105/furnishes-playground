@@ -475,6 +475,22 @@ AGPL. `@salusoft89/planegcs` 1.3.0 is the only 2D constraint solver
   (roughness 0.45, clear coat 0.25) that catches the window as a
   sheen across a panel.
 
+## Fixed after review
+
+- The speckle on the walls in the kept pictures, and the pictures
+  drifting by one or two percent between runs, was not the occlusion,
+  the probes, the sky's shadow or the plaster: with each switched off
+  in turn (`?noao`, `?noprobes`, `?noskyshadow`, `?noplaster`) two
+  runs of the same picture agreed to the pixel. The camera was still
+  on its way. The glide between angles stepped by the frame loop's
+  clock, which stands still between frames drawn on demand, so on a
+  slow renderer a 0.6 s glide crept one sliver a frame for a minute
+  and the picture was taken mid-way, every edge a pixel off (the
+  "speckle" in the diff). The glide and the walk now step by the wall
+  clock, the stage says `data-gliding` while the camera moves and
+  `data-materials-pending` while a listed set is still on its way,
+  and the pictures wait for both.
+
 ## Checked by hand on WebGPU
 
 The suite runs on the WebGL 2 backend, since headless Chromium has no

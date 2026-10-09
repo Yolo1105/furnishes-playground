@@ -271,6 +271,15 @@ const GRID_HEX = "#b9a797";
 
 const FLOOR = new Plane(new Vector3(0, 1, 0), 0);
 const GLIDE = 0.6; // s, the camera's move between angles
+/** the seconds since the last frame, by the wall clock: the frame
+    loop's own clock stands still between frames drawn on demand, so a
+    slow renderer would creep through a glide one sliver a frame */
+const stepOf = (last: { at: number }) => {
+  const now = performance.now();
+  const dt = last.at ? (now - last.at) / 1000 : 0;
+  last.at = now;
+  return dt;
+};
 const WALK_SPEED = 1.6; // m/s
 const TOUR_SPEED = 0.9; // m/s, a slow walk to look about
 const TOUR_INSET = 1.2; // m, the default round keeps this off the walls
@@ -337,6 +346,18 @@ const report = (stage: RefObject<HTMLDivElement | null>, p: Vector3) => {
   if (!el) return;
   const v = `${p.x.toFixed(2)},${p.y.toFixed(2)},${p.z.toFixed(2)}`;
   if (el.dataset.cam !== v) el.dataset.cam = v;
+};
+
+/** whether the camera is on its way to an angle, written on the stage
+    so a picture waits for it to arrive */
+const reportGliding = (
+  stage: RefObject<HTMLDivElement | null>,
+  gliding: boolean,
+) => {
+  const el = stage.current;
+  if (!el) return;
+  const v = String(gliding);
+  if (el.dataset.gliding !== v) el.dataset.gliding = v;
 };
 
 type Controls = { target: Vector3; update: () => void } | null;
@@ -407,10 +428,11 @@ function Rig({
     controls?.update();
     invalidate();
   }, [turn, camera, controls, h, invalidate]);
-  useFrame((_, raw) => {
+  const last = useRef({ at: 0 });
+  useFrame(() => {
     // the clock runs while the scene rests: a frame after a pause steps
     // no further than a tenth of a second
-    const dt = Math.min(raw, FRAME_MAX);
+    const dt = Math.min(stepOf(last.current), FRAME_MAX);
     const g = glide.current;
     if (g) {
       g.t = Math.min(1, g.t + dt / GLIDE);
@@ -422,6 +444,7 @@ function Rig({
       controls?.update();
       if (g.t >= 1) glide.current = null;
       else invalidate();
+      reportGliding(stage, g.t < 1);
     }
     report(stage, camera.position);
     // where the camera stands about its target, for the cube
@@ -588,8 +611,9 @@ function Walker({
     useStudio.getState().setTourAt(0, 1, path.length);
     invalidate();
   }, [touring, w, d, outline, walkable, invalidate]);
-  useFrame((_, raw) => {
-    const dt = Math.min(raw, FRAME_MAX);
+  const last = useRef({ at: 0 });
+  useFrame(() => {
+    const dt = Math.min(stepOf(last.current), FRAME_MAX);
     const s = WALK;
     if (s.keys.size || s.goto || s.tour) invalidate();
     const t = s.tour;
@@ -1216,6 +1240,11 @@ export default function Scene3D() {
   const photographed = useMaterials((s) =>
     Object.keys(s.loaded).sort().join(" "),
   );
+  // how many listed sets are still on their way (-1 before the index
+  // is read): a picture taken before they land would be taken again
+  const materialsPending = useMaterials((s) =>
+    s.listed === null ? -1 : s.listed.length - Object.keys(s.loaded).length,
+  );
   useEffect(() => loadMaterials(), []);
   // the part worker's requests under way, for the stage to say
   const partsPending = usePartStore((s) => s.pending);
@@ -1469,6 +1498,7 @@ export default function Scene3D() {
       data-light={scene.light}
       data-sky={scene.sky}
       data-materials={photographed}
+      data-materials-pending={materialsPending}
       data-exposure={scene.exposure}
       data-backend={backend}
       data-drawn={drawn}

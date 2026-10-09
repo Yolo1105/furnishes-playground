@@ -61,6 +61,11 @@ const settled = async (page: Page) => {
       timeout: 180_000,
     },
   );
+  // the photographed sets listed are all in, so the picture is not
+  // taken with a surface still on its way
+  await expect(stage(page)).toHaveAttribute("data-materials-pending", "0", {
+    timeout: 180_000,
+  });
   await expect(stage(page)).toHaveAttribute("data-probes", /ready|off/, {
     timeout: 180_000,
   });
@@ -70,6 +75,11 @@ const settled = async (page: Page) => {
   // the edges resolved: TRAA's settle frames are through
   await expect(stage(page)).toHaveAttribute("data-settled", "true", {
     timeout: 180_000,
+  });
+  // the camera at rest: a glide to the angle is through (the stage
+  // says so once one has run; before any, the attribute is not there)
+  await expect(stage(page)).not.toHaveAttribute("data-gliding", "true", {
+    timeout: 60_000,
   });
   await page.waitForTimeout(SETTLE);
 };
