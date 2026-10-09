@@ -22,9 +22,19 @@ import type { Floor } from "./room-data";
  * once when the room opens and the materials that have one switch to
  * it as it arrives; the grown surfaces are painted in a worker as a
  * part first asks for them, a flat stand-in in the material's colour
- * holding its place; nothing waits on either. A photographed set
- * carries its own colour: a tint over it is kept light (`TINT`), so a
- * floor's tone still tells but the photograph is not painted over.
+ * holding its place; nothing waits on either.
+ *
+ * Two tint paths, which decide how a set's colour map must be made. A
+ * piece's finish (finish.tsx, `Mat`) multiplies the map by the piece's
+ * own colour in full, as it does the grown wood: so a `wood` or
+ * `cloth` set must be light grain values, near white, or every piece
+ * is tinted twice (`warnIfDark` says so in development). A room
+ * surface (Room3D.tsx, the walls and floors) lays the Room tab's tone
+ * over the set lightly (`tintOver`, `TINT`), so `plaster` and the
+ * floors carry their own colour and the tone still tells. A set's
+ * arrival changes no probe stamp (Scene3D.tsx lists what the probes
+ * follow: the shell, its tones and its light), so the bake is not run
+ * again for it; the next bake sees the set.
  */
 export type MaterialName =
   "wood" | "cloth" | "plaster" | "parquet" | "vinyl" | "tiles" | "concrete";
@@ -75,6 +85,37 @@ const load = (url: string, colour: boolean) =>
     return t;
   });
 
+/** a grain map (wood, cloth) is multiplied by the piece's colour, so
+    it must be light values: below this average luminance, in
+    development, the loader says a set would tint every piece twice */
+const GRAIN_LIGHT = 0.75;
+/** the side of the small canvas a map's average is read from */
+const SAMPLE_PX = 16;
+const warnIfDark = (name: MaterialName, t: Texture) => {
+  if (process.env.NODE_ENV === "production") return;
+  if (name !== "wood" && name !== "cloth") return;
+  try {
+    const c = document.createElement("canvas");
+    c.width = SAMPLE_PX;
+    c.height = SAMPLE_PX;
+    const ctx = c.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(t.image as CanvasImageSource, 0, 0, SAMPLE_PX, SAMPLE_PX);
+    const px = ctx.getImageData(0, 0, SAMPLE_PX, SAMPLE_PX).data;
+    let sum = 0;
+    for (let i = 0; i < px.length; i += 4)
+      sum +=
+        (0.2126 * px[i]! + 0.7152 * px[i + 1]! + 0.0722 * px[i + 2]!) / 255;
+    const lum = sum / (px.length / 4);
+    if (lum < GRAIN_LIGHT)
+      console.warn(
+        `materials: the ${name} colour map averages ${lum.toFixed(2)} luminance; a grain map is multiplied by each piece's colour, so it should be light values (over ${GRAIN_LIGHT}) or every piece is tinted twice`,
+      );
+  } catch {
+    /* a map that cannot be drawn (cross-origin) is left unmeasured */
+  }
+};
+
 let started = false;
 /** the index read and each listed set fetched, once; a missing index
     or a set that fails leaves the grown surface in place */
@@ -97,6 +138,7 @@ export const loadMaterials = () => {
           load(base + m.roughness, false),
         ])
           .then(([map, normalMap, roughnessMap]) => {
+            warnIfDark(name, map);
             const surface = { map, normalMap, roughnessMap };
             useMaterials.setState((s) => ({
               loaded: {

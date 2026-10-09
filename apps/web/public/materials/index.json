@@ -1,1 +1,28 @@
-{ "materials": {} }
+{
+  "materials": {
+    "wood": {
+      "tile": 1.0,
+      "color": "color.jpg",
+      "normal": "normal.jpg",
+      "roughness": "roughness.jpg"
+    },
+    "parquet": {
+      "tile": 2.0,
+      "color": "color.jpg",
+      "normal": "normal.jpg",
+      "roughness": "roughness.jpg"
+    },
+    "plaster": {
+      "tile": 2.0,
+      "color": "color.jpg",
+      "normal": "normal.jpg",
+      "roughness": "roughness.jpg"
+    },
+    "cloth": {
+      "tile": 0.3,
+      "color": "color.jpg",
+      "normal": "normal.jpg",
+      "roughness": "roughness.jpg"
+    }
+  }
+}

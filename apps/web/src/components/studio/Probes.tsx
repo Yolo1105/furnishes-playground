@@ -115,6 +115,8 @@ export function Probes({
   // a change to what the probes see waits a moment, so a run of changes
   // is baked once
   useEffect(() => {
+    if (process.env.NODE_ENV !== "production")
+      console.debug("probes: the stamp changed, baking again", stamp);
     due.current = performance.now() + SETTLE_MS;
     onState("pending");
     invalidate();

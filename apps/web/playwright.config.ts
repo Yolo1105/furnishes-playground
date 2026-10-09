@@ -39,7 +39,10 @@ export default defineConfig({
       // shadows) on the software GPU, most of a minute by itself
       name: "visual",
       testMatch: /visual\.spec\.ts/,
-      timeout: 120_000,
+      // a software renderer takes a minute or two to bake a room's
+      // probes before a picture can be taken, and the evening view
+      // bakes twice
+      timeout: 300_000,
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 1440, height: 900 },

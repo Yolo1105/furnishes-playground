@@ -50,24 +50,26 @@ test.beforeEach(async ({ page }) => {
 /** the room's probes are baked over frames and its floor's picture is
     taken a moment after a change: the picture waits for both (the
     software renderer takes a while over each) */
+// a software renderer bakes the probes in a minute or two, and takes
+// its settle frames slowly after; the waits allow for it
 const settled = async (page: Page) => {
   // the stage says off until the backend is known: wait for that first
   await expect(stage(page)).toHaveAttribute(
     "data-backend",
     /webgpu|webgl|software/,
     {
-      timeout: 60_000,
+      timeout: 180_000,
     },
   );
   await expect(stage(page)).toHaveAttribute("data-probes", /ready|off/, {
-    timeout: 60_000,
+    timeout: 180_000,
   });
   await expect(stage(page)).toHaveAttribute("data-reflection", /ready|off/, {
-    timeout: 60_000,
+    timeout: 180_000,
   });
   // the edges resolved: TRAA's settle frames are through
   await expect(stage(page)).toHaveAttribute("data-settled", "true", {
-    timeout: 60_000,
+    timeout: 180_000,
   });
   await page.waitForTimeout(SETTLE);
 };
