@@ -882,6 +882,23 @@ The five baselines were re-taken on purpose. The caps' colour, the
 section pitch and the shading's strengths are the knobs to turn if the
 far views need more or less of the drawing in them.
 
+### The stage that never rested
+
+Re-taking the baselines showed a bug that was there before this round:
+the stage settled for under a second every twelve seconds, so a fresh
+"stable screenshot" never came. Fiber treats a handler on a three
+object (`onClick`, `onPointerDown`…) as a prop: a function re-created
+on a render counts as a change, fiber applies it and asks the demand
+loop for a frame. The post chain reported every one of its sixteen
+settle frames to the stage as state, each report re-rendered the scene,
+every piece's inline handlers were new functions, and so each settle
+frame asked for the next, round and round. Two changes: every handler
+on a three object goes through `useEvent` (use-event.ts), a function
+made once that calls the latest one given, so the prop never changes;
+and the stage keeps whether the picture is settling as a flag rather
+than the count, so a settle re-renders the scene twice, not sixteen
+times. `data-settled` now stays true until something changes.
+
 ## First-load JavaScript, re-measured
 
 Next 16 prints no size column; `scripts/first-load.mjs` reads Next's

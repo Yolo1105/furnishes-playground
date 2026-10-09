@@ -4,6 +4,7 @@ import { toMetres } from "@furnishes/scene";
 import { WebGPURenderer } from "three/webgpu";
 import { Html, OrbitControls } from "@react-three/drei";
 import { useShallow } from "zustand/react/shallow";
+import { useEvent } from "./use-event";
 import {
   Canvas,
   type CanvasProps,
@@ -907,7 +908,7 @@ function Piece({
         ),
       );
   };
-  const onSpinUp = () => {
+  const onSpinUp = useEvent(() => {
     const s = spin.current;
     if (!s) return;
     spin.current = null;
@@ -917,7 +918,7 @@ function Piece({
       spinSkip.current = true;
       turned();
     }
-  };
+  });
   // the ring's reach round the footprint, m
   const ringR = Math.hypot(size[0], size[2]) / 2 + RING_OUT;
   const drag = useRef<{
@@ -932,7 +933,10 @@ function Piece({
     const p = new Vector3();
     return e.ray.intersectPlane(FLOOR, p) ? p : null;
   };
-  const onDown = (e: ThreeEvent<PointerEvent>) => {
+  // every handler on a three object is held stable: fiber takes a
+  // re-created handler as a changed prop and asks for a frame, and a
+  // frame per render would keep the stage from ever settling
+  const onDown = useEvent((e: ThreeEvent<PointerEvent>) => {
     if (!canDrag || e.button !== 0) return;
     const hit = hitFloor(e);
     if (!hit) return;
@@ -946,8 +950,8 @@ function Piece({
       y0: (at[2] + room.d / 2) * 1000 - f.d / 2,
       moved: false,
     };
-  };
-  const onMove = (e: ThreeEvent<PointerEvent>) => {
+  });
+  const onMove = useEvent((e: ThreeEvent<PointerEvent>) => {
     const dr = drag.current;
     if (!dr) return;
     const hit = hitFloor(e);
@@ -969,8 +973,8 @@ function Piece({
       others.filter((o) => o.id !== node.id),
     );
     useScene.getState().dragMove(node.id, to.x, to.y);
-  };
-  const onUp = () => {
+  });
+  const onUp = useEvent(() => {
     const dr = drag.current;
     if (!dr) return;
     drag.current = null;
@@ -978,7 +982,38 @@ function Piece({
       useScene.getState().dragEnd();
       onDragging(false);
     }
-  };
+  });
+  const onOver = useEvent((e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation();
+    onHover(true);
+  });
+  const onOut = useEvent(() => onHover(false));
+  const onRingOver = useEvent((e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation();
+    setRingHover(true);
+  });
+  const onRingOut = useEvent(() => setRingHover(false));
+  const onRingDown = useEvent((e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation();
+    // the canvas's event system holds the pointer on the mesh
+    spinStart(e.nativeEvent, () =>
+      (
+        e.target as unknown as {
+          setPointerCapture: (id: number) => void;
+        }
+      ).setPointerCapture(e.pointerId),
+    );
+  });
+  const onRingMove = useEvent((e: ThreeEvent<PointerEvent>) => {
+    if (!spin.current) return;
+    e.stopPropagation();
+    spinMove(e.nativeEvent);
+  });
+  const onRingUp = useEvent((e: ThreeEvent<PointerEvent>) => {
+    if (!spin.current) return;
+    e.stopPropagation();
+    onSpinUp();
+  });
   return (
     <group
       position={at}
@@ -988,11 +1023,8 @@ function Piece({
       onPointerMove={onMove}
       onPointerUp={onUp}
       onPointerCancel={onUp}
-      onPointerOver={(e) => {
-        e.stopPropagation();
-        onHover(true);
-      }}
-      onPointerOut={() => onHover(false)}
+      onPointerOver={onOver}
+      onPointerOut={onOut}
     >
       <Furniture3D
         edges={edges}
@@ -1055,32 +1087,11 @@ function Piece({
             rotation={[-Math.PI / 2, 0, 0]}
             position={[0, RING_Y, 0]}
             userData={HELPER_TAG}
-            onPointerOver={(e) => {
-              e.stopPropagation();
-              setRingHover(true);
-            }}
-            onPointerOut={() => setRingHover(false)}
-            onPointerDown={(e) => {
-              e.stopPropagation();
-              // the canvas's event system holds the pointer on the mesh
-              spinStart(e.nativeEvent, () =>
-                (
-                  e.target as unknown as {
-                    setPointerCapture: (id: number) => void;
-                  }
-                ).setPointerCapture(e.pointerId),
-              );
-            }}
-            onPointerMove={(e) => {
-              if (!spin.current) return;
-              e.stopPropagation();
-              spinMove(e.nativeEvent);
-            }}
-            onPointerUp={(e) => {
-              if (!spin.current) return;
-              e.stopPropagation();
-              onSpinUp();
-            }}
+            onPointerOver={onRingOver}
+            onPointerOut={onRingOut}
+            onPointerDown={onRingDown}
+            onPointerMove={onRingMove}
+            onPointerUp={onRingUp}
             onPointerCancel={onSpinUp}
           >
             <ringGeometry args={[ringR - RING_REACH, ringR + RING_REACH, 64]} />
@@ -1275,7 +1286,12 @@ function OtherRoom({
   const st = useRoom(
     useShallow((s: RoomConfig) => ({ rooms: s.rooms, joins: s.joins })),
   );
-  const outline = footprintOf(rm);
+  // the shell's shape, read once per room: a fresh array each render
+  // would rebuild the walls' geometry and ask for a frame, and the
+  // picture would never settle
+  const outline = useMemo(() => footprintOf(rm), [rm]);
+  const openings = useMemo(() => openingsOf(st, rm), [st, rm]);
+  const shared = useMemo(() => sharedOf(st, rm), [st, rm]);
   const w = toMetres(rm.width);
   const d = toMetres(rm.depth);
   const wall =
@@ -1301,7 +1317,7 @@ function OtherRoom({
           W: rm.width,
           D: rm.depth,
           outline,
-          openings: openingsOf(st, rm),
+          openings,
           height: rm.height,
           thickness: rm.thickness,
           floor: rm.floor as Floor,
@@ -1309,7 +1325,7 @@ function OtherRoom({
           wallHex: wall,
           evening,
           sun,
-          shared: sharedOf(st, rm),
+          shared,
         }}
         walk={false}
         onWalkTo={() => undefined}
@@ -1390,7 +1406,15 @@ export default function Scene3D() {
   const room = useActiveRoom();
   const rooms = useRoom((s) => s.rooms);
   const joins = useRoom((s) => s.joins);
-  const outline = footprintOf(room);
+  // the room's record itself, which stays the same object until the
+  // room changes (useActiveRoom makes a fresh one each render): the
+  // shell's shape, openings and shared stretches are read from it once,
+  // since a fresh array would rebuild the walls and ask for a frame,
+  // and the picture would never settle
+  const spec = useRoom(activeOf);
+  const outline = useMemo(() => footprintOf(spec), [spec]);
+  const openings = useMemo(() => openingsOf({ joins }, spec), [joins, spec]);
+  const shared = useMemo(() => sharedOf({ rooms }, spec), [rooms, spec]);
   // how many rooms the active one stands into, for the stage to say
   const roomsOver = roomOverlaps(rooms, room.id).length;
   // standing room for the walk: any room's floor, or a doorway between
@@ -1502,12 +1526,12 @@ export default function Scene3D() {
     () =>
       windowSun(
         { W: room.width, D: room.depth, outline },
-        openingsOf({ joins }, room),
+        openings,
         light.height,
         SUN.back,
         SUN.aside,
       ) ?? light.from,
-    [room, outline, joins, light],
+    [room.width, room.depth, outline, openings, light],
   );
   const backend = useStudio((s) => s.backend);
   // the picture's finish follows the device once the backend is known; a
@@ -1534,8 +1558,8 @@ export default function Scene3D() {
     h,
     room.thickness,
     outline,
-    openingsOf({ joins }, room),
-    sharedOf({ rooms }, room),
+    openings,
+    shared,
     floor,
     wall,
     scene.light,
@@ -1575,7 +1599,10 @@ export default function Scene3D() {
   const [probeState, setProbeState] = useState<StillState>("pending");
   const [reflectState, setReflectState] = useState<StillState>("pending");
   const [probeDone, setProbeDone] = useState({ at: 0, of: 0 });
-  const [settling, setSettling] = useState(0);
+  // whether the edges are still settling: a flag, not the count, so the
+  // stage re-renders twice a settle rather than once a frame
+  const [settling, setSettling] = useState(false);
+  const onSettle = useEvent((left: number) => setSettling(left > 0));
   const [drawn, setDrawn] = useState(false);
   const skyShadow = shadows && tier === "desktop" && !devFlag("noskyshadow");
   const liveSun = useMemo(
@@ -1602,14 +1629,14 @@ export default function Scene3D() {
       ? ["light", "floor", ...(temporal ? (["edges"] as const) : [])]
       : ["grade"];
     const step: WorkStep | null = !probes
-      ? settling > 0
+      ? settling
         ? "grade"
         : null
       : probeState !== "ready"
         ? "light"
         : reflectState !== "ready"
           ? "floor"
-          : settling > 0 && temporal
+          : settling && temporal
             ? "edges"
             : null;
     const left = gradingFrom.current + minRenderMs() - performance.now();
@@ -1661,7 +1688,7 @@ export default function Scene3D() {
       data-exposure={scene.exposure}
       data-backend={backend}
       data-drawn={drawn}
-      data-settled={settling === 0}
+      data-settled={!settling}
       data-post={post ?? "off"}
       data-ssr={post === "desktop" ? fx.ssr : "off"}
       data-ssgi={post === "desktop" ? fx.ssgi : "off"}
@@ -1712,7 +1739,7 @@ export default function Scene3D() {
             effects={{ reflections: scene.reflections, bounce: scene.bounce }}
             bytesPerSample={bytesPerSample}
             onFailed={failPost(setPostFailed)}
-            onSettle={setSettling}
+            onSettle={onSettle}
             onEffects={setFx}
           />
         )}
@@ -1785,10 +1812,10 @@ export default function Scene3D() {
               W: room.width,
               D: room.depth,
               outline,
-              openings: openingsOf({ joins }, room),
+              openings,
               height: room.height,
               thickness: room.thickness,
-              shared: sharedOf({ rooms }, room),
+              shared,
               floor: room.floor as Floor,
               floorHex: floor,
               wallHex: wall,

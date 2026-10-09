@@ -17,6 +17,7 @@ import {
 import { toMetres } from "@furnishes/scene";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useEvent } from "./use-event";
 import {
   BoxGeometry,
   EdgesGeometry,
@@ -241,7 +242,7 @@ function PanelMesh({
     moved: boolean;
   } | null>(null);
   const moved = useRef(false);
-  const onDown = (e: ThreeEvent<PointerEvent>) => {
+  const onDown = useEvent((e: ThreeEvent<PointerEvent>) => {
     if (!editable) return;
     e.stopPropagation();
     moved.current = false;
@@ -257,8 +258,8 @@ function PanelMesh({
     // the step opens on the press, which also holds the camera still
     useScene.getState().dragStart();
     drag.current = { plane, hit, from: panel.position, moved: false };
-  };
-  const onMove = (e: ThreeEvent<PointerEvent>) => {
+  });
+  const onMove = useEvent((e: ThreeEvent<PointerEvent>) => {
     const d = drag.current;
     if (!d || !group.current) return;
     e.stopPropagation();
@@ -294,8 +295,8 @@ function PanelMesh({
       axis === undefined ? null : snapHintOf(axis, snap.snaps[axis]!.hits[0]!),
     );
     invalidate();
-  };
-  const onUp = (e: ThreeEvent<PointerEvent>) => {
+  });
+  const onUp = useEvent((e: ThreeEvent<PointerEvent>) => {
     const d = drag.current;
     if (!d) return;
     drag.current = null;
@@ -305,7 +306,7 @@ function PanelMesh({
     if (d.moved)
       s.setPanels(pieceId, s.overrides[pieceId]?.panels ?? panels, true);
     s.dragEnd();
-  };
+  });
   return (
     <group
       onPointerDown={onDown}
@@ -438,7 +439,7 @@ function FaceHandle({
   face[axis] += sign * half;
   const at: Vec3 = [...face];
   at[axis] += sign * HANDLE_OFF_MM;
-  const onDown = (e: ThreeEvent<PointerEvent>) => {
+  const onDown = useEvent((e: ThreeEvent<PointerEvent>) => {
     if (e.button !== 0 || !group.current) return;
     e.stopPropagation();
     (e.target as Element).setPointerCapture(e.pointerId);
@@ -453,8 +454,8 @@ function FaceHandle({
       param0: alongLine(e.ray, p0, dir),
       moved: false,
     };
-  };
-  const onMove = (e: ThreeEvent<PointerEvent>) => {
+  });
+  const onMove = useEvent((e: ThreeEvent<PointerEvent>) => {
     const d = drag.current;
     if (!d) return;
     e.stopPropagation();
@@ -483,8 +484,8 @@ function FaceHandle({
     );
     onHint(fs.snap ? snapHintOf(axis, fs.snap) : null);
     invalidate();
-  };
-  const onUp = (e: ThreeEvent<PointerEvent>) => {
+  });
+  const onUp = useEvent((e: ThreeEvent<PointerEvent>) => {
     const d = drag.current;
     if (!d) return;
     drag.current = null;
@@ -494,7 +495,7 @@ function FaceHandle({
     if (d.moved)
       s.setPanels(pieceId, s.overrides[pieceId]?.panels ?? panels, true);
     s.dragEnd();
-  };
+  });
   return (
     <group ref={ball} position={at.map(toMetres) as Vector3Tuple}>
       <mesh raycast={unpickable}>

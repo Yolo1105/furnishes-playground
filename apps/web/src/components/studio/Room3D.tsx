@@ -16,8 +16,14 @@ import {
 } from "three/tsl";
 import { MeshBasicNodeMaterial } from "three/webgpu";
 import { LIGHT_WOOD_HEX } from "./piece-detail";
-import { useFrame, useLoader, useThree } from "@react-three/fiber";
+import {
+  type ThreeEvent,
+  useFrame,
+  useLoader,
+  useThree,
+} from "@react-three/fiber";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useEvent } from "./use-event";
 import {
   BufferAttribute,
   BufferGeometry,
@@ -127,6 +133,12 @@ const CEILING_NAME = { name: "Ceiling" } as const;
 const WALL_NAME = { name: "Wall" } as const;
 const SKIRTING_NAME = { name: "Skirting" } as const;
 const CORNICE_NAME = { name: "Cornice" } as const;
+// (each a constant: fiber reads a fresh object as a changed prop and
+// asks for a frame, which would keep the picture from ever settling)
+const SECTION_NAME = { name: "Wall section" } as const;
+const SOCKET_NAME = { name: "Socket" } as const;
+const LEAF_NAME = { name: "Door leaf" } as const;
+const SWITCH_NAME = { name: "Switch" } as const;
 const SUN_STOP_NAME = { name: "Sun stop", export: "helper" } as const;
 const CUT_LINE_NAME = { name: "Cut line", export: "helper" } as const;
 const WINDOW_NAME = { name: "Window" } as const;
@@ -185,6 +197,12 @@ function Outside({
   const invalidate = useThree((s) => s.invalidate);
   const sunDir = useMemo(() => uniform(new Vector3()), []);
   sunDir.value.set(...sun).normalize();
+  // the export's tag, kept while nothing in it changes: fiber reads a
+  // fresh object as a changed prop and asks for another frame
+  const tag = useMemo(
+    () => ({ export: "outlook", outlook: { evening, sun } }),
+    [evening, sun],
+  );
   const material = useMemo(() => {
     const m = new MeshBasicNodeMaterial();
     const ray = positionWorld.sub(cameraPosition).normalize();
@@ -249,11 +267,7 @@ function Outside({
     return () => material.dispose();
   }, [material, invalidate]);
   return (
-    <mesh
-      position={at}
-      material={material}
-      userData={{ export: "outlook", outlook: { evening, sun } }}
-    >
+    <mesh position={at} material={material} userData={tag}>
       <planeGeometry args={[width, tall]} />
     </mesh>
   );
@@ -464,7 +478,11 @@ export const windowSun = (
 };
 /** the holes an edge's wall has: each opening on this edge, as a box
     along the wall (metres from the edge's middle) and up it */
-const holesOf = (r: RoomShape, e: Edge, h: number) => {
+const holesOf = (
+  r: Pick<RoomShape, "W" | "D" | "outline" | "openings">,
+  e: Edge,
+  h: number,
+) => {
   const horizontal = e.wall === "north" || e.wall === "south";
   const mid = horizontal ? (e.a[0] + e.b[0]) / 2 : (e.a[1] + e.b[1]) / 2;
   const lo = horizontal ? Math.min(e.a[0], e.b[0]) : Math.min(e.a[1], e.b[1]);
@@ -744,7 +762,7 @@ function WallRun({
           <mesh
             position={[-len / 2 + 0.6, 0.3, PLATE.deep / 2]}
             receiveShadow
-            userData={{ name: "Socket" }}
+            userData={SOCKET_NAME}
           >
             <boxGeometry args={[PLATE.socket, PLATE.tall, PLATE.deep]} />
             <meshStandardMaterial color={FRAME_HEX} roughness={0.4} />
@@ -757,7 +775,7 @@ function WallRun({
             geometry={cut.geometry}
             position={[-len / 2, 0, 0]}
             receiveShadow
-            userData={{ name: "Wall section" }}
+            userData={SECTION_NAME}
           >
             {materials}
           </mesh>
@@ -960,7 +978,7 @@ function Door({ r, o }: { r: RoomShape; o: Opening }) {
                 position={[l.x, (tall - gap) / 2, zl]}
                 castShadow
                 receiveShadow
-                userData={{ name: "Door leaf" }}
+                userData={LEAF_NAME}
               >
                 <boxGeometry
                   args={[l.w - 2 * gap - 2 * lining, tall - gap, leaf]}
@@ -1066,7 +1084,7 @@ function Door({ r, o }: { r: RoomShape; o: Opening }) {
               PLATE.deep / 2,
             ]}
             receiveShadow
-            userData={{ name: "Switch" }}
+            userData={SWITCH_NAME}
           >
             <boxGeometry args={[PLATE.switch, PLATE.tall, PLATE.deep]} />
             <meshStandardMaterial color={FRAME_HEX} roughness={0.4} />
@@ -1108,32 +1126,37 @@ export function RoomShell({
   const floorMat = useMaterial(FLOOR_MATERIAL[r.floor], r.floorHex);
   const floorMaps = repeated(floorMat);
   const t = toMetres(r.thickness);
-  // where the walls' outer faces meet, for the mitre at each edge's ends
-  const mitres = useMemo(
-    () => mitresOf(r.outline, r.thickness),
-    [r.outline, r.thickness],
-  );
-  // the wall runs, and which one carries the room's socket: the first
-  // run long enough with nothing cut from it
+  // the wall runs with their mitres and holes, and which one carries
+  // the room's socket (the first run long enough with nothing cut from
+  // it): read once per shape, not per frame, since a wall's geometry is
+  // rebuilt when these change and a rebuild asks for another frame
+  const { W, D, outline, openings, thickness, shared } = r;
   const runs = useMemo(() => {
-    const out = edgesOf(r.outline).flatMap((e, i) =>
-      runsOf(e, r.shared ?? []).map(({ e: run, both }, k) => ({
-        e,
+    const shape = { W, D, outline, openings };
+    const mitres = mitresOf(outline, thickness);
+    const out = edgesOf(outline).flatMap((e, i) =>
+      runsOf(e, shared ?? []).map(({ e: run, both }, k) => ({
         run,
         both,
-        i,
-        k,
+        key: `${i}-${k}`,
+        mitres: runMitres(e, run, mitres[i]!),
+        holes: holesOf(shape, run, h),
         socket: false,
       })),
     );
     const first = out.find(
-      ({ run }) =>
-        holesOf(r, run, h).length === 0 &&
+      ({ run, holes }) =>
+        holes.length === 0 &&
         Math.hypot(run.b[0] - run.a[0], run.b[1] - run.a[1]) > 1500,
     );
     if (first) first.socket = true;
     return out;
-  }, [r, h]);
+  }, [W, D, outline, openings, thickness, shared, h]);
+  const onFloorClick = useEvent((e: ThreeEvent<MouseEvent>) => {
+    if (!walk) return;
+    e.stopPropagation();
+    onWalkTo(e.point.x, e.point.z);
+  });
   return (
     <group userData={ROOM_TAG}>
       <mesh
@@ -1141,11 +1164,7 @@ export function RoomShell({
         userData={FLOOR_NAME}
         rotation={[-Math.PI / 2, 0, 0]}
         receiveShadow
-        onClick={(e) => {
-          if (!walk) return;
-          e.stopPropagation();
-          onWalkTo(e.point.x, e.point.z);
-        }}
+        onClick={onFloorClick}
       >
         <shapeGeometry args={[shape]} />
         <primitive
@@ -1168,18 +1187,18 @@ export function RoomShell({
           onState={reflection.onState}
         />
       )}
-      {runs.map(({ e, run, both, i, k, socket }) => (
+      {runs.map(({ run, both, key, mitres, holes, socket }) => (
         <WallRun
-          key={`${i}-${k}`}
+          key={key}
           e={run}
           w={w}
           d={d}
           h={h}
           t={t}
-          mitres={runMitres(e, run, mitres[i]!)}
+          mitres={mitres}
           wallHex={r.wallHex}
           floorHex={r.floorHex}
-          holes={holesOf(r, run, h)}
+          holes={holes}
           both={both}
           socket={socket}
         />

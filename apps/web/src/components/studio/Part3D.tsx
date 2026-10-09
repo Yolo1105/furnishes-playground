@@ -2,6 +2,7 @@
 
 import type { ThreeEvent } from "@react-three/fiber";
 import { useEffect, useMemo } from "react";
+import { useEvent } from "./use-event";
 import { BufferAttribute, BufferGeometry, type Vector3Tuple } from "three";
 import { type FinderRule, updateFeature } from "@furnishes/domain";
 import type { AssetNode } from "./assets-data";
@@ -157,7 +158,7 @@ export function Part3D({
     },
     [geometry, edges],
   );
-  const pick = (e: ThreeEvent<MouseEvent>) => {
+  const pick = useEvent((e: ThreeEvent<MouseEvent>) => {
     if (!picking || !mesh || e.faceIndex === undefined || e.faceIndex === null)
       return;
     const face = faceOfTriangle(mesh, e.faceIndex);
@@ -175,7 +176,7 @@ export function Part3D({
       }),
     );
     usePartStore.getState().setPickedFace(face);
-  };
+  });
   if (!geometry)
     return (
       <mesh position={[0, size[1] / 2, 0]} userData={{ name: node.name }}>

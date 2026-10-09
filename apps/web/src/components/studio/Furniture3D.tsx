@@ -1,6 +1,7 @@
 "use client";
 
 import { useGLTF } from "@react-three/drei";
+import type { ThreeEvent } from "@react-three/fiber";
 import {
   Component,
   lazy,
@@ -24,6 +25,7 @@ import {
 } from "three";
 import type { AssetNode } from "./assets-data";
 import { recipeOf } from "./catalogue";
+import { useEvent } from "./use-event";
 import { propFor } from "./generation-store";
 import {
   ACCENT_HEX,
@@ -259,13 +261,12 @@ export function Furniture3D(p: Props) {
     : p.node.model
       ? { src: p.node.model, cloth: null }
       : stockOf(p.node);
+  const onClick = useEvent((e: ThreeEvent<MouseEvent>) => {
+    e.stopPropagation();
+    p.onPick();
+  });
   return (
-    <group
-      onClick={(e) => {
-        e.stopPropagation();
-        p.onPick();
-      }}
-    >
+    <group onClick={onClick}>
       {stock ? (
         <ModelGuard fallback={form}>
           <Suspense fallback={form}>
