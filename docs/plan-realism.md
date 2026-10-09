@@ -524,6 +524,31 @@ line names what to look at and what the stage says.
 9. The walk: 60 fps on a desktop GPU with the shadows on; no
    shimmer on the edges after the TRAA settles.
 
+The photo (Render on WebGPU traces a copy of the room, Photo.tsx):
+
+10. The window shows the outside in the photo, not a blank pane, and
+    daylight comes in through it: the area light in the opening and
+    the glowing sky plane (scene-copy.ts, `WINDOW_LIGHT`) stand
+    against the sun; set the two by eye if one drowns the other.
+11. No helper in the photo: no halo, no turn ring, no label, no edge
+    line, no probe grid.
+12. View settings > Photo: Screen, 1080p, 1440p and 4K each trace
+    (the steps card says the size, the stage `data-photo-size`);
+    Export > PNG writes the full size; a size the device cannot hold
+    is greyed out.
+13. 1080p at 256 samples finishes under a minute on a desktop GPU
+    (`data-photo-ms` and the console line "photo WxH, N spp, T ms,
+    denoise M ms").
+14. `/rounded?bench=photo` takes three 1080p photos back to back and
+    leaves `window.__photoBench` (times, memory, adapter); in Chrome's
+    task manager the GPU memory does not keep growing across ten
+    photos (0.0.26 leaks per tracer, not per photo; 0.0.27, out on
+    2026-10-08, says it releases the compute kernels on every reset
+    and dispose, takes three's SunLight and render-target textures:
+    the bump is proposed, not made, until it is agreed).
+15. A second photo of the same room starts tracing at once: the copy
+    is kept until the room or the pieces change.
+
 ## Reference renders
 
 A ground truth to judge the live view against, made on a machine with
