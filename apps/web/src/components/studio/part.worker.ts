@@ -231,7 +231,6 @@ const answer = async (req: PartRequest): Promise<PartAnswer> => {
         );
       }
       const solid = cutMeshOf(m, p, p.features ?? [], slab);
-      slab?.delete();
       return {
         id: req.id,
         ok: true,

@@ -55,8 +55,28 @@ const EASED_BELOW = Math.cos((30 * Math.PI) / 180);
 
 type Dims = Pick<Panel, "length" | "width" | "thickness">;
 
-/** the slab with its edges eased, welded for the kernel */
+/** the slabs made, by their size: a piece's panels repeat, and a
+    slab is read, never changed, so one serves every cut of its size */
+const slabs = new Map<string, Manifold>();
+const SLABS_KEPT = 32;
+
+/** the slab with its edges eased, welded for the kernel; kept by its
+    size, so a caller never deletes it */
 export const slabManifold = (m: ManifoldToplevel, p: Dims): Manifold => {
+  const key = `${p.length},${p.width},${p.thickness}`;
+  const had = slabs.get(key);
+  if (had) return had;
+  const made = makeSlab(m, p);
+  if (slabs.size >= SLABS_KEPT) {
+    const oldest = slabs.keys().next().value!;
+    slabs.get(oldest)!.delete();
+    slabs.delete(oldest);
+  }
+  slabs.set(key, made);
+  return made;
+};
+
+const makeSlab = (m: ManifoldToplevel, p: Dims): Manifold => {
   const edge = Math.min(EDGE_MM, Math.min(p.length, p.width, p.thickness) / 3);
   const g = new RoundedBoxGeometry(p.length, p.width, p.thickness, 2, edge);
   const pos = g.getAttribute("position");
@@ -141,7 +161,6 @@ export const cutMeshOf = (
   const mesh = smooth.getMesh(0);
   if (body !== base) body.delete();
   smooth.delete();
-  if (!slab) base.delete();
   const n = mesh.numVert;
   const stride = mesh.numProp;
   const positions = new Float32Array(n * 3);

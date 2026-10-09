@@ -189,7 +189,10 @@ is edited, dragged, suppressed or rolled back to, an edge named by a
 rule that finds it again after any rebuild; the part stands in the
 room like a piece, quoted on request, and goes out as STEP. The
 room's own bounce light comes from a grid of light probes over the
-shell (`apps/web/src/components/studio/Probes.tsx`), baked over frames
+shell (`apps/web/src/components/studio/Probes.tsx`); on the desktop
+tier View settings add screen-space reflections (on by default) and
+screen-space bounce light (experimental), and a Mirror texture puts a
+planar reflector on a piece's doors. The probes are baked over frames
 whenever the shell, its finish or its light changes and never under a
 drag (the pieces are left out of the probes' pictures), and the floor
 reflects the room from one picture taken from its middle, each
