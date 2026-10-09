@@ -574,6 +574,46 @@ AGPL. `@salusoft89/planegcs` 1.3.0 is the only 2D constraint solver
   faces, the page with every sheet and part. The exact silhouette for
   a part's plan symbol (noted under 6c) can now come from manifold's
   projection; it stays the hull for the moment.
+- Prompt 8 is in: the desktop extras, behind View settings. On the
+  desktop tier the scene pass keeps the view-space normals and the
+  material beside the colour and the motion, packed so the pass stays
+  at four half-float attachments (32 bytes a sample, WebGPU's floor;
+  the metalness rides in the normal's fourth channel, the roughness in
+  the motion's third), and the device is asked for 64 bytes a sample
+  where its adapter allows it, as headroom. Reflections (on by
+  default) are three's SSR node, first generation: one mirror ray a
+  pixel at half size, softened by the roughness, weighted on metals by
+  their metalness and on glossy dielectrics (the satin panels, the
+  floor) by a share of their glossiness squared, since the node's
+  single-ray path weights by metalness alone; added before the tone
+  mapping, reaching 6 m. The floor's own box-projected picture stays
+  under them: where a ray leaves the screen the picture is what shows,
+  and where it hits the two add, which reads as a slightly stronger
+  reflection rather than a seam (the stochastic path with a denoiser
+  would blend by confidence; it waits on a bench reading). Bounce
+  light (experimental, off until asked) is three's SSGI node at its
+  medium preset with temporal filtering, which the TRAA after it
+  settles, reaching 2.5 m, half of it added. The decision between
+  "only after a layout change" and "always": always while the toggle
+  is on, since the sandbox cannot time it; the bench's post line and
+  the checklist's two new items (SSR, SSGI) judge it on a desktop GPU,
+  and the toggle stays off by default until they do. The stage says
+  `data-ssr` and `data-ssgi` (on, off, unsupported). A Mirror texture
+  puts a planar reflector on the doors (and on a door panel of a piece
+  open as panels): three's reflector node at half size, the room drawn
+  once more from the mirrored camera; one mirror at a time is the real
+  thing (the first mounted) and the rest stand as polished metal
+  reflecting the floor's picture of the room. The sheets are helpers
+  to the exports, so the glTF and the photo keep the door under them.
+  Every stage stays in the chain's try/catch: a device that fails
+  draws plain. Checked in e2e on the Full picture: the toggles on
+  offer, the stage saying which extras draw, the chain settling with
+  both on, three mirrors on the sideboard's doors with one reflector.
+  The visual project takes the Full picture, which is the desktop
+  tier: it now stores a look with the reflections and the bounce light
+  off, so its five baselines stay the chain without the extras (they
+  passed unchanged, five of five), and the extras are judged by hand
+  on WebGPU through the checklist.
 
 ## Fixed after review
 
@@ -715,24 +755,25 @@ for a path-traced photo; mean luminance within 10% of the reference.
 
 ## The order of work
 
-| Step | What ships                                                                                                       | Gate                                                                                    |
-| ---- | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| R0   | Five camera bookmarks, Playwright screenshot baselines on both backends, the Photo spike in Chrome and Safari 26 | baselines rerun within 0.5%                                                             |
-| R1   | AgX, exposure, no ambient, colour spaces, PBR texture sets on panels, cloth and floors                           | white walls read off-white; no flat colour blocks                                       |
-| R2   | `WebGPURenderer` with fallback, PCF shadows, the panel rig replaced                                              | the suite green on the WebGL2 backend; WebGPU by hand                                   |
-| R3   | GTAO and TRAA, the three tiers                                                                                   | post under 6 ms at 1440p on a desktop GPU                                               |
-| R4   | Probe grid, incremental and on change; SSGI on desktop                                                           | furniture bases darken; no leaks across walls                                           |
-| R5   | Box-projected floor reflections                                                                                  | a window reflects in the right place on the floor                                       |
-| R6   | Photo mode                                                                                                       | 1080p at 256 samples in under a minute on a desktop GPU; ten shots with no VRAM growth  |
-| R7   | Tiers, budgets, the visual-target review                                                                         | 60 fps desktop, 30 fps phone; first-load JS under 450 KB gzip                           |
-| M1   | Wall thickness and height, extruded walls with holes                                                             | 2D and 3D never disagree; openings follow a moved wall                                  |
-| M2   | Free panels with snapping and typed millimetres                                                                  | a 600 mm base cabinet with two shelves in under two minutes                             |
-| M3   | Machining features, cut list, DXF                                                                                | a 20-panel cabinet recomputes under 200 ms                                              |
-| M4   | Sketch constraints and free-form parts in a worker, STEP out                                                     | a constrained sketch solves under 50 ms; the main thread never blocks over 16 ms        |
-| P6a  | The sketcher: lines, arcs, circles, holes, every hold, named dimensions                                          | an L shelf with a round hole fully held; the solid, DXF and STEP follow a change        |
-| P6b  | The feature history: extrude, revolve, fillet, chamfer, mirror, pattern, rules for edges, the timeline           | a ten-feature part under 1 s; a failing fillet reports, the rest not built              |
-| P6c  | Parts as items: placed, finished, quoted on request, STEP in and out, kept and shared                            | a part survives a reload; the STEP round trip within 0.1 mm; old snapshots load         |
-| P7   | Machining cut for real (manifold-3d), the setting, STEP with cuts, a cut list to print                           | a hole's volume within 1%; twenty panels cut under 500 ms; every sheet and part printed |
+| Step | What ships                                                                                                       | Gate                                                                                        |
+| ---- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| R0   | Five camera bookmarks, Playwright screenshot baselines on both backends, the Photo spike in Chrome and Safari 26 | baselines rerun within 0.5%                                                                 |
+| R1   | AgX, exposure, no ambient, colour spaces, PBR texture sets on panels, cloth and floors                           | white walls read off-white; no flat colour blocks                                           |
+| R2   | `WebGPURenderer` with fallback, PCF shadows, the panel rig replaced                                              | the suite green on the WebGL2 backend; WebGPU by hand                                       |
+| R3   | GTAO and TRAA, the three tiers                                                                                   | post under 6 ms at 1440p on a desktop GPU                                                   |
+| R4   | Probe grid, incremental and on change; SSGI on desktop                                                           | furniture bases darken; no leaks across walls                                               |
+| R5   | Box-projected floor reflections                                                                                  | a window reflects in the right place on the floor                                           |
+| R6   | Photo mode                                                                                                       | 1080p at 256 samples in under a minute on a desktop GPU; ten shots with no VRAM growth      |
+| R7   | Tiers, budgets, the visual-target review                                                                         | 60 fps desktop, 30 fps phone; first-load JS under 450 KB gzip                               |
+| M1   | Wall thickness and height, extruded walls with holes                                                             | 2D and 3D never disagree; openings follow a moved wall                                      |
+| M2   | Free panels with snapping and typed millimetres                                                                  | a 600 mm base cabinet with two shelves in under two minutes                                 |
+| M3   | Machining features, cut list, DXF                                                                                | a 20-panel cabinet recomputes under 200 ms                                                  |
+| M4   | Sketch constraints and free-form parts in a worker, STEP out                                                     | a constrained sketch solves under 50 ms; the main thread never blocks over 16 ms            |
+| P6a  | The sketcher: lines, arcs, circles, holes, every hold, named dimensions                                          | an L shelf with a round hole fully held; the solid, DXF and STEP follow a change            |
+| P6b  | The feature history: extrude, revolve, fillet, chamfer, mirror, pattern, rules for edges, the timeline           | a ten-feature part under 1 s; a failing fillet reports, the rest not built                  |
+| P6c  | Parts as items: placed, finished, quoted on request, STEP in and out, kept and shared                            | a part survives a reload; the STEP round trip within 0.1 mm; old snapshots load             |
+| P7   | Machining cut for real (manifold-3d), the setting, STEP with cuts, a cut list to print                           | a hole's volume within 1%; twenty panels cut under 500 ms; every sheet and part printed     |
+| P8   | Desktop extras: SSR, SSGI and mirrors behind View settings                                                       | by hand on WebGPU: sharp floor reflections, post under 6 ms at 1440p; other tiers unchanged |
 
 The earlier plan's own estimate was 55 to 85 developer-days for
 rendering and 47 to 74 for modelling. With the studio's base already in
