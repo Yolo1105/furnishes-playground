@@ -225,9 +225,14 @@ ${table}
 `;
 };
 
-/** the page opened in a window of its own, ready to print */
-export const printCutList = (piece: string, panels: readonly Panel[]) => {
-  const w = window.open("", "_blank");
+/** the page opened in a window of its own, ready to print: the window
+    given (one opened on the click, before this code was fetched), or
+    one opened here */
+export const printCutList = (
+  piece: string,
+  panels: readonly Panel[],
+  w: Window | null = window.open("", "_blank"),
+) => {
   if (!w) return;
   w.document.open();
   w.document.write(cutListHtml(piece, panels));

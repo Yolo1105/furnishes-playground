@@ -33,6 +33,10 @@ jobs:
       - run: pnpm build
         env:
           BETTER_AUTH_SECRET: ci-only-not-a-real-secret-0000000000
+      # the studio's first-load JavaScript against its budget (450 KB
+      # gzip for /rounded): a static import that drags the part editor,
+      # the bench or a kernel into the first load fails here
+      - run: node apps/web/scripts/first-load.mjs --check
 
   studio:
     runs-on: ubuntu-latest

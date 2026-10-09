@@ -1,7 +1,14 @@
 "use client";
 
 import { useGLTF } from "@react-three/drei";
-import { Component, type ReactNode, Suspense, useEffect, useMemo } from "react";
+import {
+  Component,
+  lazy,
+  type ReactNode,
+  Suspense,
+  useEffect,
+  useMemo,
+} from "react";
 import type { Panel } from "@furnishes/domain";
 import {
   Box3,
@@ -42,9 +49,17 @@ import {
   Soft,
   wood,
 } from "./finish";
-import { MirrorFace } from "./Mirror";
 import { Panels3D } from "./Panels3D";
-import { Part3D } from "./Part3D";
+
+/** the mirror's reflector and a part's body come when the room first
+    has one, not with the studio (React's own lazy: next/dynamic's
+    placeholder is a DOM element, which has no place in the canvas) */
+const MirrorFace = lazy(() =>
+  import("./Mirror").then((m) => ({ default: m.MirrorFace })),
+);
+const Part3D = lazy(() =>
+  import("./Part3D").then((m) => ({ default: m.Part3D })),
+);
 
 /**
  * A piece's form in 3D, built from what it is, at the size the Detail
@@ -310,7 +325,12 @@ function Form(p: Props) {
   const seed = seedOf(p.node.id);
 
   // a part modelled in the studio: the body the part worker built
-  if (p.node.part) return <Part3D node={p.node} f={own} size={p.size} />;
+  if (p.node.part)
+    return (
+      <Suspense fallback={null}>
+        <Part3D node={p.node} f={own} size={p.size} />
+      </Suspense>
+    );
 
   // opened as panels: the panels are the piece
   if (p.panels)
@@ -536,11 +556,13 @@ function Carcass({
                   ]}
                 />
                 {f.mirror && (
-                  <MirrorFace
-                    id={`${id}-door-${i}`}
-                    at={[mid, PLINTH + PANEL + inner / 2, d / 2 + PANEL]}
-                    size={[bayW + PANEL - DOOR_GAP, inner + PANEL - DOOR_GAP]}
-                  />
+                  <Suspense fallback={null}>
+                    <MirrorFace
+                      id={`${id}-door-${i}`}
+                      at={[mid, PLINTH + PANEL + inner / 2, d / 2 + PANEL]}
+                      size={[bayW + PANEL - DOOR_GAP, inner + PANEL - DOOR_GAP]}
+                    />
+                  </Suspense>
                 )}
                 <Rod
                   f={metal(METAL)}

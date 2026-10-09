@@ -29,8 +29,7 @@ import { useShortcuts } from "./shortcuts";
 import { useArrival } from "./useArrival";
 import { useInputMode } from "./useInputMode";
 import { HelpDialog } from "./HelpDialog";
-import { BenchPanel } from "./BenchPanel";
-import { CheckPanel } from "./CheckPanel";
+import dynamic from "next/dynamic";
 import { devParam } from "./dev-flags";
 import { UserBar } from "./UserBar";
 import { useSession } from "@/lib/auth-client";
@@ -53,6 +52,17 @@ const VIEW_MIN = 44;
  * left rail is collapsed on wide screens, which drawer is open on narrow
  * ones, the project switcher and Eva's tabs.
  */
+/** the development panels, fetched on their query alone (`?bench`,
+    `?check`): never in the studio's first load */
+const BenchPanel = dynamic(
+  () => import("./BenchPanel").then((m) => m.BenchPanel),
+  { ssr: false },
+);
+const CheckPanel = dynamic(
+  () => import("./CheckPanel").then((m) => m.CheckPanel),
+  { ssr: false },
+);
+
 export function StudioShell({
   corners,
   left,

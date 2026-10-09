@@ -55,9 +55,15 @@ import { useRoom } from "./room-store";
 import { portraitOf } from "./catalogue";
 import type { PieceProps } from "./piece-detail";
 import { PlanSymbol } from "./plan-symbols";
-import { PartTimeline } from "./PartTimeline";
+import dynamic from "next/dynamic";
 import { ComponentGlyph } from "./component-glyphs";
-import { propsOf, topLevelOf, useScene, useTopLevel } from "./scene-store";
+import {
+  findNode,
+  propsOf,
+  topLevelOf,
+  useScene,
+  useTopLevel,
+} from "./scene-store";
 import {
   EXPOSURE,
   QUALITIES,
@@ -806,6 +812,13 @@ function ToolButton({
  * the cards away. Picking a card picks the same thing in the outliner,
  * and the other way round.
  */
+/** a part's history on the shelf: fetched the first time a part is
+    picked, not with the studio */
+const PartTimeline = dynamic(
+  () => import("./PartTimeline").then((m) => m.PartTimeline),
+  { ssr: false },
+);
+
 export function MainShelf() {
   const items = useTopLevel();
   const groups = useScene((s) => s.groups);
@@ -821,6 +834,8 @@ export function MainShelf() {
   const ordered = orderedIds(useOrders((s) => s.orders));
   const scroller = useRef<HTMLDivElement>(null);
   const selected = topLevelOf(groups, selectedId);
+  const partPicked =
+    selected !== null && findNode(groups, selected)?.node.part !== undefined;
   // the shelf holds the pieces and the parts modelled here; a part has
   // no catalogue price and never counts in a total
   const pieces = items.filter((n) => n.kind === "piece" || n.kind === "part");
@@ -867,7 +882,7 @@ export function MainShelf() {
       aria-label="Pieces"
       data-collapsed={collapsed}
     >
-      <PartTimeline />
+      {partPicked && <PartTimeline />}
       <div className="main-shelf-head">
         <div className="shell-tabs-inline" role="tablist" aria-label="Shelf">
           {(

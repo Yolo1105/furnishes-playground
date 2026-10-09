@@ -54,11 +54,9 @@ import {
   squared,
 } from "./piece-detail";
 import { portraitOf, recipeOf } from "./catalogue";
-import { printCutList } from "./cut-list-print";
 import { exportCutList, exportPanelDxf, exportPanelStep } from "./machining";
 import { solveSketch, usePartStore } from "./part-client";
-import { PartTab } from "./PartTab";
-import { SketchEditor } from "./SketchEditor";
+import dynamic from "next/dynamic";
 import { ProductPage } from "./ProductPage";
 import { ACCESSORIES, dimensionSummary, priceOf } from "@furnishes/domain";
 import { findNode, propsOf, useScene } from "./scene-store";
@@ -100,6 +98,18 @@ const PRESETS: [string, (p: Panel) => Feature[]][] = [
  * removed, it leaves the room), the finish, colour and texture, and the
  * size, all kept over the defaults in the scene store.
  */
+/** the part editor and the sketcher come when a part or a sketch is
+    opened, not with the studio: a line stands in while they load */
+const loading = () => <p className="detail-meta">Loading the editor…</p>;
+const PartTab = dynamic(() => import("./PartTab").then((m) => m.PartTab), {
+  ssr: false,
+  loading,
+});
+const SketchEditor = dynamic(
+  () => import("./SketchEditor").then((m) => m.SketchEditor),
+  { ssr: false, loading },
+);
+
 export function DetailTab() {
   const [sketching, setSketching] = useState(false);
   const groups = useScene((s) => s.groups);
@@ -915,7 +925,15 @@ export function DetailTab() {
                 <button
                   type="button"
                   className="main-btn"
-                  onClick={() => printCutList(piece.name, panels)}
+                  onClick={() => {
+                    // the page opens on the click itself (a window
+                    // opened later is a pop-up to the browser); its
+                    // code comes after, and writes into it
+                    const w = window.open("", "_blank");
+                    void import("./cut-list-print").then((m) =>
+                      m.printCutList(piece.name, panels, w),
+                    );
+                  }}
                 >
                   <ExportIcon size={14} />
                   <span>Cut list (PDF)</span>

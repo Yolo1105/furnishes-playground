@@ -16,7 +16,7 @@ import {
 } from "@furnishes/domain";
 import { toMetres } from "@furnishes/scene";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
   BoxGeometry,
   EdgesGeometry,
@@ -27,7 +27,12 @@ import {
   type Vector3Tuple,
 } from "three";
 import { type Finish, Mat, metal, METAL, Slab } from "./finish";
-import { MirrorFace } from "./Mirror";
+
+/** the mirror's reflector comes when a door first has one (Furniture3D
+    fetches the same file) */
+const MirrorFace = lazy(() =>
+  import("./Mirror").then((m) => ({ default: m.MirrorFace })),
+);
 import { useProfileGeometry } from "./part-client";
 import { ACCENT_HEX } from "./piece-detail";
 import { useScene } from "./scene-store";
@@ -336,12 +341,14 @@ function PanelMesh({
           <Mark key={x.id} panel={panel} feature={x} />
         ))}
       {f.mirror && panel.kind === "door" && (
-        <MirrorFace
-          id={`${pieceId}-${panel.id}`}
-          at={mirrorAt(panel)}
-          size={[toMetres(panel.length), toMetres(panel.width)]}
-          rotation={mirrorTurn(panel)}
-        />
+        <Suspense fallback={null}>
+          <MirrorFace
+            id={`${pieceId}-${panel.id}`}
+            at={mirrorAt(panel)}
+            size={[toMetres(panel.length), toMetres(panel.width)]}
+            rotation={mirrorTurn(panel)}
+          />
+        </Suspense>
       )}
     </group>
   );
