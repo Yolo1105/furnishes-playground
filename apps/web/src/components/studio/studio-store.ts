@@ -83,7 +83,7 @@ export const SCENE_DEFAULT: SceneLook = {
   grid: false,
   light: "day",
   sky: "panels",
-  exposure: 1.1,
+  exposure: 1.2,
   quality: "auto",
   photoSize: "screen",
   cuts: "auto",

@@ -17,7 +17,7 @@ import {
 import { MeshBasicNodeMaterial } from "three/webgpu";
 import { LIGHT_WOOD_HEX } from "./piece-detail";
 import { useFrame, useLoader, useThree } from "@react-three/fiber";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import {
   BufferAttribute,
   BufferGeometry,
@@ -26,6 +26,7 @@ import {
   FrontSide,
   type Group,
   type Mesh,
+  type Object3D,
   type Scene,
   Shape,
   type Texture,
@@ -41,7 +42,14 @@ import {
   type Wall,
 } from "./room-data";
 import { edgesOf, outerOutline, type Edge } from "./room-geometry";
-import { blocksOf, wallTriangles } from "./wall-solid";
+import {
+  blocksOf,
+  CAP,
+  PLASTER,
+  REVEAL,
+  type Shading,
+  wallTriangles,
+} from "./wall-solid";
 import { openingCentre } from "./room-health";
 import type { Point } from "./room-templates";
 import type { Sky } from "./studio-store";
@@ -51,18 +59,58 @@ import { FLOOR_MATERIAL, repeated, tintOver, useMaterial } from "./materials";
 
 /**
  * The room itself in 3D: the floor in its finish, a wall along every
- * edge facing in (so the near walls are seen through and the far ones
- * stand), a skirting at their feet, the window with its frame, sill
- * and glass, the door in its frame, and a ceiling once you are inside
- * walking. The light comes from a few soft panels baked into the
- * surroundings, a sun from the window's side, and soft shadows under
- * everything on the floor. All in metres about the room's middle.
+ * edge built solid with its openings cut through, a skirting at its
+ * foot and a cornice at its head, its reveals painted white and its
+ * cut faces (the open top, and the section where a near wall is cut)
+ * drawn as cuts, with a line; the window with its frame, sill and
+ * glass, the door hung in its lining with its architrave, and a
+ * ceiling once you are inside walking. A near wall is cut to waist
+ * height while the camera looks in over it and goes when the camera
+ * looks level, and either way it still shadows the room (it stays on
+ * the sun's own layer), as does the ceiling, so the sun comes in by
+ * the openings alone. The light comes from a few soft panels baked
+ * into the surroundings, a sun from the window's side, and soft
+ * shadows under everything on the floor. All in metres about the
+ * room's middle.
  */
 const SKIRTING = 0.1;
-/** a door's frame and architrave, m */
-const FRAME = 0.07;
+/** the cornice at the wall's head, m: a painted strip, as the
+    skirting is, so the wall ends in a line */
+const CORNICE = 0.06;
 const FRAME_HEX = "#f7f3ec";
 const DOOR_HEX = LIGHT_WOOD_HEX;
+/** a door's parts, m: the leaf's thickness, the lining boards in the
+    reveal, the architrave's width and how far it stands proud, the
+    gap round the leaf, the threshold's height, and the lever */
+const DOOR = {
+  leaf: 0.04,
+  lining: 0.028,
+  architrave: 0.07,
+  proud: 0.015,
+  gap: 0.004,
+  threshold: 0.012,
+  lever: 0.12,
+};
+const METAL_HEX = "#9a948b";
+const THRESHOLD_HEX = "#b9b2a7";
+/** a switch plate and a double socket, m, white as the joinery */
+const PLATE = { switch: 0.086, socket: 0.146, tall: 0.086, deep: 0.009 };
+/** the cut faces of a wall (its open top, a sectioned near wall's
+    top, its ends where a run stops): a neutral cap and a drawn line */
+const CAP_HEX = "#d6cfc6";
+const CAP_LINE_HEX = "#3d3833";
+/** where a near wall is cut while the camera looks in over it, m */
+const SECTION = 1.1;
+/** the camera must look down at least this far, degrees, for a near
+    wall to stand sectioned; nearer the level it goes altogether */
+const SECTION_PITCH = 22;
+/** the layer the sun's shadow sees that the camera does not: a near
+    wall taken out of the picture, and the ceiling that keeps the sun
+    out of the open top */
+export const SHADOW_LAYER = 1;
+/** the plaster's sheen: eggshell, so a window's light sweeps across a
+    wall as a soft gloss (the roughness map lays its grain over it) */
+const PLASTER_ROUGH = 0.72;
 /** how strongly the floor's relief bends the light */
 const FLOOR_RELIEF = new Vector2(0.5, 0.5);
 /** how strongly the plaster's relief bends the light */
@@ -78,6 +126,9 @@ const FLOOR_NAME = { name: "Floor" } as const;
 const CEILING_NAME = { name: "Ceiling" } as const;
 const WALL_NAME = { name: "Wall" } as const;
 const SKIRTING_NAME = { name: "Skirting" } as const;
+const CORNICE_NAME = { name: "Cornice" } as const;
+const SUN_STOP_NAME = { name: "Sun stop", export: "helper" } as const;
+const CUT_LINE_NAME = { name: "Cut line", export: "helper" } as const;
 const WINDOW_NAME = { name: "Window" } as const;
 const DOOR_NAME = { name: "Door" } as const;
 /** how far inside the wall's outer face a window's outside stands, m */
@@ -360,6 +411,9 @@ const floorShape = (
   return s;
 };
 
+/** never under the pointer */
+const noPick = () => null;
+
 /** a wall's turn so its face points into the room */
 const yawOf = (wall: Wall) =>
   wall === "north"
@@ -436,6 +490,91 @@ const holesOf = (r: RoomShape, e: Edge, h: number) => {
     });
 };
 
+/** the shading of a wall's plaster by where a point is on it: the
+    room's light falls off towards the floor, where the floor's tone
+    bounces up into the lower metre; it eases off again at the head;
+    and it darkens into the corners */
+const shadingOf = (
+  len: number,
+  h: number,
+  floorHex: string,
+  outer: boolean,
+): Shading => {
+  const r = parseInt(floorHex.slice(1, 3), 16) / 255;
+  const g = parseInt(floorHex.slice(3, 5), 16) / 255;
+  const b = parseInt(floorHex.slice(5, 7), 16) / 255;
+  // the floor's tone, well lightened: what it gives the wall's foot
+  const tone = [0.6 + 0.4 * r, 0.6 + 0.4 * g, 0.6 + 0.4 * b] as const;
+  const ease = (a: number, b_: number, v: number) => {
+    const t = Math.min(1, Math.max(0, (v - a) / (b_ - a)));
+    return t * t * (3 - 2 * t);
+  };
+  return {
+    grade: (x, y) => {
+      const lift = 0.9 + 0.1 * ease(0, 1.3, y);
+      const head = 1 - 0.05 * ease(h - 0.7, h, y);
+      const corner = 0.9 + 0.1 * ease(0, 0.4, Math.min(x, len - x));
+      const k = lift * head * corner;
+      const foot = 0.5 * (1 - ease(0, 1.0, y));
+      return [
+        k * (1 - foot + foot * tone[0]),
+        k * (1 - foot + foot * tone[1]),
+        k * (1 - foot + foot * tone[2]),
+      ];
+    },
+    xs: [0.2, 0.4, len - 0.4, len - 0.2],
+    ys: [0.5, 1.0, 1.3, h - 0.7],
+    outer,
+  };
+};
+
+/** a wall's solid as a geometry: the faces grouped by material, the
+    shading as vertex colours, and the cut faces' lines */
+const wallGeometry = (
+  len: number,
+  height: number,
+  t: number,
+  mitres: readonly [number, number],
+  holes: ReturnType<typeof holesOf>,
+  shading: Shading,
+) => {
+  const blocks = blocksOf(
+    len,
+    height,
+    holes.map((o) => ({
+      x0: o.x - o.w / 2 + len / 2,
+      x1: o.x + o.w / 2 + len / 2,
+      y0: o.y0,
+      y1: o.y1,
+    })),
+  );
+  const tri = wallTriangles(
+    blocks,
+    len,
+    t,
+    mitres[0],
+    mitres[1],
+    -1,
+    height,
+    shading,
+  );
+  const g = new BufferGeometry();
+  g.setAttribute("position", new BufferAttribute(tri.positions, 3));
+  g.setAttribute("normal", new BufferAttribute(tri.normals, 3));
+  g.setAttribute("uv", new BufferAttribute(tri.uvs, 2));
+  g.setAttribute("color", new BufferAttribute(tri.colors, 3));
+  for (const grp of tri.groups)
+    g.addGroup(grp.start, grp.count, grp.materialIndex);
+  const lines = new BufferGeometry();
+  lines.setAttribute("position", new BufferAttribute(tri.capLines, 3));
+  return { geometry: g, lines };
+};
+
+/** every mesh under an object put on one layer: the camera's (0) or
+    the sun's own (SHADOW_LAYER), which the camera does not draw */
+const layerOf = (root: Object3D, layer: number) =>
+  root.traverse((o) => o.layers.set(layer));
+
 function WallRun({
   e,
   w,
@@ -444,8 +583,10 @@ function WallRun({
   t,
   mitres,
   wallHex,
+  floorHex,
   holes,
   both = false,
+  socket = false,
 }: {
   e: Edge;
   w: number;
@@ -458,9 +599,13 @@ function WallRun({
       where the run ends along the wall */
   mitres: readonly [number, number];
   wallHex: string;
+  /** the floor's tone, which the wall's foot takes a little of */
+  floorHex: string;
   holes: ReturnType<typeof holesOf>;
   /** shared with the room beyond: seen from both sides */
   both?: boolean;
+  /** a double socket near the wall's start, for scale */
+  socket?: boolean;
 }) {
   // the walls' plaster, its maps repeated by its stretch over the
   // solid's metres
@@ -473,60 +618,111 @@ function WallRun({
   const len = Math.hypot(bx - ax, bz - az);
   const yaw = yawOf(e.wall);
   const [nx, nz] = inward(e.wall);
+  const shading = useMemo(
+    () => shadingOf(len, h, floorHex, both),
+    [len, h, floorHex, both],
+  );
   // the wall built solid, its openings cut through it, so a doorway is
-  // a way through and a window a hole for the glass; the inside is +z
-  const geometry = useMemo(() => {
-    const blocks = blocksOf(
-      len,
-      h,
-      holes.map((o) => ({
-        x0: o.x - o.w / 2 + len / 2,
-        x1: o.x + o.w / 2 + len / 2,
-        y0: o.y0,
-        y1: o.y1,
-      })),
-    );
-    const { positions, normals, uvs } = wallTriangles(
-      blocks,
-      len,
-      t,
-      mitres[0],
-      mitres[1],
-      -1,
-    );
-    const g = new BufferGeometry();
-    g.setAttribute("position", new BufferAttribute(positions, 3));
-    g.setAttribute("normal", new BufferAttribute(normals, 3));
-    g.setAttribute("uv", new BufferAttribute(uvs, 2));
-    return g;
-  }, [len, h, t, mitres, holes]);
-  useEffect(() => () => geometry.dispose(), [geometry]);
+  // a way through and a window a hole for the glass; the inside is +z.
+  // Twice: at its height, and cut at waist height for when the camera
+  // looks in over it as a near wall
+  const full = useMemo(
+    () => wallGeometry(len, h, t, mitres, holes, shading),
+    [len, h, t, mitres, holes, shading],
+  );
+  const cut = useMemo(
+    () =>
+      h > SECTION + 0.2
+        ? wallGeometry(len, SECTION, t, mitres, holes, shading)
+        : null,
+    [len, h, t, mitres, holes, shading],
+  );
+  useEffect(
+    () => () => {
+      full.geometry.dispose();
+      full.lines.dispose();
+      cut?.geometry.dispose();
+      cut?.lines.dispose();
+    },
+    [full, cut],
+  );
+  // which stands: the full wall for the camera on its inner side (or a
+  // shared wall), else the full wall for the sun alone and the cut one
+  // for the camera while it looks down enough to see over it
+  const fullRef = useRef<Group>(null);
+  const cutRef = useRef<Group>(null);
+  const state = useRef<"inside" | "cut" | "gone" | null>(null);
+  const at = useMemo(() => new Vector3(), []);
+  const dir = useMemo(() => new Vector3(), []);
+  useFrame(({ camera }) => {
+    const f = fullRef.current;
+    const c = cutRef.current;
+    if (!f) return;
+    f.getWorldPosition(at);
+    const dot =
+      (camera.position.x - at.x) * nx + (camera.position.z - at.z) * nz;
+    camera.getWorldDirection(dir);
+    const pitch =
+      (-Math.asin(Math.max(-1, Math.min(1, dir.y))) * 180) / Math.PI;
+    const next =
+      both || dot > 0 ? "inside" : c && pitch > SECTION_PITCH ? "cut" : "gone";
+    if (next === state.current) return;
+    state.current = next;
+    layerOf(f, next === "inside" ? 0 : SHADOW_LAYER);
+    if (c) c.visible = next === "cut";
+  });
+  const wallColour = plaster.photo ? tintOver(wallHex) : wallHex;
+  const materials = (
+    <>
+      <meshStandardMaterial
+        attach={`material-${PLASTER}`}
+        color={wallColour}
+        map={plasterMaps.map}
+        normalMap={devFlag("noplaster") ? null : plasterMaps.normalMap}
+        normalScale={PLASTER_RELIEF}
+        roughnessMap={plasterMaps.roughnessMap}
+        roughness={PLASTER_ROUGH}
+        vertexColors
+      />
+      <meshStandardMaterial
+        attach={`material-${REVEAL}`}
+        color={FRAME_HEX}
+        roughness={0.55}
+      />
+      <meshStandardMaterial
+        attach={`material-${CAP}`}
+        color={CAP_HEX}
+        roughness={1}
+      />
+    </>
+  );
   return (
-    <Inside normal={[nx, nz]} always={both}>
-      <group
-        position={[(ax + bx) / 2, 0, (az + bz) / 2]}
-        rotation={[0, yaw, 0]}
-        userData={WALL_NAME}
-      >
-        {/* the wall casts its shadow too: a low sun comes in through the
-            openings alone and lays its patch on the floor */}
+    <group
+      position={[(ax + bx) / 2, 0, (az + bz) / 2]}
+      rotation={[0, yaw, 0]}
+      userData={WALL_NAME}
+    >
+      <group ref={fullRef}>
+        {/* the wall casts its shadow too: a low sun comes in through
+            the openings alone and lays its patch on the floor */}
         <mesh
-          geometry={geometry}
+          geometry={full.geometry}
           position={[-len / 2, 0, 0]}
           receiveShadow
           castShadow
         >
-          <meshStandardMaterial
-            color={plaster.photo ? tintOver(wallHex) : wallHex}
-            map={plasterMaps.map}
-            normalMap={devFlag("noplaster") ? null : plasterMaps.normalMap}
-            normalScale={PLASTER_RELIEF}
-            roughnessMap={plasterMaps.roughnessMap}
-            roughness={0.92}
-          />
+          {materials}
         </mesh>
-        {/* the skirting stands just proud of the wall's face, painted
-            white as joinery is, so the wall's foot is drawn */}
+        <lineSegments
+          geometry={full.lines}
+          position={[-len / 2, 0, 0]}
+          userData={CUT_LINE_NAME}
+        >
+          <lineBasicMaterial color={CAP_LINE_HEX} />
+        </lineSegments>
+        {/* the skirting and the cornice stand just proud of the wall's
+            face, painted white as joinery is, so the wall's foot and
+            its head are drawn */}
         <mesh
           position={[0, SKIRTING / 2, 0.008]}
           receiveShadow
@@ -536,40 +732,49 @@ function WallRun({
           <boxGeometry args={[len, SKIRTING, 0.016]} />
           <meshStandardMaterial color={FRAME_HEX} roughness={0.5} />
         </mesh>
+        <mesh
+          position={[0, h - CORNICE / 2, 0.006]}
+          receiveShadow
+          userData={CORNICE_NAME}
+        >
+          <boxGeometry args={[len, CORNICE, 0.012]} />
+          <meshStandardMaterial color={FRAME_HEX} roughness={0.5} />
+        </mesh>
+        {socket && (
+          <mesh
+            position={[-len / 2 + 0.6, 0.3, PLATE.deep / 2]}
+            receiveShadow
+            userData={{ name: "Socket" }}
+          >
+            <boxGeometry args={[PLATE.socket, PLATE.tall, PLATE.deep]} />
+            <meshStandardMaterial color={FRAME_HEX} roughness={0.4} />
+          </mesh>
+        )}
       </group>
-    </Inside>
-  );
-}
-
-/** a face on the wall's inside, seen from inside as the wall is, so a
-    near wall's openings go with it */
-function Face({
-  at,
-  size,
-  colour,
-  rough = 0.6,
-  emissive,
-  both = false,
-}: {
-  at: [number, number, number];
-  size: [number, number];
-  colour: string;
-  rough?: number;
-  emissive?: string;
-  /** seen from behind too: a leaf or a pane in a cut wall */
-  both?: boolean;
-}) {
-  return (
-    <mesh position={at} receiveShadow>
-      <planeGeometry args={size} />
-      <meshStandardMaterial
-        color={colour}
-        roughness={rough}
-        emissive={emissive ?? "#000000"}
-        emissiveIntensity={emissive ? 0.6 : 0}
-        side={both ? DoubleSide : FrontSide}
-      />
-    </mesh>
+      {cut && (
+        <group ref={cutRef} visible={false}>
+          <mesh
+            geometry={cut.geometry}
+            position={[-len / 2, 0, 0]}
+            receiveShadow
+            userData={{ name: "Wall section" }}
+          >
+            {materials}
+          </mesh>
+          <lineSegments
+            geometry={cut.lines}
+            position={[-len / 2, 0, 0]}
+            userData={CUT_LINE_NAME}
+          >
+            <lineBasicMaterial color={CAP_LINE_HEX} />
+          </lineSegments>
+          <mesh position={[0, SKIRTING / 2, 0.008]} receiveShadow>
+            <boxGeometry args={[len, SKIRTING, 0.016]} />
+            <meshStandardMaterial color={FRAME_HEX} roughness={0.5} />
+          </mesh>
+        </group>
+      )}
+    </group>
   );
 }
 
@@ -700,9 +905,14 @@ function Window({ r, o }: { r: RoomShape; o: Opening }) {
   );
 }
 
-/** a doorway: its frame round the cut; a hinged leaf closed in it, a
-    double door's two leaves, a sliding door's two panels, or nothing
-    at all for a passage */
+/** a doorway: the lining boards in the reveal, the architrave round
+    the opening on the room's side (both sides where two rooms share
+    it), a threshold across the floor; and in it a hinged leaf closed,
+    hung towards the room and a shade smaller than the lining all
+    round, with its lever and rose at hand height; a double door's two
+    leaves; a sliding door's two panels, one before the other; nothing
+    at all in a passage. The leaf takes the wood set's grain. A switch
+    plate stands beside the opening on the handle's side. */
 function Door({ r, o }: { r: RoomShape; o: Opening }) {
   const width = toMetres(o.width);
   const tall = Math.min(
@@ -711,6 +921,11 @@ function Door({ r, o }: { r: RoomShape; o: Opening }) {
   );
   const [x, z] = placeOf(r, o);
   const yaw = yawOf(o.wall);
+  const t = toMetres(r.thickness);
+  const wood = useMaterial("wood");
+  const woodMaps = repeated(wood);
+  const { leaf, lining, architrave, proud, gap, threshold, lever } = DOOR;
+  const sliding = o.kind === "sliding";
   const leaves =
     o.kind === "door"
       ? [{ x: 0, w: width, handle: width / 2 - 0.1 }]
@@ -719,7 +934,7 @@ function Door({ r, o }: { r: RoomShape; o: Opening }) {
             { x: -width / 4, w: width / 2, handle: width / 2 - 0.06 },
             { x: width / 4, w: width / 2, handle: -(width / 2 - 0.06) },
           ]
-        : o.kind === "sliding"
+        : sliding
           ? [
               { x: -width / 4, w: width / 2 + 0.02, handle: width / 2 - 0.08 },
               {
@@ -729,50 +944,134 @@ function Door({ r, o }: { r: RoomShape; o: Opening }) {
               },
             ]
           : [];
+  // the leaf hangs in the inner part of the reveal, a hand's width in
+  const leafZ = -Math.min(t / 2, 0.06);
+  const faces = o.join !== undefined ? [1, -1] : [1];
+  const handleSide = leaves[0] ? Math.sign(leaves[0].handle) || 1 : 1;
   return (
     <Inside normal={inward(o.wall)} always={o.join !== undefined}>
       <group position={[x, 0, z]} rotation={[0, yaw, 0]} userData={DOOR_NAME}>
-        {leaves.map((l, i) => (
-          <group key={i}>
-            <Face
-              at={[
-                l.x,
-                tall / 2,
-                o.kind === "sliding" ? 0.01 + i * 0.03 : 0.01,
-              ]}
-              size={[l.w, tall]}
-              colour={DOOR_HEX}
-              rough={0.55}
-              both
-            />
-            {/* the handle, at hand height on the opening side */}
-            <Face
-              at={[
-                l.x + l.handle,
-                1.0,
-                o.kind === "sliding" ? 0.02 + i * 0.03 : 0.02,
-              ]}
-              size={[0.12, 0.02]}
-              colour="#9a948b"
-              rough={0.3}
-            />
-          </group>
-        ))}
+        {leaves.map((l, i) => {
+          const zl = sliding ? -0.02 - i * (leaf + 0.01) : leafZ;
+          const front = zl + leaf / 2;
+          return (
+            <group key={i}>
+              <mesh
+                position={[l.x, (tall - gap) / 2, zl]}
+                castShadow
+                receiveShadow
+                userData={{ name: "Door leaf" }}
+              >
+                <boxGeometry
+                  args={[l.w - 2 * gap - 2 * lining, tall - gap, leaf]}
+                />
+                <meshStandardMaterial
+                  color={wood.photo ? tintOver(DOOR_HEX) : DOOR_HEX}
+                  map={woodMaps.map}
+                  normalMap={woodMaps.normalMap}
+                  roughnessMap={woodMaps.roughnessMap}
+                  roughness={0.5}
+                />
+              </mesh>
+              {/* the lever and its rose, at hand height on the opening
+                  side, standing off the leaf's face */}
+              <mesh
+                position={[l.x + l.handle, 1.0, front + 0.004]}
+                rotation={[Math.PI / 2, 0, 0]}
+              >
+                <cylinderGeometry args={[0.026, 0.026, 0.008, 24]} />
+                <meshStandardMaterial
+                  color={METAL_HEX}
+                  roughness={0.3}
+                  metalness={0.8}
+                />
+              </mesh>
+              <mesh
+                position={[
+                  l.x + l.handle - (Math.sign(l.handle) * lever) / 2 + 0.01,
+                  1.0,
+                  front + 0.04,
+                ]}
+                castShadow
+              >
+                <boxGeometry args={[lever, 0.016, 0.016]} />
+                <meshStandardMaterial
+                  color={METAL_HEX}
+                  roughness={0.3}
+                  metalness={0.8}
+                />
+              </mesh>
+            </group>
+          );
+        })}
+        {/* the lining: two jambs and a head board in the reveal */}
         {[-1, 1].map((s) => (
-          <Face
-            key={s}
-            at={[(s * (width + FRAME)) / 2, tall / 2, 0.02]}
-            size={[FRAME, tall + FRAME]}
-            colour={FRAME_HEX}
-            both
-          />
+          <mesh
+            key={`l${s}`}
+            position={[s * (width / 2 - lining / 2), tall / 2, -t / 2]}
+            receiveShadow
+          >
+            <boxGeometry args={[lining, tall, t]} />
+            <meshStandardMaterial color={FRAME_HEX} roughness={0.5} />
+          </mesh>
         ))}
-        <Face
-          at={[0, tall + FRAME / 2, 0.02]}
-          size={[width + 2 * FRAME, FRAME]}
-          colour={FRAME_HEX}
-          both
-        />
+        <mesh position={[0, tall - lining / 2, -t / 2]} receiveShadow>
+          <boxGeometry args={[width, lining, t]} />
+          <meshStandardMaterial color={FRAME_HEX} roughness={0.5} />
+        </mesh>
+        {/* the threshold across the opening */}
+        <mesh position={[0, threshold / 2, -t / 2]} receiveShadow>
+          <boxGeometry args={[width, threshold, t + 0.02]} />
+          <meshStandardMaterial color={THRESHOLD_HEX} roughness={0.6} />
+        </mesh>
+        {/* the architrave round the opening, standing proud of the face */}
+        {faces.map((f) => {
+          const zf = f > 0 ? proud / 2 : -t - proud / 2;
+          return (
+            <group key={f}>
+              {[-1, 1].map((s) => (
+                <mesh
+                  key={`a${s}`}
+                  position={[
+                    s * (width / 2 + architrave / 2),
+                    (tall + architrave) / 2,
+                    zf,
+                  ]}
+                  castShadow
+                  receiveShadow
+                >
+                  <boxGeometry args={[architrave, tall + architrave, proud]} />
+                  <meshStandardMaterial color={FRAME_HEX} roughness={0.5} />
+                </mesh>
+              ))}
+              <mesh
+                position={[0, tall + architrave / 2, zf]}
+                castShadow
+                receiveShadow
+              >
+                <boxGeometry
+                  args={[width + 2 * architrave, architrave, proud]}
+                />
+                <meshStandardMaterial color={FRAME_HEX} roughness={0.5} />
+              </mesh>
+            </group>
+          );
+        })}
+        {/* the switch plate beside the door, on the handle's side */}
+        {leaves.length > 0 && (
+          <mesh
+            position={[
+              handleSide * (width / 2 + architrave + 0.1),
+              1.2,
+              PLATE.deep / 2,
+            ]}
+            receiveShadow
+            userData={{ name: "Switch" }}
+          >
+            <boxGeometry args={[PLATE.switch, PLATE.tall, PLATE.deep]} />
+            <meshStandardMaterial color={FRAME_HEX} roughness={0.4} />
+          </mesh>
+        )}
       </group>
     </Inside>
   );
@@ -798,6 +1097,10 @@ export function RoomShell({
   const d = toMetres(r.D);
   const h = toMetres(r.height);
   const floorMesh = useRef<Mesh>(null);
+  const sunStop = useRef<Mesh>(null);
+  useLayoutEffect(() => {
+    sunStop.current?.layers.set(SHADOW_LAYER);
+  });
   const { material, target } = useFloorMaterial(w, h, d, reflection !== null);
   const shape = useMemo(() => floorShape(r.outline, w, d), [r.outline, w, d]);
   // the floor's material: a photographed set in its own colour with
@@ -810,6 +1113,27 @@ export function RoomShell({
     () => mitresOf(r.outline, r.thickness),
     [r.outline, r.thickness],
   );
+  // the wall runs, and which one carries the room's socket: the first
+  // run long enough with nothing cut from it
+  const runs = useMemo(() => {
+    const out = edgesOf(r.outline).flatMap((e, i) =>
+      runsOf(e, r.shared ?? []).map(({ e: run, both }, k) => ({
+        e,
+        run,
+        both,
+        i,
+        k,
+        socket: false,
+      })),
+    );
+    const first = out.find(
+      ({ run }) =>
+        holesOf(r, run, h).length === 0 &&
+        Math.hypot(run.b[0] - run.a[0], run.b[1] - run.a[1]) > 1500,
+    );
+    if (first) first.socket = true;
+    return out;
+  }, [r, h]);
   return (
     <group userData={ROOM_TAG}>
       <mesh
@@ -844,22 +1168,36 @@ export function RoomShell({
           onState={reflection.onState}
         />
       )}
-      {edgesOf(r.outline).flatMap((e, i) =>
-        runsOf(e, r.shared ?? []).map(({ e: run, both }, k) => (
-          <WallRun
-            key={`${i}-${k}`}
-            e={run}
-            w={w}
-            d={d}
-            h={h}
-            t={t}
-            mitres={runMitres(e, run, mitres[i]!)}
-            wallHex={r.wallHex}
-            holes={holesOf(r, run, h)}
-            both={both}
-          />
-        )),
-      )}
+      {runs.map(({ e, run, both, i, k, socket }) => (
+        <WallRun
+          key={`${i}-${k}`}
+          e={run}
+          w={w}
+          d={d}
+          h={h}
+          t={t}
+          mitres={runMitres(e, run, mitres[i]!)}
+          wallHex={r.wallHex}
+          floorHex={r.floorHex}
+          holes={holesOf(r, run, h)}
+          both={both}
+          socket={socket}
+        />
+      ))}
+      {/* the sun's stop: the ceiling as the sun's shadow alone sees it
+          (its own layer, never the camera's), so the sun comes in by
+          the openings and not over the open top */}
+      <mesh
+        ref={sunStop}
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, h - 0.001, 0]}
+        castShadow
+        raycast={noPick}
+        userData={SUN_STOP_NAME}
+      >
+        <shapeGeometry args={[shape]} />
+        <meshBasicMaterial side={DoubleSide} />
+      </mesh>
       {r.openings.map((o) =>
         isWindow(o) ? (
           <Window key={o.id} r={r} o={o} />

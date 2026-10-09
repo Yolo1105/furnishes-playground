@@ -11,7 +11,14 @@ import {
   useFrame,
   useThree,
 } from "@react-three/fiber";
-import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type RefObject,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   CanvasTexture,
   type Group,
@@ -21,6 +28,7 @@ import {
   Vector3,
   type Vector3Tuple,
   type WebGLRenderer,
+  type DirectionalLight,
 } from "three";
 import { CATEGORY_NAMES, type AssetNode } from "./assets-data";
 import { Furniture3D } from "./Furniture3D";
@@ -70,7 +78,7 @@ import {
 import { Probes } from "./Probes";
 import type { StillState } from "./capture";
 import { loadMaterials, useMaterials } from "./materials";
-import { RoomLight, RoomShell, windowSun } from "./Room3D";
+import { RoomLight, RoomShell, SHADOW_LAYER, windowSun } from "./Room3D";
 import { usePartStore } from "./part-client";
 import { cameraFor, EYE } from "./camera-bookmarks";
 import { setLive } from "./scene-handle";
@@ -287,8 +295,9 @@ const LIGHTS = {
     // the sky's light fills the room so the walls read off-white, as a
     // room is exposed for, with the window above it
     sky: 2.4,
-    // the sky's fill is cool against the warm sun, as daylight is
-    fill: "#e0e7ee",
+    // the sky's fill: a little cooler than the sun, as daylight is,
+    // but near neutral, so the walls read warm off-white, not grey
+    fill: "#ebe6dd",
   },
   evening: {
     sun: 3.5,
@@ -308,7 +317,7 @@ const SUN = { back: 5.5, aside: -1 };
 const SKY_SHADOW = { share: 0.45, height: 12, radius: 8 };
 /** what the floor gives back to the undersides: the floor's tone,
     well down, so an underside and a ceiling stand darker than a wall */
-const GROUND_HEX = "#8f8273";
+const GROUND_HEX = "#a39483";
 
 /** the renderer's tone mapping and exposure follow the look */
 function Exposure({ value }: { value: number }) {
@@ -1534,6 +1543,12 @@ export default function Scene3D() {
     shadows,
   ]);
   const pieces = useRef<Group>(null);
+  // the sun's shadow sees the room's shadow layer too: the ceiling that
+  // stops it at the open top, and a near wall taken out of the picture
+  const sunLight = useRef<DirectionalLight>(null);
+  useLayoutEffect(() => {
+    sunLight.current?.shadow.camera.layers.enable(SHADOW_LAYER);
+  });
   // what the floor reflects: the shell and its light, the pieces as they
   // stand and look, and the ceiling that walking puts overhead
   const reflectStamp =
@@ -1709,6 +1724,7 @@ export default function Scene3D() {
           groundColor={GROUND_HEX}
         />
         <directionalLight
+          ref={sunLight}
           position={sunFrom}
           intensity={light.sun}
           color={light.colour}

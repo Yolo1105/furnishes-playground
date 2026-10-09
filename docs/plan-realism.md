@@ -842,6 +842,46 @@ sandbox cannot give.
 | KTX2 | open   | optional: measured and left (see below); the maps stay JPG                       |
 | CI   | open   | optional: WebGPU in CI on a software adapter                                     |
 
+## Walls, door and light: the far views (2026-10-09)
+
+A review of the far views found the room reading as a cut-away model:
+hard diagonal shadows across the walls, flat grey walls, a door that
+was a flat rectangle. The causes and what changed:
+
+- The sun crossed the open top. The far views look in over the room,
+  and the sun, four metres up beyond the window, threw every wall's
+  top edge as a hard shadow onto the wall opposite. Now a ceiling
+  plane on the sun's own layer (`SHADOW_LAYER`, which the sun's shadow
+  camera sees and the picture's camera does not) stops it, so the sun
+  comes in by the openings alone and lays its patch on the floor in
+  every view. The sky's shadow light stays on the camera's layer, so
+  undersides keep their shadow from the open sky.
+- A near wall was removed; now, while the camera looks down enough to
+  see over it (`SECTION_PITCH`), it stands cut at waist height
+  (`SECTION`), and whichever way it stands or goes, its full solid
+  stays on the sun's layer and shadows the room.
+- The cut faces (the open top, a section, a run's ends) take a cap of
+  their own and a drawn line (`CAP`, `capLines` in wall-solid.ts), so a
+  cut reads as a section drawing; the reveals inside openings are
+  painted white (`REVEAL`) and are the brightest surface by the window,
+  as in a daylit room.
+- A wall is shaded across itself by vertex colours over the plaster
+  (`Shading`): darker towards the floor and taking the floor's tone
+  in its lower metre, easing off at the head, darker into the corners;
+  the plaster's roughness went from chalk (0.92) to eggshell (0.72) so
+  a window's light sweeps a wall as a soft sheen. A cornice strip at
+  the head answers the skirting; a double socket and a switch plate
+  stand on the walls for scale.
+- The door is built: a 40 mm leaf hung in the reveal with the wood
+  set's grain, a lining, an architrave standing proud (both faces of a
+  shared doorway), a threshold, a lever and rose at hand height.
+- Warmth: the day's sky fill is near neutral (#ebe6dd, was blue-grey),
+  the ground bounce lighter, the exposure 1.2 (was 1.1).
+
+The five baselines were re-taken on purpose. The caps' colour, the
+section pitch and the shading's strengths are the knobs to turn if the
+far views need more or less of the drawing in them.
+
 ## First-load JavaScript, re-measured
 
 Next 16 prints no size column; `scripts/first-load.mjs` reads Next's
