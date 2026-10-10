@@ -30,12 +30,12 @@ larger" costs no new numbers: the living room grows from 6.5 × 4.0 to
 Walls are 300 mm (`WALL_MM`). North is the daylight side, the top of
 the sheet. Positions are the room's north-west corner on the sheet, mm.
 
-| Room | Kind | Size (W × D) | Position | Floor | Walls |
-| --- | --- | --- | --- | --- | --- |
-| Living & dining | living | 7000 × 4500 | (0, 0) | Vinyl | Warm white |
-| Master bedroom | master | 4000 × 3500 | (−4300, 0) | Vinyl | Sage |
-| Bathroom | bathroom | 2400 × 1700 | (−2700, 3800) | Tiles | White |
-| Kitchen | kitchen | 3200 × 2700 | (7300, 1800) | Tiles | White |
+| Room            | Kind     | Size (W × D) | Position      | Floor | Walls      |
+| --------------- | -------- | ------------ | ------------- | ----- | ---------- |
+| Living & dining | living   | 7000 × 4500  | (0, 0)        | Vinyl | Warm white |
+| Master bedroom  | master   | 4000 × 3500  | (−4300, 0)    | Vinyl | Sage       |
+| Bathroom        | bathroom | 2400 × 1700  | (−2700, 3800) | Tiles | White      |
+| Kitchen         | kitchen  | 3200 × 2700  | (7300, 1800)  | Tiles | White      |
 
 Drawn (not to scale):
 
@@ -130,27 +130,27 @@ corner.
 
 Pieces (for sale)
 
-| Piece | Size | Where | Faces |
-| --- | --- | --- | --- |
-| Three-bay sideboard | 1800 × 400 × 800 | 1100–2900, 4100–4500 (south wall), the media console | north |
-| Bookwall | 1200 × 400 × 1600 | 0–400, 500–1700 (west wall, north of the bedroom door) | east |
-| Storage bench | 1200 × 400 × 450 | 4000–5200, 4100–4500 (south wall, west of the entry door): the shoe bench | north |
-| Entry organiser | 600 × 400 × 1200 | 6400–7000, 4100–4500 (south-east corner, east of the entry door): keys, bags, hooks | north |
-| Folding screen (optional) | 1800 unfolded × 1200 | folded to about 1200 along y at x 3800, y 1000–2200: a zone divider between lounge and dining; leave it out if the sight line from the entry to the window matters more | west |
+| Piece                     | Size                 | Where                                                                                                                                                                   | Faces |
+| ------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| Three-bay sideboard       | 1800 × 400 × 800     | 1100–2900, 4100–4500 (south wall), the media console                                                                                                                    | north |
+| Bookwall                  | 1200 × 400 × 1600    | 0–400, 500–1700 (west wall, north of the bedroom door)                                                                                                                  | east  |
+| Storage bench             | 1200 × 400 × 450     | 4000–5200, 4100–4500 (south wall, west of the entry door): the shoe bench                                                                                               | north |
+| Entry organiser           | 600 × 400 × 1200     | 6400–7000, 4100–4500 (south-east corner, east of the entry door): keys, bags, hooks                                                                                     | north |
+| Folding screen (optional) | 1800 unfolded × 1200 | folded to about 1200 along y at x 3800, y 1000–2200: a zone divider between lounge and dining; leave it out if the sight line from the entry to the window matters more | west  |
 
 Room items
 
-| Item | Size | Where | Faces | Form |
-| --- | --- | --- | --- | --- |
-| Sofa, three-seater | 2400 × 900 × 800 | 1000–3400, 1300–2200, its back to the window | south | stock `sofa_02.glb`, resized |
-| Rug | 2400 × 1600 | 1000–3400, 2300–3900 | — | built form |
-| Coffee table | 1000 × 600 × 420 | 1700–2700, 2700–3300, on the rug | — | stock `modern_coffee_table_01.glb` |
-| Armchair | 800 × 850 × 800 | 3500–4300, 2600–3450, at the rug's east end | west, turned 20° toward the table | stock `modern_arm_chair_01.glb` |
-| Floor lamp | 300 × 300 × 1500 | 500–800, 1500–1800, by the sofa's west arm | — | built form |
-| Potted plant | 400 × 400 × 900 | 200–600, 200–600, the north-west corner in the window's light | — | stock `potted_plant_04.glb` |
-| Dining table | 1400 × 800 × 750 | 4600–6000, 1500–2300, long side along the window | — | built form |
-| Dining chairs × 4 | 450 × 500 × 850 | 4850–5300 and 5550–6000 at y 950–1450 (north side); the same x at y 2350–2850 (south side) | toward the table | stock `dining_chair_02.glb` |
-| Potted plant | 400 × 400 × 900 | 6500–6900, 200–600, the north-east corner | — | stock `potted_plant_04.glb` |
+| Item               | Size             | Where                                                                                      | Faces                             | Form                               |
+| ------------------ | ---------------- | ------------------------------------------------------------------------------------------ | --------------------------------- | ---------------------------------- |
+| Sofa, three-seater | 2400 × 900 × 800 | 1000–3400, 1300–2200, its back to the window                                               | south                             | stock `sofa_02.glb`, resized       |
+| Rug                | 2400 × 1600      | 1000–3400, 2300–3900                                                                       | —                                 | built form                         |
+| Coffee table       | 1000 × 600 × 420 | 1700–2700, 2700–3300, on the rug                                                           | —                                 | stock `modern_coffee_table_01.glb` |
+| Armchair           | 800 × 850 × 800  | 3500–4300, 2600–3450, at the rug's east end                                                | west, turned 20° toward the table | stock `modern_arm_chair_01.glb`    |
+| Floor lamp         | 300 × 300 × 1500 | 500–800, 1500–1800, by the sofa's west arm                                                 | —                                 | built form                         |
+| Potted plant       | 400 × 400 × 900  | 200–600, 200–600, the north-west corner in the window's light                              | —                                 | stock `potted_plant_04.glb`        |
+| Dining table       | 1400 × 800 × 750 | 4600–6000, 1500–2300, long side along the window                                           | —                                 | built form                         |
+| Dining chairs × 4  | 450 × 500 × 850  | 4850–5300 and 5550–6000 at y 950–1450 (north side); the same x at y 2350–2850 (south side) | toward the table                  | stock `dining_chair_02.glb`        |
+| Potted plant       | 400 × 400 × 900  | 6500–6900, 200–600, the north-east corner                                                  | —                                 | stock `potted_plant_04.glb`        |
 
 Checks: the sofa's back stands 1300 from the window wall, a walkway
 behind it; the sofa front to the sideboard is 1900, a sitting-room
@@ -171,20 +171,20 @@ end", which this follows.
 
 Pieces (for sale)
 
-| Piece | Size | Where | Faces |
-| --- | --- | --- | --- |
-| Preparation island | 1200 × 400 × 800 | 600–1800, 2300–2700 (south wall): the landing and prep table | north |
-| Kitchen trolley | 600 × 400 × 800 | 2800–3200, 1000–1600 (east wall, under the window: 800 high sits under the 900 sill) | west |
+| Piece              | Size             | Where                                                                                | Faces |
+| ------------------ | ---------------- | ------------------------------------------------------------------------------------ | ----- |
+| Preparation island | 1200 × 400 × 800 | 600–1800, 2300–2700 (south wall): the landing and prep table                         | north |
+| Kitchen trolley    | 600 × 400 × 800  | 2800–3200, 1000–1600 (east wall, under the window: 800 high sits under the 900 sill) | west  |
 
 Room items
 
-| Item | Size | Where | Form |
-| --- | --- | --- | --- |
-| Kitchen counter | 3200 × 600 × 900 | 0–3200, 0–600, the north wall end to end, with a sink and a hob read as insets in the top | new built form |
-| Wall cabinets | 3200 × 350 × 700, bottom at 1500 | 0–3200, 0–350, above the counter | new built form |
-| Fridge | 700 × 650 × 1750 | 2400–3100, 2050–2700 (south wall, east end) | new built form |
-| Stools × 2 | 350 × 350 × 650 | 800–1150 and 1300–1650 at y 1900–2250, tucked at the island | stock `metal_stool_01.glb` |
-| Wicker basket | 350 × 350 × 300 | 1950–2300, 2350–2700, between the island and the fridge | stock `wicker_basket_01.glb` |
+| Item            | Size                             | Where                                                                                     | Form                         |
+| --------------- | -------------------------------- | ----------------------------------------------------------------------------------------- | ---------------------------- |
+| Kitchen counter | 3200 × 600 × 900                 | 0–3200, 0–600, the north wall end to end, with a sink and a hob read as insets in the top | new built form               |
+| Wall cabinets   | 3200 × 350 × 700, bottom at 1500 | 0–3200, 0–350, above the counter                                                          | new built form               |
+| Fridge          | 700 × 650 × 1750                 | 2400–3100, 2050–2700 (south wall, east end)                                               | new built form               |
+| Stools × 2      | 350 × 350 × 650                  | 800–1150 and 1300–1650 at y 1900–2250, tucked at the island                               | stock `metal_stool_01.glb`   |
+| Wicker basket   | 350 × 350 × 300                  | 1950–2300, 2350–2700, between the island and the fridge                                   | stock `wicker_basket_01.glb` |
 
 Checks: counter front (y 600) to the island front (y 2300) is 1700,
 with the stools taking 350 of it, a 1350 working aisle; the sliding
@@ -198,25 +198,26 @@ says a king is comfortable and a queen leaves room for a bench at the
 foot; the showcase takes the queen with the bench, because the bench
 is a Furnishes piece. A desk at the window does not fit a 3.5 m deep
 room with the bed along the depth (600 desk + 500 chair + 600 walkway
-+ 2100 bed is 3800), so there is none; the archetype's desk rule
-simply finds no desk.
+
+- 2100 bed is 3800), so there is none; the archetype's desk rule
+  simply finds no desk.
 
 Pieces (for sale)
 
-| Piece | Size | Where | Faces |
-| --- | --- | --- | --- |
-| Bedside cabinet (west) | 600 × 400 × 400 | 550–1150, 3100–3500 | north |
-| Bedside cabinet (east) | 600 × 400 × 400 | 2850–3450, 3100–3500 | north |
-| Storage bench | 1200 × 400 × 450 | 1400–2600, 950–1350, at the foot of the bed | north |
-| Desk-side organiser | 600 × 400 × 1200 | 3600–4000, 200–800 (east wall by the window): the dressing-corner organiser | west |
+| Piece                  | Size             | Where                                                                       | Faces |
+| ---------------------- | ---------------- | --------------------------------------------------------------------------- | ----- |
+| Bedside cabinet (west) | 600 × 400 × 400  | 550–1150, 3100–3500                                                         | north |
+| Bedside cabinet (east) | 600 × 400 × 400  | 2850–3450, 3100–3500                                                        | north |
+| Storage bench          | 1200 × 400 × 450 | 1400–2600, 950–1350, at the foot of the bed                                 | north |
+| Desk-side organiser    | 600 × 400 × 1200 | 3600–4000, 200–800 (east wall by the window): the dressing-corner organiser | west  |
 
 Room items
 
-| Item | Size | Where | Form |
-| --- | --- | --- | --- |
-| Queen bed | 1600 × 2100 × 450 (headboard 1000 high) | 1200–2800, 1400–3500, headboard on the south wall | built bed form |
-| Wardrobe | 600 × 2000 × 2200 | 0–600, 200–2200, along the west wall | new built form (two doors, a plinth) |
-| Potted plant | 400 × 400 × 900 | 700–1100, 150–550, in the window's light | stock `potted_plant_04.glb` |
+| Item         | Size                                    | Where                                             | Form                                 |
+| ------------ | --------------------------------------- | ------------------------------------------------- | ------------------------------------ |
+| Queen bed    | 1600 × 2100 × 450 (headboard 1000 high) | 1200–2800, 1400–3500, headboard on the south wall | built bed form                       |
+| Wardrobe     | 600 × 2000 × 2200                       | 0–600, 200–2200, along the west wall              | new built form (two doors, a plinth) |
+| Potted plant | 400 × 400 × 900                         | 700–1100, 150–550, in the window's light          | stock `potted_plant_04.glb`          |
 
 Checks: the wardrobe's doors open onto a 600 walkway to the bed's
 west side; the door swings in at the east wall (y 2000–2900, arc to
@@ -231,19 +232,19 @@ Everything here is a room item except the trolley.
 
 Pieces (for sale)
 
-| Piece | Size | Where | Faces |
-| --- | --- | --- | --- |
-| Kitchen trolley, as the towel trolley | 600 × 400 × 800 | 2000–2400, 1100–1700 (south-east corner, outside the door's arc) | west |
+| Piece                                 | Size            | Where                                                            | Faces |
+| ------------------------------------- | --------------- | ---------------------------------------------------------------- | ----- |
+| Kitchen trolley, as the towel trolley | 600 × 400 × 800 | 2000–2400, 1100–1700 (south-east corner, outside the door's arc) | west  |
 
 Room items
 
-| Item | Size | Where | Form |
-| --- | --- | --- | --- |
-| Shower screen | 900 along y × 10 × 2000 | at x 900, y 0–900: the glass panel closing the shower corner | new built form (glass) |
-| Basin cabinet with mirror | 600 × 450 × 850; mirror 600 × 800 at 1100 | 1200–1800, 0–450 (north wall) | new built form; the mirror uses the existing MirrorFace |
-| WC | 380 × 700 × 780 | 1000–1380, 1000–1700 (south wall) | new built form |
-| Bath mat | 600 × 400 | 950–1550, 400–800, at the shower's mouth | the rug form, small |
-| Wicker basket | 350 × 350 × 300 | 1500–1850, 1350–1700, beside the WC | stock `wicker_basket_01.glb` |
+| Item                      | Size                                      | Where                                                        | Form                                                    |
+| ------------------------- | ----------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------- |
+| Shower screen             | 900 along y × 10 × 2000                   | at x 900, y 0–900: the glass panel closing the shower corner | new built form (glass)                                  |
+| Basin cabinet with mirror | 600 × 450 × 850; mirror 600 × 800 at 1100 | 1200–1800, 0–450 (north wall)                                | new built form; the mirror uses the existing MirrorFace |
+| WC                        | 380 × 700 × 780                           | 1000–1380, 1000–1700 (south wall)                            | new built form                                          |
+| Bath mat                  | 600 × 400                                 | 950–1550, 400–800, at the shower's mouth                     | the rug form, small                                     |
+| Wicker basket             | 350 × 350 × 300                           | 1500–1850, 1350–1700, beside the WC                          | stock `wicker_basket_01.glb`                            |
 
 Checks: the door is on the east wall at y 350 (local), 750 wide,
 swinging in: its arc is x 1650–2400, y 0–750, which the trolley (from
@@ -289,7 +290,7 @@ bedroom → bathroom door, so Play walks the pinwheel.
    runs `settleJoins`, then sets the kitchen join to sliding 1800 and
    closes the master–bathroom join. `flat` defaults to "5-room".
 3. A `showcase.ts` table of `{ productId | decor, roomId, x, y, turn,
-   size? }` for every item above, applied with `placeAll` when a
+size? }` for every item above, applied with `placeAll` when a
    project is new (overrides empty). Decor sizes that differ from the
    name defaults (the 2400 sofa, the 2400 × 1600 rug, the 600 × 400
    bath mat) go in the table.
@@ -364,3 +365,35 @@ between neighbours a walkway or a touch, nothing a room must have
 missing. The e2e suite's expectations of the old single room (its size,
 its flat type, where its pieces stood on the plan) were brought up to
 the flat.
+
+### What the flat showed up in the studio
+
+Four rooms open from the start exercised paths a single room never
+did, and five of them were wrong:
+
+- **Switching the flat type** rebuilt every preset room's openings from
+  a lone room's convention and never re-read the doorways: the kitchen
+  lost its window, the bedroom got back a door into the bathroom. A
+  preset room now keeps its openings, refitted to its new size (one
+  placed by HDB's convention stays as far from its corner, the rest
+  keep their share of the wall), and the doorways are settled again.
+  The rooms still take the new flat's sizes where they stand, so a
+  switch to a smaller flat leaves gaps between them; Settle and the
+  room magnet put them back together.
+- **Eva knew a piece only by its name.** A second of a kind is
+  numbered ("Kitchen trolley 3"), so she offered again what the room
+  already had, and a card's "In the room" never lit for a piece added
+  from it. Her picks and the card now match by product too.
+- **The tour's stops** were drawn faded over every plan while the Tour
+  tool was off; the flat's default round of thirteen stops took the
+  clicks meant for the rooms' floors. They are drawn while the tool is
+  on.
+- **A piece shown alone** (Details) stood alone only in its own room;
+  the plan kept drawing the other rooms' pieces round it.
+- **Picking a piece in another room** makes that room the one worked
+  on, as it did before; with four rooms it happens often, and Eva's
+  labels and room line follow the room picked.
+
+Saved projects keep the rooms they were saved with; only a new project
+opens on the flat. The snapshot's shape did not change (a room kind and
+two categories were added), so its version stands.
