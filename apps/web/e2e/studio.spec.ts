@@ -933,6 +933,8 @@ test("a first visit opens the welcome and the tour; the Guide mark runs it again
   browser,
 }) => {
   await page.goto("/rounded");
+  // the toolbar answers once the studio has arrived on the client
+  await arrived(page);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   // from the toolbar: the same welcome, large and in the middle
   await page.getByRole("button", { name: "Guide" }).click();
@@ -4348,6 +4350,17 @@ test("View settings: edges, names, a floor grid, shadows and the light, kept for
   test.setTimeout(240_000);
   await page.goto("/rounded");
   const stage = page.locator(".shell-stage .stage-3d");
+  // the flat's first pictures drawn and at rest: a software renderer
+  // takes seconds over each, and holds the page while it does
+  await expect(stage).toHaveAttribute("data-drawn", "true", {
+    timeout: 120_000,
+  });
+  await expect(stage).toHaveAttribute("data-materials-pending", "0", {
+    timeout: 120_000,
+  });
+  await expect(stage).toHaveAttribute("data-settled", "true", {
+    timeout: 120_000,
+  });
   // no names until asked: the hovered piece alone shows its own
   await expect(stage).toHaveAttribute("data-labels", "false");
   await expect(stage).toHaveAttribute("data-edges", "false");
