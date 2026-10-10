@@ -2400,9 +2400,6 @@
 .plan-tour[data-on="true"] .plan-stop {
   cursor: pointer;
 }
-.plan-tour[data-on="false"] {
-  opacity: 0.55;
-}
 .tour-strip,
 .tour-run {
   position: static;

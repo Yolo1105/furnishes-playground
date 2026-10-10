@@ -1014,7 +1014,10 @@ export function Plan2D({
             ))}
           </g>
         )}
-        {(touring || stops.length > 0) && (
+        {/* the tour's stops, while the Tour tool is on: the flat comes
+            with a round of its rooms, which would otherwise lie over
+            every plan and take the clicks meant for the rooms */}
+        {touring && (
           <g className="plan-tour" data-on={touring}>
             <polyline
               points={stops.map((p) => p.join(",")).join(" ")}
