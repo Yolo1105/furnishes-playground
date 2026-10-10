@@ -394,6 +394,20 @@ did, and five of them were wrong:
   on, as it did before; with four rooms it happens often, and Eva's
   labels and room line follow the room picked.
 
+- **The first view** framed the middle of the whole flat from 18 m
+  away, so the four rooms read as a thin strip. The plan put it inside
+  the entry door; at the camera's 42° that shows a sliver of the room,
+  and an open top seen from inside reads as a cut-away. It stands where
+  a single room's did: at eye level just past the room's south-east
+  corner, looking across the room being worked on. The overviews still
+  frame the whole flat, the front and back a little further back so its
+  near corners stay in the picture. Walk is the view from inside.
+- **A wall two rooms share** stood full height whatever the camera did,
+  since it is always one room's inside; from outside the living room
+  the kitchen's wall hid a third of it. A shared wall and its doorway
+  now answer to the room being worked on: its near wall is cut or goes,
+  its far wall stands, and it stands when neither room is.
+
 Saved projects keep the rooms they were saved with; only a new project
 opens on the flat. The snapshot's shape did not change (a room kind and
 two categories were added), so its version stands.
