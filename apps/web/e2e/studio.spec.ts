@@ -1253,13 +1253,15 @@ test("Inspect raises Details and Label over a piece; labels reach Eva, five at m
   );
   // five at a time, across the flat: the sixth piece cannot be labelled
   // (pieces with room round them on the plan, where the actions rise
-  // clear: a bedside cabinet's would stand over the bed). Eva's chips
-  // show the labels in the room she is working on
+  // clear: a bedside cabinet's would stand over the bed). A piece picked
+  // in another room makes that room the one worked on, and Eva's chips
+  // show the labels in it: the kitchen's island first, then the living
+  // room's pieces, so the living room is active again
   const more = [
+    "Preparation island",
     "Bookwall",
     "Entry organiser",
     "Storage bench",
-    "Preparation island",
   ];
   for (const name of more) {
     await stage.getByRole("button", { name, exact: true }).click();
