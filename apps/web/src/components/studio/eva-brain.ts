@@ -106,6 +106,7 @@ const CORE: Record<RoomId, AssetCategory[]> = {
   "bedroom-2": ["storage", "lighting"],
   kitchen: ["tables", "storage"],
   study: ["tables", "storage", "lighting"],
+  bathroom: ["storage"],
 };
 const SECONDARY: AssetCategory[] = ["lighting", "decor"];
 
@@ -152,6 +153,10 @@ const BANDS: Record<RoomId, Band[]> = {
     { category: "storage", label: "Storage and shelving", lo: 0.2, hi: 0.25 },
     { category: "seating", label: "Seating", lo: 0.15, hi: 0.2 },
     { category: "lighting", label: "Lighting", lo: 0.1, hi: 0.1 },
+  ],
+  bathroom: [
+    { category: "storage", label: "Storage", lo: 0.15, hi: 0.25 },
+    { category: "decor", label: "Textiles and décor", lo: 0.08, hi: 0.12 },
   ],
 };
 

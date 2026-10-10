@@ -15,6 +15,7 @@ import {
   ROOM_NAMES,
   ROOM_SIZE,
   type RoomId,
+  SHOWCASE_ROOMS,
   type Rules,
   rulesFor,
   swings,
@@ -241,9 +242,6 @@ const stretched = (
 
 /** a room of a kind at its typical size for the flat, before any choice
     of how it begins */
-/** the first room's id: the same on the server and in the browser, so
-    the page hydrates as it was rendered; later rooms get ids of their own */
-const FIRST_ROOM_ID = "room-1";
 
 const roomOf = (
   flat: FlatType,
@@ -436,6 +434,91 @@ const settled = (
 export const sheetBox = (rooms: readonly RoomSpec[]) =>
   boxOf(rooms.flatMap(sheetOutline));
 
+/**
+ * The flat the studio opens on: a 5-room flat's living and dining room
+ * in the middle, the master bedroom west of it with its window to the
+ * north, the common bathroom below the bedroom and entered from the
+ * living room, the kitchen east of the dining end by the entrance.
+ * Each neighbour meets the living room on a different wall, so the
+ * doorways do not line up and the walk to each room crosses the living
+ * room its own way, as an HDB flat is walked. The sizes are the flat's
+ * typical ones; the openings are set here, not by a lone room's
+ * convention: a wide window for the 7 m room, a glass sliding door into
+ * the kitchen, a narrow door into the bathroom, a small high window in
+ * the bathroom's outer wall. The bathroom also shares a wall with the
+ * bedroom; that doorway is kept but closed, so the wall stands solid
+ * (it is the common bathroom, not an ensuite).
+ */
+const showcaseFlat = (): Pick<
+  RoomConfig,
+  "flat" | "rooms" | "joins" | "stops"
+> => {
+  const flat: FlatType = "5-room";
+  const living = roomOf(flat, "living", [0, 0], SHOWCASE_ROOMS.living);
+  living.wallTone = "warm";
+  living.openings = [
+    makeOpening("door", "south", {
+      at: living.width - 800 - OPENINGS.door.width / 2,
+      hdb: true,
+    }),
+    makeOpening("window", "north", { width: 3000 }),
+  ];
+  // the bedroom stands a metre north of the living room's line, so the
+  // bathroom below it still meets the living room's west wall
+  const master = roomOf(flat, "master", [-4300, -1000], SHOWCASE_ROOMS.master);
+  master.start = "template";
+  master.wallTone = "sage";
+  master.openings = [makeOpening("window", "north")];
+  const bathroom = roomOf(
+    flat,
+    "bathroom",
+    [-2700, 2800],
+    SHOWCASE_ROOMS.bathroom,
+  );
+  bathroom.start = "template";
+  bathroom.floor = "Tiles";
+  bathroom.openings = [
+    makeOpening("window", "west", { width: 600, sill: 1500, head: 2100 }),
+  ];
+  const kitchen = roomOf(flat, "kitchen", [7300, 1800], SHOWCASE_ROOMS.kitchen);
+  kitchen.start = "template";
+  kitchen.floor = "Tiles";
+  kitchen.openings = [makeOpening("window", "east", { width: 1200 })];
+  const rooms = [living, master, bathroom, kitchen];
+  const between = (a: string, b: string) => (j: Join) =>
+    (j.a === a && j.b === b) || (j.a === b && j.b === a);
+  const joins = settled({ rooms, joins: [] }).joins.map((j) => {
+    if (between(living.id, kitchen.id)(j))
+      return { ...j, kind: "sliding" as const, width: 1800, at: 3450 };
+    // the bedroom's door 600 mm from its south-east corner, as HDB has it
+    if (between(living.id, master.id)(j)) return { ...j, at: 1450 };
+    if (between(living.id, bathroom.id)(j))
+      return { ...j, width: 750, at: 3325 };
+    if (between(master.id, bathroom.id)(j)) return { ...j, open: false };
+    return j;
+  });
+  // the tour's round of the flat: in at the entry, through the lounge
+  // and the dining end, into the kitchen and back, across to the
+  // bedroom and back, and to the bathroom door, each doorway crossed
+  // square on
+  const stops: Point[] = [
+    [5750, 3900],
+    [3900, 3700],
+    [3900, 900],
+    [6400, 3450],
+    [8400, 3450],
+    [6400, 3450],
+    [700, 1450],
+    [-900, 1450],
+    [-2300, -400],
+    [-900, 1450],
+    [700, 2300],
+    [700, 3325],
+    [-1200, 3325],
+  ];
+  return { flat, rooms, joins, stops };
+};
+
 /** The rooms of the flat, one of them active. */
 export const useRoom = create<RoomState>((set, get) => {
   /** the active room changed */
@@ -450,13 +533,10 @@ export const useRoom = create<RoomState>((set, get) => {
           : r,
       ),
     }));
-  const first = roomOf("4-room", "living", [0, 0], FIRST_ROOM_ID);
+  const home = showcaseFlat();
   return {
-    flat: "4-room",
-    rooms: [first],
-    activeId: first.id,
-    joins: [],
-    stops: [],
+    ...home,
+    activeId: home.rooms[0]!.id,
     drawing: [],
     setFlat: (flat) =>
       set((s) => ({

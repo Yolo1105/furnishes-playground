@@ -1457,14 +1457,19 @@ export default function Scene3D() {
     };
   }, [joins, rooms, room.width, room.depth, room.pos]);
   // the flat's box on the sheet, and its middle from the active room's
-  // centre (the origin), so the camera frames every room
+  // centre (the origin), so the camera frames every room; a piece in
+  // focus stands alone at the origin, and the camera looks there
   const box = sheetBox(rooms);
+  const focused = a.focus !== null;
   const centre = useMemo(
-    (): readonly [number, number] => [
-      toMetres(box.x + box.w / 2 - room.pos[0] - room.width / 2),
-      toMetres(box.y + box.h / 2 - room.pos[1] - room.depth / 2),
-    ],
-    [box.x, box.y, box.w, box.h, room.pos, room.width, room.depth],
+    (): readonly [number, number] =>
+      focused
+        ? [0, 0]
+        : [
+            toMetres(box.x + box.w / 2 - room.pos[0] - room.width / 2),
+            toMetres(box.y + box.h / 2 - room.pos[1] - room.depth / 2),
+          ],
+    [focused, box.x, box.y, box.w, box.h, room.pos, room.width, room.depth],
   );
   const [dragging, setDragging] = useState(false);
   // the piece under the pointer: the canvas shows a hand over one that

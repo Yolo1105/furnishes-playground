@@ -11,6 +11,7 @@ import { create } from "zustand";
 import { newId } from "./ids";
 import {
   assetGroups as seed,
+  showcasePlaces,
   CATEGORY_NAMES,
   type AssetCategory,
   type AssetGroup,
@@ -272,7 +273,7 @@ export const useScene = create<SceneState>((set, get) => {
     revealAt: 0,
     cart: [],
     labels: [],
-    overrides: {},
+    overrides: showcasePlaces,
     past: [],
     future: [],
     dragFrom: null,

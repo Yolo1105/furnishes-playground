@@ -90,6 +90,30 @@ export function PlanSymbol({
 
   if (isRug(node)) {
     rect(70, 70, w - 140, d - 140);
+  } else if (/counter|worktop/.test(name)) {
+    // the worktop's edge, the sink as a bowl and the hob as four rings
+    line(0, d - 30, w, d - 30);
+    rect(w * 0.25 - 220, d * 0.2, 440, d * 0.55);
+    circle(w * 0.25, d * 0.5, 120);
+    for (const [i, j] of [
+      [0, 0],
+      [1, 0],
+      [0, 1],
+      [1, 1],
+    ] as const)
+      circle(w * 0.75 - 130 + i * 260, d * 0.3 + j * 240, 85);
+  } else if (/fridge|refrigerator/.test(name)) {
+    rect(40, 40, w - 80, d - 80);
+    line(w / 2, 40, w / 2, d - 40);
+  } else if (/basin|vanity/.test(name)) {
+    circle(w / 2, d / 2, Math.min(w, d) * 0.32);
+    line(0, 30, w, 30);
+  } else if (/\bwc\b|toilet/.test(name)) {
+    rect(0, 0, w, d * 0.25);
+    const r = w / 2 - 20;
+    circle(w / 2, d * 0.25 + (d * 0.75) / 2, r);
+  } else if (/shower screen/.test(name)) {
+    line(w / 2, 0, w / 2, d);
   } else if (/\bbed\b/.test(name)) {
     rect(40, 40, w - 80, d - 80);
     const pw = (w - 200) / 2;

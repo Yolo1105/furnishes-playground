@@ -381,6 +381,13 @@ function Form(p: Props) {
   // what it is called
   const r = recipeOf(p.node);
   const shape = r?.shape;
+  // the kitchen's and the bathroom's fittings, by what they are
+  if (/counter|worktop/.test(name)) return <Counter w={w} h={h} d={d} />;
+  if (/fridge|refrigerator/.test(name)) return <Fridge w={w} h={h} d={d} />;
+  if (/basin|vanity/.test(name))
+    return <Basin id={p.node.id} w={w} h={h} d={d} f={own} />;
+  if (/\bwc\b|toilet/.test(name)) return <Toilet w={w} h={h} d={d} />;
+  if (/shower screen/.test(name)) return <Glass w={w} h={h} d={d} />;
   const body = bodyOf(p.node);
   if (body === "cart") return <Cart w={w} h={h} d={d} f={own} />;
   if (body === "bench") return <Bench w={w} h={h} d={d} f={own} />;
@@ -413,6 +420,22 @@ function Form(p: Props) {
     );
 
   if (/\bbed\b/.test(name)) return <Bed w={w} h={h} d={d} colour={p.colour} />;
+  // a wardrobe is a carcass of two tall doors
+  if (/wardrobe/.test(name))
+    return (
+      <Carcass
+        id={p.node.id}
+        w={w}
+        h={h}
+        d={d}
+        f={own}
+        bays={[p.colour, p.colour]}
+        doors
+        books={false}
+        hooks={false}
+        seed={seed}
+      />
+    );
   if (/screen/.test(name))
     return (
       <group>
@@ -436,6 +459,9 @@ function Form(p: Props) {
 
   switch (cat) {
     case "seating":
+      if (/stool/.test(name)) return <Stool w={w} h={h} d={d} />;
+      if (/\bchair\b/.test(name))
+        return <Chair w={w} h={h} d={d} colour={p.colour} />;
       return (
         <Seat
           w={w}
@@ -1008,6 +1034,310 @@ function Rug({ w, d, colour }: { w: number; d: number; colour: string }) {
         f={border}
         at={[w / 2 - edge / 2, 0.0135, 0]}
         dims={[edge, 0.003, d]}
+      />
+    </group>
+  );
+}
+
+/* ---------- the kitchen's and the bathroom's fittings ---------- */
+
+const WORKTOP = 0.04; // m, a stone worktop
+const COUNTER_H = 0.9; // m, a kitchen counter's height
+const CABINET_FROM = 1.5; // m, the wall cabinets' underside
+const STONE = "#d9d4cb";
+const STEEL = "#b8b6b2";
+const WHITE_GOODS = "#e9e7e2";
+const PORCELAIN = "#f4f2ee";
+const GLASS_HEX = "#dfe9ea";
+
+/** a fitted kitchen counter along a wall: base cabinets under a stone
+    worktop with a sink and a hob set into it, and the wall cabinets
+    above, their underside at CABINET_FROM; `h` is the top of the wall
+    cabinets, `d` the base's depth (the wall cabinets are shallower) */
+function Counter({ w, h, d }: { w: number; h: number; d: number }) {
+  const doors = Math.max(1, Math.round(w / 0.6));
+  const doorW = (w - PANEL * (doors + 1)) / doors;
+  const f = wood(LIGHT_WOOD);
+  const upperD = Math.min(d * 0.6, 0.35);
+  const upperH = Math.max(0.3, h - CABINET_FROM);
+  const sinkX = -w / 4;
+  const hobX = w / 4;
+  return (
+    <group>
+      {/* the base: a plinth, the carcass, the doors */}
+      <Slab
+        f={{ colour: shade(LIGHT_WOOD, -0.3), rough: 0.8 }}
+        at={[0, PLINTH / 2, -0.03]}
+        dims={[w - 0.02, PLINTH, d - 0.08]}
+      />
+      <Slab
+        f={f}
+        at={[0, PLINTH + (COUNTER_H - WORKTOP - PLINTH) / 2, -PANEL]}
+        dims={[w, COUNTER_H - WORKTOP - PLINTH, d - PANEL * 2]}
+      />
+      {Array.from({ length: doors }, (_, i) => {
+        const x = -w / 2 + PANEL + i * (doorW + PANEL) + doorW / 2;
+        return (
+          <group key={i}>
+            <Slab
+              f={f}
+              at={[
+                x,
+                PLINTH + (COUNTER_H - WORKTOP - PLINTH) / 2,
+                d / 2 - PANEL / 2,
+              ]}
+              dims={[
+                doorW - DOOR_GAP,
+                COUNTER_H - WORKTOP - PLINTH - DOOR_GAP,
+                PANEL,
+              ]}
+            />
+            <Rod
+              f={metal(METAL)}
+              at={[x, COUNTER_H - WORKTOP - 0.06, d / 2 + 0.015]}
+              r={0.005}
+              h={0.12}
+              rotation={[0, 0, Math.PI / 2]}
+            />
+          </group>
+        );
+      })}
+      {/* the worktop, the sink and the hob */}
+      <Soft
+        f={{ colour: STONE, rough: 0.35, coat: 0.2 }}
+        at={[0, COUNTER_H - WORKTOP / 2, 0]}
+        dims={[w + 0.02, WORKTOP, d + 0.02]}
+        radius={0.004}
+      />
+      <Slab
+        f={metal(STEEL, 0.3)}
+        at={[sinkX, COUNTER_H - 0.002, -0.02]}
+        dims={[Math.min(0.5, w * 0.2), 0.012, Math.min(0.4, d * 0.65)]}
+      />
+      <Rod
+        f={metal(STEEL, 0.3)}
+        at={[sinkX, COUNTER_H + 0.14, -d / 2 + 0.08]}
+        r={0.01}
+        h={0.28}
+      />
+      <Slab
+        f={{ colour: "#1d1c1b", rough: 0.2, coat: 0.6 }}
+        at={[hobX, COUNTER_H + 0.004, -0.02]}
+        dims={[Math.min(0.58, w * 0.22), 0.008, Math.min(0.5, d * 0.8)]}
+      />
+      {/* the wall cabinets */}
+      <Slab
+        f={f}
+        at={[0, CABINET_FROM + upperH / 2, -d / 2 + upperD / 2]}
+        dims={[w, upperH, upperD]}
+      />
+      {Array.from({ length: doors }, (_, i) => {
+        const x = -w / 2 + PANEL + i * (doorW + PANEL) + doorW / 2;
+        return (
+          <Rod
+            key={i}
+            f={metal(METAL)}
+            at={[x, CABINET_FROM + 0.1, -d / 2 + upperD + 0.015]}
+            r={0.005}
+            h={0.12}
+            rotation={[0, 0, Math.PI / 2]}
+          />
+        );
+      })}
+    </group>
+  );
+}
+
+/** a fridge: a tall box in white goods' enamel, its door and handle */
+function Fridge({ w, h, d }: { w: number; h: number; d: number }) {
+  const f: Finish = { colour: WHITE_GOODS, rough: 0.3, coat: 0.3 };
+  const split = h * 0.68;
+  return (
+    <group>
+      <Soft f={f} at={[0, h / 2, 0]} dims={[w, h, d]} radius={0.015} />
+      <Slab
+        f={{ colour: shade(WHITE_GOODS, -0.2), rough: 0.5 }}
+        at={[0, split, d / 2 + 0.001]}
+        dims={[w - 0.02, 0.006, 0.004]}
+      />
+      {[split + 0.3, split - 0.3].map((y, i) => (
+        <Rod
+          key={i}
+          f={metal(METAL)}
+          at={[-w / 2 + 0.06, y, d / 2 + 0.02]}
+          r={0.008}
+          h={0.3}
+        />
+      ))}
+    </group>
+  );
+}
+
+/** a basin cabinet: a two-door carcass under a porcelain basin, a tap,
+    and a mirror on the wall above it */
+function Basin({
+  id,
+  w,
+  h,
+  d,
+  f,
+}: {
+  id: string;
+  w: number;
+  h: number;
+  d: number;
+  f: Finish;
+}) {
+  const top = h - 0.12;
+  return (
+    <group>
+      <Carcass
+        id={id}
+        w={w}
+        h={top}
+        d={d}
+        f={f}
+        bays={[f.colour, f.colour]}
+        doors
+        books={false}
+        hooks={false}
+        seed={0}
+      />
+      <Soft
+        f={{ colour: PORCELAIN, rough: 0.15, coat: 0.5 }}
+        at={[0, top + 0.06, 0]}
+        dims={[w, 0.12, d]}
+        radius={0.03}
+      />
+      <Rod
+        f={metal(STEEL, 0.25)}
+        at={[0, top + 0.2, -d / 2 + 0.06]}
+        r={0.012}
+        h={0.16}
+      />
+      <Suspense fallback={null}>
+        <MirrorFace
+          id={`${id}-mirror`}
+          at={[0, top + 0.75, -d / 2 + 0.012]}
+          size={[w, 0.8]}
+        />
+      </Suspense>
+    </group>
+  );
+}
+
+/** a WC: the pan on its foot, the seat, the cistern against the wall */
+function Toilet({ w, h, d }: { w: number; h: number; d: number }) {
+  const f: Finish = { colour: PORCELAIN, rough: 0.15, coat: 0.5 };
+  const seatH = h * 0.55;
+  const cisternD = Math.min(0.18, d * 0.26);
+  return (
+    <group>
+      <Soft
+        f={f}
+        at={[0, seatH / 2, cisternD / 2]}
+        dims={[w * 0.8, seatH, d - cisternD - 0.02]}
+        radius={0.08}
+      />
+      <Soft
+        f={f}
+        at={[0, seatH + 0.02, cisternD / 2]}
+        dims={[w, 0.04, d - cisternD]}
+        radius={0.1}
+      />
+      <Soft
+        f={f}
+        at={[0, h / 2 + 0.1, -d / 2 + cisternD / 2]}
+        dims={[w, h - 0.2, cisternD]}
+        radius={0.02}
+      />
+    </group>
+  );
+}
+
+/** a shower screen: a sheet of glass in a slim frame */
+function Glass({ w, h, d }: { w: number; h: number; d: number }) {
+  return (
+    <group>
+      <mesh position={[0, h / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[Math.max(w, 0.008), h, Math.max(d, 0.008)]} />
+        <meshPhysicalMaterial
+          color={GLASS_HEX}
+          transparent
+          opacity={0.28}
+          roughness={0.05}
+          metalness={0}
+          depthWrite={false}
+        />
+      </mesh>
+      <Slab
+        f={metal(METAL, 0.4)}
+        at={[0, h - 0.015, 0]}
+        dims={[Math.max(w, 0.03), 0.03, Math.max(d, 0.03)]}
+      />
+    </group>
+  );
+}
+
+/** a stool: a round seat on three splayed legs */
+function Stool({ w, h, d }: { w: number; h: number; d: number }) {
+  const r = Math.min(w, d) / 2;
+  return (
+    <group>
+      <Rod f={wood(LIGHT_WOOD)} at={[0, h - 0.02, 0]} r={r} h={0.04} />
+      {[0, 1, 2].map((i) => {
+        const a = (i / 3) * Math.PI * 2;
+        return (
+          <Rod
+            key={i}
+            f={metal(IRON, 0.5)}
+            at={[Math.cos(a) * r * 0.6, (h - 0.04) / 2, Math.sin(a) * r * 0.6]}
+            r={0.012}
+            h={h - 0.04}
+          />
+        );
+      })}
+    </group>
+  );
+}
+
+/** a dining chair: a seat on four legs with a back */
+function Chair({
+  w,
+  h,
+  d,
+  colour,
+}: {
+  w: number;
+  h: number;
+  d: number;
+  colour: string;
+}) {
+  const seatH = Math.min(0.45, h * 0.53);
+  const f = wood(LIGHT_WOOD);
+  return (
+    <group>
+      <Soft
+        f={cloth(colour)}
+        at={[0, seatH - 0.02, 0]}
+        dims={[w, 0.04, d]}
+        radius={0.01}
+      />
+      {[-1, 1].flatMap((sx) =>
+        [-1, 1].map((sz) => (
+          <Rod
+            key={`${sx}${sz}`}
+            f={f}
+            at={[sx * (w / 2 - 0.03), (seatH - 0.04) / 2, sz * (d / 2 - 0.03)]}
+            r={0.014}
+            h={seatH - 0.04}
+          />
+        )),
+      )}
+      <Slab
+        f={f}
+        at={[0, seatH + (h - seatH) / 2, -d / 2 + 0.02]}
+        dims={[w - 0.04, h - seatH, 0.025]}
       />
     </group>
   );

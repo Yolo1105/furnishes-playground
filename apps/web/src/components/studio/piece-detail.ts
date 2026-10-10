@@ -125,6 +125,8 @@ const SIZES: Record<AssetCategory, [number, number, number]> = {
   screens: [1500, 300, 1700],
   lighting: [300, 300, 1500],
   decor: [400, 400, 400],
+  beds: [1550, 2000, 450],
+  fittings: [600, 600, 900],
   architecture: [1000, 100, 2600],
 };
 
@@ -132,6 +134,8 @@ const SIZES: Record<AssetCategory, [number, number, number]> = {
 const SIZES_BY_NAME: [RegExp, [number, number, number]][] = [
   [/armchair/i, [800, 850, 800]],
   [/sofa/i, [1800, 900, 800]],
+  [/stool/i, [350, 350, 650]],
+  [/\bchair\b/i, [450, 480, 850]],
   [/bench/i, [1200, 400, 450]],
   [/coffee table/i, [1000, 600, 420]],
   [/cart|trolley/i, [600, 450, 750]],
@@ -140,7 +144,15 @@ const SIZES_BY_NAME: [RegExp, [number, number, number]][] = [
   [/desk lamp/i, [200, 200, 450]],
   [/plant/i, [400, 400, 900]],
   [/vase/i, [200, 200, 350]],
+  [/basket|hamper/i, [350, 350, 300]],
+  [/bath mat/i, [600, 400, 15]],
   [/rug/i, [1600, 1200, 15]],
+  // the kitchen's and the bathroom's fittings
+  [/counter|worktop/i, [3200, 600, 2200]],
+  [/fridge|refrigerator/i, [700, 650, 1750]],
+  [/basin|vanity/i, [600, 450, 850]],
+  [/\bwc\b|toilet/i, [380, 650, 780]],
+  [/shower screen/i, [50, 900, 2000]],
   [/screen/i, [1500, 300, 1700]],
   [/bedside/i, [450, 400, 550]],
   [/\bbed\b/i, [1550, 2000, 450]],
@@ -188,7 +200,8 @@ export const carcassOf = (
 };
 
 /** a rug lies under things; a small item (a lamp, a vase) is no obstacle */
-export const isRug = (n: Pick<AssetNode, "name">) => /rug/i.test(n.name);
+export const isRug = (n: Pick<AssetNode, "name">) =>
+  /rug|bath mat/i.test(n.name);
 export const isSmall = (p: Pick<PieceProps, "width" | "depth">) =>
   Math.max(p.width, p.depth) < 500;
 

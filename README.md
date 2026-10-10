@@ -123,8 +123,21 @@ and Ask us, which writes to the studio's help table), privacy
 `apps/web/src/components/site/copy.ts`. `/rounded` is the studio with
 floating panels and `/studio` the square-cornered one; Settings
 switches between them. Projects
-(new, rename, delete, switch) each hold a room, its pieces and Eva's
+(new, rename, delete, switch) each hold a flat, its pieces and Eva's
 side, autosaved in the browser.
+
+A new project opens on a 5-room flat of four rooms furnished as a flat
+is lived in: the living and dining room (7.0 × 4.5 m) in the middle,
+the master bedroom west of it, the common bathroom below the bedroom
+and entered from the living room, the kitchen east of the dining end by
+the entrance; each neighbour meets the living room on a different wall,
+so the doorways do not line up. Eleven Furnishes pieces stand in it to
+be bought (the sideboard as the media console, the bookwall, the shoe
+bench and the entry organiser, the island and the trolleys, the bedside
+cabinets, the bench at the bed's foot) among the room items that make
+the rooms read (sofa, dining set, bed, wardrobe, the fitted kitchen,
+the bathroom's fittings). `docs/plan-default-flat.md` has the plan and
+how it was built.
 
 Eva can change the room. When she is asked to furnish, lay out, move
 or add things, her answer carries changes (pieces moved or turned,

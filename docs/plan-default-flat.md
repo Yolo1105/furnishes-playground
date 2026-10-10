@@ -1,7 +1,11 @@
 # The first flat: four rooms the studio opens on (plan, 2026-10-09)
 
-Status: a plan, not yet built. Nothing below is in the code; the
-implementation notes at the end say what changes and in which order.
+Status: built (2026-10-10). The flat is `showcaseFlat()` in
+room-store.ts, the items and their places are `SHOWCASE` in
+assets-data.ts, and showcase.test.ts reads the whole flat through the
+planner's own health check. The plan below is as it was written; the
+section at the end, "As built", lists where the build departed from it
+and why.
 
 ## Why
 
@@ -298,3 +302,65 @@ bedroom → bathroom door, so Play walks the pinwheel.
    different flat); the first-load budget re-run.
 7. Saved projects keep their rooms: the showcase seeds new projects
    only, with the sync document's version bumped.
+
+## As built
+
+The planner's health check (`healthOf`, the same one Eva's room health
+reads) was run over the plan's positions, and the first pass raised a
+dozen findings. Each was answered by moving something, never by
+loosening a rule:
+
+- **The bedroom stands a metre north of the living room's line**, at
+  (−4300, −1000), and the bathroom at (−2700, 2800), flush with the
+  living room's south line. At the plan's positions the bathroom met the
+  living room's west wall over 700 mm, under the 900 mm a doorway
+  needs; now it meets it over 1700. The flat's outline has a jog at the
+  north-west, as flats do.
+- **The doorways, on the sheet**: the bedroom's door is centred at
+  y 1450 (600 mm from the bedroom's south-east corner, as planned, which
+  is y 1000–1900 on the living room's west wall); the bathroom's at
+  y 3325, the north end of the shared run, so its swing (x 1650–2400,
+  y 150–900 in the bathroom) clears the trolley; the kitchen's sliding
+  door at y 3450 (2550–4350), not 3150, so the counter along the
+  kitchen's north wall stands clear of the doorway's approach.
+- **The bookwall moved to the north wall**, east of the window
+  (x 5200–6400), because the west wall now carries two doors and their
+  approaches, with no 1200 mm run free between them.
+- **The entry organiser stands on the east wall** north of the sliding
+  door (x 6600–7000, y 1000–1600): the south-east corner holds the
+  entry door's swing and the sliding door's approach, and nothing fits
+  between them.
+- **The floor lamp stands at the sofa's east arm** (x 3450–3750), out of
+  the bedroom door's approach; the coffee table is 600 from the sofa
+  (not 500); the dining set is 100 further east; the dining chairs are
+  450 × 480 so the planner reads them as small things walked round,
+  tucked at the table, rather than as neighbours owed a walkway.
+- **In the kitchen** the fridge stands beside the island (x 1800–2500,
+  touching), the trolley at y 1200 (a walkway from the counter), the
+  basket beside the trolley.
+- **In the bedroom** the bedside cabinets touch the bed (x 600–1200 and
+  2800–3400); the bench touches its foot.
+- **In the bathroom** the basin touches the shower screen (x 910–1510)
+  and the WC is 650 deep at y 1050, a walkway from the basin.
+- **Eleven pieces for sale**, not ten (the count in the plan was short):
+  sideboard, bookwall, entry organiser, two storage benches, preparation
+  island, two kitchen trolleys, two bedside cabinets, desk-side
+  organiser. The folding screen was left out: it would have stood in
+  the sight line from the entry to the window.
+- **Two categories were added** for the room items that had no home:
+  "Beds" and "Kitchen & bath fittings" (the counter with its wall
+  cabinets, the fridge, the basin cabinet with its mirror, the WC, the
+  shower screen). The wall cabinets are part of the counter's form, not
+  an item of their own, so the plan does not read them as a second
+  thing standing on the counter's floor.
+- **The tour's default stops** walk the pinwheel: in at the entry,
+  through the lounge and the dining end, into the kitchen and back,
+  across to the bedroom and back, and to the bathroom door, every
+  doorway crossed square on.
+
+The health check now reads every room clean: no overlaps, every door's
+swing and approach clear, every window clear of tall pieces, every gap
+between neighbours a walkway or a touch, nothing a room must have
+missing. The e2e suite's expectations of the old single room (its size,
+its flat type, where its pieces stood on the plan) were brought up to
+the flat.

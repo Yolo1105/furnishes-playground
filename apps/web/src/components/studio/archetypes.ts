@@ -161,6 +161,12 @@ export const ARCHETYPES: Record<RoomId, Archetype> = {
       },
     ],
   },
+  bathroom: {
+    name: "The trolley by the basin",
+    rules: [
+      { what: /trolley|cart|caddy/i, name: "trolley", place: "free-wall" },
+    ],
+  },
 };
 
 const SAID: Record<Placement, (r: Rule) => string> = {
