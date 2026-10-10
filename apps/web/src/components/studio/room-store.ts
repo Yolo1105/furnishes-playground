@@ -3,6 +3,7 @@ import { newId } from "./ids";
 import {
   CEILING,
   type FlatType,
+  hdbOffset,
   JOIN_MIN,
   makeOpening,
   type Opening,
@@ -217,6 +218,28 @@ const freeWall = (openings: Opening[]): Wall => {
       : best,
   );
 };
+
+/** a room's openings on its walls at a new size: one placed by HDB's
+    convention keeps its distance from the far corner, the rest keep
+    their share of the wall */
+const refit = (
+  r: Pick<RoomSpec, "openings" | "width" | "depth">,
+  width: number,
+  depth: number,
+): Opening[] =>
+  r.openings.map((o) => {
+    if (o.at === null) return o;
+    const along = o.wall === "north" || o.wall === "south";
+    const off = o.hdb ? hdbOffset(o, r.width, r.depth) : null;
+    const to = along ? width : depth;
+    return {
+      ...o,
+      at:
+        off !== null
+          ? to - off - o.width / 2
+          : (o.at * to) / (along ? r.width : r.depth),
+    };
+  });
 
 /** a drawn outline and its openings stretched to a new width and depth */
 const stretched = (
@@ -538,11 +561,13 @@ export const useRoom = create<RoomState>((set, get) => {
     ...home,
     activeId: home.rooms[0]!.id,
     drawing: [],
-    setFlat: (flat) =>
+    setFlat: (flat) => {
       set((s) => ({
         flat,
-        // a room the flat does not have becomes a living room; one still
-        // at its typical size takes the flat's
+        // a room the flat does not have becomes a living room, with a
+        // living room's openings; one still at its typical size takes the
+        // flat's and keeps its own openings, refitted to its walls (a
+        // window set by hand, a door taken out for a doorway, stay so)
         rooms: s.rooms.map((r) => {
           const room = PRESETS[flat][r.room] ? r.room : "living";
           if (!r.preset && room === r.room) return r;
@@ -551,13 +576,18 @@ export const useRoom = create<RoomState>((set, get) => {
             ...r,
             room,
             ...(r.preset ? size : {}),
-            openings: r.preset
-              ? openingsFor(room, size.width, size.depth)
-              : r.openings,
+            openings: !r.preset
+              ? r.openings
+              : room === r.room
+                ? refit(r, size.width, size.depth)
+                : openingsFor(room, size.width, size.depth),
             ...(room === r.room ? {} : { rules: rulesFor(room) }),
           };
         }),
-      })),
+      }));
+      // the rooms' sizes changed: the doorways between them are read afresh
+      get().settleJoins();
+    },
     setRoom: (room) => {
       active((r, s) => {
         const size = sized(s.flat, room);

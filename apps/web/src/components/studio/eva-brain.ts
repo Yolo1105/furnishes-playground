@@ -376,7 +376,11 @@ export const recommend = (
   text: string,
   opts: { skip?: string[]; cheaper?: boolean } = {},
 ): Recommendation[] => {
-  const inRoom = new Set(c.pieces.map((n) => n.name));
+  // what the room has, by name and by product: a second of a kind is
+  // numbered ("Kitchen trolley 3"), its product the same
+  const inRoom = new Set(
+    c.pieces.flatMap((n) => (n.productId ? [n.name, n.productId] : [n.name])),
+  );
   const needs = c.exploration ? [] : (c.prefs.furniture?.values ?? []);
   const asked = FURNITURE.filter((f) => hasWord(text, f));
   const wanted = asked.length ? asked : needs;
@@ -387,6 +391,7 @@ export const recommend = (
     (p) =>
       p.category !== "components" &&
       !inRoom.has(p.name) &&
+      !inRoom.has(p.id) &&
       !opts.skip?.includes(p.id),
   );
   if (wanted.length) {

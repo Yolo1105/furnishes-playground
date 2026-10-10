@@ -2480,7 +2480,16 @@ test("a project kept by an earlier studio comes up to the catalogue as it is rea
   await card
     .getByRole("button", { name: `Add ${first.name} to the cart` })
     .click();
-  await page.waitForTimeout(900);
+  // the project is kept a moment after the change (later on a busy
+  // page): wait for it to be there with the piece in its cart
+  await page.waitForFunction(
+    (id) =>
+      (localStorage.getItem("furnishes.projects") ?? "").includes(
+        `"cart":["${id}"]`,
+      ),
+    first.id,
+    { timeout: 20_000 },
+  );
   const price = await page.evaluate(() => {
     const kept = JSON.parse(localStorage.getItem("furnishes.projects")!);
     const open = kept.projects.find(
@@ -3165,9 +3174,8 @@ test("the room knows its flat: what fits, where the door is, a kitchen without a
   const fit = page.getByRole("list", { name: "What fits" });
   await expect(fit).toContainText("L-shaped sofa 3.0 m or more");
   const rooms = page.getByRole("radiogroup", { name: "Rooms" });
-  await page.getByRole("radio", { name: "3-room" }).click();
   await rooms.getByRole("radio", { name: "Master bedroom" }).click();
-  await expect(fit).toContainText("A king bed will not fit");
+  await expect(fit).toContainText("King bed (193 × 203 cm) comfortable");
   // the bedroom's door is the doorway from the living room, in its east
   // wall; the Room tab names it by the room beyond
   await expect(page.getByText("Door to the Living & dining")).toBeVisible();
@@ -3176,6 +3184,10 @@ test("the room knows its flat: what fits, where the door is, a kitchen without a
   await expect(
     active.locator('.plan-opening-group[data-kind="door"][data-wall="east"]'),
   ).toHaveCount(1);
+  // a 3-room flat's master takes a queen at most (its rooms take the
+  // flat's sizes where they stand, keeping their own openings)
+  await page.getByRole("radio", { name: "3-room" }).click();
+  await expect(fit).toContainText("A king bed will not fit");
   // the kitchen's light comes from the service yard: its one window is
   // in the east wall
   await rooms.getByRole("radio", { name: "Kitchen" }).click();
@@ -3245,7 +3257,8 @@ test("openings are a list: the + strip adds them, the Wall tool moves and sizes 
   await openings();
   await strip.getByRole("button", { name: /^Add a sliding door,/ }).click();
   await expect(strip).toHaveCount(0);
-  await expect(ofKind("sliding")).toHaveCount(1);
+  // (the doorway to the kitchen is a sliding door already)
+  await expect(ofKind("sliding")).toHaveCount(2);
   await add.click();
   await openings();
   const sheet = page.locator('.plan-pieces[data-active="true"]');
@@ -3313,7 +3326,9 @@ test("openings are a list: the + strip adds them, the Wall tool moves and sizes 
     .getByRole("radio", { name: "west" })
     .click();
   await expect(ofKind("double")).toHaveAttribute("data-wall", "west");
-  await page.getByRole("button", { name: "Remove passage" }).click();
+  await page
+    .getByRole("button", { name: "Remove passage", exact: true })
+    .click();
   await expect(groups).toHaveCount(6);
   await expect(ofKind("passage")).toHaveCount(2);
 });
@@ -3512,7 +3527,13 @@ test("the flat has rooms: one added stands beside the active room, a click on it
     name: "Work on the Living & dining",
   });
   const fb = (await floor.boundingBox())!;
-  await floor.click({ position: { x: 10, y: fb.height - 10 } });
+  // clear floor between the rug and the shoe bench, 3.8 m in each way
+  await floor.click({
+    position: {
+      x: (fb.width * 3800) / LIVING.w,
+      y: (fb.height * 3800) / LIVING.d,
+    },
+  });
   await expect(
     rooms.getByRole("radio", { name: "Living & dining" }),
   ).toHaveAttribute("aria-checked", "true");
@@ -3823,6 +3844,15 @@ test("the room's rules shape the planner: the walkway, what is kept clear, a bed
   await typical.click();
   await expect(walkway).toHaveValue("600");
   await expect(open).toHaveValue("50");
+  // the living room's things hidden (a hidden thing stands nowhere, for
+  // the planner), so a bed has floor to stand on and walls to go to
+  await page.getByRole("tab", { name: "Assets", exact: true }).click();
+  for (const a of living.filter((n) => n.kind !== "fixed"))
+    await page
+      .getByRole("treeitem", { name: a.name, exact: true })
+      .getByRole("button", { name: `Hide ${a.name}` })
+      .click();
+  await page.getByRole("tab", { name: "Room", exact: true }).click();
   // what the room must have: a bed asked for, missing, then added
   const mustHave = page.getByRole("group", { name: "Must have" });
   await expect(mustHave.getByRole("button", { name: "sofa" })).toHaveAttribute(
@@ -4141,7 +4171,12 @@ test("a piece turns freely: the handle drags round it in steps of 15, Shift free
   // are hidden first, so the sofa goes to clear floor south of the rug,
   // its turned box past the south wall)
   await page.getByRole("tab", { name: "Assets", exact: true }).click();
-  for (const name of ["Coffee table", "Armchair", "Storage bench"])
+  for (const name of [
+    "Coffee table",
+    "Armchair",
+    "Storage bench",
+    "Three-bay sideboard",
+  ])
     await page
       .getByRole("treeitem", { name, exact: true })
       .getByRole("button", { name: `Hide ${name}` })
@@ -5091,29 +5126,34 @@ test("a piece may stand past the walls; near a wall the magnet draws it flush, i
     .locator('.plan-pieces[data-active="true"]')
     .boundingBox())!;
   const ppm = sheet.width / LIVING.w; // px per mm, the room's own box
-  const name = top.filter((a) => a.kind === "piece")[0]!.name;
+  // the living room's east wall, its inner face: past it, north of the
+  // kitchen, is open ground (every other wall has a room beyond it)
+  const east = sheet.x + sheet.width;
+  // the entry organiser stands against it, north of the kitchen's door
+  const name = "Entry organiser";
   const body = page.locator(".stage-pieces").getByRole("button", {
     name,
     exact: true,
   });
-  const dragTo = async (leftPx: number) => {
+  /** the piece dragged across and let go with its right edge at `right` */
+  const dragTo = async (right: number) => {
     const b = (await body.boundingBox())!;
     const cx = b.x + b.width / 2;
     const cy = b.y + b.height / 2;
     await page.mouse.move(cx, cy);
     await page.mouse.down();
-    await page.mouse.move(cx + 30, cy + 8, { steps: 4 });
-    await page.mouse.move(leftPx + b.width / 2, cy + 8, { steps: 8 });
+    await page.mouse.move(cx - 30, cy, { steps: 4 });
+    await page.mouse.move(right - b.width / 2, cy, { steps: 8 });
     await page.mouse.up();
     return (await body.boundingBox())!;
   };
-  // left edge let go 100 mm from the west wall: it goes flush to it
-  let b = await dragTo(sheet.x + 100 * ppm);
-  expect(Math.abs(b.x - sheet.x)).toBeLessThan(2);
-  // let go outside, the right edge 400 mm past the wall: it stands
+  // right edge let go 100 mm from the east wall: it goes flush to it
+  let b = await dragTo(east - 100 * ppm);
+  expect(Math.abs(b.x + b.width - east)).toBeLessThan(2);
+  // let go outside, the left edge 400 mm past the wall: it stands
   // outside, against the wall band's far face (300 mm)
-  b = await dragTo(sheet.x - 400 * ppm - b.width);
-  expect(Math.abs(b.x + b.width - (sheet.x - 300 * ppm))).toBeLessThan(2);
+  b = await dragTo(east + 400 * ppm + b.width);
+  expect(Math.abs(b.x - (east + 300 * ppm))).toBeLessThan(2);
   // the rules read it as past the wall
   await expect(page.getByRole("list", { name: "Room health" })).toContainText(
     `${name} stands past the wall`,
@@ -5126,9 +5166,9 @@ test("a piece may stand past the walls; near a wall the magnet draws it flush, i
     .click();
   await page.getByRole("radio", { name: "Off" }).click();
   await page.keyboard.press("Escape");
-  b = await dragTo(sheet.x + 100 * ppm);
-  expect(Math.abs(b.x - (sheet.x + 100 * ppm))).toBeLessThan(2);
-  expect(Math.abs(b.x - sheet.x)).toBeGreaterThan(4);
+  b = await dragTo(east - 100 * ppm);
+  expect(Math.abs(b.x + b.width - (east - 100 * ppm))).toBeLessThan(2);
+  expect(Math.abs(b.x + b.width - east)).toBeGreaterThan(4);
 });
 
 test("Eva furnishes the room by the book, reviews it, applies her changes as one undo step, and explains a layout", async ({

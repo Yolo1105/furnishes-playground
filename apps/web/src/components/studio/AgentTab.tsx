@@ -94,7 +94,11 @@ export function AgentTab() {
   const ctx = context();
   const plan = planOf(ctx);
   const at = stageOf(ctx);
-  const inRoom = new Set(items.map((n) => n.name));
+  // what the room has, by name and by product: a piece added from a
+  // card is numbered when the flat has one of its kind already
+  const inRoom = new Set(
+    items.flatMap((n) => (n.productId ? [n.name, n.productId] : [n.name])),
+  );
 
   // what Eva has read, in one line: the room, what stands in it, and
   // what she keeps to
@@ -648,7 +652,8 @@ export function AgentTab() {
               {m.cards && (
                 <div className="agent-cards" aria-label="Pieces Eva picked">
                   {m.cards.map(({ product, why }) => {
-                    const added = inRoom.has(product.name);
+                    const added =
+                      inRoom.has(product.id) || inRoom.has(product.name);
                     return (
                       <article
                         key={product.id}

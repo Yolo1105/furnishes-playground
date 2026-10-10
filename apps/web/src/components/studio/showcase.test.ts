@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { assetGroups, showcasePlaces } from "./assets-data";
 import { healthOf, type Room } from "./room-health";
 import { footprint } from "./piece-detail";
-import { PRIVATE_ROOMS, SHOWCASE_ROOMS } from "./room-data";
+import { hdbOffset, PRIVATE_ROOMS, SHOWCASE_ROOMS } from "./room-data";
 import { footprintOf, openingsOf, roomOverlaps, useRoom } from "./room-store";
 import { inRoom, propsOf } from "./scene-store";
 
@@ -132,5 +132,28 @@ describe("the flat the studio opens on", () => {
         ),
         id,
       ).toBe(true);
+  });
+
+  it("keeps each room's own openings when the flat type changes", () => {
+    useRoom.getState().setFlat("3-room");
+    const s = useRoom.getState();
+    const room = (id: string) => s.rooms.find((r) => r.id === id)!;
+    // the kitchen keeps its window on the service yard's side
+    expect(
+      room(SHOWCASE_ROOMS.kitchen)
+        .openings.filter((o) => o.kind === "window")
+        .map((o) => o.wall),
+    ).toEqual(["east"]);
+    // the bedroom's door is its doorway: no door of its own comes back
+    expect(
+      room(SHOWCASE_ROOMS.master).openings.some((o) => o.kind === "door"),
+    ).toBe(false);
+    // the entry door keeps its place by HDB's convention, 800 mm from
+    // the east corner of the smaller living room
+    const living = room(SHOWCASE_ROOMS.living);
+    expect(living.width).toBe(6000);
+    const door = living.openings.find((o) => o.kind === "door")!;
+    expect(hdbOffset(door, living.width, living.depth)).toBe(800);
+    useRoom.setState(useRoom.getInitialState(), true);
   });
 });
