@@ -3329,7 +3329,7 @@ test("openings are a list: the + strip adds them, the Wall tool moves and sizes 
     .click();
   await expect(ofKind("double")).toHaveAttribute("data-wall", "west");
   await page
-    .getByRole("button", { name: "Remove passage", exact: true })
+    .getByRole("button", { name: "Remove Passage", exact: true })
     .click();
   await expect(groups).toHaveCount(6);
   await expect(ofKind("passage")).toHaveCount(2);
