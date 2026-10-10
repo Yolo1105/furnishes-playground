@@ -1049,8 +1049,10 @@ const STEEL = "#b8b6b2";
 const WHITE_GOODS = "#e9e7e2";
 const PORCELAIN = "#f4f2ee";
 const GLASS_HEX = "#dfe9ea";
-/** a bathroom mirror's pane, read as silvered glass */
-const MIRROR_PANE = "#cfd7d8";
+/** a bathroom mirror's pane: pale glass under a clear coat, which reads
+    as a mirror from across the room without a room to reflect (a metal
+    pane with nothing to reflect draws black) */
+const MIRROR_PANE = "#dde4e5";
 
 /** a fitted kitchen counter along a wall: base cabinets under a stone
     worktop with a sink and a hob set into it, and the wall cabinets
@@ -1223,10 +1225,12 @@ function Basin({
           finish a visitor puts on a door */}
       <mesh position={[0, top + 0.75, -d / 2 + 0.008]} receiveShadow>
         <boxGeometry args={[w, 0.8, 0.006]} />
-        <meshStandardMaterial
+        <meshPhysicalMaterial
           color={MIRROR_PANE}
-          metalness={0.55}
-          roughness={0.1}
+          metalness={0}
+          roughness={0.12}
+          clearcoat={1}
+          clearcoatRoughness={0.04}
         />
       </mesh>
     </group>
