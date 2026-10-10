@@ -1378,6 +1378,10 @@ test("the Detail tab lists a piece's components and changes one", async ({
 test("a piece opens as panels: picked, typed in millimetres, added to, priced, closed again", async ({
   page,
 }) => {
+  // the part worker builds a solid and the stage redraws a flat of four
+  // rooms between the steps: more than the usual minute on a software
+  // renderer
+  test.setTimeout(180_000);
   await page.goto("/rounded");
   const bookwall = top.find((a) => a.children?.length)!;
   await page
