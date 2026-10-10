@@ -1251,17 +1251,25 @@ test("Inspect raises Details and Label over a piece; labels reach Eva, five at m
   await expect(page.getByRole("textbox", { name: "Message Eva" })).toHaveValue(
     `About 1 (${first.name}): `,
   );
-  // five at a time, across the flat: the sixth piece cannot be labelled.
-  // Eva's chips show the labels in the room she is working on
-  for (const p of pieces.slice(1, 5)) {
-    await stage.getByRole("button", { name: p.name, exact: true }).click();
+  // five at a time, across the flat: the sixth piece cannot be labelled
+  // (pieces with room round them on the plan, where the actions rise
+  // clear: a bedside cabinet's would stand over the bed). Eva's chips
+  // show the labels in the room she is working on
+  const more = [
+    "Bookwall",
+    "Entry organiser",
+    "Storage bench",
+    "Preparation island",
+  ];
+  for (const name of more) {
+    await stage.getByRole("button", { name, exact: true }).click();
     await stage
-      .getByRole("group", { name: `${p.name} actions` })
+      .getByRole("group", { name: `${name} actions` })
       .getByRole("button", { name: "Label" })
       .click();
   }
   await expect(agent.locator(".agent-label")).toHaveCount(
-    pieces.slice(0, 5).filter((p) => living.includes(p)).length,
+    1 + more.filter((n) => living.some((a) => a.name === n)).length,
   );
   await page.getByRole("button", { name: "Add", exact: true }).click();
   await page.getByRole("button", { name: /^Add Shelf,/ }).click();
