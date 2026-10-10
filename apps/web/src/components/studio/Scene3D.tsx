@@ -191,25 +191,39 @@ function LiveHandle({
   w,
   d,
   h,
+  spanW,
+  spanD,
   centre,
   sun,
 }: {
   w: number;
   d: number;
   h: number;
+  /** the flat's box, m */
+  spanW: number;
+  spanD: number;
   centre: readonly [number, number];
   sun: { position: Vector3Tuple; colour: string; intensity: number };
 }) {
   const scene = useThree((s) => s.scene);
   const camera = useThree((s) => s.camera);
   useEffect(() => {
-    setLive({ scene, camera, w, d, h, centre, sun });
+    setLive({
+      scene,
+      camera,
+      w,
+      d,
+      h,
+      span: { w: spanW, d: spanD },
+      centre,
+      sun,
+    });
     // in development the scene is at hand in the console too, for
     // hiding one thing at a time when a defect is hunted
     if (process.env.NODE_ENV !== "production")
       (window as unknown as { __scene?: Scene }).__scene = scene;
     return () => setLive(null);
-  }, [scene, camera, w, d, h, centre, sun]);
+  }, [scene, camera, w, d, h, spanW, spanD, centre, sun]);
   return null;
 }
 
@@ -437,6 +451,8 @@ function Rig({
   d,
   h,
   centre,
+  roomW,
+  roomD,
   stage,
 }: {
   angle: Angle;
@@ -445,6 +461,9 @@ function Rig({
   d: number;
   h: number;
   centre: readonly [number, number];
+  /** the room being worked on, m: the perspective looks into it */
+  roomW: number;
+  roomD: number;
   stage: RefObject<HTMLDivElement | null>;
 }) {
   const camera = useThree((s) => s.camera);
@@ -463,7 +482,10 @@ function Rig({
     // turned by hand: the camera stays where the cube or the canvas put
     // it; the angle picked again, free cleared, glides back to it
     if (free) return;
-    const { pos, at } = cameraFor(angle, w, d, h, centre);
+    const { pos, at } = cameraFor(angle, w, d, h, centre, {
+      w: roomW,
+      d: roomD,
+    });
     // a tall screen (a phone, a tablet upright) sees less across: the
     // camera stands further back so the room still fits
     const aspect = size.height ? size.width / size.height : 1.5;
@@ -478,7 +500,20 @@ function Rig({
       t: reduced() ? 1 : 0,
     };
     invalidate();
-  }, [angle, free, w, d, h, centre, camera, controls, invalidate, size]);
+  }, [
+    angle,
+    free,
+    w,
+    d,
+    h,
+    centre,
+    roomW,
+    roomD,
+    camera,
+    controls,
+    invalidate,
+    size,
+  ]);
   // the cube's drag: the camera goes round its target at its distance
   const turn = useStudio((s) => s.turn);
   useEffect(() => {
@@ -1314,6 +1349,7 @@ function OtherRoom({
     <group position={[dx, 0, dz]}>
       <RoomShell
         r={{
+          id: rm.id,
           W: rm.width,
           D: rm.depth,
           outline,
@@ -1728,6 +1764,8 @@ export default function Scene3D() {
             d={toMetres(box.h)}
             h={h}
             centre={centre}
+            roomW={w}
+            roomD={d}
             stage={stage}
           />
         )}
@@ -1735,7 +1773,15 @@ export default function Scene3D() {
         <Backend />
         <BenchFrames />
         <FirstFrame onDrawn={() => setDrawn(true)} />
-        <LiveHandle w={w} d={d} h={h} centre={centre} sun={liveSun} />
+        <LiveHandle
+          w={w}
+          d={d}
+          h={h}
+          spanW={toMetres(box.w)}
+          spanD={toMetres(box.h)}
+          centre={centre}
+          sun={liveSun}
+        />
         {tier && <Photo tier={tier} stamp={reflectStamp} />}
         <PhotoBench />
         {post && (
@@ -1814,6 +1860,7 @@ export default function Scene3D() {
         {!a.focus && (
           <RoomShell
             r={{
+              id: room.id,
               W: room.width,
               D: room.depth,
               outline,

@@ -383,7 +383,14 @@ export const openingsOf = (
 export const sharedOf = (
   s: Pick<RoomConfig, "rooms">,
   r: RoomSpec,
-): { wall: Wall; from: number; to: number; both: boolean }[] => {
+): {
+  wall: Wall;
+  from: number;
+  to: number;
+  both: boolean;
+  /** the room beyond the wall */
+  other: string;
+}[] => {
   const i = s.rooms.findIndex((x) => x.id === r.id);
   const mine = sheetOutline(r);
   return s.rooms.flatMap((other, k) =>
@@ -398,6 +405,7 @@ export const sharedOf = (
             from: run.from - along,
             to: run.to - along,
             both: k > i,
+            other: other.id,
           };
         }),
   );

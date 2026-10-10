@@ -24,6 +24,7 @@ import {
 } from "@react-three/fiber";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useEvent } from "./use-event";
+import { useRoom } from "./room-store";
 import {
   BufferAttribute,
   BufferGeometry,
@@ -285,6 +286,9 @@ const ROUGHNESS: Record<Floor, number> = {
 };
 
 type RoomShape = {
+  /** the room's id: a wall or a doorway it shares answers to whichever
+      of its two rooms is being worked on */
+  id: string;
   W: number;
   D: number;
   outline: readonly Point[];
@@ -305,19 +309,38 @@ type RoomShape = {
       from both sides; else the other room does and this one skips it) */
   shared?: readonly Stretch[];
 };
-type Stretch = { wall: Wall; from: number; to: number; both: boolean };
+type Stretch = {
+  wall: Wall;
+  from: number;
+  to: number;
+  both: boolean;
+  /** the room beyond the wall */
+  other: string;
+};
+
+/** which side of a shared wall or doorway counts, read each frame: the
+    side of the room being worked on (1 for this room, -1 for the room
+    beyond), so the wall is that room's near or far wall; 0 when neither
+    is, and it stands */
+const sideOf = (room: string, other: string) => {
+  const active = useRoom.getState().activeId;
+  return active === room ? 1 : active === other ? -1 : 0;
+};
 
 /** a wall, a leaf or a pane shows only from inside its room, so a near
     wall never hides the room from the camera; one shared with the room
-    beyond shows from both sides. Read each frame from where the camera
-    stands against the thing's inward normal */
+    beyond answers to whichever of the two rooms is being worked on (its
+    near wall goes, its far wall stands), and stands when neither is.
+    Read each frame from where the camera stands against the thing's
+    inward normal */
 function Inside({
   normal,
-  always = false,
+  shared,
   children,
 }: {
   normal: readonly [number, number];
-  always?: boolean;
+  /** a doorway shared with the room beyond: this room and that one */
+  shared?: { room: string; other: string } | null | undefined;
   children: React.ReactNode;
 }) {
   const group = useRef<Group>(null);
@@ -325,7 +348,8 @@ function Inside({
   useFrame(({ camera }) => {
     const g = group.current;
     if (!g) return;
-    if (always) {
+    const side = shared ? sideOf(shared.room, shared.other) : 1;
+    if (side === 0) {
       g.visible = true;
       return;
     }
@@ -333,7 +357,7 @@ function Inside({
     const dot =
       (camera.position.x - at.x) * normal[0] +
       (camera.position.z - at.z) * normal[1];
-    g.visible = dot > 0;
+    g.visible = side * dot > 0;
   });
   return <group ref={group}>{children}</group>;
 }
@@ -344,7 +368,7 @@ function Inside({
 const runsOf = (
   e: Edge,
   shared: readonly Stretch[],
-): { e: Edge; both: boolean }[] => {
+): { e: Edge; both: boolean; other?: string }[] => {
   const horizontal = e.wall === "north" || e.wall === "south";
   const k = horizontal ? 0 : 1;
   const lo = Math.min(e.a[k], e.b[k]);
@@ -358,7 +382,7 @@ const runsOf = (
   ].sort((p, q) => p - q);
   const forward = e.a[k] <= e.b[k];
   const at = (v: number): Point => (horizontal ? [v, e.a[1]] : [e.a[0], v]);
-  const out: { e: Edge; both: boolean }[] = [];
+  const out: { e: Edge; both: boolean; other?: string }[] = [];
   for (let i = 0; i + 1 < marks.length; i++) {
     const p = marks[i]!;
     const q = marks[i + 1]!;
@@ -369,6 +393,7 @@ const runsOf = (
     out.push({
       e: { a: at(forward ? p : q), b: at(forward ? q : p), wall: e.wall },
       both: in_.length > 0,
+      ...(in_[0] ? { other: in_[0].other } : {}),
     });
   }
   return out;
@@ -604,6 +629,7 @@ function WallRun({
   floorHex,
   holes,
   both = false,
+  shared,
   socket = false,
 }: {
   e: Edge;
@@ -622,6 +648,9 @@ function WallRun({
   holes: ReturnType<typeof holesOf>;
   /** shared with the room beyond: seen from both sides */
   both?: boolean;
+  /** when shared, this room and the room beyond: the wall answers to
+      whichever is being worked on */
+  shared?: { room: string; other: string } | undefined;
   /** a double socket near the wall's start, for scale */
   socket?: boolean;
 }) {
@@ -677,13 +706,21 @@ function WallRun({
     const c = cutRef.current;
     if (!f) return;
     f.getWorldPosition(at);
+    // a shared wall is the near or far wall of whichever of its rooms is
+    // being worked on, and stands when neither is
+    const side = shared ? sideOf(shared.room, shared.other) : 1;
     const dot =
-      (camera.position.x - at.x) * nx + (camera.position.z - at.z) * nz;
+      side *
+      ((camera.position.x - at.x) * nx + (camera.position.z - at.z) * nz);
     camera.getWorldDirection(dir);
     const pitch =
       (-Math.asin(Math.max(-1, Math.min(1, dir.y))) * 180) / Math.PI;
     const next =
-      both || dot > 0 ? "inside" : c && pitch > SECTION_PITCH ? "cut" : "gone";
+      side === 0 || dot > 0
+        ? "inside"
+        : c && pitch > SECTION_PITCH
+          ? "cut"
+          : "gone";
     if (next === state.current) return;
     state.current = next;
     layerOf(f, next === "inside" ? 0 : SHADOW_LAYER);
@@ -833,7 +870,16 @@ const WINDOW = {
     sash with the room's faint reflection, an architrave round the
     opening on the inside and a sill board projecting into the room;
     the outside drawn behind the glass at the wall's outer face */
+/** a doorway's two rooms, when it is shared: this one and the one the
+    join leads to */
+const useShared = (r: RoomShape, o: Opening) =>
+  useRoom((s) => {
+    const j = o.join ? s.joins.find((x) => x.id === o.join) : undefined;
+    return j ? (j.a === r.id ? j.b : j.a) : null;
+  });
+
 function Window({ r, o }: { r: RoomShape; o: Opening }) {
+  const other = useShared(r, o);
   const width = toMetres(o.width);
   const sill = toMetres(o.sill ?? OPENINGS.window.sill);
   const head = Math.min(
@@ -854,7 +900,10 @@ function Window({ r, o }: { r: RoomShape; o: Opening }) {
   const gh = ih - 2 * sash;
   const sashDepth = depth * 0.6;
   return (
-    <Inside normal={inward(o.wall)} always={o.join !== undefined}>
+    <Inside
+      normal={inward(o.wall)}
+      shared={other ? { room: r.id, other } : null}
+    >
       <group position={[x, 0, z]} rotation={[0, yaw, 0]} userData={WINDOW_NAME}>
         <Outside
           evening={r.evening}
@@ -932,6 +981,7 @@ function Window({ r, o }: { r: RoomShape; o: Opening }) {
     at all in a passage. The leaf takes the wood set's grain. A switch
     plate stands beside the opening on the handle's side. */
 function Door({ r, o }: { r: RoomShape; o: Opening }) {
+  const other = useShared(r, o);
   const width = toMetres(o.width);
   const tall = Math.min(
     toMetres(OPENINGS.door.height),
@@ -967,7 +1017,10 @@ function Door({ r, o }: { r: RoomShape; o: Opening }) {
   const faces = o.join !== undefined ? [1, -1] : [1];
   const handleSide = leaves[0] ? Math.sign(leaves[0].handle) || 1 : 1;
   return (
-    <Inside normal={inward(o.wall)} always={o.join !== undefined}>
+    <Inside
+      normal={inward(o.wall)}
+      shared={other ? { room: r.id, other } : null}
+    >
       <group position={[x, 0, z]} rotation={[0, yaw, 0]} userData={DOOR_NAME}>
         {leaves.map((l, i) => {
           const zl = sliding ? -0.02 - i * (leaf + 0.01) : leafZ;
@@ -1135,9 +1188,10 @@ export function RoomShell({
     const shape = { W, D, outline, openings };
     const mitres = mitresOf(outline, thickness);
     const out = edgesOf(outline).flatMap((e, i) =>
-      runsOf(e, shared ?? []).map(({ e: run, both }, k) => ({
+      runsOf(e, shared ?? []).map(({ e: run, both, other }, k) => ({
         run,
         both,
+        other,
         key: `${i}-${k}`,
         mitres: runMitres(e, run, mitres[i]!),
         holes: holesOf(shape, run, h),
@@ -1187,7 +1241,7 @@ export function RoomShell({
           onState={reflection.onState}
         />
       )}
-      {runs.map(({ run, both, key, mitres, holes, socket }) => (
+      {runs.map(({ run, both, other, key, mitres, holes, socket }) => (
         <WallRun
           key={key}
           e={run}
@@ -1200,6 +1254,7 @@ export function RoomShell({
           floorHex={r.floorHex}
           holes={holes}
           both={both}
+          shared={other ? { room: r.id, other } : undefined}
           socket={socket}
         />
       ))}

@@ -82,7 +82,14 @@ export const exportRoomGlb = async () => {
   if (!live) return false;
   const cameras = [
     ...BOOKMARKS.map((name) => {
-      const { pos, at } = cameraFor(name, live.w, live.d, live.h, live.centre);
+      const { pos, at } = cameraFor(
+        name,
+        live.span.w,
+        live.span.d,
+        live.h,
+        live.centre,
+        { w: live.w, d: live.d },
+      );
       return { name, position: pos, at };
     }),
     (() => {

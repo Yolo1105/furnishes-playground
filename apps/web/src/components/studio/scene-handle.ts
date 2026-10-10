@@ -15,6 +15,8 @@ export type Live = {
   w: number;
   d: number;
   h: number;
+  /** the flat's box, m */
+  span: { w: number; d: number };
   /** the flat's middle about the room's, m */
   centre: readonly [number, number];
   sun: Sun;
