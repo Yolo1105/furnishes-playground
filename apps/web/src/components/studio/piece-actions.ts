@@ -104,10 +104,15 @@ export function usePieceActions(roomId?: string) {
   useEffect(() => {
     if (!readOnly) noteStanding(spec.id, spots);
   });
+  // a piece in focus stands alone: in its own room, and the other
+  // rooms show nothing while it does
   const focus = pieces.find((n) => n.id === focusId) ?? null;
+  const elsewhere = !focus && items.some((n) => n.id === focusId);
   const shown = focus
     ? [focus]
-    : pieces.filter((n) => !props.get(n.id)!.hidden);
+    : elsewhere
+      ? []
+      : pieces.filter((n) => !props.get(n.id)!.hidden);
   /** the pieces as boxes on the floor, standing as `where` says */
   const boxes = (where: (i: number) => Placed | undefined) =>
     pieces.flatMap((n, i) => {

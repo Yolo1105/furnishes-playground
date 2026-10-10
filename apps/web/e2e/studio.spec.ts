@@ -5128,34 +5128,44 @@ test("a piece may stand past the walls; near a wall the magnet draws it flush, i
     .locator('.plan-pieces[data-active="true"]')
     .boundingBox())!;
   const ppm = sheet.width / LIVING.w; // px per mm, the room's own box
-  // the living room's east wall, its inner face: past it, north of the
-  // kitchen, is open ground (every other wall has a room beyond it)
-  const east = sheet.x + sheet.width;
-  // the entry organiser stands against it, north of the kitchen's door
+  // the living room's east wall (7000 mm in): past it, north of the
+  // kitchen, is open ground (every other wall has a room beyond it).
+  // The entry organiser, 400 mm across, stands flush against it; its
+  // place is read in millimetres from the Detail tab
   const name = "Entry organiser";
   const body = page.locator(".stage-pieces").getByRole("button", {
     name,
     exact: true,
   });
-  /** the piece dragged across and let go with its right edge at `right` */
-  const dragTo = async (right: number) => {
+  await body.click();
+  await page.getByRole("tab", { name: "Detail", exact: true }).click();
+  const fromWest = page.getByRole("spinbutton", {
+    name: `${name} from the west wall in millimetres`,
+  });
+  await expect(fromWest).toHaveValue("6600");
+  /** the piece dragged `mm` east (west when less than nothing) */
+  const dragBy = async (mm: number) => {
     const b = (await body.boundingBox())!;
     const cx = b.x + b.width / 2;
     const cy = b.y + b.height / 2;
     await page.mouse.move(cx, cy);
     await page.mouse.down();
     await page.mouse.move(cx - 30, cy, { steps: 4 });
-    await page.mouse.move(right - b.width / 2, cy, { steps: 8 });
+    await page.mouse.move(cx + mm * ppm, cy, { steps: 8 });
     await page.mouse.up();
-    return (await body.boundingBox())!;
+    // a press on a piece shows it in the outliner: back to its Detail
+    await page.getByRole("tab", { name: "Detail", exact: true }).click();
   };
-  // right edge let go 100 mm from the east wall: it goes flush to it
-  let b = await dragTo(east - 100 * ppm);
-  expect(Math.abs(b.x + b.width - east)).toBeLessThan(2);
-  // let go outside, the left edge 400 mm past the wall: it stands
-  // outside, against the wall band's far face (300 mm)
-  b = await dragTo(east + 400 * ppm + b.width);
-  expect(Math.abs(b.x - (east + 300 * ppm))).toBeLessThan(2);
+  // 300 mm off the wall, past the magnet's reach: it stays there
+  await dragBy(-300);
+  await expect(fromWest).toHaveValue("6300");
+  // let go 100 mm from the wall: it goes flush to it
+  await dragBy(200);
+  await expect(fromWest).toHaveValue("6600");
+  // let go outside, 400 mm past the wall: it stands outside, against
+  // the wall band's far face (300 mm)
+  await dragBy(800);
+  await expect(fromWest).toHaveValue("7300");
   // the rules read it as past the wall
   await expect(page.getByRole("list", { name: "Room health" })).toContainText(
     `${name} stands past the wall`,
@@ -5168,9 +5178,8 @@ test("a piece may stand past the walls; near a wall the magnet draws it flush, i
     .click();
   await page.getByRole("radio", { name: "Off" }).click();
   await page.keyboard.press("Escape");
-  b = await dragTo(east - 100 * ppm);
-  expect(Math.abs(b.x + b.width - (east - 100 * ppm))).toBeLessThan(2);
-  expect(Math.abs(b.x + b.width - east)).toBeGreaterThan(4);
+  await dragBy(-800);
+  await expect(fromWest).toHaveValue("6500");
 });
 
 test("Eva furnishes the room by the book, reviews it, applies her changes as one undo step, and explains a layout", async ({
