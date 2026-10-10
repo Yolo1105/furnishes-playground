@@ -1049,6 +1049,8 @@ const STEEL = "#b8b6b2";
 const WHITE_GOODS = "#e9e7e2";
 const PORCELAIN = "#f4f2ee";
 const GLASS_HEX = "#dfe9ea";
+/** a bathroom mirror's pane, read as silvered glass */
+const MIRROR_PANE = "#cfd7d8";
 
 /** a fitted kitchen counter along a wall: base cabinets under a stone
     worktop with a sink and a hob set into it, and the wall cabinets
@@ -1174,7 +1176,7 @@ function Fridge({ w, h, d }: { w: number; h: number; d: number }) {
 }
 
 /** a basin cabinet: a two-door carcass under a porcelain basin, a tap,
-    and a mirror on the wall above it */
+    and a mirror pane on the wall above it */
 function Basin({
   id,
   w,
@@ -1182,6 +1184,7 @@ function Basin({
   d,
   f,
 }: {
+  /** the piece's id: its carcass's door mirrors are named after it */
   id: string;
   w: number;
   h: number;
@@ -1215,13 +1218,17 @@ function Basin({
         r={0.012}
         h={0.16}
       />
-      <Suspense fallback={null}>
-        <MirrorFace
-          id={`${id}-mirror`}
-          at={[0, top + 0.75, -d / 2 + 0.012]}
-          size={[w, 0.8]}
+      {/* the mirror over it: a still polished pane, not the live
+          reflector, which is one to a scene and kept for the mirror
+          finish a visitor puts on a door */}
+      <mesh position={[0, top + 0.75, -d / 2 + 0.008]} receiveShadow>
+        <boxGeometry args={[w, 0.8, 0.006]} />
+        <meshStandardMaterial
+          color={MIRROR_PANE}
+          metalness={0.55}
+          roughness={0.1}
         />
-      </Suspense>
+      </mesh>
     </group>
   );
 }

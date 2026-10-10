@@ -1648,9 +1648,7 @@ test("the desktop extras: Reflections and Bounce light stand behind View setting
       });
       return out;
     });
-  // the three doors, and the mirror over the bathroom's basin, which
-  // the flat has anyway
-  await expect.poll(mirrors, { timeout: 60_000 }).toHaveLength(4);
+  await expect.poll(mirrors, { timeout: 60_000 }).toHaveLength(3);
   expect((await mirrors()).filter(Boolean)).toHaveLength(1);
   await expect(stage3d).toHaveAttribute("data-settled", "true", {
     timeout: 90_000,
