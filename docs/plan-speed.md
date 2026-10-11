@@ -116,9 +116,15 @@ after the first picture, so they are drawn from the start as before.
 2. **Shader programs on the opening.** The software renderer spends
    most of the opening linking programs (docs/plan-draw-cost.md); on a
    real GPU with `KHR_parallel_shader_compile` or WebGPU the warm-up
-   already builds them off the main thread. Fewer distinct materials
-   (one cloth, one wood, one paint per tone, shared across pieces) would
-   cut the count further.
+   already builds them off the main thread. Measured on the seven-room
+   flat: 39 programs are linked by the first picture, and only 12 are
+   lit surfaces (the rest are shadow depth, plain colours and the
+   post's passes). The 12 are not near twins to fold together: the
+   closest two differ in some 730 lines of their fragment shader, the
+   rest in 1,300 to 1,600, as the floor's photographed set, the plaster,
+   the wood, the cloth, the stock models' maps, the glass and the satin
+   coat each are. Fewer would mean fewer finishes, a change to the
+   picture for a cost only the software renderer pays, so they stay.
 3. **The props' download.** The stock models (2.8 MB) and the
    photographed sets (3.3 MB) are fetched on the first visit; they are
    cached after. KTX2 was measured and left (plan-realism.md).
