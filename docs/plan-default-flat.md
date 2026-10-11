@@ -413,6 +413,17 @@ did, and five of them were wrong:
   now answer to the room being worked on: its near wall is cut or goes,
   its far wall stands, and it stands when neither room is.
 
+- **What the flat costs to draw.** Furnished, the flat drew 766 times
+  a frame (519 meshes, 247 outlines) and 284k triangles, before each
+  shadow light drew it again. The bookwall took 238 of those draws, two
+  a book; a shelf's books are now one merged mesh, and the flat draws
+  528 times and 254k triangles. Most of what is left are the stock
+  props' triangles (each dining chair about 22k, each wicker basket
+  about 22k) and the panels' outlines, one draw a panel. On the
+  sandbox's software renderer the page was held 50 s of its first
+  minute and is held 29 s now; a real GPU draws this easily, but it
+  has not been measured on a phone.
+
 Saved projects keep the rooms they were saved with; only a new project
 opens on the flat. The snapshot's shape did not change (a room kind and
 two categories were added), so its version stands.
