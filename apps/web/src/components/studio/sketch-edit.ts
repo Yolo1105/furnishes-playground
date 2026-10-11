@@ -493,12 +493,4 @@ export const snap = (
   return { at: p, to: null };
 };
 
-/** what names a point, for drawing it as held or free */
-export const heldBy = (s: Sketch, pointId: string) =>
-  s.constraints.filter((c) =>
-    Object.entries(c).some(
-      ([k, v]) => k !== "id" && k !== "kind" && v === pointId,
-    ),
-  );
-
 export type { SketchGeometry, SketchPoint };

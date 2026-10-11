@@ -278,18 +278,22 @@ const build = (
   // does the phone's
   scenePass.options.samples = 0;
   const depth = scenePass.getTextureNode("depth");
+  // every tier draws a frame and builds the scene's shaders alike: the
+  // frame timed for the bench, the shaders for the scene pass
+  const render = () => {
+    const t0 = performance.now();
+    pipeline.render();
+    recordPost(performance.now() - t0);
+  };
+  const warm: Chain["warm"] = (parts, budget) =>
+    warmParts(renderer, scenePass, parts, scene, camera, budget);
   if (tier === "phone") {
     const frame = frameOf(scenePass, depth, null, backdrop);
     const edges = smaa(frame);
     pipeline.outputNode = edges;
     return {
-      render: () => {
-        const t0 = performance.now();
-        pipeline.render();
-        recordPost(performance.now() - t0);
-      },
-      warm: (parts, budget) =>
-        warmParts(renderer, scenePass, parts, scene, camera, budget),
+      render,
+      warm,
       dispose: () => {
         edges.dispose();
         frame.dispose();
@@ -397,13 +401,8 @@ const build = (
   resolve.useSubpixelCorrection = false;
   pipeline.outputNode = resolve;
   return {
-    render: () => {
-      const t0 = performance.now();
-      pipeline.render();
-      recordPost(performance.now() - t0);
-    },
-    warm: (parts, budget) =>
-      warmParts(renderer, scenePass, parts, scene, camera, budget),
+    render,
+    warm,
     dispose: () => {
       resolve.dispose();
       frame.dispose();
