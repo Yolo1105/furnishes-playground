@@ -377,9 +377,14 @@ did, and five of them were wrong:
   preset room now keeps its openings, refitted to its new size (one
   placed by HDB's convention stays as far from its corner, the rest
   keep their share of the wall), and the doorways are settled again.
-  The rooms still take the new flat's sizes where they stand, so a
-  switch to a smaller flat leaves gaps between them; Settle and the
-  room magnet put them back together.
+  The rooms take the new flat's sizes and are stood back against the
+  rooms they are joined to (`restand`: each shared wall fixes one way
+  of a room, across or down, from the living room out), so the flat
+  keeps together; a doorway that no longer fits where it stood is
+  moved into what is shared and narrowed to it, its kind and its
+  closed wall kept, instead of a new passage taking its place. The
+  pieces keep their places in their rooms, so in a smaller flat some
+  stand past a wall and the planner offers a Fix for each.
 - **Eva knew a piece only by its name.** A second of a kind is
   numbered ("Kitchen trolley 3"), so she offered again what the room
   already had, and a card's "In the room" never lit for a piece added

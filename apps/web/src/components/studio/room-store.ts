@@ -440,6 +440,29 @@ const settled = (
           kept.push(was);
           continue;
         }
+        // the doorway that was in this wall but no longer fits where it
+        // stood (the rooms moved or changed size): the same doorway, its
+        // kind and leaf, open or closed, moved into what is shared now
+        // and narrowed to it, a hand's width off each end
+        const moved = s.joins.find(
+          (j) => j.a === a.id && j.b === b.id && j.wallA === run.wallA,
+        );
+        if (moved) {
+          const step = OPENING_WIDTH.step;
+          const room = run.to - run.from - 2 * JOIN_EDGE;
+          const width = Math.max(
+            OPENING_WIDTH.min,
+            Math.min(moved.width, Math.floor(room / step) * step),
+          );
+          const lo = run.from + JOIN_EDGE + width / 2;
+          const hi = run.to - JOIN_EDGE - width / 2;
+          const at = Math.min(
+            Math.max(Math.round(moved.at / step) * step, lo),
+            hi,
+          );
+          kept.push({ ...moved, width, at });
+          continue;
+        }
         const width = OPENINGS.door.width;
         const kind = joinKind(a, b);
         if (kind.kind === "door") doored.add(kind.into);
@@ -459,6 +482,80 @@ const settled = (
       }
     }
   return { joins: kept, doored };
+};
+
+/** how far a doorway moved along its wall keeps off the ends of the
+    stretch two rooms share, mm */
+const JOIN_EDGE = 100;
+
+/**
+ * The rooms stood back against the rooms they are joined to, after
+ * their sizes changed. A room has two ways to be placed, across the
+ * sheet and down it, and each wall it shares fixes one: a room east or
+ * west of another stands a wall's thickness off it across, one north or
+ * south of it down. From the flat's first room out, each room joined to
+ * one already placed is stood against it, as far along the shared wall
+ * as it was but never so far that less than a doorway's width of it is
+ * shared; then a room's other way, where a second shared wall fixes it,
+ * follows that wall too (a bathroom against the living room and below
+ * the bedroom keeps to both). Rooms joined to nothing stay.
+ */
+export const restand = (
+  rooms: readonly RoomSpec[],
+  joins: readonly Join[],
+): RoomSpec[] => {
+  if (rooms.length === 0) return [];
+  const byId = new Map(rooms.map((r) => [r.id, { ...r }]));
+  const first = rooms[0]!.id;
+  /** the order rooms were placed in, and which of their ways are fixed */
+  const order = [first];
+  const fixed = new Map([[first, { across: true, down: true }]]);
+  /** a place along the shared wall, kept within reach of a doorway */
+  const along = (v: number, from: number, len: number, own: number) =>
+    Math.min(Math.max(v, from - own + JOIN_MIN), from + len - JOIN_MIN);
+  /** room c stood against room p by p's wall facing it: the way that
+      wall fixes, and, unless fixed already, the place along it */
+  const stand = (p: RoomSpec, c: RoomSpec, wall: Wall) => {
+    const f = fixed.get(c.id) ?? { across: false, down: false };
+    const t = p.thickness;
+    const [px, py] = p.pos;
+    let [cx, cy] = c.pos;
+    if (wall === "east" || wall === "west") {
+      cx = wall === "east" ? px + p.width + t : px - t - c.width;
+      if (!f.down) cy = along(cy, py, p.depth, c.depth);
+      f.across = true;
+    } else {
+      cy = wall === "south" ? py + p.depth + t : py - t - c.depth;
+      if (!f.across) cx = along(cx, px, p.width, c.width);
+      f.down = true;
+    }
+    c.pos = [cx, cy];
+    fixed.set(c.id, f);
+  };
+  const facing = (j: Join, from: string) => (j.a === from ? j.wallA : j.wallB);
+  // out from the first room, each room by the first placed room it meets
+  for (let i = 0; i < order.length; i++) {
+    const p = byId.get(order[i]!)!;
+    for (const j of joins) {
+      if (j.a !== p.id && j.b !== p.id) continue;
+      const c = byId.get(j.a === p.id ? j.b : j.a);
+      if (!c || fixed.has(c.id)) continue;
+      stand(p, c, facing(j, p.id));
+      order.push(c.id);
+    }
+  }
+  // then each room's other way, by a second wall it shares
+  for (const j of joins) {
+    const [ia, ib] = [order.indexOf(j.a), order.indexOf(j.b)];
+    if (ia < 0 || ib < 0) continue;
+    const [p, c] = ia < ib ? [j.a, j.b] : [j.b, j.a];
+    const wall = facing(j, p);
+    const f = fixed.get(c)!;
+    const across = wall === "east" || wall === "west";
+    if (across ? f.across : f.down) continue;
+    stand(byId.get(p)!, byId.get(c)!, wall);
+  }
+  return rooms.map((r) => byId.get(r.id)!);
 };
 
 /** the box round every room on the sheet, mm */
@@ -570,6 +667,7 @@ export const useRoom = create<RoomState>((set, get) => {
     activeId: home.rooms[0]!.id,
     drawing: [],
     setFlat: (flat) => {
+      const before = get();
       set((s) => ({
         flat,
         // a room the flat does not have becomes a living room, with a
@@ -593,8 +691,19 @@ export const useRoom = create<RoomState>((set, get) => {
           };
         }),
       }));
-      // the rooms' sizes changed: the doorways between them are read afresh
+      // a room that changed size is stood back against the rooms it was
+      // joined to, so the flat keeps together; then the doorways between
+      // them are read afresh, and a room standing into another moves out
+      const now = get().rooms;
+      const resized = now.some(
+        (r, i) =>
+          r.width !== before.rooms[i]?.width ||
+          r.depth !== before.rooms[i]?.depth,
+      );
+      if (resized) set({ rooms: restand(now, before.joins) });
       get().settleJoins();
+      for (const r of get().rooms)
+        if (roomOverlaps(get().rooms, r.id).length) get().settleRoom(r.id);
     },
     setRoom: (room) => {
       active((r, s) => {

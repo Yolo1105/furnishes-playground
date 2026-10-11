@@ -156,4 +156,36 @@ describe("the flat the studio opens on", () => {
     expect(hdbOffset(door, living.width, living.depth)).toBe(800);
     useRoom.setState(useRoom.getInitialState(), true);
   });
+  it.each(["3-room", "4-room"] as const)(
+    "keeps together as a %s flat: every doorway, its kind kept",
+    (flat) => {
+      useRoom.getState().setFlat(flat);
+      const s = useRoom.getState();
+      const { living, master, bathroom, kitchen } = SHOWCASE_ROOMS;
+      // no room stands into another
+      for (const r of s.rooms) expect(roomOverlaps(s.rooms, r.id)).toEqual([]);
+      const between = (a: string, b: string) =>
+        s.joins.find(
+          (j) => (j.a === a && j.b === b) || (j.a === b && j.b === a),
+        );
+      // the four doorways are still there, as they were made
+      expect(s.joins).toHaveLength(4);
+      expect(between(living, kitchen)).toMatchObject({
+        kind: "sliding",
+        open: true,
+      });
+      expect(between(living, master)).toMatchObject({
+        kind: "door",
+        into: master,
+        open: true,
+      });
+      expect(between(living, bathroom)).toMatchObject({
+        kind: "door",
+        into: bathroom,
+        open: true,
+      });
+      expect(between(master, bathroom)).toMatchObject({ open: false });
+      useRoom.setState(useRoom.getInitialState(), true);
+    },
+  );
 });
