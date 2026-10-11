@@ -1,8 +1,9 @@
 # What a furnished flat costs to open and draw
 
-The four-room flat opens furnished, and on the sandbox's software
-renderer (SwiftShader behind WebGL2, the "phone" post tier) the page
-stood still for long stretches of its first minute. This plan says what
+The flat opens furnished (four rooms when this was measured, seven
+now), and on the sandbox's software renderer (SwiftShader behind
+WebGL2, the "phone" post tier) the page stood still for long stretches
+of its first minute. This plan says what
 was measured, what was changed and why, what was left and why, and how
 to take the same numbers on a real phone or GPU.
 
@@ -11,15 +12,15 @@ to take the same numbers on a real phone or GPU.
 All numbers are from `/rounded` at 1440×900 in the sandbox, the flat as
 it opens, after the merged books (commit 9634885):
 
-| what                                 | before | after this plan |
-| ------------------------------------ | -----: | --------------: |
-| meshes shown                         |    387 |             254 |
-| joint-line sets (one draw each)      |    141 |              50 |
-| shadow casters                       |    331 |             198 |
-| triangles                            |   254k |            150k |
-| shader programs built                |     25 |              22 |
-| main thread held, first 60 s         |   29 s |          21.5 s |
-| longest single freeze                |    8 s |           8.6 s |
+| what                            | before | after this plan |
+| ------------------------------- | -----: | --------------: |
+| meshes shown                    |    387 |             254 |
+| joint-line sets (one draw each) |    141 |              50 |
+| shadow casters                  |    331 |             198 |
+| triangles                       |   254k |            150k |
+| shader programs built           |     25 |              22 |
+| main thread held, first 60 s    |   29 s |          21.5 s |
+| longest single freeze           |    8 s |           8.6 s |
 
 Batching and the lighter models alone left the main thread held 28.4 s;
 the one-shader-a-finish change took it to 21.5 s. The longest freeze is
@@ -123,10 +124,10 @@ Two findings shaped the work:
 
    Measured in the sandbox, two runs each of the first minute:
 
-   | what                          | `?nowarm`        | warmed           |
-   | ----------------------------- | ---------------- | ---------------- |
-   | main thread held              | 24.4 s, 22.8 s   | 16.6 s, 14.7 s   |
-   | longest single freeze         | 12.0 s, 12.1 s   | 7.4 s, 5.0 s     |
+   | what                  | `?nowarm`      | warmed         |
+   | --------------------- | -------------- | -------------- |
+   | main thread held      | 24.4 s, 22.8 s | 16.6 s, 14.7 s |
+   | longest single freeze | 12.0 s, 12.1 s | 7.4 s, 5.0 s   |
 
 ## What was left, and why
 

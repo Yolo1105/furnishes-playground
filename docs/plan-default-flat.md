@@ -452,17 +452,19 @@ rooms: a living room, one bedroom, a kitchen and a bathroom. An HDB
 5-room flat is named for its five rooms, three bedrooms and the living
 and dining room, and it has two bathrooms, the common one and the
 master's own. The flat as it opens is now that flat: the four rooms
-stay where they stand, and three more join them.
+stay where they stand, and three more join them. (Positions are each
+room's north-west corner on the sheet, mm; the living room is the
+origin.)
 
-| Room                | Kind      | Size (W × D) | Position      | Floor | Walls      |
-| ------------------- | --------- | ------------ | ------------- | ----- | ---------- |
-| Living & dining     | living    | 7000 × 4500  | (0, 0)        | Vinyl | Warm white |
-| Master bedroom      | master    | 4000 × 3500  | (−4300, −1000)| Vinyl | Sage       |
-| Bathroom (common)   | bathroom  | 2400 × 1700  | (−2700, 2800) | Tiles | White      |
-| Kitchen             | kitchen   | 3200 × 2700  | (7300, 1800)  | Tiles | White      |
-| Bedroom 2           | bedroom-1 | 3000 × 3000  | (−1700, 4800) | Vinyl | Sand       |
-| Bedroom 3           | bedroom-2 | 3000 × 3000  | (1600, 4800)  | Vinyl | Warm white |
-| Master bathroom     | bathroom  | 1600 × 1700  | (−4600, 2800) | Tiles | White      |
+| Room              | Kind      | Size (W × D) | Position       | Floor | Walls      |
+| ----------------- | --------- | ------------ | -------------- | ----- | ---------- |
+| Living & dining   | living    | 7000 × 4500  | (0, 0)         | Vinyl | Warm white |
+| Master bedroom    | master    | 4000 × 3500  | (−4300, −1000) | Vinyl | Sage       |
+| Bathroom (common) | bathroom  | 2400 × 1700  | (−2700, 2800)  | Tiles | White      |
+| Kitchen           | kitchen   | 3200 × 2700  | (7300, 1800)   | Tiles | White      |
+| Bedroom 2         | bedroom-1 | 3000 × 3000  | (−1700, 4800)  | Vinyl | Sand       |
+| Bedroom 3         | bedroom-2 | 3000 × 3000  | (1600, 4800)   | Vinyl | Warm white |
+| Master bathroom   | ensuite   | 1600 × 2000  | (−4600, 2800)  | Tiles | White      |
 
 ```
                           north: windows
@@ -470,15 +472,20 @@ stay where they stand, and three more join them.
   | Master bedroom    |  Living & dining                     |
   | 4.0 × 3.5         |  7.0 × 4.5                           |
   |              door-|->                                    |
-  +--door--+----------+                      +---------------+
-  | Master | Bathroom |                 sliding  Kitchen     |
-  | bath   | 2.4 × 1.7|<-door           door  ->| 3.2 × 2.7  |
-  +--------+---+------+--door---+--door------+---+------------+
-               | Bedroom 2      | Bedroom 3  |   ^ entry door
-               | 3.0 × 3.0      | 3.0 × 3.0  |
-               +----------------+------------+
+  +-door-+------------+                      +---------------+
+  |Master| Bathroom   |                 sliding  Kitchen     |
+  | bath | 2.4 × 1.7  |<-door           door  ->| 3.2 × 2.7  |
+  |1.6×2 +---+--------+--door---+--door------+---+------------+
+  +------+   | Bedroom 2        | Bedroom 3  |   ^ entry door
+             | 3.0 × 3.0        | 3.0 × 3.0  |
+             +------------------+------------+
                         south: windows
 ```
+
+Ten joins: five doorways off the living room (the master's door, the
+common bathroom's, the kitchen's 1.8 m sliding door, and one 800 mm door
+into each common bedroom), the master bathroom's 700 mm door from the
+master alone, and four walls that stand closed.
 
 Why this arrangement:
 
@@ -488,32 +495,57 @@ Why this arrangement:
   wall, so the living room is the passage. Bedroom 2 hangs west past the
   living room's corner so the entry door keeps its place 800 mm from the
   east corner, and each bedroom has its own south window.
-- **The master's bathroom is under the master bedroom**, entered only
-  from it, through a door in the bedroom's south wall at its west end.
-  The two bathrooms stand back to back, as their pipes would, with the
-  wall between them closed.
+- **The master's bathroom is under the master bedroom's west end**,
+  entered only from it, through a door 100 mm from the bedroom's
+  south-west corner whose leaf swings into the bathroom. The two
+  bathrooms stand back to back, as their pipes would, with the wall
+  between them closed. It is a room kind of its own (`ensuite`, named
+  "Master bathroom"), with a bathroom's rules and openings, so the Room
+  tab, Eva and the planner read it as the master's and not as a second
+  common bathroom.
 - **Closed walls:** bedroom 2 to bedroom 3, bedroom 2 to the common
   bathroom, the master to the common bathroom, and the two bathrooms.
   Each stands solid, so the only way into a bedroom is its own door.
 
-What goes in the new rooms (Furnishes pieces, to be bought, marked ★;
-the rest is there so the room reads as a room):
+What goes in the new rooms (★ Furnishes pieces, to be bought; the rest
+is there so the room reads as a room). Every room passes the planner's
+rules as it opens (showcase.test.ts): no overlaps, the doors' swings and
+the windows clear, 600 mm walkways, what the room must have.
 
 - **Bedroom 2, a child's room:** a single bed with its head on the west
-  wall, a ★ bedside cabinet beside it, a wardrobe on the east wall clear
-  of the door's swing, a ★ desk-side organiser and a desk under the
-  window with its chair.
-- **Bedroom 3, a study and guest room:** a ★ organiser workstation under
-  the window, its chair, a daybed along the west wall clear of the door,
-  a ★ work cart beside the workstation, a plant.
+  wall and a ★ bedside cabinet against it, a wardrobe and a study desk
+  side by side on the south wall (the desk under the window) with its
+  chair, and a ★ desk-side organiser on the east wall, clear of the
+  door's swing.
+- **Bedroom 3, a study and guest room:** a ★ organiser workstation on
+  the east wall with its chair, a daybed along the west wall, a ★ work
+  cart against the workstation's end, a plant in the corner past the
+  door.
 - **Master bathroom:** a shower behind its screen in the south-west
-  corner, a basin cabinet on the east wall, the WC on the south wall, a
-  bath mat.
-- **The master bedroom makes room for its new door:** the bed and its
-  bedside cabinets move 500 mm east, and the wardrobe on the west wall
-  shortens to 1.5 m, so the door's swing is clear.
+  corner, a basin cabinet on the east wall with the WC beside it, a ★
+  trolley for towels on the west wall clear of the door, a bath mat.
+- **The master bedroom makes room for its new door:** the bed, its
+  bedside cabinets and the bench at its foot move 200 mm east, so the
+  west cabinet clears the bathroom doorway and the bed still clears the
+  swing of the door from the living room.
 
-The tour adds the two bedrooms and the master's bathroom to its round.
-Saved projects keep their rooms; only a new project opens on this flat.
-The cost to draw grows with the rooms: the bench's opening lines and
-the probes above say what it costs on a given device.
+Changing the flat type keeps the flat together as far as the type's
+sizes allow. As a 4-room flat every doorway stays; its master was
+3.5 m wide in the presets and is now 3.6 m, the least that still
+reaches past the common bathroom to the master's own with a doorway
+between them. A 3-room flat has one common bedroom, so bedroom 3
+becomes a room of the living room's kind (as any room a type does not
+have), and its 3.0 m master is too narrow to stand over both bathrooms:
+the master bathroom stands apart from the bedroom until it is moved or
+the master widened.
+
+The first view had stood beyond the living room's open south-east
+corner, which is now bedroom 3: its workstation and cart filled the
+foreground. It now stands inside the living room, in its south-west
+corner (the side facing its window, away from its doors), and looks
+across it as a photograph of a room is taken, with the window, the
+bookwall and the entry organiser in view (`docs/plan-realism.md`, "The
+room from its corner"). The tour adds the two bedrooms and
+the master's bathroom to its round (21 stops). Saved projects keep their rooms; only a new project opens on
+this flat. The cost to draw grows with the rooms: the bench's opening
+lines and the probes above say what it costs on a given device.

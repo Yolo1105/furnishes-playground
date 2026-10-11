@@ -563,10 +563,14 @@ export const sheetBox = (rooms: readonly RoomSpec[]) =>
   boxOf(rooms.flatMap(sheetOutline));
 
 /**
- * The flat the studio opens on: a 5-room flat's living and dining room
- * in the middle, the master bedroom west of it with its window to the
- * north, the common bathroom below the bedroom and entered from the
- * living room, the kitchen east of the dining end by the entrance.
+ * The flat the studio opens on, an HDB 5-room flat: three bedrooms and
+ * the living and dining room, the kitchen, the common bathroom and the
+ * master's own. The living and dining room is in the middle, the master
+ * bedroom west of it with its window to the north and its bathroom
+ * below its west end, entered from it alone; the common bathroom below
+ * the bedroom's east end, entered from the living room; the kitchen
+ * east of the dining end by the entrance; bedrooms 2 and 3 south of the
+ * living room, west of the entry door, each with its window south.
  * Each neighbour meets the living room on a different wall, so the
  * doorways do not line up and the walk to each room crosses the living
  * room its own way, as an HDB flat is walked. The sizes are the flat's
@@ -612,7 +616,51 @@ const showcaseFlat = (): Pick<
   kitchen.start = "template";
   kitchen.floor = "Tiles";
   kitchen.openings = [makeOpening("window", "east", { width: 1200 })];
-  const rooms = [living, master, bathroom, kitchen];
+  // the two common bedrooms open off the living room's south wall;
+  // bedroom 2 stands past the living room's west corner, so the entry
+  // door keeps its place 800 mm from the east corner
+  const bedroom2 = roomOf(
+    flat,
+    "bedroom-1",
+    [-1700, 4800],
+    SHOWCASE_ROOMS.bedroom2,
+  );
+  bedroom2.start = "template";
+  bedroom2.wallTone = "sand";
+  // the window west of the middle, so the wardrobe stands clear of it
+  bedroom2.openings = [
+    makeOpening("window", "south", { at: 900, width: 1200 }),
+  ];
+  const bedroom3 = roomOf(
+    flat,
+    "bedroom-2",
+    [1600, 4800],
+    SHOWCASE_ROOMS.bedroom3,
+  );
+  bedroom3.start = "template";
+  bedroom3.wallTone = "warm";
+  bedroom3.openings = [makeOpening("window", "south")];
+  // the master's own bathroom, under the bedroom's west end
+  const ensuite = roomOf(
+    flat,
+    "ensuite",
+    [-4600, 2800],
+    SHOWCASE_ROOMS.ensuite,
+  );
+  ensuite.start = "template";
+  ensuite.floor = "Tiles";
+  ensuite.openings = [
+    makeOpening("window", "west", { width: 600, sill: 1500, head: 2100 }),
+  ];
+  const rooms = [
+    living,
+    master,
+    bathroom,
+    kitchen,
+    bedroom2,
+    bedroom3,
+    ensuite,
+  ];
   const between = (a: string, b: string) => (j: Join) =>
     (j.a === a && j.b === b) || (j.a === b && j.b === a);
   const joins = settled({ rooms, joins: [] }).joins.map((j) => {
@@ -623,11 +671,28 @@ const showcaseFlat = (): Pick<
     if (between(living.id, bathroom.id)(j))
       return { ...j, width: 750, at: 3325 };
     if (between(master.id, bathroom.id)(j)) return { ...j, open: false };
+    // each bedroom's door near the living room's wall end it is nearest
+    if (between(living.id, bedroom2.id)(j))
+      return { ...j, width: 800, at: 650 };
+    if (between(living.id, bedroom3.id)(j))
+      return { ...j, width: 800, at: 3500 };
+    // the master's bathroom from the master alone, the leaf swinging in
+    if (between(master.id, ensuite.id)(j))
+      return { ...j, width: 700, at: -3850, into: ensuite.id };
+    // the rest stand solid: the bedrooms side by side, a bedroom against
+    // the common bathroom, the two bathrooms back to back
+    if (
+      between(bedroom2.id, bedroom3.id)(j) ||
+      between(bedroom2.id, bathroom.id)(j) ||
+      between(ensuite.id, bathroom.id)(j)
+    )
+      return { ...j, open: false };
     return j;
   });
   // the tour's round of the flat: in at the entry, through the lounge
-  // and the dining end, into the kitchen and back, across to the
-  // bedroom and back, and to the bathroom door, each doorway crossed
+  // and the dining end, into the kitchen and back, into bedroom 3 and
+  // back, bedroom 2 and back, the common bathroom's door, then across to
+  // the master bedroom and on into its bathroom, each doorway crossed
   // square on
   const stops: Point[] = [
     [5750, 3900],
@@ -636,13 +701,21 @@ const showcaseFlat = (): Pick<
     [6400, 3450],
     [8400, 3450],
     [6400, 3450],
-    [700, 1450],
-    [-900, 1450],
-    [-2300, -400],
-    [-900, 1450],
-    [700, 2300],
+    [3500, 3800],
+    [3500, 5900],
+    [3500, 3800],
+    [650, 3800],
+    [650, 5600],
+    [650, 3800],
     [700, 3325],
     [-1200, 3325],
+    [700, 3325],
+    [700, 1450],
+    [-900, 1450],
+    [-1000, -300],
+    [-3500, -300],
+    [-3850, 1900],
+    [-3850, 3700],
   ];
   return { flat, rooms, joins, stops };
 };

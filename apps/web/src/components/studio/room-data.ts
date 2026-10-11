@@ -16,6 +16,9 @@ export const SHOWCASE_ROOMS = {
   master: "room-2",
   bathroom: "room-3",
   kitchen: "room-4",
+  bedroom2: "room-5",
+  bedroom3: "room-6",
+  ensuite: "room-7",
 } as const;
 export const FLAT_TYPES: FlatType[] = ["3-room", "4-room", "5-room"];
 
@@ -27,6 +30,7 @@ export const ROOM_IDS = [
   "kitchen",
   "study",
   "bathroom",
+  "ensuite",
 ] as const;
 export type RoomId = (typeof ROOM_IDS)[number];
 
@@ -38,6 +42,7 @@ export const ROOM_NAMES: Record<RoomId, string> = {
   kitchen: "Kitchen",
   study: "Study",
   bathroom: "Bathroom",
+  ensuite: "Master bathroom",
 };
 
 /** mm: width along the window wall, depth into the room */
@@ -54,15 +59,17 @@ export const PRESETS: Record<FlatType, Partial<Record<RoomId, Size>>> = {
     "bedroom-1": r(3000, 2500),
     kitchen: r(2400, 2400),
     bathroom: r(2400, 1700),
+    ensuite: r(1600, 2000),
   },
   "4-room": {
     living: r(6500, 4000),
-    master: r(3500, 3000),
+    master: r(3600, 3000),
     "bedroom-1": r(3000, 2700),
     "bedroom-2": r(3000, 2700),
     kitchen: r(3000, 2400),
     study: r(3000, 2700),
     bathroom: r(2400, 1700),
+    ensuite: r(1600, 2000),
   },
   "5-room": {
     living: r(7000, 4500),
@@ -72,6 +79,7 @@ export const PRESETS: Record<FlatType, Partial<Record<RoomId, Size>>> = {
     kitchen: r(3200, 2700),
     study: r(3000, 3000),
     bathroom: r(2400, 1700),
+    ensuite: r(1600, 2000),
   },
 };
 
@@ -158,6 +166,7 @@ export const FIT_FOR_ROOM: Record<RoomId, FitKey[]> = {
   kitchen: ["dining"],
   study: ["common"],
   bathroom: [],
+  ensuite: [],
 };
 
 /** what every new HDB flat has in common, as the archive recorded it */
@@ -276,6 +285,7 @@ export const PRIVATE_ROOMS: readonly RoomId[] = [
   "bedroom-2",
   "study",
   "bathroom",
+  "ensuite",
 ];
 
 export const makeOpening = (
@@ -312,8 +322,9 @@ export const openingsFor = (room: RoomId, W: number, D: number): Opening[] => {
     case "kitchen":
       return [makeOpening("door", "east")];
     case "bathroom":
-      // the door from the corridor side; a small louvre window high in
-      // the outer wall
+    case "ensuite":
+      // the door from the corridor side (the master's own, from the
+      // bedroom); a small louvre window high in the outer wall
       return [
         makeOpening("door", "east", { width: 750 }),
         makeOpening("window", "west", { width: 600, sill: 1500, head: 2100 }),
@@ -425,6 +436,7 @@ const MUST_HAVE_FOR_ROOM: Record<RoomId, string[]> = {
   kitchen: ["storage"],
   study: ["desk", "storage"],
   bathroom: ["storage"],
+  ensuite: ["storage"],
 };
 export const rulesFor = (room: RoomId): Rules => ({
   walkway: WALKWAY.default,
