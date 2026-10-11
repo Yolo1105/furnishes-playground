@@ -2156,16 +2156,18 @@ test("the gear opens Settings, Help and the Guide; keys drive the tools", async 
     "aria-current",
     "page",
   );
-  // the wheel's meaning on the plan: Auto by default, Scroll kept
+  // the wheel's meaning on the plan: Auto by default, Move kept
   const wheel = settings.getByRole("radiogroup", {
-    name: "Scroll wheel on the plan",
+    name: "Scroll wheel and two fingers",
   });
   await expect(wheel.getByRole("radio", { name: "Auto" })).toHaveAttribute(
     "aria-checked",
     "true",
   );
-  await wheel.getByRole("radio", { name: "Scroll" }).click();
-  await expect(settings).toContainText("the wheel always moves the sheet");
+  await wheel.getByRole("radio", { name: "Move" }).click();
+  await expect(settings).toContainText(
+    "the wheel and two fingers always move the view",
+  );
   await page.keyboard.press("Escape");
   await expect(settings).toHaveCount(0);
   await page.keyboard.press("2");
@@ -2174,16 +2176,17 @@ test("the gear opens Settings, Help and the Guide; keys drive the tools", async 
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.wheel(0, 120);
   await expect(sheet).toHaveCSS("transform", "matrix(1, 0, 0, 1, 0, -120)");
-  // a pinch (the wheel with Control) zooms whatever the setting
+  // a pinch (the wheel with Control) zooms whatever the setting, a
+  // notch's worth no further than a step
   await page.keyboard.down("Control");
   await page.mouse.wheel(0, -100);
   await page.keyboard.up("Control");
-  await expect(sheet).toHaveCSS("transform", /matrix\(2\.7/);
+  await expect(sheet).toHaveCSS("transform", /matrix\(1\.6/);
   await page.keyboard.press("0");
   await page.reload();
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await menu.getByRole("menuitem", { name: "Settings" }).click();
-  await expect(wheel.getByRole("radio", { name: "Scroll" })).toHaveAttribute(
+  await expect(wheel.getByRole("radio", { name: "Move" })).toHaveAttribute(
     "aria-checked",
     "true",
   );
@@ -3916,15 +3919,16 @@ test("the plan's tools: the wheel and the keys zoom it, a drag pans it, Fit brin
   ).toBeVisible();
   await page.keyboard.press("0");
   await expect(sheet).toHaveAttribute("data-zoomed", "false");
-  // the wheel zooms about the pointer
+  // the wheel zooms about the pointer, a notch a step (three notches of
+  // a mouse, 100 px each, as Chrome sends them)
   const svg = page.locator(".shell-stage .plan-svg");
   const box = (await svg.boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.wheel(0, -300);
+  for (let i = 0; i < 3; i++) await page.mouse.wheel(0, -100);
   await expect(
-    zoom.getByRole("button", { name: /^Zoom 212 percent/ }),
+    zoom.getByRole("button", { name: /^Zoom 172 percent/ }),
   ).toBeVisible();
-  await expect(sheet).toHaveCSS("transform", /matrix\(2\.1/);
+  await expect(sheet).toHaveCSS("transform", /matrix\(1\.7/);
   // a drag on the sheet (from its margin, at 100 percent) pans it
   await zoom.getByRole("button", { name: "Fit the plan", exact: true }).click();
   await expect(sheet).toHaveAttribute("data-zoomed", "false");

@@ -242,13 +242,13 @@ function SettingsDialog({ onClose }: { onClose: () => void }) {
       </div>
       <div className="shell-settings-row">
         <span className="shell-settings-label">
-          Scroll wheel on the plan
+          Scroll wheel and two fingers
           <small>{WHEEL_MODES.find((m) => m.id === wheelMode)?.hint}</small>
         </span>
         <span
           className="shell-choice"
           role="radiogroup"
-          aria-label="Scroll wheel on the plan"
+          aria-label="Scroll wheel and two fingers"
         >
           {WHEEL_MODES.map((m) => (
             <button

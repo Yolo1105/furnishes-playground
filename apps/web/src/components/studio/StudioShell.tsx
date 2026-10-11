@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { guardPageZoom } from "./input";
 import type React from "react";
 import { ChatInput } from "./ChatInput";
 import { useEva } from "./eva-store";
@@ -83,6 +84,12 @@ export function StudioShell({
   const router = useRouter();
   const pathname = usePathname();
   useProjectSync(wanted);
+  // a pinch or Control with the wheel never zooms the page here
+  const shell = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const root = shell.current;
+    return root ? guardPageZoom(root) : undefined;
+  }, []);
   useEffect(() => {
     if (wanted) router.replace(pathname);
   }, [wanted, router, pathname]);
@@ -183,6 +190,7 @@ export function StudioShell({
 
   return (
     <div
+      ref={shell}
       className="shell"
       data-corners={corners}
       data-left={leftCollapsed ? "collapsed" : "open"}

@@ -444,3 +444,76 @@ did, and five of them were wrong:
 Saved projects keep the rooms they were saved with; only a new project
 opens on the flat. The snapshot's shape did not change (a room kind and
 two categories were added), so its version stands.
+
+## The 5-room flat (three bedrooms, two bathrooms)
+
+The flat above took the 5-room preset's sizes but only four of its
+rooms: a living room, one bedroom, a kitchen and a bathroom. An HDB
+5-room flat is named for its five rooms, three bedrooms and the living
+and dining room, and it has two bathrooms, the common one and the
+master's own. The flat as it opens is now that flat: the four rooms
+stay where they stand, and three more join them.
+
+| Room                | Kind      | Size (W × D) | Position      | Floor | Walls      |
+| ------------------- | --------- | ------------ | ------------- | ----- | ---------- |
+| Living & dining     | living    | 7000 × 4500  | (0, 0)        | Vinyl | Warm white |
+| Master bedroom      | master    | 4000 × 3500  | (−4300, −1000)| Vinyl | Sage       |
+| Bathroom (common)   | bathroom  | 2400 × 1700  | (−2700, 2800) | Tiles | White      |
+| Kitchen             | kitchen   | 3200 × 2700  | (7300, 1800)  | Tiles | White      |
+| Bedroom 2           | bedroom-1 | 3000 × 3000  | (−1700, 4800) | Vinyl | Sand       |
+| Bedroom 3           | bedroom-2 | 3000 × 3000  | (1600, 4800)  | Vinyl | Warm white |
+| Master bathroom     | bathroom  | 1600 × 1700  | (−4600, 2800) | Tiles | White      |
+
+```
+                          north: windows
+  +-------------------+--------------------------------------+
+  | Master bedroom    |  Living & dining                     |
+  | 4.0 × 3.5         |  7.0 × 4.5                           |
+  |              door-|->                                    |
+  +--door--+----------+                      +---------------+
+  | Master | Bathroom |                 sliding  Kitchen     |
+  | bath   | 2.4 × 1.7|<-door           door  ->| 3.2 × 2.7  |
+  +--------+---+------+--door---+--door------+---+------------+
+               | Bedroom 2      | Bedroom 3  |   ^ entry door
+               | 3.0 × 3.0      | 3.0 × 3.0  |
+               +----------------+------------+
+                        south: windows
+```
+
+Why this arrangement:
+
+- **The two bedrooms open off the living room's south wall**, west of
+  the entry door. An HDB flat reaches its bedrooms from the living room
+  or a short passage off it, and the studio's rooms meet only wall to
+  wall, so the living room is the passage. Bedroom 2 hangs west past the
+  living room's corner so the entry door keeps its place 800 mm from the
+  east corner, and each bedroom has its own south window.
+- **The master's bathroom is under the master bedroom**, entered only
+  from it, through a door in the bedroom's south wall at its west end.
+  The two bathrooms stand back to back, as their pipes would, with the
+  wall between them closed.
+- **Closed walls:** bedroom 2 to bedroom 3, bedroom 2 to the common
+  bathroom, the master to the common bathroom, and the two bathrooms.
+  Each stands solid, so the only way into a bedroom is its own door.
+
+What goes in the new rooms (Furnishes pieces, to be bought, marked ★;
+the rest is there so the room reads as a room):
+
+- **Bedroom 2, a child's room:** a single bed with its head on the west
+  wall, a ★ bedside cabinet beside it, a wardrobe on the east wall clear
+  of the door's swing, a ★ desk-side organiser and a desk under the
+  window with its chair.
+- **Bedroom 3, a study and guest room:** a ★ organiser workstation under
+  the window, its chair, a daybed along the west wall clear of the door,
+  a ★ work cart beside the workstation, a plant.
+- **Master bathroom:** a shower behind its screen in the south-west
+  corner, a basin cabinet on the east wall, the WC on the south wall, a
+  bath mat.
+- **The master bedroom makes room for its new door:** the bed and its
+  bedside cabinets move 500 mm east, and the wardrobe on the west wall
+  shortens to 1.5 m, so the door's swing is clear.
+
+The tour adds the two bedrooms and the master's bathroom to its round.
+Saved projects keep their rooms; only a new project opens on this flat.
+The cost to draw grows with the rooms: the bench's opening lines and
+the probes above say what it costs on a given device.

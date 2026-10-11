@@ -35,11 +35,11 @@ export const HELP_TABS: readonly HelpTab[] = [
           },
           {
             does: "Zoom the plan",
-            how: "A notch of the wheel, or a pinch on the trackpad; + and − do the same.",
+            how: "A notch of the mouse wheel, or a pinch on the trackpad (Ctrl with the wheel too); + and − do the same.",
           },
           {
             does: "Move the sheet",
-            how: "Two fingers on the trackpad, or drag the sheet by its margin. Fit (0) brings it back; Settings can settle what the wheel does.",
+            how: "Two fingers on the trackpad (or a Magic Mouse), Shift with the mouse wheel to go across, or drag the sheet with Select. Fit (0) brings it back; Settings can make the wheel always zoom or always move.",
           },
           {
             does: "Measure",
@@ -66,7 +66,14 @@ export const HELP_TABS: readonly HelpTab[] = [
             does: "Turn the view",
             how: "Drag on the floor or the walls, or drag the view cube itself, which turns as the camera does; a click on one of its faces snaps to that angle.",
           },
-          { does: "Zoom", how: "The wheel, or a pinch on the trackpad." },
+          {
+            does: "Zoom",
+            how: "A notch of the mouse wheel, or a pinch on the trackpad.",
+          },
+          {
+            does: "Move the view",
+            how: "Two fingers on the trackpad, or drag with the right button (or Shift and the left). A view moved by hand stays put until an angle is picked again.",
+          },
           {
             does: "Find a piece",
             how: "Rest on it: it outlines, shows its name, and the hand says it can be dragged (a finger, only picked). View settings can keep every name on.",
@@ -78,7 +85,7 @@ export const HELP_TABS: readonly HelpTab[] = [
           { does: "Turn a piece", how: "Drag the spin handle over it." },
           {
             does: "Walk",
-            how: "G, or Walk under the view cube. W A S D or the arrows move, a drag looks round, a click on the floor goes there; Escape stops.",
+            how: "G, or Walk under the view cube. W A S D or the arrows move, a drag looks round, a click on the floor (not the end of a drag) goes there; Escape stops.",
           },
         ],
       },
@@ -134,6 +141,7 @@ export const HELP_TABS: readonly HelpTab[] = [
         rows: [
           { does: "Turn the view", how: "One finger." },
           { does: "Zoom", how: "Pinch with two fingers." },
+          { does: "Move the view", how: "Drag with two fingers." },
           { does: "Move a piece", how: "Drag it over the floor." },
           { does: "Turn a piece", how: "Drag the spin handle over it." },
           {

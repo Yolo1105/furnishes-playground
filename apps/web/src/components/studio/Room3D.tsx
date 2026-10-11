@@ -1148,6 +1148,9 @@ function Door({ r, o }: { r: RoomShape; o: Opening }) {
   );
 }
 
+/** how far a press may travel and still be a click on the floor, px */
+const CLICK_TRAVEL = 6;
+
 export function RoomShell({
   r,
   walk,
@@ -1207,7 +1210,8 @@ export function RoomShell({
     return out;
   }, [W, D, outline, openings, thickness, shared, h]);
   const onFloorClick = useEvent((e: ThreeEvent<MouseEvent>) => {
-    if (!walk) return;
+    // a drag that looked round and let go over the floor is not a step
+    if (!walk || e.delta > CLICK_TRAVEL) return;
     e.stopPropagation();
     onWalkTo(e.point.x, e.point.z);
   });

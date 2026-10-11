@@ -11,6 +11,9 @@
  * `data-corners="rounded"` floats them with a gap and a radius.
  * ─────────────────────────────────────────────────────────────────────── */
 .shell {
+  /* a finger scrolls the panels, but a pinch is the views' own and never
+     zooms the page (the views ask for touch-action: none themselves) */
+  touch-action: pan-x pan-y;
   --shell-left: clamp(240px, 18vw, 320px);
   --shell-right: clamp(280px, 22vw, 380px);
   --shell-gap: 0px;

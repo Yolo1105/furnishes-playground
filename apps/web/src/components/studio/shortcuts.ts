@@ -28,8 +28,8 @@ export const SHORTCUTS = [
     does: "Turn the picked piece a quarter (drag its handle to turn freely)",
   },
   { keys: ["⌫"], does: "Remove the picked piece from the room" },
-  { keys: ["⌘", "Z"], does: "Undo" },
-  { keys: ["⌘", "⇧", "Z"], does: "Redo" },
+  { keys: ["⌘ / Ctrl", "Z"], does: "Undo" },
+  { keys: ["⌘ / Ctrl", "⇧", "Z"], does: "Redo" },
   { keys: ["?"], does: "Help, on this list" },
   {
     keys: ["Esc"],

@@ -142,6 +142,18 @@ const Band = ({ outline, t }: { outline: readonly Point[]; t: number }) => {
   );
 };
 
+/** a point on the screen as the sheet's zoom reads it: from the middle
+    of the sheet as it stands unmoved (its box less its pan), so the
+    point under the pointer stays put however far the sheet was moved */
+const aboutOf = (sheet: Element, x: number, y: number) => {
+  const r = sheet.getBoundingClientRect();
+  const { planPan } = useStudio.getState();
+  return {
+    x: x - (r.left + r.width / 2) + planPan.x,
+    y: y - (r.top + r.height / 2) + planPan.y,
+  };
+};
+
 export function Plan2D({
   interactive = true,
 }: {
@@ -258,11 +270,11 @@ export function Plan2D({
   // their own, since the page must not scroll or zoom with them
   useEffect(() => {
     const sheet = sheetRef.current;
-    if (!interactive || !sheet) return;
-    const about = (x: number, y: number) => {
-      const r = sheet.getBoundingClientRect();
-      return { x: x - (r.left + r.width / 2), y: y - (r.top + r.height / 2) };
-    };
+    // the stage round the sheet listens too: over its margin a pinch
+    // still zooms the sheet, and never the page
+    const area = sheet?.parentElement ?? sheet;
+    if (!interactive || !sheet || !area) return;
+    const about = (x: number, y: number) => aboutOf(sheet, x, y);
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const read = readWheel(e, wheelMode);
@@ -282,13 +294,13 @@ export function Plan2D({
       zoomPlan(g.scale / scale, about(g.clientX, g.clientY));
       scale = g.scale;
     };
-    sheet.addEventListener("wheel", onWheel, { passive: false });
-    sheet.addEventListener("gesturestart", onGestureStart);
-    sheet.addEventListener("gesturechange", onGesture);
+    area.addEventListener("wheel", onWheel, { passive: false });
+    area.addEventListener("gesturestart", onGestureStart);
+    area.addEventListener("gesturechange", onGesture);
     return () => {
-      sheet.removeEventListener("wheel", onWheel);
-      sheet.removeEventListener("gesturestart", onGestureStart);
-      sheet.removeEventListener("gesturechange", onGesture);
+      area.removeEventListener("wheel", onWheel);
+      area.removeEventListener("gesturestart", onGestureStart);
+      area.removeEventListener("gesturechange", onGesture);
     };
   }, [interactive, wheelMode, zoomPlan, panPlan]);
 
@@ -360,11 +372,10 @@ export function Plan2D({
       if (z && fingers.current.size >= 2) {
         const [a, b] = [...fingers.current.values()];
         const now = pinchOf(a!, b!);
-        const r = e.currentTarget.getBoundingClientRect();
-        zoomPlan(now.span / z.span, {
-          x: now.mid.x - (r.left + r.width / 2),
-          y: now.mid.y - (r.top + r.height / 2),
-        });
+        zoomPlan(
+          now.span / z.span,
+          aboutOf(e.currentTarget, now.mid.x, now.mid.y),
+        );
         panPlan(now.mid.x - z.mid.x, now.mid.y - z.mid.y);
         pinch.current = now;
         return;

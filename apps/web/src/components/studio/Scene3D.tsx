@@ -87,7 +87,7 @@ import { setLive } from "./scene-handle";
 import { recordFrame, recorder } from "./bench";
 import { devFlag, devParam } from "./dev-flags";
 import { propsOf, useScene } from "./scene-store";
-import { useCoarse } from "./input";
+import { type GestureEvent, readWheel, useCoarse } from "./input";
 import {
   minRenderMs,
   useStudio,
@@ -459,7 +459,31 @@ const reportGliding = (
   if (el.dataset.gliding !== v) el.dataset.gliding = v;
 };
 
-type Controls = { target: Vector3; update: () => void } | null;
+type Controls = {
+  target: Vector3;
+  update: () => void;
+  enabled: boolean;
+  minDistance: number;
+  maxDistance: number;
+  addEventListener: (type: string, fn: () => void) => void;
+  removeEventListener: (type: string, fn: () => void) => void;
+} | null;
+
+/** the orbit held off (and true when it was on to be held), or let go */
+const holdOrbit = (controls: unknown, hold: boolean) => {
+  const c = controls as { enabled: boolean } | null;
+  if (!c) return false;
+  if (hold) {
+    if (!c.enabled) return false;
+    c.enabled = false;
+    return true;
+  }
+  c.enabled = true;
+  return false;
+};
+
+/** how far past the flat's box the view's centre may be moved, m */
+const PAN_REACH = 1;
 const ORIGIN = new Vector3();
 
 /** the camera glides to the angle's place */
@@ -496,10 +520,19 @@ function Rig({
     t: number;
   } | null>(null);
   const free = useStudio((s) => s.free);
+  // the view moved by hand since the camera last glided to its angle:
+  // a new size for the canvas (a window or a panel resized, a phone
+  // turned) keeps it; a new angle or room glides as ever
+  const moved = useRef(false);
+  const placed = useRef("");
   useEffect(() => {
     // turned by hand: the camera stays where the cube or the canvas put
     // it; the angle picked again, free cleared, glides back to it
     if (free) return;
+    const key = JSON.stringify([angle, w, d, h, centre, roomW, roomD]);
+    if (key === placed.current && moved.current) return;
+    placed.current = key;
+    moved.current = false;
     const { pos, at } = cameraFor(angle, w, d, h, centre, {
       w: roomW,
       d: roomD,
@@ -548,6 +581,111 @@ function Rig({
     controls?.update();
     invalidate();
   }, [turn, camera, controls, h, invalidate]);
+  // the wheel, a pinch and two fingers on a trackpad, over the stage and
+  // anything on it, before the orbit's own handlers: a pinch or a notch
+  // zooms by as much as the fingers or the notch moved, two fingers on a
+  // trackpad move the view (as on the plan), and the page never zooms
+  const wheelMode = useStudio((s) => s.wheelMode);
+  useEffect(() => {
+    const el = stage.current;
+    if (!el) return;
+    const ready = () => controls !== null && controls.enabled;
+    const dolly = (factor: number) => {
+      if (!controls) return;
+      const at = controls.target;
+      const v = camera.position.clone().sub(at);
+      const len = Math.min(
+        controls.maxDistance,
+        Math.max(controls.minDistance, v.length() / factor),
+      );
+      camera.position.copy(at).add(v.setLength(len));
+      settleView();
+    };
+    const pan = (dx: number, dy: number) => {
+      if (!controls) return;
+      const at = controls.target;
+      const dist = camera.position.distanceTo(at);
+      const fov = (camera as { fov?: number }).fov ?? 42;
+      const k =
+        (2 * dist * Math.tan((fov * Math.PI) / 360)) /
+        Math.max(1, el.clientHeight);
+      camera.updateMatrixWorld();
+      const right = new Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+      const up = new Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
+      const shift = right
+        .multiplyScalar(-dx * k)
+        .add(up.multiplyScalar(dy * k));
+      at.add(shift);
+      camera.position.add(shift);
+      settleView();
+    };
+    const settleView = () => {
+      keepIn();
+      moved.current = true;
+      controls?.update();
+      invalidate();
+    };
+    // the view's centre stays over the flat: moved past its box, the
+    // camera comes back with it
+    const keepIn = () => {
+      if (!controls) return;
+      const at = controls.target;
+      const was = at.clone();
+      at.x = Math.min(
+        centre[0] + w / 2 + PAN_REACH,
+        Math.max(centre[0] - w / 2 - PAN_REACH, at.x),
+      );
+      at.z = Math.min(
+        centre[1] + d / 2 + PAN_REACH,
+        Math.max(centre[1] - d / 2 - PAN_REACH, at.z),
+      );
+      at.y = Math.min(h, Math.max(0, at.y));
+      camera.position.add(at.clone().sub(was));
+    };
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!ready()) return;
+      glide.current = null;
+      const read = readWheel(e, wheelMode);
+      if (read.kind === "zoom") dolly(read.factor);
+      else pan(read.dx, read.dy);
+    };
+    // Safari's trackpad pinch
+    let scale = 1;
+    const onGestureStart = (e: Event) => {
+      e.preventDefault();
+      scale = 1;
+    };
+    const onGesture = (e: Event) => {
+      e.preventDefault();
+      if (!ready()) return;
+      const g = e as GestureEvent;
+      glide.current = null;
+      dolly(g.scale / scale);
+      scale = g.scale;
+    };
+    // the orbit's own drags (a turn, the right button or two fingers to
+    // move): kept over the flat, and counted as the view moved by hand
+    const onStart = () => {
+      moved.current = true;
+    };
+    const onChange = () => keepIn();
+    el.addEventListener("wheel", onWheel, { passive: false, capture: true });
+    el.addEventListener("gesturestart", onGestureStart, { capture: true });
+    el.addEventListener("gesturechange", onGesture, { capture: true });
+    controls?.addEventListener("start", onStart);
+    controls?.addEventListener("change", onChange);
+    return () => {
+      el.removeEventListener("wheel", onWheel, { capture: true });
+      el.removeEventListener("gesturestart", onGestureStart, {
+        capture: true,
+      });
+      el.removeEventListener("gesturechange", onGesture, { capture: true });
+      controls?.removeEventListener("start", onStart);
+      controls?.removeEventListener("change", onChange);
+    };
+  }, [stage, camera, controls, invalidate, wheelMode, w, d, h, centre]);
   const last = useRef({ at: 0 });
   useFrame(() => {
     // the clock runs while the scene rests: a frame after a pause steps
@@ -625,36 +763,59 @@ function Walker({
       (t.isContentEditable || /^(input|textarea|select)$/i.test(t.tagName));
     const down = (e: KeyboardEvent) => {
       if (typing(e.target)) return;
-      s.keys.add(e.key.toLowerCase());
+      // a shortcut (⌘S, Ctrl+D) is not a step: and a Mac sends no key-up
+      // for a letter let go while ⌘ is held, so it would walk for ever
+      if (e.metaKey || e.ctrlKey || e.altKey) {
+        s.keys.clear();
+        return;
+      }
+      const key = e.key.toLowerCase();
+      // the arrows walk; they do not scroll a list or move a slider too
+      if (key.startsWith("arrow")) e.preventDefault();
+      s.keys.add(key);
       // a key takes the walk over from the tour
       if (s.tour && !e.key.startsWith("Esc")) useStudio.getState().stopTour();
       invalidate();
     };
-    const up = (e: KeyboardEvent) => s.keys.delete(e.key.toLowerCase());
-    let look: { x: number; y: number } | null = null;
+    const up = (e: KeyboardEvent) => {
+      if (e.key === "Meta" || e.key === "Control") s.keys.clear();
+      s.keys.delete(e.key.toLowerCase());
+    };
+    // the window left (another tab, an app switched to): nothing is held
+    const release = () => s.keys.clear();
+    // one pointer looks round at a time, the main button or a finger
+    let look: { x: number; y: number; id: number } | null = null;
     const el = gl.domElement;
     const pdown = (e: PointerEvent) => {
-      look = { x: e.clientX, y: e.clientY };
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      if (look && look.id !== e.pointerId) return;
+      look = { x: e.clientX, y: e.clientY, id: e.pointerId };
       if (s.tour) useStudio.getState().stopTour();
     };
     const pmove = (e: PointerEvent) => {
-      if (!look) return;
+      if (!look || look.id !== e.pointerId) return;
       s.yaw -= (e.clientX - look.x) * 0.005;
       s.pitch = Math.max(
         -1.2,
         Math.min(1.2, s.pitch - (e.clientY - look.y) * 0.004),
       );
-      look = { x: e.clientX, y: e.clientY };
+      look = { x: e.clientX, y: e.clientY, id: e.pointerId };
       invalidate();
     };
-    const pup = () => {
-      look = null;
+    const pup = (e: PointerEvent) => {
+      if (look?.id === e.pointerId) look = null;
     };
+    // the right button looks for nothing here: no menu over the walk
+    const menu = (e: Event) => e.preventDefault();
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
     el.addEventListener("pointerdown", pdown);
     window.addEventListener("pointermove", pmove);
     window.addEventListener("pointerup", pup);
+    window.addEventListener("pointercancel", pup);
+    window.addEventListener("blur", release);
+    document.addEventListener("visibilitychange", release);
+    el.addEventListener("contextmenu", menu);
     return () => {
       s.keys.clear();
       window.removeEventListener("keydown", down);
@@ -662,6 +823,10 @@ function Walker({
       el.removeEventListener("pointerdown", pdown);
       window.removeEventListener("pointermove", pmove);
       window.removeEventListener("pointerup", pup);
+      window.removeEventListener("pointercancel", pup);
+      window.removeEventListener("blur", release);
+      document.removeEventListener("visibilitychange", release);
+      el.removeEventListener("contextmenu", menu);
     };
   }, [camera, gl, w, d, invalidate]);
   // the tour: through the stops on the plan, or, with fewer than two, a
@@ -981,6 +1146,9 @@ function Piece({
     moved: boolean;
   } | null>(null);
   const moved = useRef(false);
+  // the orbit held off by a press on the piece, to be let go with it
+  const held = useRef(false);
+  const getThree = useThree((st) => st.get);
   const f = footprint(props);
   const hitFloor = (e: ThreeEvent<PointerEvent>) => {
     const p = new Vector3();
@@ -996,6 +1164,9 @@ function Piece({
     e.stopPropagation();
     (e.target as Element).setPointerCapture(e.pointerId);
     moved.current = false;
+    // a press on a piece is the piece's: the view does not turn under it
+    // for the first steps of a drag (the orbit hears the same press)
+    held.current = holdOrbit(getThree().controls, true);
     // the spot is kept in mm from the room's north-west corner
     drag.current = {
       hit,
@@ -1028,6 +1199,8 @@ function Piece({
     useScene.getState().dragMove(node.id, to.x, to.y);
   });
   const onUp = useEvent(() => {
+    if (held.current) holdOrbit(getThree().controls, false);
+    held.current = false;
     const dr = drag.current;
     if (!dr) return;
     drag.current = null;
@@ -2002,7 +2175,9 @@ export default function Scene3D() {
         <OrbitControls
           makeDefault
           enabled={!walk && !dragging && !panelDrag}
-          enablePan={false}
+          // the right button, Shift with the left, or two fingers move the
+          // view; the wheel and Safari's pinch are the Rig's own
+          enablePan
           minDistance={1}
           maxDistance={30}
           maxPolarAngle={Math.PI / 2 - 0.02}
