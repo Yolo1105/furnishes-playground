@@ -78,19 +78,40 @@ Two findings shaped the work:
    the scene shows. The lines are on the panel and under `opening` in
    the copied JSON.
 
+5. **The shaders built ahead of the frame** (shader-warm.ts, Post.tsx).
+   Each frame the post chain looks for the parts whose material it has
+   not built a shader for: a material it has not seen, a texture slot
+   filled since (the photographed wood arriving), or a change of
+   lighting (a light added, a shadow turned on), which changes them
+   all. It builds those with three's `renderer.compileAsync`, one part
+   at a time into the scene pass's own target and outputs, and draws no
+   frame until they are built, so no frame builds twenty at once. three
+   gives the page back between parts (`scheduler.yield`, else a frame)
+   and, where the device has `KHR_parallel_shader_compile` or is on
+   WebGPU, links them off the main thread altogether; the sandbox's
+   software renderer has neither, so there each part still holds the
+   page for its own link, a few hundred milliseconds. Two details the
+   build does not cover on its own are handled: a see-through part
+   shown from both sides is drawn as two passes, which the build would
+   make for the wrong side, so it is built a side at a time; and until
+   the backend is known the canvas draws nothing (`HoldFrames`), where
+   before it drew the whole scene once on its own and built every
+   shader in that one frame. The stage says `data-shaders` (`building`,
+   `ready`), and the room fades in once they are ready; `?nowarm` in
+   development builds them on the first frame as before, to compare.
+   What is still built in the first frame: the shadow pass's two depth
+   shaders and the post chain's own five (copy, SMAA, output), which
+   `compileAsync` cannot reach, and one variant of the window's glass.
+
+   Measured in the sandbox, two runs each of the first minute:
+
+   | what                          | `?nowarm`        | warmed           |
+   | ----------------------------- | ---------------- | ---------------- |
+   | main thread held              | 24.4 s, 22.8 s   | 16.6 s, 14.7 s   |
+   | longest single freeze         | 12.0 s, 12.1 s   | 7.4 s, 5.0 s     |
+
 ## What was left, and why
 
-- **Building the shaders off the main thread.** three's
-  `renderer.compileAsync` (and `PassNode.compileAsync` for the scene
-  pass with its MRT) links programs with `KHR_parallel_shader_compile`
-  and does not block. It is the right next step, but it was not taken
-  blind: the post chain renders the scene through its own pass, the
-  shadow passes are not covered by `compileAsync`, and on the demand
-  frame loop any frame drawn while a warm-up runs builds the rest
-  synchronously anyway. It needs a held first frame (the stage already
-  fades in on `data-drawn`), a warm-up per pass, and a real device's
-  numbers to show it pays. The bench's opening lines are there to take
-  those numbers before and after.
 - **Instancing the repeated pieces.** Two bedside cabinets or four
   dining chairs could each be one instanced draw. After batching, a
   piece is two or three draws, so instancing saves little against its
@@ -115,4 +136,5 @@ The sandbox has no GPU, so these steps are for a person with a device:
    report long tasks; the frame lines still stand.
 4. The phone budget is 30 fps or more; the desktop's P95 at 1440p is
    16.7 ms or less. A longest freeze over about a second while opening
-   says the shader warm-up above is worth building.
+   is worth a second look: compare with `?nowarm` on a development
+   build to see what the warm-up saves on that device.

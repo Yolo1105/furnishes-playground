@@ -7,6 +7,7 @@ import { useEffect, useRef } from "react";
 import {
   AgXToneMapping,
   type Camera,
+  type Object3D,
   type PerspectiveCamera,
   type Scene,
   SRGBColorSpace,
@@ -41,6 +42,7 @@ import {
   velocity,
 } from "three/tsl";
 import { RenderPipeline, type WebGPURenderer } from "three/webgpu";
+import { lightingKey, unwarmed, warmParts } from "./shader-warm";
 import type { Backend, Quality } from "./studio-store";
 
 /**
@@ -55,6 +57,8 @@ import type { Backend, Quality } from "./studio-store";
  * so.
  */
 export type Tier = "desktop" | "laptop" | "phone";
+/** the scene's shaders: being built ahead of the first frame, or ready */
+export type ShaderState = "building" | "ready";
 
 /** the tone mapping of the picture: AgX rolls the highlights off
     instead of clipping them */
@@ -238,6 +242,9 @@ const frameOf = (
 
 type Chain = {
   render: () => void;
+  /** the parts' shaders built for the scene pass ahead of the frame
+      that draws them (shader-warm.ts) */
+  warm: (parts: readonly Object3D[]) => Promise<void>;
   dispose: () => void;
   place: Place;
   /** whether the picture is built over frames and needs them to settle */
@@ -276,6 +283,7 @@ const build = (
         pipeline.render();
         recordPost(performance.now() - t0);
       },
+      warm: (parts) => warmParts(renderer, scenePass, parts, scene, camera),
       dispose: () => {
         edges.dispose();
         frame.dispose();
@@ -388,6 +396,7 @@ const build = (
       pipeline.render();
       recordPost(performance.now() - t0);
     },
+    warm: (parts) => warmParts(renderer, scenePass, parts, scene, camera),
     dispose: () => {
       resolve.dispose();
       frame.dispose();
@@ -421,6 +430,7 @@ export function Post({
   onFailed,
   onSettle,
   onEffects,
+  onShaders,
 }: {
   tier: Tier;
   /** the desktop extras asked for (View settings) */
@@ -434,12 +444,21 @@ export function Post({
   onSettle?: (remaining: number) => void;
   /** which extras the chain draws, once built */
   onEffects?: (fx: EffectStates) => void;
+  /** whether the scene's shaders are still being built ahead of the
+      chain's first frame, or ready */
+  onShaders?: (state: ShaderState) => void;
 }) {
   const invalidate = useThree((s) => s.invalidate);
   // the passes are built on the first frame that needs them and let go
   // when the tier or the extras change or the room leaves
   const key = `${tier}:${effects.reflections}:${effects.bounce}:${bytesPerSample}`;
   const kept = useRef<{ key: string; chain: Chain } | null>(null);
+  // the parts whose shaders the chain has built, by the key their
+  // materials had, and whether a build is under way
+  const warmed = useRef(new WeakMap<Object3D, string>());
+  const warming = useRef(false);
+  // the lighting the built shaders were built for
+  const lit = useRef("");
   useEffect(() => {
     invalidate();
     return () => {
@@ -468,6 +487,36 @@ export function Post({
         };
         kept.current = have;
         onEffects?.(have.chain.fx);
+        // a new chain draws to its own target: its shaders are its own
+        warmed.current = new WeakMap();
+        if (devFlag("nowarm")) onShaders?.("ready");
+      }
+      // a change of lighting changes every shader: all are built again
+      const lighting = lightingKey(state.scene);
+      if (!warming.current && lighting !== lit.current) {
+        lit.current = lighting;
+        warmed.current = new WeakMap();
+      }
+      const cold = devFlag("nowarm")
+        ? []
+        : unwarmed(state.scene, warmed.current);
+      if (warming.current || cold.length) {
+        // the parts with a material not drawn before have their shaders
+        // built before the chain draws them, a part at a time: a frame
+        // drawn meanwhile would build them all in one go, so none is
+        if (!warming.current) {
+          warming.current = true;
+          onShaders?.("building");
+          const map = warmed.current;
+          const done = () => {
+            for (const c of cold) map.set(c.part, c.key);
+            warming.current = false;
+            onShaders?.("ready");
+            invalidate();
+          };
+          void have.chain.warm(cold.map((c) => c.part)).then(done, done);
+        }
+        return;
       }
       placeOf(state.gl.domElement, have.chain.place);
       have.chain.render();

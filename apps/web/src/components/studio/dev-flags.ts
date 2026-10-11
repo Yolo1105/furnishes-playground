@@ -2,18 +2,21 @@
  * Switches for diagnosing the picture, read once from the page's
  * query in development only (`?noao&noprobes&noskyshadow&noplaster`):
  * each turns one layer of the look off so a defect can be laid at the
- * right door by rendering with and without it. Never on in production.
+ * right door by rendering with and without it (`?nowarm` builds the
+ * shaders on the first frame, as before the warm-up, to measure it).
+ * Never on in production.
  */
-export type DevFlag = "noao" | "noprobes" | "noskyshadow" | "noplaster";
+export type DevFlag =
+  "noao" | "noprobes" | "noskyshadow" | "noplaster" | "nowarm";
 
 const read = (): Set<DevFlag> => {
   if (process.env.NODE_ENV === "production" || typeof window === "undefined")
     return new Set();
   const q = new URLSearchParams(window.location.search);
   return new Set(
-    (["noao", "noprobes", "noskyshadow", "noplaster"] as const).filter((f) =>
-      q.has(f),
-    ),
+    (
+      ["noao", "noprobes", "noskyshadow", "noplaster", "nowarm"] as const
+    ).filter((f) => q.has(f)),
   );
 };
 let flags: Set<DevFlag> | null = null;

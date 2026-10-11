@@ -4361,6 +4361,10 @@ test("View settings: edges, names, a floor grid, shadows and the light, kept for
   await expect(stage).toHaveAttribute("data-settled", "true", {
     timeout: 120_000,
   });
+  // the shaders were built ahead of the frames, and are all built
+  await expect(stage).toHaveAttribute("data-shaders", "ready", {
+    timeout: 60_000,
+  });
   // no names until asked: the hovered piece alone shows its own
   await expect(stage).toHaveAttribute("data-labels", "false");
   await expect(stage).toHaveAttribute("data-edges", "false");

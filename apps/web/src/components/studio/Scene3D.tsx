@@ -72,6 +72,7 @@ import {
   type EffectStates,
   MRT_BYTES,
   Post,
+  type ShaderState,
   textureSideOf,
   tierOf,
   TONE_MAPPING,
@@ -279,6 +280,15 @@ function Backend() {
     },
     [gl],
   );
+  return null;
+}
+
+/** no frame until the backend is known: the canvas would otherwise draw
+    the scene itself (a frame subscriber at a priority takes the drawing
+    over) and build every shader in it at once, before the post chain is
+    there to build them a part at a time (shader-warm.ts) */
+function HoldFrames() {
+  useFrame(() => undefined, 1);
   return null;
 }
 
@@ -1653,6 +1663,15 @@ export default function Scene3D() {
   const [settling, setSettling] = useState(false);
   const onSettle = useEvent((left: number) => setSettling(left > 0));
   const [drawn, setDrawn] = useState(false);
+  // the scene's shaders, built ahead of the post chain's first frame;
+  // the room fades in once they have been, and stays in when a change
+  // of tier builds them again
+  const [shaders, setShaders] = useState<ShaderState>("building");
+  const [warmed, setWarmed] = useState(false);
+  const onShaders = useEvent((s: ShaderState) => {
+    setShaders(s);
+    if (s === "ready") setWarmed(true);
+  });
   const skyShadow = shadows && tier === "desktop" && !devFlag("noskyshadow");
   const liveSun = useMemo(
     () => ({ position: sunFrom, colour: light.colour, intensity: light.sun }),
@@ -1736,7 +1755,8 @@ export default function Scene3D() {
       data-photo-size={photo ? `${photo.width}x${photo.height}` : ""}
       data-exposure={scene.exposure}
       data-backend={backend}
-      data-drawn={drawn}
+      data-drawn={drawn && backend !== null && (post === null || warmed)}
+      data-shaders={post === null ? "ready" : shaders}
       data-settled={!settling}
       data-post={post ?? "off"}
       data-ssr={post === "desktop" ? fx.ssr : "off"}
@@ -1779,6 +1799,7 @@ export default function Scene3D() {
         )}
         <Exposure value={scene.exposure} />
         <Backend />
+        {!backend && <HoldFrames />}
         <BenchFrames />
         <FirstFrame onDrawn={() => setDrawn(true)} />
         <LiveHandle
@@ -1800,6 +1821,7 @@ export default function Scene3D() {
             onFailed={failPost(setPostFailed)}
             onSettle={onSettle}
             onEffects={setFx}
+            onShaders={onShaders}
           />
         )}
         <hemisphereLight

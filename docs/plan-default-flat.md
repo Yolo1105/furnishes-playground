@@ -432,9 +432,11 @@ did, and five of them were wrong:
   and 150k triangles (254k). The page's first minute in the sandbox is
   held 21.5 s (28.4 s just before): what holds it is building the
   shaders (22 programs, each 0.4–0.7 s in the software renderer), not
-  drawing, so the next step is building them off the main thread
-  (three's `compileAsync`), measured first on a real device with the
-  bench's new opening lines.
+  drawing. They are now built ahead of the frame, a part at a time
+  (shader-warm.ts): the first minute is held 15–17 s against 23–24 s
+  without, and the longest freeze is 5–7 s against 12 s; on a device
+  with parallel shader linking or WebGPU the builds leave the main
+  thread altogether.
 
 Saved projects keep the rooms they were saved with; only a new project
 opens on the flat. The snapshot's shape did not change (a room kind and
