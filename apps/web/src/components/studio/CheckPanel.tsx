@@ -1,8 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { type BenchReport, runWalkBench } from "./bench";
-import { benchLines, whereOf } from "./BenchPanel";
+import {
+  type BenchReport,
+  benchLines,
+  runWalkBench,
+  watchLongTasks,
+} from "./bench";
+import { whereOf } from "./BenchPanel";
 import { CHECKS } from "./webgpu-checks";
 
 type Result = { pass: boolean | null; note: string };
@@ -87,6 +92,8 @@ export function CheckPanel() {
   const [report, setReport] = useState<string | null>(null);
   const [adapter, setAdapter] = useState<unknown>(null);
   const check = CHECKS[at]!;
+  // the long tasks from the page's start, for the bench's opening lines
+  useEffect(watchLongTasks, []);
   // the stage read once a second while a check is looked at
   useEffect(() => {
     const tick = () => setLive(readStage(check.reads));

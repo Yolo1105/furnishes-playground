@@ -50,9 +50,11 @@ import {
   METAL,
   PANEL,
   Rod,
+  type Part,
   Slab,
   Soft,
   wood,
+  Built,
 } from "./finish";
 import { Panels3D } from "./Panels3D";
 
@@ -441,23 +443,16 @@ function Form(p: Props) {
     );
   if (/screen/.test(name))
     return (
-      <group>
-        <Slab
-          f={own}
-          at={[0, h / 2 + 0.03, 0]}
-          dims={[w, h - 0.03, PANEL * 2]}
-        />
-        <Slab
-          f={wood(DARK_WOOD, false)}
-          at={[-w / 3, 0.015, 0]}
-          dims={[0.06, 0.03, d]}
-        />
-        <Slab
-          f={wood(DARK_WOOD, false)}
-          at={[w / 3, 0.015, 0]}
-          dims={[0.06, 0.03, d]}
-        />
-      </group>
+      <Built
+        parts={[
+          { f: own, at: [0, h / 2 + 0.03, 0], dims: [w, h - 0.03, PANEL * 2] },
+          ...[-1, 1].map((s): Part => ({
+            f: wood(DARK_WOOD, false),
+            at: [(s * w) / 3, 0.015, 0],
+            dims: [0.06, 0.03, d],
+          })),
+        ]}
+      />
     );
 
   switch (cat) {
@@ -525,86 +520,88 @@ function Carcass({
   const inner = h - PLINTH - 2 * PANEL;
   const shelves = inner > 1.2 ? 3 : inner > 0.6 ? 1 : 0;
   const plinthF: Finish = { colour: shade(f.colour, -0.28), rough: 0.8 };
+  const handle = metal(METAL);
+  const rows = Array.from({ length: shelves }, (_, k) => {
+    return PLINTH + PANEL + ((k + 1) * inner) / (shelves + 1);
+  });
+  const hookCount = Math.max(2, Math.round(bayW / 0.18));
+  const parts: Part[] = [
+    { f: plinthF, at: [0, PLINTH / 2, 0], dims: [w - 0.06, PLINTH, d - 0.05] },
+    { f, at: [0, PLINTH + PANEL / 2, 0], dims: [w, PANEL, d] },
+    { f, at: [0, h - PANEL / 2, 0], dims: [w, PANEL, d] },
+    {
+      f,
+      at: [0, PLINTH + h / 2 - PLINTH / 2, -d / 2 + PANEL / 2],
+      dims: [w - 2 * PANEL, h - PLINTH, PANEL],
+    },
+  ];
+  bays.forEach((colour, i) => {
+    const x0 = -w / 2 + PANEL + i * (bayW + PANEL);
+    const mid = x0 + bayW / 2;
+    const side = (x: number): Part => ({
+      f,
+      colour,
+      at: [x, PLINTH + (h - PLINTH) / 2, 0],
+      dims: [PANEL, h - PLINTH, d],
+    });
+    parts.push(side(x0 - PANEL / 2));
+    for (const y of rows)
+      parts.push({
+        f,
+        colour,
+        at: [mid, y, 0],
+        dims: [bayW, PANEL, d - PANEL],
+      });
+    if (i === bays.length - 1) parts.push(side(x0 + bayW + PANEL / 2));
+    if (doors)
+      // an overlay door stands a board proud of the carcass, a gap to
+      // its neighbours, and throws its own line of shadow
+      parts.push(
+        {
+          f,
+          colour,
+          at: [mid, PLINTH + PANEL + inner / 2, d / 2 + PANEL / 2],
+          dims: [bayW + PANEL - DOOR_GAP, inner + PANEL - DOOR_GAP, PANEL],
+        },
+        {
+          f: handle,
+          at: [
+            x0 + bayW - 0.05,
+            PLINTH + PANEL + inner * 0.5,
+            d / 2 + PANEL + 0.012,
+          ],
+          rod: [0.005, 0.11],
+        },
+      );
+    if (hooks)
+      for (let k = 0; k < hookCount; k++)
+        parts.push({
+          f: handle,
+          at: [
+            x0 + (bayW * (k + 0.5)) / hookCount,
+            PLINTH + PANEL + inner * 0.72,
+            -d / 2 + PANEL + 0.03,
+          ],
+          rod: [0.007, 0.06],
+          rotation: [Math.PI / 2, 0, 0],
+        });
+  });
   return (
     <group>
-      <Slab
-        f={plinthF}
-        at={[0, PLINTH / 2, 0]}
-        dims={[w - 0.06, PLINTH, d - 0.05]}
-      />
-      <Slab f={f} at={[0, PLINTH + PANEL / 2, 0]} dims={[w, PANEL, d]} />
-      <Slab f={f} at={[0, h - PANEL / 2, 0]} dims={[w, PANEL, d]} />
-      <Slab
-        f={f}
-        at={[0, PLINTH + h / 2 - PLINTH / 2, -d / 2 + PANEL / 2]}
-        dims={[w - 2 * PANEL, h - PLINTH, PANEL]}
-      />
-      {bays.map((colour, i) => {
+      <Built parts={parts} />
+      {bays.map((_, i) => {
         const x0 = -w / 2 + PANEL + i * (bayW + PANEL);
         const mid = x0 + bayW / 2;
-        const rows = Array.from({ length: shelves }, (_, k) => {
-          return PLINTH + PANEL + ((k + 1) * inner) / (shelves + 1);
-        });
         return (
           <group key={i}>
-            <Slab
-              f={f}
-              colour={colour}
-              at={[x0 - PANEL / 2, PLINTH + (h - PLINTH) / 2, 0]}
-              dims={[PANEL, h - PLINTH, d]}
-            />
-            {rows.map((y, k) => (
-              <Slab
-                key={k}
-                f={f}
-                colour={colour}
-                at={[mid, y, 0]}
-                dims={[bayW, PANEL, d - PANEL]}
-              />
-            ))}
-            {i === bays.length - 1 && (
-              <Slab
-                f={f}
-                colour={colour}
-                at={[x0 + bayW + PANEL / 2, PLINTH + (h - PLINTH) / 2, 0]}
-                dims={[PANEL, h - PLINTH, d]}
-              />
-            )}
-            {doors && (
-              <>
-                {/* an overlay door stands a board proud of the carcass,
-                    a gap to its neighbours, and throws its own line of
-                    shadow */}
-                <Slab
-                  f={f}
-                  colour={colour}
-                  at={[mid, PLINTH + PANEL + inner / 2, d / 2 + PANEL / 2]}
-                  dims={[
-                    bayW + PANEL - DOOR_GAP,
-                    inner + PANEL - DOOR_GAP,
-                    PANEL,
-                  ]}
+            {doors && f.mirror && (
+              <Suspense fallback={null}>
+                <MirrorFace
+                  id={`${id}-door-${i}`}
+                  at={[mid, PLINTH + PANEL + inner / 2, d / 2 + PANEL]}
+                  size={[bayW + PANEL - DOOR_GAP, inner + PANEL - DOOR_GAP]}
                 />
-                {f.mirror && (
-                  <Suspense fallback={null}>
-                    <MirrorFace
-                      id={`${id}-door-${i}`}
-                      at={[mid, PLINTH + PANEL + inner / 2, d / 2 + PANEL]}
-                      size={[bayW + PANEL - DOOR_GAP, inner + PANEL - DOOR_GAP]}
-                    />
-                  </Suspense>
-                )}
-                <Rod
-                  f={metal(METAL)}
-                  at={[
-                    x0 + bayW - 0.05,
-                    PLINTH + PANEL + inner * 0.5,
-                    d / 2 + PANEL + 0.012,
-                  ]}
-                  r={0.005}
-                  h={0.11}
-                />
-              </>
+              </Suspense>
             )}
             {books &&
               !doors &&
@@ -619,26 +616,6 @@ function Carcass({
                   seed={seed + i * 13 + k * 7}
                 />
               ))}
-            {hooks &&
-              Array.from(
-                { length: Math.max(2, Math.round(bayW / 0.18)) },
-                (_, k) => (
-                  <Rod
-                    key={`hook${k}`}
-                    f={metal(METAL)}
-                    at={[
-                      x0 +
-                        (bayW * (k + 0.5)) /
-                          Math.max(2, Math.round(bayW / 0.18)),
-                      PLINTH + PANEL + inner * 0.72,
-                      -d / 2 + PANEL + 0.03,
-                    ]}
-                    r={0.007}
-                    h={0.06}
-                    rotation={[Math.PI / 2, 0, 0]}
-                  />
-                ),
-              )}
           </group>
         );
       })}
@@ -715,26 +692,27 @@ function Bench({ w, h, d, f }: { w: number; h: number; d: number; f: Finish }) {
   const inner = seatH - PLINTH - 2 * PANEL;
   return (
     <group>
-      <Slab
-        f={{ colour: shade(f.colour, -0.28), rough: 0.8 }}
-        at={[0, PLINTH / 2, 0]}
-        dims={[w - 0.06, PLINTH, d - 0.05]}
+      <Built
+        parts={[
+          {
+            f: { colour: shade(f.colour, -0.28), rough: 0.8 },
+            at: [0, PLINTH / 2, 0],
+            dims: [w - 0.06, PLINTH, d - 0.05],
+          },
+          { f, at: [0, PLINTH + PANEL / 2, 0], dims: [w, PANEL, d] },
+          { f, at: [0, seatH - PANEL / 2, 0], dims: [w, PANEL, d] },
+          {
+            f,
+            at: [0, PLINTH + PANEL + inner / 2, -d / 2 + PANEL / 2],
+            dims: [w, inner, PANEL],
+          },
+          ...[-1, 1].map((s): Part => ({
+            f,
+            at: [(s * (w - PANEL)) / 2, PLINTH + PANEL + inner / 2, 0],
+            dims: [PANEL, inner, d],
+          })),
+        ]}
       />
-      <Slab f={f} at={[0, PLINTH + PANEL / 2, 0]} dims={[w, PANEL, d]} />
-      <Slab f={f} at={[0, seatH - PANEL / 2, 0]} dims={[w, PANEL, d]} />
-      <Slab
-        f={f}
-        at={[0, PLINTH + PANEL + inner / 2, -d / 2 + PANEL / 2]}
-        dims={[w, inner, PANEL]}
-      />
-      {[-1, 1].map((s) => (
-        <Slab
-          key={s}
-          f={f}
-          at={[(s * (w - PANEL)) / 2, PLINTH + PANEL + inner / 2, 0]}
-          dims={[PANEL, inner, d]}
-        />
-      ))}
       <Soft
         f={cloth(ROOM_ITEM_HEX)}
         at={[0, seatH + 0.035, 0]}
@@ -748,39 +726,33 @@ function Bench({ w, h, d, f }: { w: number; h: number; d: number; f: Finish }) {
 function Cart({ w, h, d, f }: { w: number; h: number; d: number; f: Finish }) {
   const post = metal(IRON, 0.5);
   const inset = 0.03;
+  const corners = [-1, 1].flatMap((sx) => [-1, 1].map((sz) => [sx, sz]));
   return (
-    <group>
-      {[-1, 1].flatMap((sx) =>
-        [-1, 1].map((sz) => (
-          <Rod
-            key={`${sx}${sz}`}
-            f={post}
-            at={[
-              sx * (w / 2 - inset),
-              0.05 + (h - 0.05) / 2,
-              sz * (d / 2 - inset),
-            ]}
-            r={0.011}
-            h={h - 0.05}
-          />
-        )),
-      )}
-      {[0.1, h * 0.55, h - 0.02].map((y, i) => (
-        <Slab key={i} f={f} at={[0, y, 0]} dims={[w - 0.02, PANEL, d - 0.02]} />
-      ))}
-      {[-1, 1].flatMap((sx) =>
-        [-1, 1].map((sz) => (
-          <Rod
-            key={`c${sx}${sz}`}
-            f={post}
-            at={[sx * (w / 2 - inset), 0.028, sz * (d / 2 - inset)]}
-            r={0.028}
-            h={0.022}
-            rotation={[0, 0, Math.PI / 2]}
-          />
-        )),
-      )}
-    </group>
+    <Built
+      parts={[
+        ...corners.map(([sx, sz]): Part => ({
+          f: post,
+          at: [
+            sx! * (w / 2 - inset),
+            0.05 + (h - 0.05) / 2,
+            sz! * (d / 2 - inset),
+          ],
+          rod: [0.011, h - 0.05],
+        })),
+        ...[0.1, h * 0.55, h - 0.02].map((y): Part => ({
+          f,
+          at: [0, y, 0],
+          dims: [w - 0.02, PANEL, d - 0.02],
+        })),
+        // the castors
+        ...corners.map(([sx, sz]): Part => ({
+          f: post,
+          at: [sx! * (w / 2 - inset), 0.028, sz! * (d / 2 - inset)],
+          rod: [0.028, 0.022],
+          rotation: [0, 0, Math.PI / 2],
+        })),
+      ]}
+    />
   );
 }
 
@@ -809,18 +781,15 @@ function Seat({
   const cushion = cloth(shade(colour, 0.04));
   return (
     <group>
-      {[-1, 1].flatMap((sx) =>
-        [-1, 1].map((sz) => (
-          <Rod
-            key={`${sx}${sz}`}
-            f={wood(DARK_WOOD, false)}
-            at={[sx * (w / 2 - 0.08), LEG / 2, sz * (d / 2 - 0.08)]}
-            r={0.018}
-            top={0.024}
-            h={LEG}
-          />
-        )),
-      )}
+      <Built
+        parts={[-1, 1].flatMap((sx) =>
+          [-1, 1].map((sz): Part => ({
+            f: wood(DARK_WOOD, false),
+            at: [sx * (w / 2 - 0.08), LEG / 2, sz * (d / 2 - 0.08)],
+            rod: [0.018, LEG, 0.024],
+          })),
+        )}
+      />
       <Soft
         f={body}
         at={[0, LEG + baseH / 2, 0]}
@@ -877,23 +846,22 @@ function Table({ w, h, d }: { w: number; h: number; d: number }) {
   return (
     <group>
       <Soft f={f} at={[0, h - top / 2, 0]} dims={[w, top, d]} radius={0.008} />
-      <Slab
-        f={wood(LIGHT_WOOD, false)}
-        at={[0, h - top - 0.035, 0]}
-        dims={[w - 0.14, 0.07, d - 0.14]}
+      <Built
+        parts={[
+          {
+            f: wood(LIGHT_WOOD, false),
+            at: [0, h - top - 0.035, 0],
+            dims: [w - 0.14, 0.07, d - 0.14],
+          },
+          ...[-1, 1].flatMap((sx) =>
+            [-1, 1].map((sz): Part => ({
+              f: wood(shade(LIGHT_WOOD, -0.08), false),
+              at: [sx * (w / 2 - inset), (h - top) / 2, sz * (d / 2 - inset)],
+              rod: [0.016, h - top, 0.026],
+            })),
+          ),
+        ]}
       />
-      {[-1, 1].flatMap((sx) =>
-        [-1, 1].map((sz) => (
-          <Rod
-            key={`${sx}${sz}`}
-            f={wood(shade(LIGHT_WOOD, -0.08), false)}
-            at={[sx * (w / 2 - inset), (h - top) / 2, sz * (d / 2 - inset)]}
-            r={0.016}
-            top={0.026}
-            h={h - top}
-          />
-        )),
-      )}
     </group>
   );
 }
@@ -1032,25 +1000,29 @@ function Rug({ w, d, colour }: { w: number; d: number; colour: string }) {
   return (
     <group>
       <Soft f={f} at={[0, 0.006, 0]} dims={[w, 0.012, d]} radius={0.004} />
-      <Slab
-        f={border}
-        at={[0, 0.0135, -d / 2 + edge / 2]}
-        dims={[w, 0.003, edge]}
-      />
-      <Slab
-        f={border}
-        at={[0, 0.0135, d / 2 - edge / 2]}
-        dims={[w, 0.003, edge]}
-      />
-      <Slab
-        f={border}
-        at={[-w / 2 + edge / 2, 0.0135, 0]}
-        dims={[edge, 0.003, d]}
-      />
-      <Slab
-        f={border}
-        at={[w / 2 - edge / 2, 0.0135, 0]}
-        dims={[edge, 0.003, d]}
+      <Built
+        parts={[
+          {
+            f: border,
+            at: [0, 0.0135, -d / 2 + edge / 2],
+            dims: [w, 0.003, edge],
+          },
+          {
+            f: border,
+            at: [0, 0.0135, d / 2 - edge / 2],
+            dims: [w, 0.003, edge],
+          },
+          {
+            f: border,
+            at: [-w / 2 + edge / 2, 0.0135, 0],
+            dims: [edge, 0.003, d],
+          },
+          {
+            f: border,
+            at: [w / 2 - edge / 2, 0.0135, 0],
+            dims: [edge, 0.003, d],
+          },
+        ]}
       />
     </group>
   );
@@ -1079,92 +1051,82 @@ function Counter({ w, h, d }: { w: number; h: number; d: number }) {
   const doors = Math.max(1, Math.round(w / 0.6));
   const doorW = (w - PANEL * (doors + 1)) / doors;
   const f = wood(LIGHT_WOOD);
+  const handle = metal(METAL);
+  const steel = metal(STEEL, 0.3);
   const upperD = Math.min(d * 0.6, 0.35);
   const upperH = Math.max(0.3, h - CABINET_FROM);
+  const baseH = COUNTER_H - WORKTOP - PLINTH;
   const sinkX = -w / 4;
   const hobX = w / 4;
+  const xs = Array.from(
+    { length: doors },
+    (_, i) => -w / 2 + PANEL + i * (doorW + PANEL) + doorW / 2,
+  );
+  const across: Vector3Tuple = [0, 0, Math.PI / 2];
   return (
     <group>
-      {/* the base: a plinth, the carcass, the doors */}
-      <Slab
-        f={{ colour: shade(LIGHT_WOOD, -0.3), rough: 0.8 }}
-        at={[0, PLINTH / 2, -0.03]}
-        dims={[w - 0.02, PLINTH, d - 0.08]}
+      <Built
+        parts={[
+          // the base: a plinth, the carcass, the doors and their handles
+          {
+            f: { colour: shade(LIGHT_WOOD, -0.3), rough: 0.8 },
+            at: [0, PLINTH / 2, -0.03],
+            dims: [w - 0.02, PLINTH, d - 0.08],
+          },
+          {
+            f,
+            at: [0, PLINTH + baseH / 2, -PANEL],
+            dims: [w, baseH, d - PANEL * 2],
+          },
+          ...xs.flatMap((x): Part[] => [
+            {
+              f,
+              at: [x, PLINTH + baseH / 2, d / 2 - PANEL / 2],
+              dims: [doorW - DOOR_GAP, baseH - DOOR_GAP, PANEL],
+            },
+            {
+              f: handle,
+              at: [x, COUNTER_H - WORKTOP - 0.06, d / 2 + 0.015],
+              rod: [0.005, 0.12],
+              rotation: across,
+            },
+          ]),
+          // the sink, its tap and the hob, set into the worktop
+          {
+            f: steel,
+            at: [sinkX, COUNTER_H - 0.002, -0.02],
+            dims: [Math.min(0.5, w * 0.2), 0.012, Math.min(0.4, d * 0.65)],
+          },
+          {
+            f: steel,
+            at: [sinkX, COUNTER_H + 0.14, -d / 2 + 0.08],
+            rod: [0.01, 0.28],
+          },
+          {
+            f: { colour: "#1d1c1b", rough: 0.2, coat: 0.6 },
+            at: [hobX, COUNTER_H + 0.004, -0.02],
+            dims: [Math.min(0.58, w * 0.22), 0.008, Math.min(0.5, d * 0.8)],
+          },
+          // the wall cabinets and their handles
+          {
+            f,
+            at: [0, CABINET_FROM + upperH / 2, -d / 2 + upperD / 2],
+            dims: [w, upperH, upperD],
+          },
+          ...xs.map((x): Part => ({
+            f: handle,
+            at: [x, CABINET_FROM + 0.1, -d / 2 + upperD + 0.015],
+            rod: [0.005, 0.12],
+            rotation: across,
+          })),
+        ]}
       />
-      <Slab
-        f={f}
-        at={[0, PLINTH + (COUNTER_H - WORKTOP - PLINTH) / 2, -PANEL]}
-        dims={[w, COUNTER_H - WORKTOP - PLINTH, d - PANEL * 2]}
-      />
-      {Array.from({ length: doors }, (_, i) => {
-        const x = -w / 2 + PANEL + i * (doorW + PANEL) + doorW / 2;
-        return (
-          <group key={i}>
-            <Slab
-              f={f}
-              at={[
-                x,
-                PLINTH + (COUNTER_H - WORKTOP - PLINTH) / 2,
-                d / 2 - PANEL / 2,
-              ]}
-              dims={[
-                doorW - DOOR_GAP,
-                COUNTER_H - WORKTOP - PLINTH - DOOR_GAP,
-                PANEL,
-              ]}
-            />
-            <Rod
-              f={metal(METAL)}
-              at={[x, COUNTER_H - WORKTOP - 0.06, d / 2 + 0.015]}
-              r={0.005}
-              h={0.12}
-              rotation={[0, 0, Math.PI / 2]}
-            />
-          </group>
-        );
-      })}
-      {/* the worktop, the sink and the hob */}
       <Soft
         f={{ colour: STONE, rough: 0.35, coat: 0.2 }}
         at={[0, COUNTER_H - WORKTOP / 2, 0]}
         dims={[w + 0.02, WORKTOP, d + 0.02]}
         radius={0.004}
       />
-      <Slab
-        f={metal(STEEL, 0.3)}
-        at={[sinkX, COUNTER_H - 0.002, -0.02]}
-        dims={[Math.min(0.5, w * 0.2), 0.012, Math.min(0.4, d * 0.65)]}
-      />
-      <Rod
-        f={metal(STEEL, 0.3)}
-        at={[sinkX, COUNTER_H + 0.14, -d / 2 + 0.08]}
-        r={0.01}
-        h={0.28}
-      />
-      <Slab
-        f={{ colour: "#1d1c1b", rough: 0.2, coat: 0.6 }}
-        at={[hobX, COUNTER_H + 0.004, -0.02]}
-        dims={[Math.min(0.58, w * 0.22), 0.008, Math.min(0.5, d * 0.8)]}
-      />
-      {/* the wall cabinets */}
-      <Slab
-        f={f}
-        at={[0, CABINET_FROM + upperH / 2, -d / 2 + upperD / 2]}
-        dims={[w, upperH, upperD]}
-      />
-      {Array.from({ length: doors }, (_, i) => {
-        const x = -w / 2 + PANEL + i * (doorW + PANEL) + doorW / 2;
-        return (
-          <Rod
-            key={i}
-            f={metal(METAL)}
-            at={[x, CABINET_FROM + 0.1, -d / 2 + upperD + 0.015]}
-            r={0.005}
-            h={0.12}
-            rotation={[0, 0, Math.PI / 2]}
-          />
-        );
-      })}
     </group>
   );
 }
@@ -1313,18 +1275,16 @@ function Stool({ w, h, d }: { w: number; h: number; d: number }) {
   return (
     <group>
       <Rod f={wood(LIGHT_WOOD)} at={[0, h - 0.02, 0]} r={r} h={0.04} />
-      {[0, 1, 2].map((i) => {
-        const a = (i / 3) * Math.PI * 2;
-        return (
-          <Rod
-            key={i}
-            f={metal(IRON, 0.5)}
-            at={[Math.cos(a) * r * 0.6, (h - 0.04) / 2, Math.sin(a) * r * 0.6]}
-            r={0.012}
-            h={h - 0.04}
-          />
-        );
-      })}
+      <Built
+        parts={[0, 1, 2].map((i): Part => {
+          const a = (i / 3) * Math.PI * 2;
+          return {
+            f: metal(IRON, 0.5),
+            at: [Math.cos(a) * r * 0.6, (h - 0.04) / 2, Math.sin(a) * r * 0.6],
+            rod: [0.012, h - 0.04],
+          };
+        })}
+      />
     </group>
   );
 }
@@ -1351,21 +1311,25 @@ function Chair({
         dims={[w, 0.04, d]}
         radius={0.01}
       />
-      {[-1, 1].flatMap((sx) =>
-        [-1, 1].map((sz) => (
-          <Rod
-            key={`${sx}${sz}`}
-            f={f}
-            at={[sx * (w / 2 - 0.03), (seatH - 0.04) / 2, sz * (d / 2 - 0.03)]}
-            r={0.014}
-            h={seatH - 0.04}
-          />
-        )),
-      )}
-      <Slab
-        f={f}
-        at={[0, seatH + (h - seatH) / 2, -d / 2 + 0.02]}
-        dims={[w - 0.04, h - seatH, 0.025]}
+      <Built
+        parts={[
+          ...[-1, 1].flatMap((sx) =>
+            [-1, 1].map((sz): Part => ({
+              f,
+              at: [
+                sx * (w / 2 - 0.03),
+                (seatH - 0.04) / 2,
+                sz * (d / 2 - 0.03),
+              ],
+              rod: [0.014, seatH - 0.04],
+            })),
+          ),
+          {
+            f,
+            at: [0, seatH + (h - seatH) / 2, -d / 2 + 0.02],
+            dims: [w - 0.04, h - seatH, 0.025],
+          },
+        ]}
       />
     </group>
   );

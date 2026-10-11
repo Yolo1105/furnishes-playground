@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { type BenchReport, runWalkBench } from "./bench";
+import {
+  type BenchReport,
+  benchLines,
+  runWalkBench,
+  watchLongTasks,
+} from "./bench";
 import { tierOf } from "./Post";
 import { useStudio } from "./studio-store";
 
@@ -17,17 +22,6 @@ export const whereOf = () => {
   };
 };
 
-/** the report as lines for the panel and the clipboard */
-export const benchLines = (r: BenchReport) => [
-  `${r.backend} · ${r.tier ?? "no tier"} · ${r.canvas.width}×${r.canvas.height} at ${r.dpr}×`,
-  `${r.frames} frames in ${r.seconds} s · ${r.fps} fps`,
-  `frame P50 ${r.p50} ms · P95 ${r.p95} ms · P99 ${r.p99} ms`,
-  `post-processing P50 ${r.post.p50} ms · P95 ${r.post.p95} ms`,
-  r.gpu
-    ? `GPU P50 ${r.gpu.p50} ms · P95 ${r.gpu.p95} ms`
-    : "GPU time: not read (no timestamp query)",
-];
-
 /**
  * The bench panel (`/rounded?bench=walk`): starts the walk once the
  * room is up, records twenty seconds, then shows the report with each
@@ -38,6 +32,8 @@ export function BenchPanel() {
   const [report, setReport] = useState<BenchReport | null>(null);
   const [state, setState] = useState<"waiting" | "running" | "done">("waiting");
   const [copied, setCopied] = useState(false);
+  // the long tasks from the page's start, taken before the walk
+  useEffect(watchLongTasks, []);
   useEffect(() => {
     if (!backend || state !== "waiting") return;
     // the room's first frame and its probes get a few seconds first

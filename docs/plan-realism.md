@@ -739,7 +739,12 @@ WebGL backend too (the suite covers them there):
   frame rate and the post's share against the plan's budgets, pass or
   fail a line (desktop: P95 ≤ 16.7 ms and post ≤ 6 ms at 1440p;
   laptop ≥ 45 fps at 1080p; phone ≥ 30 fps), on the panel with a Copy
-  JSON button and on `window.__bench`.
+  JSON button and on `window.__bench`. Before the walk it takes what
+  opening the room cost (`opening` in the JSON): the main thread's
+  long tasks since the page began, their total and the longest (where
+  the browser reports long tasks; Safari and Firefox do not), the
+  shader programs the renderer keeps, and the meshes, shadow casters
+  and triangles the scene shows.
 - `/rounded?check=webgpu` (CheckPanel.tsx, webgpu-checks.ts) walks
   through the by-hand checks below one at a time, sets the view each
   needs, says what to look at, reads the stage's attributes as they

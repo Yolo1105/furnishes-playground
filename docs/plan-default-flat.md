@@ -423,6 +423,18 @@ did, and five of them were wrong:
   sandbox's software renderer the page was held 50 s of its first
   minute and is held 29 s now; a real GPU draws this easily, but it
   has not been measured on a phone.
+- **Batched pieces and lighter props** (docs/plan-draw-cost.md). A
+  built piece's boards, rods and their joint lines are merged a finish
+  at a time (`Built`, part-geometry.ts), so a carcass of twenty boards
+  is two or three meshes and not forty draws; the stock models over
+  about 8k triangles are simplified to about 6k. The flat now shows
+  254 meshes (387 before), 50 outlines (141), 198 shadow casters (331)
+  and 150k triangles (254k). The page's first minute in the sandbox is
+  held 21.5 s (28.4 s just before): what holds it is building the
+  shaders (22 programs, each 0.4–0.7 s in the software renderer), not
+  drawing, so the next step is building them off the main thread
+  (three's `compileAsync`), measured first on a real device with the
+  bench's new opening lines.
 
 Saved projects keep the rooms they were saved with; only a new project
 opens on the flat. The snapshot's shape did not change (a room kind and

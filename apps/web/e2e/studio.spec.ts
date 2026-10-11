@@ -5358,6 +5358,13 @@ test("the frame bench walks the room and reports its percentiles against the tie
   });
   await expect(panel).toContainText(/frame P50 [\d.]+ ms · P95 [\d.]+ ms/);
   await expect(panel).toContainText(/post-processing P50/);
+  // what opening the room cost, taken before the walk
+  await expect(panel).toContainText(
+    /opening: main thread held \d+ ms in \d+ long tasks · longest \d+ ms/,
+  );
+  await expect(panel).toContainText(
+    /opening: \d+ shader programs · \d+ meshes \(\d+ cast shadows\) · \d+ triangles/,
+  );
   const budgets = panel.getByRole("list", { name: "Budgets" }).locator("li");
   expect(await budgets.count()).toBeGreaterThan(0);
   await expect(budgets.first()).toContainText(/^(pass|fail) · /);

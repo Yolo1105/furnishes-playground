@@ -232,6 +232,14 @@ function LiveHandle({
 function BenchFrames() {
   const gl = useThree((s) => s.gl);
   const last = useRef({ at: 0 });
+  useEffect(() => {
+    const info = (gl as unknown as { info: { memory: { programs?: number } } })
+      .info;
+    recorder.programs = () => info.memory.programs ?? 0;
+    return () => {
+      recorder.programs = null;
+    };
+  }, [gl]);
   useFrame(() => {
     if (!recorder.running) {
       last.current.at = 0;
