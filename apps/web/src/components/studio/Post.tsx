@@ -42,7 +42,7 @@ import {
   velocity,
 } from "three/tsl";
 import { RenderPipeline, type WebGPURenderer } from "three/webgpu";
-import { lightingKey, unwarmed, warmParts } from "./shader-warm";
+import { lightingKey, probesPending, unwarmed, warmParts } from "./shader-warm";
 import type { Backend, Quality } from "./studio-store";
 
 /**
@@ -490,6 +490,11 @@ export function Post({
         // a new chain draws to its own target: its shaders are its own
         warmed.current = new WeakMap();
         if (devFlag("nowarm")) onShaders?.("ready");
+      }
+      // the probes' first picture comes before any shader is built
+      if (!devFlag("nowarm") && probesPending(state.scene)) {
+        if (!warming.current) onShaders?.("building");
+        return;
       }
       // a change of lighting changes every shader: all are built again
       const lighting = lightingKey(state.scene);

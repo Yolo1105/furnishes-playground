@@ -7,7 +7,7 @@ import {
   Texture,
 } from "three";
 import { describe, expect, it } from "vitest";
-import { lightingKey, shaderKey, unwarmed } from "./shader-warm";
+import { lightingKey, probesPending, shaderKey, unwarmed } from "./shader-warm";
 
 describe("the shaders built ahead of the frame", () => {
   const room = () => {
@@ -46,6 +46,20 @@ describe("the shaders built ahead of the frame", () => {
     const { scene, board } = room();
     board.visible = false;
     expect(unwarmed(scene, new WeakMap())).toEqual([]);
+  });
+  it("waits for a probe grid's first picture, which changes every shader", () => {
+    const { scene } = room();
+    expect(probesPending(scene)).toBe(false);
+    const grid = Object.assign(new DirectionalLight(), {
+      isLightProbeGrid: true,
+      texture: null as Texture | null,
+    });
+    scene.add(grid);
+    expect(probesPending(scene)).toBe(true);
+    const before = lightingKey(scene);
+    grid.texture = new Texture();
+    expect(probesPending(scene)).toBe(false);
+    expect(lightingKey(scene)).not.toBe(before);
   });
   it("tells a change of lighting, which changes every shader", () => {
     const { scene } = room();

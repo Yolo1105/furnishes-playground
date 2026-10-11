@@ -436,7 +436,10 @@ did, and five of them were wrong:
   (shader-warm.ts): the first minute is held 15–17 s against 23–24 s
   without, and the longest freeze is 5–7 s against 12 s; on a device
   with parallel shader linking or WebGPU the builds leave the main
-  thread altogether.
+  thread altogether. Building them in order showed that the Full
+  picture had never taken the light probes' light (the materials were
+  built before the grid had its first picture); it does now, and the
+  visual pictures were taken again for it.
 
 Saved projects keep the rooms they were saved with; only a new project
 opens on the flat. The snapshot's shape did not change (a room kind and

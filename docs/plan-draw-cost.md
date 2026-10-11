@@ -103,6 +103,24 @@ Two findings shaped the work:
    shaders and the post chain's own five (copy, SMAA, output), which
    `compileAsync` cannot reach, and one variant of the window's glass.
 
+   **It found a bug: the room never took the probes' light.** A
+   material built while the probe grid has no picture never samples it
+   (Probes.tsx says so), and the grid's first picture waits 400 ms after
+   it is set up. Before, the post chain's first frame came in that wait
+   and built every material without the grid, so on the Full picture the
+   room was lit as if the probes were off: a day shot taken that way and
+   one with `?noprobes` differ in 0.71% of their pixels, and the left
+   wall's brightness is 160.1 against 160.0. Now nothing is built until
+   the grid has its first picture (`probesPending`), and a grid baked is
+   part of the lighting the shaders are built for; the same wall reads
+   170.7, the probes' bounce from the floor and the window.
+
+   The five visual pictures were taken again for it, on purpose: the day
+   and walking views show the walls lighter and flatter, the probes'
+   light now on them; the sunset, evening and front views differ only
+   at their edges, a fraction of a pixel, as TRAA's jitter rests where
+   the new count of frames leaves it.
+
    Measured in the sandbox, two runs each of the first minute:
 
    | what                          | `?nowarm`        | warmed           |
