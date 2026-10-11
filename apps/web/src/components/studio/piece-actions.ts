@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { AssetNode } from "./assets-data";
+import { useEffect, useMemo, useState } from "react";
+import type { AssetGroup, AssetNode } from "./assets-data";
 import { products } from "./catalogue";
 import { describeItem } from "./generation-store";
 import { footprint, LABEL_MAX, turned, type PieceProps } from "./piece-detail";
@@ -18,16 +18,10 @@ import {
   type Join,
   type RoomSpec,
 } from "./room-store";
-import {
-  inRoom,
-  noteStanding,
-  propsOf,
-  useScene,
-  useTopLevel,
-} from "./scene-store";
+import { inRoom, noteStanding, propsOf, useScene } from "./scene-store";
 import { useStudio } from "./studio-store";
 import { partOutline } from "./part-outline";
-import { usePartStore } from "./part-store";
+import { usePartStore, type PartBuilt } from "./part-store";
 
 /**
  * The room as the planner reads it, where its pieces stand, and the
@@ -60,59 +54,33 @@ export const layoutsOf = (
 };
 
 /**
- * What a piece on the stage can do, shared by the plan (DOM) and the
- * 3D scene: with Select a click picks it everywhere; with Inspect a
- * click also raises two actions over it, Details (the piece alone, and
- * the Detail tab) and Label (for Eva, five at a time). A piece in focus
- * stands alone. The same hook reads the room's health against its rules
- * and lays the room out four ways for the plan's Layouts.
+ * A room's reading: what stands in it and where, its findings against
+ * its rules (the room's own standing in the flat first), the pieces
+ * standing over another, and its four layouts, each costed and
+ * explained, with the one Eva would pick.
  */
-export function usePieceActions(roomId?: string) {
-  const items = useTopLevel();
-  const overrides = useScene((s) => s.overrides);
-  const labels = useScene((s) => s.labels);
-  const selectedId = useScene((s) => s.selectedId);
-  const { select, toggleLabel, setProps, placeAll, addProduct, addItem } =
-    useScene.getState();
-  const readOnly = useStudio((s) => s.readOnly);
-  // the parts as built, for their real outlines on the plan
-  const builtParts = usePartStore((s) => s.built);
-  // a shared room reads as Inspect, with nothing offered on a click
-  const tool = useStudio((s) => (readOnly ? "inspect" : s.tool));
-  const focusId = useStudio((s) => s.focusId);
-  const { setFocus, setPanelTab } = useStudio.getState();
-  const [actionsFor, setActionsFor] = useState<string | null>(null);
-  // the room asked for, else the active one
-  const rooms = useRoom((s) => s.rooms);
-  const activeId = useRoom((s) => s.activeId);
-  const spec = rooms.find((r) => r.id === (roomId ?? activeId)) ?? rooms[0]!;
+const readRoom = (
+  spec: RoomSpec,
+  rooms: RoomSpec[],
+  joins: Join[],
+  groups: AssetGroup[],
+  overrides: Record<string, Partial<PieceProps>>,
+  builtParts: Record<string, PartBuilt>,
+) => {
   const firstId = rooms[0]!.id;
-  const joins = useRoom((s) => s.joins);
   const { rules } = spec;
   // what stands in this room: the pieces and the room items, never the
   // architecture (that is the room itself); a hidden piece keeps its
   // place in the rows but is not drawn
-  const pieces = items.filter(
-    (n) =>
-      n.kind !== "fixed" && inRoom(overrides[n.id] ?? {}, spec.id, firstId),
-  );
+  const pieces = groups
+    .flatMap((g) => g.items)
+    .filter(
+      (n) =>
+        n.kind !== "fixed" && inRoom(overrides[n.id] ?? {}, spec.id, firstId),
+    );
   const read = layoutsOf(spec, joins, pieces, overrides);
   const { room, props, laid } = read;
   const spots = new Map(laid.map((s, i) => [pieces[i]!.id, s]));
-  // the store holds the laid-out pieces here before any one of them is
-  // changed, so a move never shifts the rest
-  useEffect(() => {
-    if (!readOnly) noteStanding(spec.id, spots);
-  });
-  // a piece in focus stands alone: in its own room, and the other
-  // rooms show nothing while it does
-  const focus = pieces.find((n) => n.id === focusId) ?? null;
-  const elsewhere = !focus && items.some((n) => n.id === focusId);
-  const shown = focus
-    ? [focus]
-    : elsewhere
-      ? []
-      : pieces.filter((n) => !props.get(n.id)!.hidden);
   /** the pieces as boxes on the floor, standing as `where` says */
   const boxes = (where: (i: number) => Placed | undefined) =>
     pieces.flatMap((n, i) => {
@@ -189,6 +157,80 @@ export function usePieceActions(roomId?: string) {
     return best;
   }, 0);
   const tied = plans.filter((p) => p.score === plans[pick]!.score).length > 1;
+  return { pieces, room, props, spots, issues, clashes, plans, pick, tied };
+};
+type Reading = ReturnType<typeof readRoom>;
+
+/** each room's last reading and what it was read from: the plan, the
+    3D stage, the panels and the small views each ask for a room's
+    reading, and a change in the stores reads it once for all of them
+    (the findings' fixes alone took half a second a pick, read twenty
+    times over) */
+const readings = new Map<
+  string,
+  { from: readonly unknown[]; reading: Reading }
+>();
+const readingOf = (...from: Parameters<typeof readRoom>): Reading => {
+  const [spec, rooms] = from;
+  const kept = readings.get(spec.id);
+  if (kept && kept.from.every((v, i) => v === from[i])) return kept.reading;
+  const reading = readRoom(...from);
+  readings.set(spec.id, { from, reading });
+  // a room taken out of the flat leaves no reading behind
+  for (const id of readings.keys())
+    if (!rooms.some((r) => r.id === id)) readings.delete(id);
+  return reading;
+};
+
+/**
+ * What a piece on the stage can do, shared by the plan (DOM) and the
+ * 3D scene: with Select a click picks it everywhere; with Inspect a
+ * click also raises two actions over it, Details (the piece alone, and
+ * the Detail tab) and Label (for Eva, five at a time). A piece in focus
+ * stands alone. The same hook reads the room's health against its rules
+ * and lays the room out four ways for the plan's Layouts. Which piece
+ * is picked is not read here: a pick draws again only what shows it
+ * (`useScene`'s `selectedId`), not every view of every room.
+ */
+export function usePieceActions(roomId?: string) {
+  const groups = useScene((s) => s.groups);
+  const overrides = useScene((s) => s.overrides);
+  const labels = useScene((s) => s.labels);
+  const { select, toggleLabel, setProps, placeAll, addProduct, addItem } =
+    useScene.getState();
+  const readOnly = useStudio((s) => s.readOnly);
+  // the parts as built, for their real outlines on the plan
+  const builtParts = usePartStore((s) => s.built);
+  // a shared room reads as Inspect, with nothing offered on a click
+  const tool = useStudio((s) => (readOnly ? "inspect" : s.tool));
+  const focusId = useStudio((s) => s.focusId);
+  const { setFocus, setPanelTab } = useStudio.getState();
+  const [actionsFor, setActionsFor] = useState<string | null>(null);
+  // the room asked for, else the active one
+  const rooms = useRoom((s) => s.rooms);
+  const activeId = useRoom((s) => s.activeId);
+  const spec = rooms.find((r) => r.id === (roomId ?? activeId)) ?? rooms[0]!;
+  const joins = useRoom((s) => s.joins);
+  const { pieces, room, props, spots, issues, clashes, plans, pick, tied } =
+    useMemo(
+      () => readingOf(spec, rooms, joins, groups, overrides, builtParts),
+      [spec, rooms, joins, groups, overrides, builtParts],
+    );
+  // the store holds the laid-out pieces here before any one of them is
+  // changed, so a move never shifts the rest
+  useEffect(() => {
+    if (!readOnly) noteStanding(spec.id, spots);
+  });
+  // a piece in focus stands alone: in its own room, and the other
+  // rooms show nothing while it does
+  const items = groups.flatMap((g) => g.items);
+  const focus = pieces.find((n) => n.id === focusId) ?? null;
+  const elsewhere = !focus && items.some((n) => n.id === focusId);
+  const shown = focus
+    ? [focus]
+    : elsewhere
+      ? []
+      : pieces.filter((n) => !props.get(n.id)!.hidden);
 
   const onPick = (n: AssetNode) => {
     // a piece picked in another room brings that room to the front
@@ -271,7 +313,6 @@ export function usePieceActions(roomId?: string) {
     room,
     /** the room these pieces stand in */
     roomId: spec.id,
-    selectedId,
     tool,
     turn,
     actionsFor,

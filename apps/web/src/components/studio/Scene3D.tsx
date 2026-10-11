@@ -1068,7 +1068,7 @@ function Piece({
   size,
   colour,
   parts,
-  selected,
+  rendering,
   clash,
   label,
   canDrag,
@@ -1094,7 +1094,8 @@ function Piece({
   colour: string;
   /** the parts' colours, one bay each, when the piece has parts */
   parts: string[];
-  selected: boolean;
+  /** a render is taken: the picked piece shows no halo nor handles */
+  rendering: boolean;
   clash: boolean;
   label: number;
   /** Select is on, the piece is not locked, nothing is in focus */
@@ -1266,6 +1267,9 @@ function Piece({
     }
   });
   const hovered = useHovered((s) => s.id === node.id) && hoverable;
+  // read here, so a pick draws the piece let go and the one picked, not
+  // the stage and every piece in the flat
+  const selected = useScene((s) => s.selectedId === node.id) && !rendering;
   const onOver = useEvent((e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
     if (hoverable) hoverPiece(node.id, true);
@@ -1637,7 +1641,7 @@ function OtherRoom({
             parts={(n.children ?? []).map((c) =>
               colourHex(propsOf(c, a.overrides).colour),
             )}
-            selected={a.selectedId === n.id && !rendering}
+            rendering={rendering}
             clash={a.clashes.has(n.id)}
             label={a.labelOf(n)}
             canDrag={false}
@@ -2212,7 +2216,7 @@ export default function Scene3D() {
                 parts={(n.children ?? []).map((c) =>
                   colourHex(propsOf(c, a.overrides).colour),
                 )}
-                selected={a.selectedId === n.id && !rendering}
+                rendering={rendering}
                 clash={a.clashes.has(n.id)}
                 label={label}
                 canDrag={canDrag && !p.locked && !walk}

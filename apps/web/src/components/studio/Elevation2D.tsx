@@ -4,6 +4,7 @@ import { isWindow, OPENINGS, ROOM_NAMES, type Wall } from "./room-data";
 import { openingCentre } from "./room-health";
 import { footprintOf, openingsOf, useActiveRoom, useRoom } from "./room-store";
 import { usePieceActions } from "./piece-actions";
+import { useScene } from "./scene-store";
 import { footprint } from "./piece-detail";
 import type { Angle } from "./studio-store";
 
@@ -28,6 +29,7 @@ const ELEVATION_OF: Record<string, Wall> = {
 export function Elevation2D({ angle }: { angle: Angle }) {
   const r = useActiveRoom();
   const a = usePieceActions();
+  const selectedId = useScene((s) => s.selectedId);
   const select = (id: string) => a.onPick(a.pieces.find((n) => n.id === id)!);
   const wall = ELEVATION_OF[angle] ?? "north";
   const { W, D } = a.room;
@@ -190,11 +192,11 @@ export function Elevation2D({ angle }: { angle: Angle }) {
             key={n.id}
             className="elev-piece"
             data-kind={n.kind}
-            data-selected={a.selectedId === n.id}
+            data-selected={selectedId === n.id}
             role="button"
             tabIndex={0}
             aria-label={n.name}
-            aria-pressed={a.selectedId === n.id}
+            aria-pressed={selectedId === n.id}
             onClick={() => select(n.id)}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {

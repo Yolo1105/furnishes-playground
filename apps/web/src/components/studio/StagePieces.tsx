@@ -44,6 +44,7 @@ export function StagePieces({
   compact?: boolean;
 }) {
   const a = usePieceActions(roomId);
+  const selectedId = useScene((s) => s.selectedId);
   const { W, D } = a.room;
   const magnet = useStudio((s) => s.magnet);
   // a render is for looking: nothing is dragged while it is up
@@ -230,7 +231,7 @@ export function StagePieces({
         const f = footprint(p);
         const label = a.labelOf(n);
         const at = a.spots.get(n.id)!;
-        const selected = a.selectedId === n.id;
+        const selected = selectedId === n.id;
         // square to the walls, the piece is its box; on the slant it is
         // its own size, turned about the box's middle
         const slant = !isSquare(p.rotation);
