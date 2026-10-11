@@ -52,12 +52,40 @@ median kept: one build gave 12.6 s and 4.9 s on two runs in a row.
    living room the stage read `data-probes="ready"` throughout, with no
    bake.
 
+4. **A pick draws the pieces it changes** (`usePieceActions` in
+   piece-actions.ts, `Piece` in Scene3D.tsx). Which piece is picked was
+   read by the hook every view of every room calls, so a pick drew the
+   3D stage, its seven rooms and every piece in them, the plan and the
+   panels; and each of those calls read its room again: the pieces,
+   the findings with their fixes, and the four layouts, each costed,
+   twenty readings a pick (the findings' fixes alone took half a second
+   of it). A room's reading is now kept by what it was read from and
+   shared by every view that asks, and the pick is read by the 3D
+   piece, the plan and the elevation themselves. Ten picks: 8.0 s of
+   script before, 1.3 s after; one pick's click came back in 0.36 s
+   instead of 2.9 s. What is left of a pick in the sandbox is the
+   software renderer drawing the frame (a frame's own script is 28 ms).
+5. **A room switch builds nothing again** (`FlatRoom` in Scene3D.tsx).
+   The active room was drawn by the stage and the others by a second
+   component, so a click on another room took both rooms down and
+   built them anew: the shells, the pieces, and their shaders' node
+   graphs (a second of the switch's script, in `getNodeBuilderState`
+   and the warm-up's `compileAsync`). Every room is now drawn by one
+   component kept by its id, and a switch only moves the rooms and
+   changes what two of them do (dragged, named, hovered, the floor's
+   reflection, the probes' pieces). The click came back in 0.58 s
+   instead of 1.64 s, and the shader building is gone from the switch's
+   profile; the rest of its wait is the camera's glide, frame by frame.
+
 ## The numbers
 
 | what (sandbox, dev server)             | before |     after |
 | -------------------------------------- | -----: | --------: |
 | 30 trackpad steps on the plan, script  | 11.8 s |     0.2 s |
 | 40 pointer moves over the room, script | 0.73 s | 0.5–0.6 s |
+| 10 picks, script                       |  8.0 s |     1.3 s |
+| a room switch, script                  |  1.7 s |     1.0 s |
+| a room switch, the click back          | 1.64 s |    0.58 s |
 
 Measured and left: **the other rooms after the first picture.** The
 3D view draws the whole flat, seven rooms and their sixty-odd pieces,
@@ -91,18 +119,6 @@ after the first picture, so they are drawn from the start as before.
    already builds them off the main thread. Fewer distinct materials
    (one cloth, one wood, one paint per tone, shared across pieces) would
    cut the count further.
-3. **Selection still draws every piece.** Picking a piece changes the
-   stage's state and every piece is drawn again; the same treatment as
-   the hover (each piece reading whether it is the picked one) would
-   make a pick cost one or two pieces. It was left because a pick is a
-   click, not a stream of events.
-4. **A room's switch builds its shaders again.** Clicking another room
-   makes it the one worked on: its shell is drawn by the stage's own
-   room, not as a neighbour, with materials of its own, so the warm-up
-   builds them (the programs are mostly cached, but on the software
-   renderer the hold after a switch was tens of seconds). Keeping one
-   shell per room, worked on or not, would make a switch a change of
-   camera and probes alone.
-5. **The props' download.** The stock models (2.8 MB) and the
+3. **The props' download.** The stock models (2.8 MB) and the
    photographed sets (3.3 MB) are fetched on the first visit; they are
    cached after. KTX2 was measured and left (plan-realism.md).

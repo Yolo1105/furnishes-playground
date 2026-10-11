@@ -1546,12 +1546,34 @@ function Halo({
   );
 }
 
-/** another room of the flat, standing where it does on the sheet with
-    the active room at the origin: its shell and its pieces, to look at
-    and to pick, not to drag */
-function OtherRoom({
+/** what the active room does that the others do not: its pieces are
+    dragged, named and hovered, its floor is walked on and reflects,
+    and its pieces are the probes' and the export's */
+type Working = {
+  canDrag: boolean;
+  labels: boolean;
+  walk: boolean;
+  onWalkTo: (x: number, z: number) => void;
+  reflection: { stamp: string; onState: (state: StillState) => void } | null;
+  onDragging: (on: boolean) => void;
+  pieces: RefObject<Group | null>;
+};
+const NO_TAG = {} as const;
+
+/**
+ * A room of the flat, standing where it does on the sheet with the
+ * active room at the origin: its shell and its pieces, to look at and
+ * to pick. Every room is drawn by one of these, kept by its id, so
+ * making another room the active one moves the rooms and changes what
+ * two of them do (`working`), and builds no shell, piece or shader
+ * again: a switch built both rooms anew, a second of shader building
+ * and more on the software renderer.
+ */
+function FlatRoom({
   rm,
   from,
+  working,
+  focus,
   portal,
   edges,
   rendering,
@@ -1559,6 +1581,11 @@ function OtherRoom({
 }: {
   rm: RoomSpec;
   from: RoomSpec;
+  /** the active room's part, or null for another room */
+  working: Working | null;
+  /** a piece is looked at on its own: the shells stand aside, and only
+      the active room shows it */
+  focus: boolean;
   portal: RefObject<HTMLDivElement>;
   edges: boolean;
   rendering: boolean;
@@ -1588,6 +1615,7 @@ function OtherRoom({
     toMetres(rm.pos[0] - from.pos[0]) + w / 2 - toMetres(from.width) / 2;
   const dz =
     toMetres(rm.pos[1] - from.pos[1]) + d / 2 - toMetres(from.depth) / 2;
+  // the pieces on the floor in mm, for the magnet between them
   const rects = a.shown
     .filter((n) => !isRug(n))
     .map((n) => ({
@@ -1595,80 +1623,106 @@ function OtherRoom({
       ...a.spots.get(n.id)!,
       ...footprint(a.props.get(n.id)!),
     }));
+  const shown = focus && !working ? [] : a.shown;
   return (
     <group position={[dx, 0, dz]}>
-      <RoomShell
-        r={{
-          id: rm.id,
-          W: rm.width,
-          D: rm.depth,
-          outline,
-          openings,
-          height: rm.height,
-          thickness: rm.thickness,
-          floor: rm.floor as Floor,
-          floorHex: floor,
-          wallHex: wall,
-          evening,
-          sun,
-          shared,
-        }}
-        walk={false}
-        onWalkTo={() => undefined}
-        // another room's floor takes the surroundings: one picture is the room's
-        reflection={null}
-      />
-      {a.shown.map((n) => {
-        const p = a.props.get(n.id)!;
-        const at = a.spots.get(n.id)!;
-        const f = footprint(p);
-        return (
-          <Piece
-            key={n.id}
-            portal={portal}
-            node={n}
-            props={p}
-            at={[
-              -w / 2 + toMetres(at.x + f.w / 2),
-              0,
-              -d / 2 + toMetres(at.y + f.d / 2),
-            ]}
-            turn={-(p.rotation * Math.PI) / 180}
-            size={[toMetres(p.width), toMetres(p.height), toMetres(p.depth)]}
-            colour={
-              n.kind === "piece" ? colourHex(p.colour) : roomItemHex(n.name)
-            }
-            parts={(n.children ?? []).map((c) =>
-              colourHex(propsOf(c, a.overrides).colour),
-            )}
-            rendering={rendering}
-            clash={a.clashes.has(n.id)}
-            label={a.labelOf(n)}
-            canDrag={false}
-            room={{
-              W: rm.width,
-              D: rm.depth,
-              w,
-              d,
-              outline,
-              thickness: rm.thickness,
-            }}
-            others={rects}
-            onPick={() => a.onPick(n)}
-            onTurn={() => a.turn(n)}
-            onDragging={() => undefined}
-            hoverable={false}
-            // a name behind the walls of the room worked on would float
-            // over them: another room's pieces carry none
-            labels={false}
-            edges={edges}
-            actions={null}
-          />
-        );
-      })}
+      {!focus && (
+        <RoomShell
+          r={{
+            id: rm.id,
+            W: rm.width,
+            D: rm.depth,
+            outline,
+            openings,
+            height: rm.height,
+            thickness: rm.thickness,
+            floor: rm.floor as Floor,
+            floorHex: floor,
+            wallHex: wall,
+            evening,
+            sun,
+            shared,
+          }}
+          walk={working?.walk ?? false}
+          onWalkTo={working?.onWalkTo ?? noWalk}
+          // another room's floor takes the surroundings: one picture is
+          // the active room's
+          reflection={working?.reflection ?? null}
+        />
+      )}
+      <group
+        ref={working?.pieces ?? null}
+        userData={working ? PIECES_TAG : NO_TAG}
+      >
+        {shown.map((n) => {
+          const p = a.props.get(n.id)!;
+          const at = a.spots.get(n.id)!;
+          const f = footprint(p);
+          const label = a.labelOf(n);
+          return (
+            <Piece
+              key={n.id}
+              portal={portal}
+              node={n}
+              props={p}
+              at={
+                a.focus
+                  ? [0, 0, 0]
+                  : [
+                      -w / 2 + toMetres(at.x + f.w / 2),
+                      0,
+                      -d / 2 + toMetres(at.y + f.d / 2),
+                    ]
+              }
+              turn={a.focus ? 0 : -(p.rotation * Math.PI) / 180}
+              size={[toMetres(p.width), toMetres(p.height), toMetres(p.depth)]}
+              colour={
+                n.kind === "piece" ? colourHex(p.colour) : roomItemHex(n.name)
+              }
+              parts={(n.children ?? []).map((c) =>
+                colourHex(propsOf(c, a.overrides).colour),
+              )}
+              rendering={rendering}
+              clash={a.clashes.has(n.id)}
+              label={label}
+              canDrag={!!working?.canDrag && !p.locked && !working.walk}
+              room={{
+                W: rm.width,
+                D: rm.depth,
+                w,
+                d,
+                outline,
+                thickness: rm.thickness,
+              }}
+              others={rects}
+              onPick={() => a.onPick(n)}
+              onTurn={() => a.turn(n)}
+              onDragging={working?.onDragging ?? noDrag}
+              hoverable={!!working && !rendering}
+              // a name behind the walls of the room worked on would float
+              // over them: another room's pieces carry none
+              labels={working?.labels ?? false}
+              edges={edges}
+              actions={
+                working && a.actionsFor === n.id ? (
+                  <PieceActions
+                    node={n}
+                    label={label}
+                    full={a.labelsFull(n)}
+                    onDetails={() => a.details(n)}
+                    onLabel={() => a.toggleLabel(n.id)}
+                  />
+                ) : null
+              }
+            />
+          );
+        })}
+      </group>
     </group>
   );
 }
+const noWalk = () => undefined;
+const noDrag = () => undefined;
 
 export default function Scene3D() {
   const a = usePieceActions();
@@ -1761,6 +1815,11 @@ export default function Scene3D() {
     [focused, box.x, box.y, box.w, box.h, room.pos, room.width, room.depth],
   );
   const [dragging, setDragging] = useState(false);
+  // a click on the floor while walking: go there
+  const walkTo = useEvent((x: number, z: number) => {
+    WALK.goto = { x, z };
+    WALK.wake();
+  });
   // the piece under the pointer: the canvas shows a hand over one that
   // can be dragged, a finger over one that can only be picked. Set on
   // the stage as the pointer moves (useHovered), so a hover does not
@@ -1795,15 +1854,7 @@ export default function Scene3D() {
     (s) => s.mode === "preview" && s.preview !== "generating",
   );
   const canDrag = a.tool === "select" && !a.focus && !rendering;
-  // the pieces on the floor for the tour: a rug is walked over
-  // the pieces on the floor in mm, for the magnet between them
-  const rects = a.shown
-    .filter((n) => !isRug(n))
-    .map((n) => ({
-      id: n.id,
-      ...a.spots.get(n.id)!,
-      ...footprint(a.props.get(n.id)!),
-    }));
+  // the pieces on the floor for the walk: a rug is walked over
   const blocks: Block[] = a.focus
     ? []
     : a.shown
@@ -2142,114 +2193,33 @@ export default function Scene3D() {
             position={[0, 0.003, 0]}
           />
         )}
-        {!a.focus && (
-          <RoomShell
-            r={{
-              id: room.id,
-              W: room.width,
-              D: room.depth,
-              outline,
-              openings,
-              height: room.height,
-              thickness: room.thickness,
-              shared,
-              floor: room.floor as Floor,
-              floorHex: floor,
-              wallHex: wall,
-              evening: scene.light === "evening",
-              sun: sunFrom,
-            }}
-            walk={walk}
-            onWalkTo={(x, z) => {
-              WALK.goto = { x, z };
-              WALK.wake();
-            }}
-            reflection={
-              probes ? { stamp: reflectStamp, onState: setReflectState } : null
+        {rooms.map((rm) => (
+          <FlatRoom
+            key={rm.id}
+            rm={rm}
+            from={spec}
+            working={
+              rm.id === room.id
+                ? {
+                    canDrag,
+                    labels,
+                    walk,
+                    onWalkTo: walkTo,
+                    reflection: probes
+                      ? { stamp: reflectStamp, onState: setReflectState }
+                      : null,
+                    onDragging: setDragging,
+                    pieces,
+                  }
+                : null
             }
+            focus={a.focus !== null}
+            portal={portal}
+            edges={edges}
+            rendering={rendering}
+            sun={sunFrom}
           />
-        )}
-        {!a.focus &&
-          rooms
-            .filter((rm) => rm.id !== room.id)
-            .map((rm) => (
-              <OtherRoom
-                key={rm.id}
-                rm={rm}
-                from={room}
-                portal={portal}
-                edges={edges}
-                rendering={rendering}
-                sun={sunFrom}
-              />
-            ))}
-        <group ref={pieces} userData={PIECES_TAG}>
-          {a.shown.map((n) => {
-            const p = a.props.get(n.id)!;
-            const size: Vector3Tuple = [
-              toMetres(p.width),
-              toMetres(p.height),
-              toMetres(p.depth),
-            ];
-            const at = a.spots.get(n.id)!;
-            const f = footprint(p);
-            const pos: Vector3Tuple = a.focus
-              ? [0, 0, 0]
-              : [
-                  -w / 2 + toMetres(at.x + f.w / 2),
-                  0,
-                  -d / 2 + toMetres(at.y + f.d / 2),
-                ];
-            const label = a.labelOf(n);
-            return (
-              <Piece
-                key={n.id}
-                portal={portal}
-                node={n}
-                props={p}
-                at={pos}
-                turn={a.focus ? 0 : -(p.rotation * Math.PI) / 180}
-                size={size}
-                colour={
-                  n.kind === "piece" ? colourHex(p.colour) : roomItemHex(n.name)
-                }
-                parts={(n.children ?? []).map((c) =>
-                  colourHex(propsOf(c, a.overrides).colour),
-                )}
-                rendering={rendering}
-                clash={a.clashes.has(n.id)}
-                label={label}
-                canDrag={canDrag && !p.locked && !walk}
-                room={{
-                  W: a.room.W,
-                  D: a.room.D,
-                  w,
-                  d,
-                  outline,
-                  thickness: a.room.thickness,
-                }}
-                others={rects}
-                onPick={() => a.onPick(n)}
-                onTurn={() => a.turn(n)}
-                onDragging={setDragging}
-                hoverable={!rendering}
-                labels={labels}
-                edges={edges}
-                actions={
-                  a.actionsFor === n.id ? (
-                    <PieceActions
-                      node={n}
-                      label={label}
-                      full={a.labelsFull(n)}
-                      onDetails={() => a.details(n)}
-                      onLabel={() => a.toggleLabel(n.id)}
-                    />
-                  ) : null
-                }
-              />
-            );
-          })}
-        </group>
+        ))}
         <OrbitControls
           makeDefault
           enabled={!walk && !dragging && !panelDrag}
