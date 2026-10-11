@@ -1244,7 +1244,8 @@ test("Inspect raises Details and Label over a piece; labels reach Eva, five at m
   await expect(stage.locator('.stage-piece[data-labelled="true"]')).toHaveCount(
     1,
   );
-  await expect(page.getByLabel("Label 1")).toBeVisible();
+  // the plan's tag (the hidden 3D stage tags the piece too)
+  await expect(stage.getByLabel("Label 1")).toBeVisible();
   const agent = page.locator(".agent");
   const chip = agent.getByRole("button", {
     name: new RegExp(`^1\\s*${first.name}$`),
