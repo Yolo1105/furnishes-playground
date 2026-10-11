@@ -4397,9 +4397,12 @@ test("View settings: edges, names, a floor grid, shadows and the light, kept for
   await menu.getByRole("menuitemradio", { name: "Full" }).click();
   await expect(stage).toHaveAttribute("data-post", "desktop");
   // the room's own bounce light, from probes baked over the shell, and
-  // the room in its floor, from a picture taken from the middle
+  // the room in its floor, from a picture taken from the middle; the
+  // bake waits while the room's shaders are built for the new tier (on
+  // the software renderer, a quarter of a minute) and then takes most of
+  // a minute, two probes a frame
   await expect(stage).toHaveAttribute("data-probes", "ready", {
-    timeout: 60_000,
+    timeout: 120_000,
   });
   await expect(stage).toHaveAttribute("data-reflection", "ready", {
     timeout: 60_000,
