@@ -42,6 +42,16 @@ median kept: one build gave 12.6 s and 4.9 s on two runs in a row.
    or the finger over the canvas) is set as the pointer moves, without
    a render.
 
+3. **A room's probes are kept** (Probes.tsx). Each room change baked
+   the light probes again, and coming back to a room baked its probes
+   once more. Each room's grid is now kept with what it was baked
+   under (the room's stamp: its shell, its light, its shadows; and the
+   surroundings), the last eight rooms; coming back to a room that has
+   not changed takes its probes as they stand. In the sandbox, the
+   master bedroom's bake took 26 s (the quick bake); back in the
+   living room the stage read `data-probes="ready"` throughout, with no
+   bake.
+
 ## The numbers
 
 | what (sandbox, dev server)             | before |     after |
@@ -62,8 +72,10 @@ after the first picture, so they are drawn from the start as before.
 ## What is next, in order of what it would save
 
 1. **Production, not development.** `next dev` compiles each route on
-   its first request after a change (seconds for `/rounded` and its
-   three.js chunk, which the measurements above leave out) and runs
+   its first request after a start or a change (66 s for `/rounded` and
+   its three.js chunk on the sandbox's first request after the server
+   started, which the measurements above leave out: the page waits on
+   the compile with nothing drawn, the "stuck" first load) and runs
    React's development build. The same three readings on a production
    build (`next build && next start`, three runs): the main thread held
    6.2–7.8 s while opening (8.4–9.0 s on the development server), forty
@@ -84,10 +96,13 @@ after the first picture, so they are drawn from the start as before.
    the hover (each piece reading whether it is the picked one) would
    make a pick cost one or two pieces. It was left because a pick is a
    click, not a stream of events.
-4. **The probe bake.** Each room change bakes the light probes again
-   (a minute on the software renderer, a fraction of a second on a
-   GPU); a bake per room kept by its stamp would make switching back to
-   a room free.
+4. **A room's switch builds its shaders again.** Clicking another room
+   makes it the one worked on: its shell is drawn by the stage's own
+   room, not as a neighbour, with materials of its own, so the warm-up
+   builds them (the programs are mostly cached, but on the software
+   renderer the hold after a switch was tens of seconds). Keeping one
+   shell per room, worked on or not, would make a switch a change of
+   camera and probes alone.
 5. **The props' download.** The stock models (2.8 MB) and the
    photographed sets (3.3 MB) are fetched on the first visit; they are
    cached after. KTX2 was measured and left (plan-realism.md).

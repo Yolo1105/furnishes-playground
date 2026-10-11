@@ -2116,6 +2116,7 @@ export default function Scene3D() {
         <RoomLight evening={scene.light === "evening"} sky={scene.sky} />
         {probes && (
           <Probes
+            room={room.id}
             w={w}
             h={h}
             d={d}

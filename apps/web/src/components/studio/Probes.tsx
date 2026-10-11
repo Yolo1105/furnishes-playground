@@ -60,10 +60,62 @@ const register = (renderer: WebGPURenderer) => {
   }
 };
 
+/** each room's grid, kept when the room is left: coming back to a room
+    whose shell, light and surroundings are as they were when its probes
+    were baked takes them as they stand, with no bake (a minute on a
+    software renderer). The grids are small (a few dozen probes each);
+    past a handful the one left longest ago goes */
+const KEPT = 8;
+type Kept = {
+  grid: LightProbeGrid;
+  /** what the grid was last baked under in full, or null mid-bake */
+  baked: string | null;
+};
+const kept = new Map<string, Kept>();
+const keyOf = (room: string, w: number, h: number, d: number) =>
+  `${room}:${w}:${h}:${d}`;
+const keptGrid = (key: string, w: number, h: number, d: number): Kept => {
+  const found = kept.get(key);
+  if (found) {
+    // the room just come back to is the one kept longest from here on
+    kept.delete(key);
+    kept.set(key, found);
+    return found;
+  }
+  const grid = new LightProbeGrid(
+    w,
+    h,
+    d,
+    probesAlong(w),
+    probesAlong(h),
+    probesAlong(d),
+  );
+  grid.position.set(0, h / 2, 0);
+  const made = { grid, baked: null };
+  kept.set(key, made);
+  for (const [k, old] of kept) {
+    if (kept.size <= KEPT) break;
+    kept.delete(k);
+    old.grid.dispose();
+  }
+  return made;
+};
+/** what a bake is of: the stamp and the surroundings it saw */
+const bakeOf = (stamp: string, environment: { uuid: string } | null) =>
+  `${stamp}|${environment?.uuid ?? ""}`;
+/** whether a kept grid stands baked for this, and noting what it was
+    baked for (null while a bake is under way) */
+const bakedFor = (key: string, bake: string) => kept.get(key)?.baked === bake;
+const noteBake = (key: string, bake: string | null) => {
+  const k = kept.get(key);
+  if (k) k.baked = bake;
+};
+
 /** how many probes a span takes, two at least */
 const probesAlong = (m: number) => Math.max(2, Math.round(m / SPACING) + 1);
 
 export function Probes({
+  room,
   w,
   h,
   d,
@@ -73,6 +125,8 @@ export function Probes({
   onState,
   onProgress,
 }: {
+  /** the room the probes are of, whose grid is kept when it is left */
+  room: string;
   /** the room's box, m */
   w: number;
   h: number;
@@ -91,19 +145,13 @@ export function Probes({
 }) {
   const invalidate = useThree((s) => s.invalidate);
   const get = useThree((s) => s.get);
-  const grid = useMemo(() => {
-    const g = new LightProbeGrid(
-      w,
-      h,
-      d,
-      probesAlong(w),
-      probesAlong(h),
-      probesAlong(d),
-    );
-    g.position.set(0, h / 2, 0);
-    return g;
-  }, [w, h, d]);
-  useEffect(() => () => grid.dispose(), [grid]);
+  const key = keyOf(room, w, h, d);
+  const grid = useMemo(() => keptGrid(key, w, h, d).grid, [key, w, h, d]);
+  // the stamp as the frames see it, to note what a finished bake was of
+  const stampNow = useRef(stamp);
+  useLayoutEffect(() => {
+    stampNow.current = stamp;
+  }, [stamp]);
   // the bake under way: the next probe and pass, or none; and when the
   // last change happened, so a run of them is baked once
   const job = useRef<{ at: number; pass: number } | null>(null);
@@ -114,20 +162,34 @@ export function Probes({
   // texture would never sample it
   useLayoutEffect(() => {
     register(get().gl as unknown as WebGPURenderer);
-    job.current = { at: 0, pass: 0 };
     due.current = 0;
+    if (bakedFor(key, bakeOf(stampNow.current, get().scene.environment))) {
+      // a room come back to as it was baked: its probes stand
+      seen.current = get().scene.environment;
+      job.current = null;
+      onState("ready");
+      return;
+    }
+    noteBake(key, null);
+    job.current = { at: 0, pass: 0 };
     onState("pending");
     invalidate();
-  }, [grid, get, invalidate, onState]);
+  }, [grid, key, get, invalidate, onState]);
   // a change to what the probes see waits a moment, so a run of changes
   // is baked once
   useEffect(() => {
+    if (
+      job.current === null &&
+      bakedFor(key, bakeOf(stampNow.current, get().scene.environment))
+    )
+      return;
     if (process.env.NODE_ENV !== "production")
       console.debug("probes: the stamp changed, baking again", stamp);
+    noteBake(key, null);
     due.current = performance.now() + SETTLE_MS;
     onState("pending");
     invalidate();
-  }, [grid, stamp, invalidate, onState]);
+  }, [grid, key, stamp, get, invalidate, onState]);
   useFrame((state) => {
     // the room's shaders being built hold the renderer's outputs: the
     // bake goes on once they are (the post chain asks for the frame)
@@ -135,6 +197,7 @@ export function Probes({
     // the surroundings arrive on their own time: a new map starts over
     if (state.scene.environment !== seen.current) {
       seen.current = state.scene.environment;
+      noteBake(key, null);
       due.current = performance.now() + SETTLE_MS;
       job.current = null;
       onState("pending");
@@ -168,6 +231,7 @@ export function Probes({
     if (j.at >= total) {
       if (j.pass >= passes - 1) {
         job.current = null;
+        noteBake(key, bakeOf(stampNow.current, state.scene.environment));
         onState("ready");
       } else job.current = { at: 0, pass: j.pass + 1 };
     }
