@@ -24,6 +24,7 @@ import {
   type WebGPURenderer,
 } from "three/webgpu";
 import { type StillState, stillOf } from "./capture";
+import { warming } from "./shader-warm";
 
 /**
  * The room in its floor: one picture of the room taken from its
@@ -144,6 +145,9 @@ export function FloorReflection({
       onState("pending");
     }
     if (!due.current) return;
+    // the room's shaders being built hold the renderer's outputs: the
+    // picture is taken once they are (the post chain asks for the frame)
+    if (warming()) return;
     if (performance.now() < due.current) {
       state.invalidate();
       return;

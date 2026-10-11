@@ -57,6 +57,11 @@ import type { Backend, Quality } from "./studio-store";
  * so.
  */
 export type Tier = "desktop" | "laptop" | "phone";
+/** how long the shaders built ahead may hold the picture, ms: the room's
+    first picture, behind the loading line, and a change to a room on
+    show; past it the rest are built as they are drawn */
+const OPEN_BUDGET_MS = 15_000;
+const CHANGE_BUDGET_MS = 3_000;
 /** the scene's shaders: being built ahead of the first frame, or ready */
 export type ShaderState = "building" | "ready";
 
@@ -243,8 +248,8 @@ const frameOf = (
 type Chain = {
   render: () => void;
   /** the parts' shaders built for the scene pass ahead of the frame
-      that draws them (shader-warm.ts) */
-  warm: (parts: readonly Object3D[]) => Promise<void>;
+      that draws them (shader-warm.ts), for at most `budget` ms */
+  warm: (parts: readonly Object3D[], budget: number) => Promise<void>;
   dispose: () => void;
   place: Place;
   /** whether the picture is built over frames and needs them to settle */
@@ -283,7 +288,8 @@ const build = (
         pipeline.render();
         recordPost(performance.now() - t0);
       },
-      warm: (parts) => warmParts(renderer, scenePass, parts, scene, camera),
+      warm: (parts, budget) =>
+        warmParts(renderer, scenePass, parts, scene, camera, budget),
       dispose: () => {
         edges.dispose();
         frame.dispose();
@@ -396,7 +402,8 @@ const build = (
       pipeline.render();
       recordPost(performance.now() - t0);
     },
-    warm: (parts) => warmParts(renderer, scenePass, parts, scene, camera),
+    warm: (parts, budget) =>
+      warmParts(renderer, scenePass, parts, scene, camera, budget),
     dispose: () => {
       resolve.dispose();
       frame.dispose();
@@ -457,6 +464,8 @@ export function Post({
   // materials had, and whether a build is under way
   const warmed = useRef(new WeakMap<Object3D, string>());
   const warming = useRef(false);
+  // whether the chain has drawn a picture yet
+  const drawnOnce = useRef(false);
   // the lighting the built shaders were built for
   const lit = useRef("");
   useEffect(() => {
@@ -519,12 +528,21 @@ export function Post({
             onShaders?.("ready");
             invalidate();
           };
-          void have.chain.warm(cold.map((c) => c.part)).then(done, done);
+          // the first picture is behind the loading line and may wait
+          // longer; a change to a room on show holds it a moment at most
+          const budget = drawnOnce.current ? CHANGE_BUDGET_MS : OPEN_BUDGET_MS;
+          void have.chain
+            .warm(
+              cold.map((c) => c.part),
+              budget,
+            )
+            .then(done, done);
         }
         return;
       }
       placeOf(state.gl.domElement, have.chain.place);
       have.chain.render();
+      drawnOnce.current = true;
     } catch (error) {
       onFailed(error);
       state.gl.render(state.scene, state.camera);

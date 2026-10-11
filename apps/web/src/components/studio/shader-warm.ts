@@ -117,34 +117,60 @@ const twoPassOf = (part: Object3D) => {
   );
 };
 
+/** whether a build is under way: the scene pass's target and outputs
+    are the renderer's own until it is done (three reads the outputs as
+    it builds each material, after the build has given the page back),
+    so nothing else draws meanwhile (the probes' bake and the floor's
+    picture wait on it: drawn with the pass's outputs, their pictures
+    would be wrong, and on WebGPU their pipelines refused) */
+let building = false;
+export const warming = () => building;
+
 /** the parts' shaders built for the scene pass (its target and its
     outputs), one part at a time; a part out of view is built too, so it
-    costs nothing when the camera turns to it */
+    costs nothing when the camera turns to it. The build stops once it
+    has run `budget` ms (after the part under way): the picture is held
+    while it runs, and a slow device draws the rest as it meets them,
+    as it did before, rather than show a picture that stands still */
 export const warmParts = async (
   renderer: WebGPURenderer,
   pass: PassNode,
   parts: readonly Object3D[],
   scene: Scene,
   camera: Camera,
+  budget = Infinity,
 ) => {
+  // the target is read as a build starts and the outputs as it makes
+  // each material, so both stand for the whole of a part's build: a
+  // material made without the pass's outputs has a shader that writes
+  // fewer of them than the pass holds, which WebGPU refuses
   const build = async (part: Object3D) => {
-    // the target and outputs are read as the build starts, before its
-    // first wait: set round the call, so nothing drawn meanwhile (a
-    // probe, a reflection) finds them changed
     const target = renderer.getRenderTarget();
     const mrt = renderer.getMRT();
     renderer.setRenderTarget(pass.renderTarget);
     renderer.setMRT(pass.getMRT());
-    let built: Promise<void>;
     try {
-      built = renderer.compileAsync(part, camera, scene);
+      await renderer.compileAsync(part, camera, scene);
     } finally {
       renderer.setRenderTarget(target);
       renderer.setMRT(mrt);
     }
-    await built;
   };
+  building = true;
+  try {
+    await warmEach(parts, build, performance.now() + budget);
+  } finally {
+    building = false;
+  }
+};
+
+const warmEach = async (
+  parts: readonly Object3D[],
+  build: (part: Object3D) => Promise<void>,
+  until: number,
+) => {
   for (const part of parts) {
+    if (performance.now() > until) return;
     const culled = part.frustumCulled;
     part.frustumCulled = false;
     const twoPass = twoPassOf(part);

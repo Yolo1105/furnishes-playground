@@ -11,6 +11,7 @@ import {
 import type { Group, Texture } from "three";
 import { type StillState, stillOf } from "./capture";
 import { devParam } from "./dev-flags";
+import { warming } from "./shader-warm";
 import { LightProbeGrid } from "three/examples/jsm/lighting/LightProbeGrid.js";
 import { LightProbeGridNode } from "three/examples/jsm/tsl/lighting/LightProbeGridNode.js";
 import type { WebGPURenderer } from "three/webgpu";
@@ -128,6 +129,9 @@ export function Probes({
     invalidate();
   }, [grid, stamp, invalidate, onState]);
   useFrame((state) => {
+    // the room's shaders being built hold the renderer's outputs: the
+    // bake goes on once they are (the post chain asks for the frame)
+    if (warming()) return;
     // the surroundings arrive on their own time: a new map starts over
     if (state.scene.environment !== seen.current) {
       seen.current = state.scene.environment;
