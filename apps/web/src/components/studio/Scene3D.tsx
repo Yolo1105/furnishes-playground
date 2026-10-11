@@ -1757,7 +1757,9 @@ export default function Scene3D() {
       data-backend={backend}
       data-drawn={drawn && backend !== null && (post === null || warmed)}
       data-shaders={post === null ? "ready" : shaders}
-      data-settled={!settling}
+      // the picture shown is not the room's while its shaders are being
+      // built: the last frame stands until they are
+      data-settled={!settling && (post === null || shaders === "ready")}
       data-post={post ?? "off"}
       data-ssr={post === "desktop" ? fx.ssr : "off"}
       data-ssgi={post === "desktop" ? fx.ssgi : "off"}
