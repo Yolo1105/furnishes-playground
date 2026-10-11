@@ -1,4 +1,5 @@
 import type { Camera, Scene } from "three";
+import type { Corner } from "./camera-bookmarks";
 import type { Sun } from "./scene-copy";
 
 /**
@@ -19,6 +20,8 @@ export type Live = {
   span: { w: number; d: number };
   /** the flat's middle about the room's, m */
   centre: readonly [number, number];
+  /** the corner the room's picture is taken from */
+  corner: Corner;
   sun: Sun;
 };
 

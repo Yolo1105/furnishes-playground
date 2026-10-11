@@ -15,7 +15,6 @@ import {
   vec3,
 } from "three/tsl";
 import { MeshBasicNodeMaterial } from "three/webgpu";
-import { LIGHT_WOOD_HEX } from "./piece-detail";
 import {
   type ThreeEvent,
   useFrame,
@@ -24,6 +23,8 @@ import {
 } from "@react-three/fiber";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useEvent } from "./use-event";
+import { CURTAIN, curtainGeometry } from "./curtain";
+import { cloth, Mat } from "./finish";
 import { useRoom } from "./room-store";
 import {
   BufferAttribute,
@@ -85,7 +86,11 @@ const SKIRTING = 0.1;
     skirting is, so the wall ends in a line */
 const CORNICE = 0.06;
 const FRAME_HEX = "#f7f3ec";
-const DOOR_HEX = LIGHT_WOOD_HEX;
+/** a door's leaf: painted, as an HDB flat's are, a shade off its frame
+    so the leaf reads against the architrave (the wood set's grain,
+    stretched once over a two-metre leaf, read as a large wavy figure) */
+const DOOR_HEX = "#ebe5da";
+const DOOR_ROUGH = 0.42;
 /** a door's parts, m: the leaf's thickness, the lining boards in the
     reveal, the architrave's width and how far it stands proud, the
     gap round the leaf, the threshold's height, and the lever */
@@ -126,6 +131,15 @@ const CEILING_HEX = "#f8f5f0";
 /** how much light a ceiling has of its own: the room's bounce, which
     the lights from above cannot reach its underside with */
 const CEILING_GLOW = 0.5;
+/** how far under the walls' tops the ceiling stands, m: the tops' cut
+    lines then lie just over it, hidden from below (at the same height
+    they flickered through it as a dotted line along the cornice) */
+const CEILING_DROP = 0.002;
+/** the room's ceiling light: a flush round diffuser in the middle of
+    the room's box, m, glowing a little by day and lit in the evening
+    (a bare ceiling read as a set's) */
+const LAMP = { radius: 0.2, drop: 0.025, day: 0.35, evening: 2.2 };
+const LAMP_HEX = "#fbf6ec";
 /** the export's tags and names: a copy of the scene keeps what stands
     under the room's tag and names each part (scene-copy.ts) */
 const ROOM_TAG = { export: "room" } as const;
@@ -432,6 +446,13 @@ const runMitres = (
   run.b[0] === e.b[0] && run.b[1] === e.b[1] ? b : 0,
 ];
 
+/** where a run stops along its wall, meeting the next run, rather than
+    at the wall's end */
+const jointsOf = (e: Edge, run: Edge): [boolean, boolean] => [
+  run.a[0] !== e.a[0] || run.a[1] !== e.a[1],
+  run.b[0] !== e.b[0] || run.b[1] !== e.b[1],
+];
+
 /** the floor as a shape in metres about the room's middle; the plane is
     laid flat by a quarter turn, so the shape's y runs the other way */
 const floorShape = (
@@ -580,6 +601,7 @@ const wallGeometry = (
   mitres: readonly [number, number],
   holes: ReturnType<typeof holesOf>,
   shading: Shading,
+  joints: readonly [boolean, boolean],
 ) => {
   const blocks = blocksOf(
     len,
@@ -600,6 +622,7 @@ const wallGeometry = (
     -1,
     height,
     shading,
+    joints,
   );
   const g = new BufferGeometry();
   g.setAttribute("position", new BufferAttribute(tri.positions, 3));
@@ -625,6 +648,7 @@ function WallRun({
   h,
   t,
   mitres,
+  joints,
   wallHex,
   floorHex,
   holes,
@@ -642,6 +666,9 @@ function WallRun({
       thickness at a convex corner, minus one at a concave, nothing
       where the run ends along the wall */
   mitres: readonly [number, number];
+  /** where the run meets the next run of its wall, at its start and its
+      end, rather than a corner */
+  joints: readonly [boolean, boolean];
   wallHex: string;
   /** the floor's tone, which the wall's foot takes a little of */
   floorHex: string;
@@ -674,15 +701,15 @@ function WallRun({
   // Twice: at its height, and cut at waist height for when the camera
   // looks in over it as a near wall
   const full = useMemo(
-    () => wallGeometry(len, h, t, mitres, holes, shading),
-    [len, h, t, mitres, holes, shading],
+    () => wallGeometry(len, h, t, mitres, holes, shading, joints),
+    [len, h, t, mitres, holes, shading, joints],
   );
   const cut = useMemo(
     () =>
       h > SECTION + 0.2
-        ? wallGeometry(len, SECTION, t, mitres, holes, shading)
+        ? wallGeometry(len, SECTION, t, mitres, holes, shading, joints)
         : null,
-    [len, h, t, mitres, holes, shading],
+    [len, h, t, mitres, holes, shading, joints],
   );
   useEffect(
     () => () => {
@@ -878,6 +905,107 @@ const useShared = (r: RoomShape, o: Opening) =>
     return j ? (j.a === r.id ? j.b : j.a) : null;
   });
 
+/** a window's curtains, in a room that is not tiled (a kitchen's or a
+    bathroom's window has none): a sheer drawn across the glass, which
+    the day comes through as a glow, and two panels drawn back over the
+    frame's sides, on a rail just under the ceiling; all of it ends a
+    little under the sill, so whatever stands against the wall below the
+    window (a desk, a sofa's back) stands clear of it, and the panels
+    keep within the window's width, clear of a cabinet beside it */
+const CURTAIN_HEX = "#e3d9ca";
+const SHEER_HEX = "#f6f3ee";
+const SHEER_OPACITY = 0.55;
+/** a drawn-back panel's width, m: a share of the window's, within
+    bounds; how far it reaches over the frame's side; how far below the
+    sill the cloth ends, and the least it stays off the floor; and how
+    far behind the panels the sheer hangs */
+const PANEL = {
+  share: 0.2,
+  least: 0.28,
+  most: 0.5,
+  over: 0.04,
+  below: 0.08,
+  floor: 0.05,
+  sheer: 0.03,
+};
+/** the rail: how far it stands over the window's head and under the
+    ceiling, and off the wall; its section; how far it runs past the
+    window each side, m */
+const RAIL = { over: 0.15, under: 0.06, off: 0.07, size: 0.022, past: 0.08 };
+function Curtains({
+  width,
+  sill,
+  head,
+  height,
+}: {
+  width: number;
+  sill: number;
+  head: number;
+  /** the room's height, m */
+  height: number;
+}) {
+  const rail = Math.min(head + RAIL.over, height - RAIL.under);
+  const drop = rail - Math.max(PANEL.floor, sill - PANEL.below);
+  const panel = Math.min(
+    PANEL.most,
+    Math.max(PANEL.least, width * PANEL.share),
+  );
+  const geometry = useMemo(
+    () => ({
+      panel: curtainGeometry(panel, drop),
+      sheer: curtainGeometry(
+        width,
+        drop,
+        CURTAIN.sheerFold,
+        CURTAIN.sheerPitch,
+      ),
+    }),
+    [panel, width, drop],
+  );
+  useEffect(
+    () => () => {
+      geometry.panel.dispose();
+      geometry.sheer.dispose();
+    },
+    [geometry],
+  );
+  return (
+    <group position={[0, rail, RAIL.off]}>
+      <mesh
+        geometry={geometry.sheer}
+        position={[0, 0, -PANEL.sheer]}
+        raycast={noPick}
+      >
+        <meshStandardMaterial
+          color={SHEER_HEX}
+          roughness={0.9}
+          transparent
+          opacity={SHEER_OPACITY}
+          depthWrite={false}
+          vertexColors
+        />
+      </mesh>
+      {[-1, 1].map((s) => (
+        <mesh
+          key={s}
+          geometry={geometry.panel}
+          position={[s * (width / 2 - panel / 2 + PANEL.over), 0, 0]}
+          castShadow
+          receiveShadow
+          raycast={noPick}
+        >
+          <Mat f={cloth(CURTAIN_HEX)} banded />
+        </mesh>
+      ))}
+      <Bar
+        at={[0, RAIL.size, 0]}
+        size={[width + 2 * RAIL.past, RAIL.size, RAIL.size]}
+        rough={0.3}
+      />
+    </group>
+  );
+}
+
 function Window({ r, o }: { r: RoomShape; o: Opening }) {
   const other = useShared(r, o);
   const width = toMetres(o.width);
@@ -961,6 +1089,14 @@ function Window({ r, o }: { r: RoomShape; o: Opening }) {
           at={[0, head + architrave / 2, 0.008]}
           size={[width + 2 * architrave, architrave, 0.016]}
         />
+        {r.floor !== "Tiles" && (
+          <Curtains
+            width={width}
+            sill={sill}
+            head={head}
+            height={toMetres(r.height)}
+          />
+        )}
         {/* the sill board, from the frame into the room */}
         <Bar
           at={[0, sill - sillBoard / 2, (zf + sillOut) / 2]}
@@ -978,8 +1114,8 @@ function Window({ r, o }: { r: RoomShape; o: Opening }) {
     hung towards the room and a shade smaller than the lining all
     round, with its lever and rose at hand height; a double door's two
     leaves; a sliding door's two panels, one before the other; nothing
-    at all in a passage. The leaf takes the wood set's grain. A switch
-    plate stands beside the opening on the handle's side. */
+    at all in a passage. The leaf is painted. A switch plate stands
+    beside the opening on the handle's side. */
 function Door({ r, o }: { r: RoomShape; o: Opening }) {
   const other = useShared(r, o);
   const width = toMetres(o.width);
@@ -990,8 +1126,6 @@ function Door({ r, o }: { r: RoomShape; o: Opening }) {
   const [x, z] = placeOf(r, o);
   const yaw = yawOf(o.wall);
   const t = toMetres(r.thickness);
-  const wood = useMaterial("wood");
-  const woodMaps = repeated(wood);
   const { leaf, lining, architrave, proud, gap, threshold, lever } = DOOR;
   const sliding = o.kind === "sliding";
   const leaves =
@@ -1036,13 +1170,7 @@ function Door({ r, o }: { r: RoomShape; o: Opening }) {
                 <boxGeometry
                   args={[l.w - 2 * gap - 2 * lining, tall - gap, leaf]}
                 />
-                <meshStandardMaterial
-                  color={wood.photo ? tintOver(DOOR_HEX) : DOOR_HEX}
-                  map={woodMaps.map}
-                  normalMap={woodMaps.normalMap}
-                  roughnessMap={woodMaps.roughnessMap}
-                  roughness={0.5}
-                />
+                <meshStandardMaterial color={DOOR_HEX} roughness={DOOR_ROUGH} />
               </mesh>
               {/* the lever and its rose, at hand height on the opening
                   side, standing off the leaf's face */}
@@ -1177,6 +1305,14 @@ export function RoomShell({
   });
   const { material, target } = useFloorMaterial(w, h, d, reflection !== null);
   const shape = useMemo(() => floorShape(r.outline, w, d), [r.outline, w, d]);
+  // the middle of the room's box, m about the room's middle
+  const lampAt = useMemo(() => {
+    const xs = r.outline.map(([x]) => x);
+    const ys = r.outline.map(([, y]) => y);
+    const mid = (v: number[]) =>
+      toMetres((Math.min(...v) + Math.max(...v)) / 2);
+    return [mid(xs) - w / 2, mid(ys) - d / 2] as const;
+  }, [r.outline, w, d]);
   // the floor's material: a photographed set in its own colour with
   // the tone laid lightly over it, else the grown floor in the tone
   const floorMat = useMaterial(FLOOR_MATERIAL[r.floor], r.floorHex);
@@ -1197,6 +1333,7 @@ export function RoomShell({
         other,
         key: `${i}-${k}`,
         mitres: runMitres(e, run, mitres[i]!),
+        joints: jointsOf(e, run),
         holes: holesOf(shape, run, h),
         socket: false,
       })),
@@ -1245,7 +1382,7 @@ export function RoomShell({
           onState={reflection.onState}
         />
       )}
-      {runs.map(({ run, both, other, key, mitres, holes, socket }) => (
+      {runs.map(({ run, both, other, key, mitres, joints, holes, socket }) => (
         <WallRun
           key={key}
           e={run}
@@ -1254,6 +1391,7 @@ export function RoomShell({
           h={h}
           t={t}
           mitres={mitres}
+          joints={joints}
           wallHex={r.wallHex}
           floorHex={r.floorHex}
           holes={holes}
@@ -1289,7 +1427,7 @@ export function RoomShell({
           little of its own, as a ceiling is by the room's bounce */}
       <mesh
         rotation={[Math.PI / 2, 0, 0]}
-        position={[0, h, 0]}
+        position={[0, h - CEILING_DROP, 0]}
         userData={CEILING_NAME}
       >
         <shapeGeometry args={[shape]} />
@@ -1298,6 +1436,22 @@ export function RoomShell({
           emissive={CEILING_HEX}
           emissiveIntensity={CEILING_GLOW}
           roughness={1}
+          side={FrontSide}
+        />
+      </mesh>
+      {/* the ceiling light, a disc facing down as the ceiling does, so
+          an overhead view does not see it */}
+      <mesh
+        rotation={[Math.PI / 2, 0, 0]}
+        position={[lampAt[0], h - LAMP.drop, lampAt[1]]}
+        raycast={noPick}
+      >
+        <circleGeometry args={[LAMP.radius, 40]} />
+        <meshStandardMaterial
+          color={LAMP_HEX}
+          emissive={LAMP_HEX}
+          emissiveIntensity={r.evening ? LAMP.evening : LAMP.day}
+          roughness={0.6}
           side={FrontSide}
         />
       </mesh>

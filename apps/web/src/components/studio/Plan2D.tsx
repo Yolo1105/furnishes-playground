@@ -4,6 +4,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type ComponentProps,
   type MouseEvent,
   type PointerEvent,
 } from "react";
@@ -166,8 +167,6 @@ export function Plan2D({
   /** the active room's fields with the actions, as one */
   const r = { ...st, ...active };
   const tool = useStudio((s) => s.tool);
-  const planZoom = useStudio((s) => s.planZoom);
-  const planPan = useStudio((s) => s.planPan);
   const wheelMode = useStudio((s) => s.wheelMode);
   const { zoomPlan, panPlan } = useStudio.getState();
   const coarse = useCoarse();
@@ -747,10 +746,9 @@ export function Plan2D({
     });
 
   return (
-    <div
+    <PlanSheet
       ref={sheetRef}
-      className="plan"
-      data-zoomed={planZoom !== 1 || planPan.x !== 0 || planPan.y !== 0}
+      interactive={interactive}
       data-pan={canPan ? (panning ? "moving" : "ready") : undefined}
       onPointerDown={onDown}
       onPointerMove={onMove}
@@ -759,11 +757,6 @@ export function Plan2D({
       style={{
         aspectRatio: `${vw} / ${vh}`,
         ["--ratio" as string]: vw / vh,
-        ...(interactive
-          ? {
-              transform: `translate(${planPan.x}px, ${planPan.y}px) scale(${planZoom})`,
-            }
-          : {}),
       }}
     >
       <svg
@@ -1096,6 +1089,31 @@ export function Plan2D({
           <StagePieces roomId={rm.id} compact={!interactive} />
         </div>
       ))}
-    </div>
+    </PlanSheet>
+  );
+}
+
+/** the sheet's frame, the one part of the plan that follows the zoom
+    and the pan: a wheel's step or a drag moves it alone, and the rooms
+    and pieces drawn inside it (made by the plan) are not drawn again */
+function PlanSheet({
+  interactive,
+  style,
+  ...rest
+}: ComponentProps<"div"> & { interactive: boolean }) {
+  const zoom = useStudio((s) => s.planZoom);
+  const pan = useStudio((s) => s.planPan);
+  return (
+    <div
+      {...rest}
+      className="plan"
+      data-zoomed={zoom !== 1 || pan.x !== 0 || pan.y !== 0}
+      style={{
+        ...style,
+        ...(interactive
+          ? { transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }
+          : {}),
+      }}
+    />
   );
 }

@@ -3,6 +3,7 @@
 import { toMetres } from "@furnishes/scene";
 import { WebGPURenderer } from "three/webgpu";
 import { Html, OrbitControls } from "@react-three/drei";
+import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { useEvent } from "./use-event";
 import {
@@ -21,8 +22,10 @@ import {
   useState,
 } from "react";
 import {
+  type Camera,
   CanvasTexture,
   type Group,
+  type PerspectiveCamera,
   PCFShadowMap,
   Plane,
   type Scene,
@@ -43,7 +46,7 @@ import {
   DANGER_HEX,
   footprint,
   isRug,
-  ROOM_ITEM_HEX,
+  roomItemHex,
   type PieceProps,
   normTurn,
   ROTATE_SNAP,
@@ -82,7 +85,15 @@ import type { StillState } from "./capture";
 import { loadMaterials, useMaterials } from "./materials";
 import { RoomLight, RoomShell, SHADOW_LAYER, windowSun } from "./Room3D";
 import { usePartStore } from "./part-client";
-import { cameraFor, EYE } from "./camera-bookmarks";
+import {
+  cameraFor,
+  CLIP,
+  type Corner,
+  cornerOf,
+  EYE,
+  FOV,
+  walkStart,
+} from "./camera-bookmarks";
 import { setLive } from "./scene-handle";
 import { recordFrame, recorder } from "./bench";
 import { devFlag, devParam } from "./dev-flags";
@@ -195,6 +206,7 @@ function LiveHandle({
   spanW,
   spanD,
   centre,
+  corner,
   sun,
 }: {
   w: number;
@@ -204,6 +216,7 @@ function LiveHandle({
   spanW: number;
   spanD: number;
   centre: readonly [number, number];
+  corner: Corner;
   sun: { position: Vector3Tuple; colour: string; intensity: number };
 }) {
   const scene = useThree((s) => s.scene);
@@ -217,6 +230,7 @@ function LiveHandle({
       h,
       span: { w: spanW, d: spanD },
       centre,
+      corner,
       sun,
     });
     // in development the scene is at hand in the console too, for
@@ -224,7 +238,7 @@ function LiveHandle({
     if (process.env.NODE_ENV !== "production")
       (window as unknown as { __scene?: Scene }).__scene = scene;
     return () => setLive(null);
-  }, [scene, camera, w, d, h, spanW, spanD, centre, sun]);
+  }, [scene, camera, w, d, h, spanW, spanD, centre, corner, sun]);
   return null;
 }
 
@@ -485,6 +499,22 @@ const holdOrbit = (controls: unknown, hold: boolean) => {
 /** how far past the flat's box the view's centre may be moved, m */
 const PAN_REACH = 1;
 const ORIGIN = new Vector3();
+/** the piece under the pointer, kept apart from the stage's state: the
+    pointer crossing the room draws again the piece it enters and the one
+    it leaves, not every piece in the flat */
+const useHovered = create<{ id: string | null }>(() => ({ id: null }));
+const hoverPiece = (id: string, on: boolean) =>
+  useHovered.setState((s) => ({ id: on ? id : s.id === id ? null : s.id }));
+/** a camera's lens, vertical degrees (the stage's camera is always a
+    perspective one), and the lens set */
+const lensOf = (camera: Camera) =>
+  (camera as PerspectiveCamera).fov ?? FOV.overview;
+const setLens = (camera: Camera, fov: number) => {
+  const c = camera as PerspectiveCamera;
+  if (!c.isPerspectiveCamera || c.fov === fov) return;
+  c.fov = fov;
+  c.updateProjectionMatrix();
+};
 
 /** the camera glides to the angle's place */
 function Rig({
@@ -495,6 +525,7 @@ function Rig({
   centre,
   roomW,
   roomD,
+  corner,
   stage,
 }: {
   angle: Angle;
@@ -503,9 +534,11 @@ function Rig({
   d: number;
   h: number;
   centre: readonly [number, number];
-  /** the room being worked on, m: the perspective looks into it */
+  /** the room being worked on, m: the perspective looks into it, from
+      this corner */
   roomW: number;
   roomD: number;
+  corner: Corner;
   stage: RefObject<HTMLDivElement | null>;
 }) {
   const camera = useThree((s) => s.camera);
@@ -517,6 +550,9 @@ function Rig({
     fromAt: Vector3;
     to: Vector3;
     toAt: Vector3;
+    /** the lens, vertical degrees, from and to */
+    fromFov: number;
+    toFov: number;
     t: number;
   } | null>(null);
   const free = useStudio((s) => s.free);
@@ -529,18 +565,25 @@ function Rig({
     // turned by hand: the camera stays where the cube or the canvas put
     // it; the angle picked again, free cleared, glides back to it
     if (free) return;
-    const key = JSON.stringify([angle, w, d, h, centre, roomW, roomD]);
+    const key = JSON.stringify([angle, w, d, h, centre, roomW, roomD, corner]);
     if (key === placed.current && moved.current) return;
     placed.current = key;
     moved.current = false;
-    const { pos, at } = cameraFor(angle, w, d, h, centre, {
-      w: roomW,
-      d: roomD,
-    });
-    // a tall screen (a phone, a tablet upright) sees less across: the
-    // camera stands further back so the room still fits
     const aspect = size.height ? size.width / size.height : 1.5;
-    const back = Math.max(1, Math.sqrt(1.45 / aspect));
+    const { pos, at, fov } = cameraFor(
+      angle,
+      w,
+      d,
+      h,
+      centre,
+      { w: roomW, d: roomD, corner },
+      aspect,
+    );
+    // a tall screen (a phone, a tablet upright) sees less across: an
+    // overview stands further back so the flat still fits (the room's
+    // corner shot opens its lens instead, standing in the room)
+    const back =
+      fov === FOV.overview ? Math.max(1, Math.sqrt(1.45 / aspect)) : 1;
     const toAt = new Vector3(...at);
     const to = new Vector3(...pos).sub(toAt).multiplyScalar(back).add(toAt);
     glide.current = {
@@ -548,6 +591,8 @@ function Rig({
       fromAt: controls?.target.clone() ?? new Vector3(0, h / 2, 0),
       to,
       toAt,
+      fromFov: lensOf(camera),
+      toFov: fov,
       t: reduced() ? 1 : 0,
     };
     invalidate();
@@ -560,6 +605,7 @@ function Rig({
     centre,
     roomW,
     roomD,
+    corner,
     camera,
     controls,
     invalidate,
@@ -605,7 +651,7 @@ function Rig({
       if (!controls) return;
       const at = controls.target;
       const dist = camera.position.distanceTo(at);
-      const fov = (camera as { fov?: number }).fov ?? 42;
+      const fov = lensOf(camera);
       const k =
         (2 * dist * Math.tan((fov * Math.PI) / 360)) /
         Math.max(1, el.clientHeight);
@@ -696,6 +742,7 @@ function Rig({
       g.t = Math.min(1, g.t + dt / GLIDE);
       const k = 1 - Math.pow(1 - g.t, 3);
       camera.position.lerpVectors(g.from, g.to, k);
+      setLens(camera, g.fromFov + (g.toFov - g.fromFov) * k);
       const at = g.fromAt.clone().lerp(g.toAt, k);
       camera.lookAt(at);
       controls?.target.copy(at);
@@ -725,10 +772,13 @@ function Walker({
   outline,
   walkable,
   blocks,
+  corner,
   stage,
 }: {
   w: number;
   d: number;
+  /** the corner the walk starts in, the room's picture's */
+  corner: Corner;
   /** the room's outline, mm; the tour's round keeps inside it */
   outline: readonly (readonly [number, number])[];
   /** standing room: the rooms' floors and the doorways between them */
@@ -748,15 +798,22 @@ function Walker({
     live.current = blocks;
   }, [blocks]);
   useEffect(() => {
-    // in from the south-east corner, looking into the room, a little down
+    // in from the room's corner, looking into the room, a little down,
+    // with the room's own lens
     const s = WALK;
-    s.x = w / 2 - 0.6;
-    s.z = d / 2 - 0.6;
-    s.yaw = Math.PI / 4;
-    s.pitch = -0.12;
+    const start = walkStart(
+      w,
+      d,
+      gl.domElement.clientWidth / Math.max(1, gl.domElement.clientHeight),
+      corner,
+    );
+    [s.x, , s.z] = start.pos;
+    s.yaw = Math.atan2(start.pos[0] - start.at[0], start.pos[2] - start.at[2]);
+    s.pitch = Math.asin(start.at[1] - EYE);
     s.goto = null;
     s.wake = invalidate;
     camera.position.set(s.x, EYE, s.z);
+    setLens(camera, start.fov);
     camera.rotation.set(0, 0, 0, "YXZ");
     const typing = (t: EventTarget | null) =>
       t instanceof HTMLElement &&
@@ -828,7 +885,7 @@ function Walker({
       document.removeEventListener("visibilitychange", release);
       el.removeEventListener("contextmenu", menu);
     };
-  }, [camera, gl, w, d, invalidate]);
+  }, [camera, gl, w, d, corner, invalidate]);
   // the tour: through the stops on the plan, or, with fewer than two, a
   // round of the room inset from its walls, each corner brought in off
   // the pieces; starting from where the walker stands
@@ -1021,8 +1078,7 @@ function Piece({
   onPick,
   onTurn,
   onDragging,
-  hovered,
-  onHover,
+  hoverable,
   labels,
   edges,
 }: {
@@ -1057,9 +1113,9 @@ function Piece({
   onPick: () => void;
   onTurn: () => void;
   onDragging: (on: boolean) => void;
-  /** the pointer is over this piece: an outline, its name, the hand */
-  hovered: boolean;
-  onHover: (on: boolean) => void;
+  /** the pointer over this piece gives it an outline, its name and the
+      hand (not while a render is taken, nor in another room) */
+  hoverable: boolean;
   /** the View settings: the name under the piece, edges on it */
   labels: boolean;
   edges: boolean;
@@ -1209,11 +1265,12 @@ function Piece({
       onDragging(false);
     }
   });
+  const hovered = useHovered((s) => s.id === node.id) && hoverable;
   const onOver = useEvent((e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
-    onHover(true);
+    if (hoverable) hoverPiece(node.id, true);
   });
-  const onOut = useEvent(() => onHover(false));
+  const onOut = useEvent(() => hoverPiece(node.id, false));
   const onRingOver = useEvent((e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
     setRingHover(true);
@@ -1492,7 +1549,6 @@ function OtherRoom({
   rm,
   from,
   portal,
-  labels,
   edges,
   rendering,
   sun,
@@ -1500,7 +1556,6 @@ function OtherRoom({
   rm: RoomSpec;
   from: RoomSpec;
   portal: RefObject<HTMLDivElement>;
-  labels: boolean;
   edges: boolean;
   rendering: boolean;
   /** where the sun stands, for the room's windows */
@@ -1576,7 +1631,9 @@ function OtherRoom({
             ]}
             turn={-(p.rotation * Math.PI) / 180}
             size={[toMetres(p.width), toMetres(p.height), toMetres(p.depth)]}
-            colour={n.kind === "piece" ? colourHex(p.colour) : ROOM_ITEM_HEX}
+            colour={
+              n.kind === "piece" ? colourHex(p.colour) : roomItemHex(n.name)
+            }
             parts={(n.children ?? []).map((c) =>
               colourHex(propsOf(c, a.overrides).colour),
             )}
@@ -1596,9 +1653,10 @@ function OtherRoom({
             onPick={() => a.onPick(n)}
             onTurn={() => a.turn(n)}
             onDragging={() => undefined}
-            hovered={false}
-            onHover={() => undefined}
-            labels={labels}
+            hoverable={false}
+            // a name behind the walls of the room worked on would float
+            // over them: another room's pieces carry none
+            labels={false}
             edges={edges}
             actions={null}
           />
@@ -1700,10 +1758,26 @@ export default function Scene3D() {
   );
   const [dragging, setDragging] = useState(false);
   // the piece under the pointer: the canvas shows a hand over one that
-  // can be dragged, a finger over one that can only be picked
-  const [hover, setHover] = useState<string | null>(null);
-  const hoverOf = (id: string) => (on: boolean) =>
-    setHover((cur) => (on ? id : cur === id ? null : cur));
+  // can be dragged, a finger over one that can only be picked. Set on
+  // the stage as the pointer moves (useHovered), so a hover does not
+  // draw the whole stage again; the reading follows this render's state
+  const hoverOf = (id: string | null) =>
+    id === null || rendering
+      ? "none"
+      : canDrag && !a.props.get(id)?.locked && !walk
+        ? "grab"
+        : "pick";
+  const readHover = useRef(hoverOf);
+  useLayoutEffect(() => {
+    readHover.current = hoverOf;
+    const el = stage.current;
+    if (!el) return;
+    const show = () => {
+      el.dataset.hover = readHover.current(useHovered.getState().id);
+    };
+    show();
+    return useHovered.subscribe(show);
+  });
   const w = toMetres(room.width);
   const d = toMetres(room.depth);
   const h = toMetres(room.height);
@@ -1765,6 +1839,11 @@ export default function Scene3D() {
       ) ?? light.from,
     [room.width, room.depth, outline, openings, light],
   );
+  // the corner the room is photographed from, and walked in from: kept
+  // by its value, so a render that rebuilds the openings does not put
+  // the camera back in its corner
+  const [cornerX, cornerZ] = cornerOf(openings, room.width, room.depth);
+  const corner = useMemo((): Corner => [cornerX, cornerZ], [cornerX, cornerZ]);
   const backend = useStudio((s) => s.backend);
   // the picture's finish follows the device once the backend is known; a
   // render has it whatever the View settings; a stage that fails on this
@@ -1906,13 +1985,6 @@ export default function Scene3D() {
       data-part-builds={partBuilds}
       data-walk={walk}
       data-dragging={dragging}
-      data-hover={
-        hover === null || rendering
-          ? "none"
-          : canDrag && !a.props.get(hover)?.locked && !walk
-            ? "grab"
-            : "pick"
-      }
       data-edges={edges}
       data-cuts={cutsOn ? "on" : "off"}
       data-shadows={shadows}
@@ -1948,7 +2020,7 @@ export default function Scene3D() {
         // less than half of what it would, with nothing to see for it
         dpr={[1, 2]}
         gl={coarse ? makeRendererCoarse : makeRendererFine}
-        camera={{ fov: 42, near: 0.05, far: 100 }}
+        camera={{ fov: FOV.overview, ...CLIP }}
         onPointerMissed={() => undefined}
       >
         {walk ? (
@@ -1958,6 +2030,7 @@ export default function Scene3D() {
             outline={outline}
             walkable={walkable}
             blocks={blocks}
+            corner={corner}
             stage={stage}
           />
         ) : (
@@ -1969,6 +2042,7 @@ export default function Scene3D() {
             centre={centre}
             roomW={w}
             roomD={d}
+            corner={corner}
             stage={stage}
           />
         )}
@@ -1984,6 +2058,7 @@ export default function Scene3D() {
           spanW={toMetres(box.w)}
           spanD={toMetres(box.h)}
           centre={centre}
+          corner={corner}
           sun={liveSun}
         />
         {tier && <Photo tier={tier} stamp={reflectStamp} />}
@@ -2098,7 +2173,6 @@ export default function Scene3D() {
                 rm={rm}
                 from={room}
                 portal={portal}
-                labels={labels}
                 edges={edges}
                 rendering={rendering}
                 sun={sunFrom}
@@ -2132,7 +2206,7 @@ export default function Scene3D() {
                 turn={a.focus ? 0 : -(p.rotation * Math.PI) / 180}
                 size={size}
                 colour={
-                  n.kind === "piece" ? colourHex(p.colour) : ROOM_ITEM_HEX
+                  n.kind === "piece" ? colourHex(p.colour) : roomItemHex(n.name)
                 }
                 parts={(n.children ?? []).map((c) =>
                   colourHex(propsOf(c, a.overrides).colour),
@@ -2153,8 +2227,7 @@ export default function Scene3D() {
                 onPick={() => a.onPick(n)}
                 onTurn={() => a.turn(n)}
                 onDragging={setDragging}
-                hovered={hover === n.id && !rendering}
-                onHover={hoverOf(n.id)}
+                hoverable={!rendering}
                 labels={labels}
                 edges={edges}
                 actions={

@@ -68,7 +68,11 @@ export type Shading = {
     vertex colour each (the shading on the plaster, white elsewhere),
     and the cap faces' edges as line segments (`capLines`), so a cut
     reads as a cut. `h` is the wall's full height: a top at it is the
-    cap, a top below it an opening's head. */
+    cap, a top below it an opening's head. A wall split into runs (a
+    stretch shared with another room beside one that is not) has a
+    joint where one run meets the next (`joints`, at its start and its
+    end): no cut, so the end face there is no cap and carries no line,
+    which lay on the next run's face and flickered through it. */
 export const wallTriangles = (
   blocks: readonly Block[],
   len: number,
@@ -79,6 +83,7 @@ export const wallTriangles = (
   outward: 1 | -1 = 1,
   h = Infinity,
   shading?: Shading,
+  joints: readonly [boolean, boolean] = [false, false],
 ) => {
   type P = [number, number, number];
   const parts = [PLASTER, REVEAL, CAP].map(() => ({
@@ -88,10 +93,24 @@ export const wallTriangles = (
     colors: [] as number[],
   }));
   const capLines: number[] = [];
-  const quad = (group: number, a: P, b: P, c: P, d: P, shaded = false) => {
+  /** a cap's outline: all four edges, or only those named by the
+      index of their first corner (a wall's end draws its top edge
+      alone: its upright edges lie on the face of the wall it meets, a
+      corner's or a neighbour's, and flickered through it) */
+  const quad = (
+    group: number,
+    a: P,
+    b: P,
+    c: P,
+    d: P,
+    shaded = false,
+    outline: readonly number[] = [0, 1, 2, 3],
+  ) => {
     const out = parts[group]!;
     // two triangles, the normal from the winding; a wall whose outside
     // lies along -z is mirrored, its winding turned to match
+    // the outline follows the corners as given, before any mirroring
+    const corners = [a, b, c, d];
     if (outward < 0) [b, d] = [d, b];
     const ux = b[0] - a[0],
       uy = b[1] - a[1],
@@ -120,14 +139,10 @@ export const wallTriangles = (
       if (shaded && shading) out.colors.push(...shading.grade(p[0], p[1]));
       else out.colors.push(1, 1, 1);
     }
-    if (group === CAP)
-      for (const [p, q] of [
-        [a, b],
-        [b, c],
-        [c, d],
-        [d, a],
-      ] as const)
-        capLines.push(...p, ...q);
+    if (group === CAP) {
+      for (const i of outline)
+        capLines.push(...corners[i]!, ...corners[(i + 1) % 4]!);
+    }
   };
   /** a face along the wall divided at the shading's lines, so its
       vertex colours bend where the shading does */
@@ -172,8 +187,8 @@ export const wallTriangles = (
     const o2: P = [ox1, b.y1, oz];
     const o3: P = [ox0, b.y1, oz];
     const top = b.y1 >= h;
-    const atStart = b.x0 === 0;
-    const atEnd = b.x1 === len;
+    const atStart = b.x0 === 0 && !joints[0];
+    const atEnd = b.x1 === len && !joints[1];
     // the inner face, seen from inside (−z), shaded; the outer face
     // (+z) plain, or shaded too where it is another room's inside
     face(PLASTER, b.x0, b.x1, b.y0, b.y1, 0, true, true);
@@ -182,8 +197,8 @@ export const wallTriangles = (
     else quad(PLASTER, o0, o1, o2, o3);
     quad(top ? CAP : REVEAL, i3, o3, o2, i2); // the top, or a head
     quad(b.y0 === 0 ? CAP : REVEAL, i0, i1, o1, o0); // the bottom, or a sill
-    quad(atStart ? CAP : REVEAL, i0, o0, o3, i3); // the start end
-    quad(atEnd ? CAP : REVEAL, i1, i2, o2, o1); // the far end
+    quad(atStart ? CAP : REVEAL, i0, o0, o3, i3, false, [2]); // the start end
+    quad(atEnd ? CAP : REVEAL, i1, i2, o2, o1, false, [1]); // the far end
   }
   const groups: { start: number; count: number; materialIndex: number }[] = [];
   let at = 0;

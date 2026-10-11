@@ -127,7 +127,7 @@ describe("the copy for export", () => {
   it("carries the cameras and the sun asked for in a glTF copy", () => {
     const { root } = copyForExport(room(), {
       purpose: "gltf",
-      cameras: [{ name: "Front", position: [0, 3, 6], at: [0, 1, 0] }],
+      cameras: [{ name: "Front", position: [0, 3, 6], at: [0, 1, 0], fov: 42 }],
       sun: { position: [3, 6, 4], colour: "#fff3e2", intensity: 7 },
     });
     expect(root.getObjectByName("Front")).toBeDefined();

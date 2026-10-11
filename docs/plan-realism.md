@@ -798,7 +798,7 @@ for a path-traced photo; mean luminance within 10% of the reference.
 | M2   | Free panels with snapping and typed millimetres                                                                  | a 600 mm base cabinet with two shelves in under two minutes                                 |
 | M3   | Machining features, cut list, DXF                                                                                | a 20-panel cabinet recomputes under 200 ms                                                  |
 | M4   | Sketch constraints and free-form parts in a worker, STEP out                                                     | a constrained sketch solves under 50 ms; the main thread never blocks over 16 ms            |
-| P1   | Photographed CC0 sets for wood, parquet, plaster and cloth, with the grown surfaces as the fallback               | the five baselines rerun; a set's colour map is light (the loader warns)                   |
+| P1   | Photographed CC0 sets for wood, parquet, plaster and cloth, with the grown surfaces as the fallback              | the five baselines rerun; a set's colour map is light (the loader warns)                    |
 | P6a  | The sketcher: lines, arcs, circles, holes, every hold, named dimensions                                          | an L shelf with a round hole fully held; the solid, DXF and STEP follow a change            |
 | P6b  | The feature history: extrude, revolve, fillet, chamfer, mirror, pattern, rules for edges, the timeline           | a ten-feature part under 1 s; a failing fillet reports, the rest not built                  |
 | P6c  | Parts as items: placed, finished, quoted on request, STEP in and out, kept and shared                            | a part survives a reload; the STEP round trip within 0.1 mm; old snapshots load             |
@@ -819,33 +819,33 @@ Each step as of 2026-10-09: what is done in the code, and what still
 waits on a check by hand (a real WebGPU GPU, Blender), which the
 sandbox cannot give.
 
-| Step | Stands | Waiting on a check by hand                                                       |
-| ---- | ------ | -------------------------------------------------------------------------------- |
-| R0   | done   | the photo spike in Chrome and Safari 26                                          |
-| R1   | done   | —                                                                                |
-| R2   | done   | the WebGPU backend's own pictures (the checklist, items 1–3)                     |
-| R3   | done   | post under 6 ms at 1440p (`?bench=walk`)                                         |
-| R4   | done   | the SSGI default: on only if post stays at or under 6 ms with it on              |
-| R5   | done   | whether SSR needs the stochastic path with the denoiser (the floor items)        |
-| R6   | done   | the photo itself: 1080p at 256 samples under a minute; ten shots, no VRAM growth |
+| Step | Stands | Waiting on a check by hand                                                             |
+| ---- | ------ | -------------------------------------------------------------------------------------- |
+| R0   | done   | the photo spike in Chrome and Safari 26                                                |
+| R1   | done   | —                                                                                      |
+| R2   | done   | the WebGPU backend's own pictures (the checklist, items 1–3)                           |
+| R3   | done   | post under 6 ms at 1440p (`?bench=walk`)                                               |
+| R4   | done   | the SSGI default: on only if post stays at or under 6 ms with it on                    |
+| R5   | done   | whether SSR needs the stochastic path with the denoiser (the floor items)              |
+| R6   | done   | the photo itself: 1080p at 256 samples under a minute; ten shots, no VRAM growth       |
 | R7   | done   | 60 fps desktop and 30 fps phone from the bench (first-load JS 387 KB gzip, 2026-10-09) |
-| M1   | done   | —                                                                                |
-| M2   | done   | —                                                                                |
-| M3   | done   | —                                                                                |
-| M4   | done   | —                                                                                |
-| P1   | done   | calmer sets for tiles, vinyl and concrete, to be supplied                        |
-| P2   | done   | —                                                                                |
-| P3   | done   | the glTF opened in Blender                                                       |
-| P4   | done   | `WINDOW_LIGHT` and the sample counts against the 60 s gate                       |
-| P5   | done   | the Cycles references: SSIM at or above 0.80 live and 0.90 photo, luminance ±10% |
-| P6a  | done   | —                                                                                |
-| P6b  | done   | —                                                                                |
-| P6c  | done   | —                                                                                |
-| P7   | done   | —                                                                                |
-| P8   | done   | sharp floor reflections, post under 6 ms at 1440p with SSR on                    |
-| P9   | open   | optional: baked showcase rooms for the landing                                   |
-| KTX2 | open   | optional: measured and left (see below); the maps stay JPG                       |
-| CI   | open   | optional: WebGPU in CI on a software adapter                                     |
+| M1   | done   | —                                                                                      |
+| M2   | done   | —                                                                                      |
+| M3   | done   | —                                                                                      |
+| M4   | done   | —                                                                                      |
+| P1   | done   | calmer sets for tiles, vinyl and concrete, to be supplied                              |
+| P2   | done   | —                                                                                      |
+| P3   | done   | the glTF opened in Blender                                                             |
+| P4   | done   | `WINDOW_LIGHT` and the sample counts against the 60 s gate                             |
+| P5   | done   | the Cycles references: SSIM at or above 0.80 live and 0.90 photo, luminance ±10%       |
+| P6a  | done   | —                                                                                      |
+| P6b  | done   | —                                                                                      |
+| P6c  | done   | —                                                                                      |
+| P7   | done   | —                                                                                      |
+| P8   | done   | sharp floor reflections, post under 6 ms at 1440p with SSR on                          |
+| P9   | open   | optional: baked showcase rooms for the landing                                         |
+| KTX2 | open   | optional: measured and left (see below); the maps stay JPG                             |
+| CI   | open   | optional: WebGPU in CI on a software adapter                                           |
 
 ## Walls, door and light: the far views (2026-10-09)
 
@@ -965,3 +965,81 @@ through the checklist, and the baselines stay WebGL 2.
 - cabinetry_designer, WoodworkingShop and O-LAP as code references:
   the first has no panels, the second no three.js, the third is dead.
 - brepjs, for the reasons above; it stays a watch item.
+
+## The room from its corner (2026-10-11)
+
+The five-room flat put bedrooms 2 and 3 south of the living room, where
+the perspective camera stood (beyond the open south-east corner, 5.5 m
+out): the first view looked through bedroom 3's workstation and cart at
+the living room. And even before, the view read as a model: a room seen
+from outside over a cut wall, the page's colour round a floor that
+stopped. Renders of the Full picture in the sandbox, compared side by
+side, put the causes in this order:
+
+1. **Where the camera stood.** Moved inside the room, into a corner
+   at 1.4 m, looking across to the far corner a little down, with a wider lens (58° vertical, about a 20 mm lens on
+   full frame, as interiors are photographed; a tall screen opens it to
+   keep the room 66° across, up to 78°), the same room reads as a
+   photograph: walls on both sides, the ceiling over it, the window the
+   light comes in by, the sun's patch on the floor. The overviews keep
+   their lens (42°) and stand back on a tall screen as before; the
+   corner shot does not (it would go through the corner's walls). The
+   walk starts with the room's lens, and the glTF's cameras carry each
+   pose's own (`Pose.fov`, camera-bookmarks.ts). The corner is the
+   room's own (`cornerOf`): on the side facing its widest window, so
+   the window and its light are in the picture, at the end of that
+   side farther from its doors, since what stands along the camera's
+   own wall is out of the picture. The living room's is the south-west:
+   from the south-east the sideboard and the bench stood along the
+   camera's wall and the bookwall and the entry organiser beyond the
+   picture's edge, so the first view showed none of the pieces for
+   sale; from the south-west it has the window, the bookwall, the entry
+   organiser and the dining table. A room with no window is taken from
+   the south-east.
+2. **Bare windows.** A window in a room that is not tiled now has
+   curtains (curtain.ts, `Curtains` in Room3D.tsx): a sheer across the
+   glass, which the day comes through as a glow and which softens the
+   drawn outlook, and two panels drawn back over the frame's sides, in
+   folds that stand fuller at the hem, on a rail under the ceiling.
+   Everything ends 8 cm under the sill and stays within the window's
+   width, so a desk or a sofa's back below it, or a cabinet beside it,
+   stands clear. The panels are the cushions' cloth shader (white
+   vertex colours), so they build no new program.
+3. **The door's grain.** The wood set's grain, stretched once over a
+   two-metre leaf, read as a large wavy figure from the corner. The
+   leaf is painted (`DOOR_HEX`, satin), as an HDB flat's doors are; the
+   lining and architrave stay white. (Realism 2 had given it the wood
+   grain; this undoes that for the leaf alone, for the reason above.)
+4. **Every room item one tone.** Room items are drawn quiet so the
+   pieces for sale stand out, but a rug in that tone read as a sheet of
+   paper. A rug, a bed and a wardrobe now keep a tone of their own
+   (`roomItemHex`, piece-detail.ts); the rest stay quiet.
+5. **A bare ceiling.** Each room has a flush round ceiling light,
+   glowing a little by day and lit in the evening, drawn facing down as
+   the ceiling is, so the overhead views do not see it.
+
+Seen from inside, three things that the overviews hid showed up, and
+are fixed:
+
+- **Other rooms' names over the walls.** With the names on, the
+  pieces of the rooms behind the walls had theirs floating over the
+  room worked on; another room's pieces carry none now.
+- **Dark dashes on the walls.** A wall's end drew the outline of its
+  cut face, and its upright edges lay on the face of the wall it meets
+  (at a corner, or where a neighbour's corner reaches into a shared
+  wall, as the kitchen's does into the living room's east wall), so the
+  two flickered into a dashed line. A wall's end now draws its top edge
+  alone (the mitre's seam on the cut top), and where a wall is split
+  into runs (a stretch shared with another room beside one that is
+  not) the joint between two runs is no cut at all (`joints`,
+  wall-solid.ts).
+- **A dotted line along the cornice.** The walls' top cut lines lay in
+  the ceiling's plane; the ceiling stands 2 mm under the tops now
+  (`CEILING_DROP`), so from below the lines are behind it.
+
+Tried and left: less of the sky's fill (2.4 → 1.1) with a spot light
+standing in the window, and the sun 1.8 times as strong. From the
+corner neither changed the picture much (the probes and the
+surroundings carry most of the fill), and the spot light laid a hot
+highlight on the dining table that no window gives, so the light stays
+as it was.

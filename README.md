@@ -126,18 +126,38 @@ switches between them. Projects
 (new, rename, delete, switch) each hold a flat, its pieces and Eva's
 side, autosaved in the browser.
 
-A new project opens on a 5-room flat of four rooms furnished as a flat
-is lived in: the living and dining room (7.0 × 4.5 m) in the middle,
-the master bedroom west of it, the common bathroom below the bedroom
-and entered from the living room, the kitchen east of the dining end by
-the entrance; each neighbour meets the living room on a different wall,
-so the doorways do not line up. Eleven Furnishes pieces stand in it to
-be bought (the sideboard as the media console, the bookwall, the shoe
-bench and the entry organiser, the island and the trolleys, the bedside
-cabinets, the bench at the bed's foot) among the room items that make
-the rooms read (sofa, dining set, bed, wardrobe, the fitted kitchen,
-the bathroom's fittings). `docs/plan-default-flat.md` has the plan and
-how it was built.
+A new project opens on an HDB 5-room flat furnished as a flat is lived
+in: seven rooms, three bedrooms, two bathrooms, the living and dining
+room and the kitchen. The living and dining room (7.0 × 4.5 m) is in
+the middle; the master bedroom west of it, with its own bathroom under
+its west end, entered from the bedroom alone; the common bathroom
+below the master's east end and entered from the living room; the
+kitchen east of the dining end by the entrance; bedrooms 2 and 3 off
+the living room's south wall, each with its south window. Sixteen
+Furnishes pieces stand in it to be bought (the sideboard as the media
+console, the bookwall, the shoe bench and the entry organiser, the
+island and the trolleys, the bedside cabinets, the bench at the bed's
+foot, the desk-side organisers, the workstation and the work cart)
+among the room items that make the rooms read (sofa, dining set, beds,
+wardrobes, a desk and a daybed, the fitted kitchen, the bathrooms'
+fittings). `docs/plan-default-flat.md` has the plan and how it was
+built.
+
+The 3D view opens inside the room being worked on, in the corner facing
+its widest window and away from its doors (the living room's
+south-west), at 1.4 m with a wide lens, as a room is photographed: the walls
+round it, the ceiling and its light over it, the window it is lit by.
+The windows of the rooms that are not tiled have curtains (a sheer
+across the glass and two panels drawn back), the doors are painted, and
+a rug, a bed and a wardrobe keep a tone of their own; the overviews
+(Front, Back, Left, Right, Top) look in over the walls as before.
+`docs/plan-realism.md` ("The room from its corner") says what was
+measured and why. The plan's sheet follows the trackpad and the wheel
+without drawing the flat again, and a hover draws only the pieces it
+enters and leaves; `docs/plan-speed.md` has the numbers and what is
+next for the studio's speed, starting with running a production build
+(`pnpm build && pnpm start`) rather than `next dev` when the first load
+is slow.
 
 Eva can change the room. When she is asked to furnish, lay out, move
 or add things, her answer carries changes (pieces moved or turned,

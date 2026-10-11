@@ -88,6 +88,20 @@ describe("wallTriangles", () => {
     expect(byGroup[CAP]).toBe(8 * 6);
     expect(tri.colors.length).toBe(tri.positions.length);
     expect(tri.capLines.length).toBeGreaterThan(0);
+    // a run that meets the next run of its wall at both ends: its two
+    // end faces are joints, not cuts, and draw no lines there (a line
+    // on the next run's face flickered through it)
+    const joined = wallTriangles(blocks, 4, 0.1, 0, 0, 1, h, undefined, [
+      true,
+      true,
+    ]);
+    const joinedGroups = Object.fromEntries(
+      joined.groups.map((g) => [g.materialIndex, g.count]),
+    );
+    expect(joinedGroups[CAP]).toBe(6 * 6);
+    expect(joinedGroups[REVEAL]).toBe(10 * 6);
+    // each end face drew its top edge alone, two points of three numbers
+    expect(joined.capLines.length).toBe(tri.capLines.length - 2 * 6);
     // a cut at waist height leaves no reveal above the sill
     const low = wallTriangles(
       blocksOf(4, 1.1, [{ x0: 1, x1: 2, y0: 0.9, y1: 2.1 }]),

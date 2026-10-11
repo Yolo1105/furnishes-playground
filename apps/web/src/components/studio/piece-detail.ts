@@ -107,6 +107,17 @@ export const colourHex = (id: string) =>
   COLOURS.find((c) => c.id === id)?.hex ?? COLOURS[0].hex;
 /** a room item there to read the room: quiet, never a piece's colour */
 export const ROOM_ITEM_HEX = "#d9d2c8";
+/** the room items a room is known by keep a tone of their own in 3D (a
+    rug's wool, a bed's linen, a wardrobe's laminate): drawn in the quiet
+    tone, a rug read as a sheet of paper on the floor. The rest keep the
+    quiet tone, so the pieces for sale stand out */
+const ROOM_ITEM_TONES: readonly (readonly [RegExp, string])[] = [
+  [/\brug\b/i, "#8b8377"],
+  [/\bbed\b/i, "#e6e0d7"],
+  [/wardrobe/i, "#e8e2d8"],
+];
+export const roomItemHex = (name: string) =>
+  ROOM_ITEM_TONES.find(([re]) => re.test(name))?.[1] ?? ROOM_ITEM_HEX;
 /** the light wood the props and the door are finished in */
 export const LIGHT_WOOD_HEX = "#cfae82";
 /** the accent as a canvas needs it, a plain hex: the token itself is oklch */

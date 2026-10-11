@@ -20,6 +20,7 @@ import {
   Vector3,
   type Vector3Tuple,
 } from "three";
+import { CLIP } from "./camera-bookmarks";
 
 /**
  * A copy of the room for handing over: to the glTF exporter, or to the
@@ -56,6 +57,8 @@ export type Bookmark = {
   name: string;
   position: Vector3Tuple;
   at: Vector3Tuple;
+  /** the lens, vertical degrees */
+  fov: number;
 };
 /** the sun to carry in a glTF copy */
 export type Sun = { position: Vector3Tuple; colour: string; intensity: number };
@@ -98,10 +101,6 @@ const WINDOW_LIGHT = { day: 6, evening: 1.8 } as const;
 /** the sky picture's size: wide, half of it the ground */
 const SKY_W = 1024;
 const SKY_H = 512;
-/** the camera the bookmarks are drawn with: the stage's */
-const FOV = 42;
-const NEAR = 0.05;
-const FAR = 100;
 
 /** the nearest tag above or on an object */
 const tagOf = (o: Object3D): ExportTag | null => {
@@ -425,7 +424,8 @@ export const copyForExport = (
       const cameras = new Group();
       cameras.name = "Cameras";
       for (const b of options.cameras) {
-        const cam = new PerspectiveCamera(FOV, 16 / 10, NEAR, FAR);
+        // the camera the bookmarks are drawn with: the stage's
+        const cam = new PerspectiveCamera(b.fov, 16 / 10, CLIP.near, CLIP.far);
         cam.name = b.name;
         cam.position.set(...b.position);
         cam.lookAt(new Vector3(...b.at));

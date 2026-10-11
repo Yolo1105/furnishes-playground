@@ -67,10 +67,11 @@ const keptMail = async (page: Page, to: string, subject: RegExp) => {
 };
 
 /** a point of the living room, in its own millimetres, on the plan's
-    SVG: the plan draws the whole flat (its sheet box, from the bedroom's
-    north-west corner to the kitchen's south-east) with a margin round
-    it, and the living room stands at the sheet's origin */
-const SHEET = { x: -4300, y: -1000, w: 14800, d: 5500, margin: 1100 };
+    SVG: the plan draws the whole flat (its sheet box, from the master
+    bathroom's west wall and the master bedroom's north wall to the
+    kitchen's east wall and the bedrooms' south walls) with a margin
+    round it, and the living room stands at the sheet's origin */
+const SHEET = { x: -4600, y: -1000, w: 15100, d: 8800, margin: 1100 };
 const LIVING = { w: 7000, d: 4500 };
 const planAt = (
   box: { x: number; y: number; width: number; height: number },
@@ -855,7 +856,7 @@ test("Render runs a line along the top, sweeps the render in over the view, then
   // the eye keeps its colour while rendering: looking is what a render is for
   await expect(bar.getByRole("button", { name: "Hide panels" })).toBeEnabled();
   // (the render waits for the stage's real work: on a software renderer
-  // a flat of four rooms grades in well over the line's six seconds)
+  // a flat of seven rooms grades in well over the line's six seconds)
   await expect(page.locator(".preview")).toHaveAttribute(
     "data-status",
     "done",
@@ -2029,17 +2030,19 @@ test("the Wall tool traces a room on the plan; Clear forgets it", async ({
   // four corners on clear floor of the living room (a click on a piece
   // would pick it), the fifth click back on the first closes the room
   const corners = [
-    [0.4, 0.35],
-    [0.53, 0.35],
-    [0.53, 0.79],
-    [0.4, 0.79],
+    [1400, 600],
+    [3600, 600],
+    [3600, 4000],
+    [1400, 4000],
   ] as const;
-  for (const [fx, fy] of corners) {
-    await page.mouse.click(b.x + b.width * fx, b.y + b.height * fy);
+  for (const [x, y] of corners) {
+    const p = planAt(b, x, y);
+    await page.mouse.click(p.x, p.y);
   }
   await expect(page.locator(".plan-corner")).toHaveCount(4);
   await expect(page.locator(".plan-corner-first")).toHaveCount(1);
-  await page.mouse.click(b.x + b.width * 0.4, b.y + b.height * 0.35);
+  const first = planAt(b, ...corners[0]);
+  await page.mouse.click(first.x, first.y);
   await expect(page.locator(".plan-corner")).toHaveCount(0);
   await expect(page.getByText(/^4 walls · /)).toBeVisible();
   await page.getByRole("button", { name: "Clear" }).click();
@@ -2053,13 +2056,14 @@ test("the plan reads as a drawing: hatched walls, a door swing, dimensions, a ti
   await page.getByRole("button", { name: "Show 2D plan in main" }).click();
   const svg = page.locator(".plan-svg");
   await expect(svg.locator(".plan-wall").first()).toHaveCSS("fill", /url/);
-  // the flat's three hinged doors swing (the entry's, the bedroom's and
-  // the bathroom's, each drawn on the side it opens into); the sliding
-  // door into the kitchen is two leaves on each side of its wall; the
-  // four windows are three lines each; the active room is dimensioned
-  await expect(svg.locator(".plan-swing")).toHaveCount(3);
-  await expect(svg.locator(".plan-leaf")).toHaveCount(3 + 4);
-  await expect(svg.locator(".plan-line")).toHaveCount(4 * 3);
+  // the flat's six hinged doors swing (the entry's, the three bedrooms'
+  // and the two bathrooms', each drawn on the side it opens into); the
+  // sliding door into the kitchen is two leaves on each side of its
+  // wall; the seven windows are three lines each; the active room is
+  // dimensioned
+  await expect(svg.locator(".plan-swing")).toHaveCount(6);
+  await expect(svg.locator(".plan-leaf")).toHaveCount(6 + 4);
+  await expect(svg.locator(".plan-line")).toHaveCount(7 * 3);
   await expect(svg.locator(".plan-dim")).toHaveCount(2);
   await expect(svg.locator(".plan-north")).toHaveCount(1);
   await expect(svg.locator(".plan-title text").first()).toContainText("HDB");
@@ -2693,7 +2697,8 @@ test("in 3D a piece is dragged over the floor, the camera glides between angles,
   // a drag on a piece moves it over the floor, snapped to 50 mm; the
   // rest are held where they stood, so no other piece shifts: every
   // piece is read back from the kept project with a place on the grid
-  const first = top.filter((a) => a.kind === "piece")[0]!;
+  // the bookwall, by the window, which the room's corner shot has in view
+  const first = top.find((a) => a.name === "Bookwall")!;
   // the names come on to find the piece (none show until asked)
   await expect(stage).toHaveAttribute("data-hover", "none");
   await page.getByRole("button", { name: "View settings" }).click();
@@ -3090,8 +3095,8 @@ test("the planner's rules: the door's swing, the window, a walkway, each with a 
   await y.press("Tab");
   await expect(health).toContainText(`${first.name} blocks the door's swing`);
   // while a door is blocked the plan shows what every doorway of the
-  // room keeps clear: the entry's swing and the three doorways' approaches
-  await expect(page.locator(".plan-zone")).toHaveCount(4);
+  // room keeps clear: the entry's swing and the five doorways' approaches
+  await expect(page.locator(".plan-zone")).toHaveCount(6);
   await health.getByRole("button", { name: /^Fix: .*door/ }).click();
   await expect(health.getByText(/blocks the door/)).toHaveCount(0);
   await expect(page.locator(".plan-zone")).toHaveCount(0);
@@ -3250,9 +3255,9 @@ test("openings are a list: the + strip adds them, the Wall tool moves and sizes 
   const groups = active.locator(".plan-opening-group");
   const ofKind = (k: string) =>
     active.locator(`.plan-opening-group[data-kind="${k}"]`);
-  // the living room starts with its door and window, and the three
+  // the living room starts with its door and window, and the five
   // doorways to the rooms beside it
-  await expect(groups).toHaveCount(5);
+  await expect(groups).toHaveCount(7);
   // the strip's Openings row: a tile adds one into a free wall, a tile
   // dropped on the plan goes into the wall nearest the drop
   const add = page.getByRole("button", { name: "Add", exact: true });
@@ -3275,15 +3280,15 @@ test("openings are a list: the + strip adds them, the Wall tool moves and sizes 
   await strip
     .getByRole("button", { name: /^Add a passage,/ })
     .dragTo(sheet, { targetPosition: { x: 8, y: sb.height / 2 } });
-  // (the doorways to the bedroom and the bathroom read as passages from
-  // this side too)
-  await expect(ofKind("passage")).toHaveCount(3);
-  await expect(groups).toHaveCount(7);
+  // (the doorways to the three bedrooms and the bathroom read as
+  // passages from this side too)
+  await expect(ofKind("passage")).toHaveCount(5);
+  await expect(groups).toHaveCount(9);
   // the Wall tool shows a grip on each opening: the door slides along its
   // wall, and pulling an end makes it wider
   await page.keyboard.press("w");
   await expect(svg).toHaveAttribute("data-drawing", "true");
-  await expect(svg.locator(".plan-grip")).toHaveCount(7);
+  await expect(svg.locator(".plan-grip")).toHaveCount(9);
   const leaf = ofKind("door").locator(".plan-leaf");
   const hinge = Number(await leaf.getAttribute("x1"));
   const grip = svg.locator(
@@ -3338,8 +3343,8 @@ test("openings are a list: the + strip adds them, the Wall tool moves and sizes 
   await page
     .getByRole("button", { name: "Remove Passage", exact: true })
     .click();
-  await expect(groups).toHaveCount(6);
-  await expect(ofKind("passage")).toHaveCount(2);
+  await expect(groups).toHaveCount(8);
+  await expect(ofKind("passage")).toHaveCount(4);
 });
 
 test("the Wall tool reshapes the room: a wall pushed, a corner moved, a wall split; the pieces keep to the walls that stayed", async ({
@@ -3422,19 +3427,23 @@ test("the flat has rooms: one added stands beside the active room, a click on it
   const svg = page.locator(".shell-stage .plan-svg");
   const rooms = page.getByRole("radiogroup", { name: "Rooms" });
   await page.getByRole("tab", { name: "Room", exact: true }).click();
-  // the flat opens with its four rooms, the living room active
+  // the flat opens with its seven rooms, the living room active
   await expect(rooms.getByRole("radio")).toHaveText([
     "Living & dining",
     "Master bedroom",
     "Bathroom",
     "Kitchen",
+    "Bedroom 2",
+    "Bedroom 3",
+    "Master bathroom",
   ]);
   await expect(
     page.getByRole("button", { name: "Remove", exact: true }),
   ).toBeVisible();
-  // a fifth room: the flat's next kind, beside the living room on the
-  // first side with nothing standing there (south: the kitchen is east),
-  // now active
+  // an eighth room: the flat's next kind, a study, beside the living
+  // room on the first side with nothing standing there (north: the
+  // kitchen is east, the bedrooms south, the master and the bathroom
+  // west), now active
   await page.getByRole("button", { name: "Add a room" }).click();
   await expect(rooms.getByRole("radio")).toHaveText([
     "Living & dining",
@@ -3442,15 +3451,18 @@ test("the flat has rooms: one added stands beside the active room, a click on it
     "Bathroom",
     "Kitchen",
     "Bedroom 2",
+    "Bedroom 3",
+    "Master bathroom",
+    "Study",
   ]);
-  await expect(rooms.getByRole("radio", { name: "Bedroom 2" })).toHaveAttribute(
+  await expect(rooms.getByRole("radio", { name: "Study" })).toHaveAttribute(
     "aria-checked",
     "true",
   );
-  await expect(svg.locator(".plan-room")).toHaveCount(5);
+  await expect(svg.locator(".plan-room")).toHaveCount(8);
   await expect(svg).toHaveAttribute(
     "aria-label",
-    /Plan of the Bedroom 2, \d+ by \d+ millimetres/,
+    /Plan of the Study, \d+ by \d+ millimetres/,
   );
   const living = svg.locator(".plan-room", {
     has: page.locator('[aria-label="Work on the Living & dining"]'),
@@ -3460,22 +3472,22 @@ test("the flat has rooms: one added stands beside the active room, a click on it
     living.locator(".plan-floor").boundingBox(),
     bedroom.locator(".plan-floor").boundingBox(),
   ]);
-  expect(bb!.y).toBeGreaterThan(lb!.y + lb!.height);
+  expect(bb!.y + bb!.height).toBeLessThan(lb!.y);
   await expect(living.locator(".plan-room-name")).toHaveText("LIVING & DINING");
   // the rooms stand wall to wall, so a doorway joins them: a door into
-  // the bedroom, read as a passage from the living room; the Room tab
+  // the study, read as a passage from the living room; the Room tab
   // names it by the room beyond
   await expect(
-    bedroom.locator('.plan-opening-group[data-kind="door"][data-wall="north"]'),
+    bedroom.locator('.plan-opening-group[data-kind="door"][data-wall="south"]'),
   ).toHaveCount(1);
   await expect(
     living.locator(
-      '.plan-opening-group[data-kind="passage"][data-wall="south"]',
+      '.plan-opening-group[data-kind="passage"][data-wall="north"]',
     ),
   ).toHaveCount(1);
   await expect(page.getByText("Door to the Living & dining")).toBeVisible();
-  // the doorway is the bedroom's door now: the preset one is gone, so
-  // the bedroom has its window and the doorway
+  // the doorway is the study's door now: the preset one is gone, so
+  // the study has its window and the doorway
   await expect(bedroom.locator(".plan-opening-group")).toHaveCount(2);
   // closed, the wall is solid until it is opened again
   await page
@@ -3492,7 +3504,7 @@ test("the flat has rooms: one added stands beside the active room, a click on it
   const rb = (await room.boundingBox())!;
   await page.mouse.move(rb.x + rb.width / 2, rb.y + rb.height / 2);
   await page.mouse.down();
-  await page.mouse.move(rb.x + rb.width / 2 + 90, rb.y + rb.height / 2 + 40, {
+  await page.mouse.move(rb.x + rb.width / 2 + 90, rb.y + rb.height / 2 - 40, {
     steps: 8,
   });
   await page.mouse.up();
@@ -3502,16 +3514,16 @@ test("the flat has rooms: one added stands beside the active room, a click on it
   await page.mouse.down();
   await page.mouse.move(
     rb2.x + rb2.width / 2 - 85,
-    rb2.y + rb2.height / 2 - 38,
+    rb2.y + rb2.height / 2 + 38,
     { steps: 8 },
   );
   await page.mouse.up();
   await expect(bedroom.locator(".plan-opening-group")).toHaveCount(2);
-  await expect(bedroom).toHaveAttribute("transform", "translate(0 4800)");
+  await expect(bedroom).toHaveAttribute("transform", "translate(0 -3300)");
   await page.keyboard.press("v");
   // a piece added goes into the active room's sheet
   const sheets = page.locator(".shell-stage .plan-pieces");
-  await expect(sheets).toHaveCount(5);
+  await expect(sheets).toHaveCount(8);
   await page.getByRole("button", { name: "Add", exact: true }).click();
   await page
     .getByRole("dialog", { name: "Add to the room" })
@@ -3525,7 +3537,7 @@ test("the flat has rooms: one added stands beside the active room, a click on it
   await page.getByRole("tab", { name: "Assets", exact: true }).click();
   await expect(
     page.getByRole("treeitem", { name: "Shelf", exact: true }),
-  ).not.toContainText("Bedroom 2");
+  ).not.toContainText("Study");
   await expect(
     page.getByRole("treeitem", { name: "Sofa", exact: true }),
   ).toContainText("Living & dining");
@@ -3551,10 +3563,10 @@ test("the flat has rooms: one added stands beside the active room, a click on it
     /Plan of the Living & dining/,
   );
   // Remove takes the active room and what stood in it
-  await rooms.getByRole("radio", { name: "Bedroom 2" }).click();
+  await rooms.getByRole("radio", { name: "Study" }).click();
   await page.getByRole("button", { name: "Remove", exact: true }).click();
-  await expect(rooms.getByRole("radio")).toHaveCount(4);
-  await expect(svg.locator(".plan-room")).toHaveCount(4);
+  await expect(rooms.getByRole("radio")).toHaveCount(7);
+  await expect(svg.locator(".plan-room")).toHaveCount(7);
   await expect(
     page.getByRole("treeitem", { name: "Shelf", exact: true }),
   ).toHaveCount(0);
@@ -3571,11 +3583,10 @@ test("a room widened into its neighbour is a finding: both rooms flush red on th
   const stage = page.locator(".stage-3d");
   const rooms = page.getByRole("radiogroup", { name: "Rooms" });
   await page.getByRole("tab", { name: "Room", exact: true }).click();
-  // a bedroom south of the living room, then a third bedroom east of it
-  await page.getByRole("button", { name: "Add a room" }).click();
-  await page.getByRole("button", { name: "Add a room" }).click();
-  await expect(svg.locator(".plan-room")).toHaveCount(6);
+  // bedrooms 2 and 3 stand side by side south of the living room
+  await expect(svg.locator(".plan-room")).toHaveCount(7);
   const third = (await rooms.getByRole("radio").nth(5).textContent())!;
+  expect(third).toBe("Bedroom 3");
   // side by side, a wall apart: nothing to say
   await expect(card).toHaveCount(0);
   await expect(marked).toHaveCount(0);
@@ -3585,7 +3596,7 @@ test("a room widened into its neighbour is a finding: both rooms flush red on th
   const fb = (await floor.boundingBox())!;
   await floor.click({ position: { x: 10, y: fb.height - 10 } });
   const bedroom = svg.locator('.plan-room[data-active="true"]');
-  await expect(bedroom).toHaveAttribute("transform", "translate(0 4800)");
+  await expect(bedroom).toHaveAttribute("transform", "translate(-1700 4800)");
   const width = page.getByRole("spinbutton", {
     name: "width in millimetres",
     exact: true,
@@ -3622,12 +3633,14 @@ test("a room widened into its neighbour is a finding: both rooms flush red on th
     page.locator(".agent").getByRole("list", { name: "Room health" }),
   ).toContainText(`stands into the ${third}`);
   // Settle: the bedroom goes the nearest way out that clears every
-  // room (west, where nothing stands below the bathroom's line); it
-  // keeps its new width
+  // room; it keeps its new width
   await card.getByRole("button", { name: /^Settle:/ }).click();
   await expect(marked).toHaveCount(0);
   await expect(card).toHaveCount(0);
-  await expect(bedroom).not.toHaveAttribute("transform", "translate(0 4800)");
+  await expect(bedroom).not.toHaveAttribute(
+    "transform",
+    "translate(-1700 4800)",
+  );
   await expect(width).toHaveValue(String(w + 1000));
   await expect(stage).toHaveAttribute("data-rooms-overlap", "0");
 });
@@ -4305,17 +4318,20 @@ test("in 3D a picked piece carries its name and a knob with a hint, until its fi
   // nothing picked: no names, no knob, no hint
   await expect(stage.locator(".stage-3d-name")).toHaveCount(0);
   await expect(stage.locator(".stage-turn-hint")).toHaveCount(0);
-  // (the project comes back from the browser a moment after the stage
+  // the dining table, in the middle of the room's corner shot (the
+  // project comes back from the browser a moment after the stage
   // settles, and a pick before that is lost: pick until it holds)
   const pick = () =>
     expect(async () => {
-      await page.getByRole("treeitem", { name: "Sofa", exact: true }).click();
-      await expect(stage.locator(".stage-3d-name")).toHaveText("Sofa", {
+      await page
+        .getByRole("treeitem", { name: "Dining table", exact: true })
+        .click();
+      await expect(stage.locator(".stage-3d-name")).toHaveText("Dining table", {
         timeout: 2_000,
       });
     }).toPass({ timeout: 20_000 });
   await pick();
-  const knob = stage.getByRole("button", { name: "Turn Sofa" });
+  const knob = stage.getByRole("button", { name: "Turn Dining table" });
   await expect(knob).toBeVisible();
   await expect(stage.getByRole("status")).toHaveText(
     "Drag round the ring to turn it, or click for a quarter turn",
@@ -4324,7 +4340,7 @@ test("in 3D a picked piece carries its name and a knob with a hint, until its fi
   await knob.click();
   await page.getByRole("tab", { name: "Detail", exact: true }).click();
   await expect(
-    page.getByRole("spinbutton", { name: "Sofa turn in degrees" }),
+    page.getByRole("spinbutton", { name: "Dining table turn in degrees" }),
   ).toHaveValue("90");
   await expect(stage.locator(".stage-turn-hint")).toHaveCount(0);
   expect(
@@ -4346,7 +4362,9 @@ test("in 3D a picked piece carries its name and a knob with a hint, until its fi
     timeout: 60_000,
   });
   await pick();
-  await expect(stage.getByRole("button", { name: "Turn Sofa" })).toBeVisible();
+  await expect(
+    stage.getByRole("button", { name: "Turn Dining table" }),
+  ).toBeVisible();
   await expect(stage.locator(".stage-turn-hint")).toHaveCount(0);
 });
 
@@ -4452,7 +4470,7 @@ test("the tour: stops on the plan, Play walks the camera through them, Stop and 
   await expect(tourTool).toHaveAttribute("aria-pressed", "true");
   const strip = page.getByRole("group", { name: "Tour" });
   // the flat comes with a round of its rooms; Clear starts afresh
-  await expect(strip).toContainText("13 stops");
+  await expect(strip).toContainText("21 stops");
   await strip.getByRole("button", { name: "Clear" }).click();
   await expect(strip).toContainText("No stops yet");
   const box = (await svg.boundingBox())!;
