@@ -1,6 +1,7 @@
 "use client";
 
 import { useGLTF } from "@react-three/drei";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { ThreeEvent } from "@react-three/fiber";
 import {
   Component,
@@ -14,8 +15,10 @@ import type { Panel } from "@furnishes/domain";
 import {
   Box3,
   BoxGeometry,
+  Color,
   DoubleSide,
   EdgesGeometry,
+  Float32BufferAttribute,
   type Mesh,
   MeshPhysicalMaterial,
   type MeshStandardMaterial,
@@ -663,6 +666,9 @@ const bookRun = (bayW: number, room: number, seed: number) => {
   return run;
 };
 
+/** a shelf's books as one mesh: a box a book, each in its own colour
+    (a vertex colour), merged so a shelf costs one draw and not two a
+    book (a bookwall's books were a third of a furnished flat's draws) */
 function Books({
   x0,
   y,
@@ -678,18 +684,29 @@ function Books({
   room: number;
   seed: number;
 }) {
-  if (room < 0.16 || bayW < 0.2) return null;
+  const geometry = useMemo(() => {
+    if (room < 0.16 || bayW < 0.2) return null;
+    const colour = new Color();
+    const parts = bookRun(bayW, room, seed).map((b) => {
+      const g = new BoxGeometry(b.bw, b.bh, depth * 0.7);
+      g.translate(x0 + b.x + b.bw / 2, y + b.bh / 2, -depth * 0.08);
+      colour.set(b.colour);
+      const n = g.getAttribute("position").count;
+      const tone = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) colour.toArray(tone, i * 3);
+      g.setAttribute("color", new Float32BufferAttribute(tone, 3));
+      return g;
+    });
+    const merged = parts.length ? mergeGeometries(parts) : null;
+    for (const g of parts) g.dispose();
+    return merged;
+  }, [x0, y, bayW, depth, room, seed]);
+  useEffect(() => () => geometry?.dispose(), [geometry]);
+  if (!geometry) return null;
   return (
-    <>
-      {bookRun(bayW, room, seed).map((b, i) => (
-        <Slab
-          key={i}
-          f={{ colour: b.colour, rough: 0.85 }}
-          at={[x0 + b.x + b.bw / 2, y + b.bh / 2, -depth * 0.08]}
-          dims={[b.bw, b.bh, depth * 0.7]}
-        />
-      ))}
-    </>
+    <mesh geometry={geometry} castShadow receiveShadow>
+      <meshStandardMaterial vertexColors roughness={0.85} />
+    </mesh>
   );
 }
 
