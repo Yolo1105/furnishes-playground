@@ -2201,7 +2201,11 @@ test("the gear opens Settings, Help and the Guide; keys drive the tools", async 
     tabs.getByRole("tab", { name: "Mouse & trackpad" }),
   ).toHaveAttribute("aria-selected", "true");
   await expect(help.getByRole("tabpanel")).toContainText(
-    "A notch of the wheel, or a pinch on the trackpad",
+    "A notch of the mouse wheel, or a pinch on the trackpad",
+  );
+  // two fingers on a trackpad move the view in 3D, as on the plan
+  await expect(help.getByRole("tabpanel")).toContainText(
+    "Two fingers on the trackpad, or drag with the right button",
   );
   await tabs.getByRole("tab", { name: "Touch" }).click();
   await expect(help.getByRole("tabpanel")).toContainText("Press and hold it");
