@@ -34,6 +34,7 @@ import {
   FrontSide,
   type Group,
   type Mesh,
+  type LineSegments,
   type Object3D,
   type Scene,
   Shape,
@@ -115,7 +116,9 @@ const PLATE = { switch: 0.086, tall: 0.086, deep: 0.009 };
 /** the cut faces of a wall (its open top, its ends where a run stops):
     a neutral cap and a drawn line */
 const CAP_HEX = "#d6cfc6";
-const CAP_LINE_HEX = "#3d3833";
+/** the line round a wall's cut: a shade under the cut's own tone, so
+    the cut reads as a section drawn in pencil, not boxed in black */
+const CAP_LINE_HEX = "#b3a89b";
 /** the layer the sun's shadow sees that the camera does not: a near
     wall taken out of the picture, and the ceiling that keeps the sun
     out of the open top */
@@ -639,7 +642,14 @@ const wallGeometry = (
 const layerOf = (root: Object3D, layer: number) =>
   root.traverse((o) => o.layers.set(layer));
 
+/** whether each wall run stands or is down to its foot, by its id:
+    a wall whose corner neighbour is down squares its end there, so the
+    mitre meant for the corner is not left standing as a slanted end */
+const wallStates = new Map<string, "inside" | "gone">();
+
 function WallRun({
+  id,
+  ends,
   e,
   w,
   d,
@@ -653,6 +663,10 @@ function WallRun({
   both = false,
   shared,
 }: {
+  /** the run's id among every room's walls */
+  id: string;
+  /** the runs met at its mitred corners, at its start and its end */
+  ends: readonly [string | null, string | null];
   e: Edge;
   w: number;
   d: number;
@@ -693,17 +707,44 @@ function WallRun({
   );
   // the wall built solid, its openings cut through it, so a doorway is
   // a way through and a window a hole for the glass; the inside is +z
-  const full = useMemo(
-    () => wallGeometry(len, h, t, mitres, holes, shading, joints),
-    [len, h, t, mitres, holes, shading, joints],
-  );
+  // and with an end squared where the corner's other wall is down: made
+  // the first time it is asked for, four at most
+  const variants = useMemo(() => {
+    const made = new Map<string, ReturnType<typeof wallGeometry>>();
+    return {
+      get: (squareA: boolean, squareB: boolean) => {
+        const k = `${squareA}-${squareB}`;
+        let g = made.get(k);
+        if (!g) {
+          g = wallGeometry(
+            len,
+            h,
+            t,
+            [squareA ? 0 : mitres[0], squareB ? 0 : mitres[1]],
+            holes,
+            shading,
+            joints,
+          );
+          made.set(k, g);
+        }
+        return g;
+      },
+      made,
+    };
+  }, [len, h, t, mitres, holes, shading, joints]);
+  const full = variants.get(false, false);
   useEffect(
     () => () => {
-      full.geometry.dispose();
-      full.lines.dispose();
+      for (const g of variants.made.values()) {
+        g.geometry.dispose();
+        g.lines.dispose();
+      }
     },
-    [full],
+    [variants],
   );
+  const fullMesh = useRef<Mesh>(null);
+  const fullLines = useRef<LineSegments>(null);
+  const squared = useRef("false-false");
   // where the wall has gone from the picture, its foot stays: the solid
   // a hand's height tall, its doorways open and its cut on top, so the
   // flat still reads as a plan of its rooms and not boxes with gaps
@@ -737,7 +778,8 @@ function WallRun({
   const fullRef = useRef<Group>(null);
   const state = useRef<"inside" | "gone" | null>(null);
   const at = useMemo(() => new Vector3(), []);
-  useFrame(({ camera }) => {
+  useEffect(() => () => void wallStates.delete(id), [id]);
+  useFrame(({ camera, invalidate }) => {
     const f = fullRef.current;
     if (!f) return;
     f.getWorldPosition(at);
@@ -748,10 +790,27 @@ function WallRun({
       side *
       ((camera.position.x - at.x) * nx + (camera.position.z - at.z) * nz);
     const next = side === 0 || dot > 0 ? "inside" : "gone";
-    if (next === state.current) return;
-    state.current = next;
-    layerOf(f, next === "inside" ? 0 : SHADOW_LAYER);
-    if (stubRef.current) stubRef.current.visible = next === "gone";
+    wallStates.set(id, next);
+    if (next !== state.current) {
+      state.current = next;
+      layerOf(f, next === "inside" ? 0 : SHADOW_LAYER);
+      if (stubRef.current) stubRef.current.visible = next === "gone";
+      // a frame more, for the walls beside it to square their ends
+      invalidate();
+    }
+    // standing, its end squared where the corner's other wall is down;
+    // down, its foot keeps the mitre and fills the corner low
+    const down = (n: string | null) =>
+      next === "inside" && n !== null && wallStates.get(n) === "gone";
+    const a = down(ends[0]);
+    const b = down(ends[1]);
+    const k = `${a}-${b}`;
+    if (k === squared.current) return;
+    squared.current = k;
+    const g = variants.get(a, b);
+    if (fullMesh.current) fullMesh.current.geometry = g.geometry;
+    if (fullLines.current) fullLines.current.geometry = g.lines;
+    invalidate();
   });
   const wallColour = plaster.photo ? tintOver(wallHex) : wallHex;
   // the faces stand a hair behind their own cut lines: a line on a face
@@ -798,6 +857,7 @@ function WallRun({
         {/* the wall casts its shadow too: a low sun comes in through
             the openings alone and lays its patch on the floor */}
         <mesh
+          ref={fullMesh}
           geometry={full.geometry}
           position={[-len / 2, 0, 0]}
           receiveShadow
@@ -806,6 +866,7 @@ function WallRun({
           {materials}
         </mesh>
         <lineSegments
+          ref={fullLines}
           geometry={full.lines}
           position={[-len / 2, 0, 0]}
           userData={CUT_LINE_NAME}
@@ -1438,19 +1499,48 @@ export function RoomShell({
   const runs = useMemo(() => {
     const shape = { W, D, outline, openings };
     const mitres = mitresOf(outline, thickness);
-    const out = edgesOf(outline).flatMap((e, i) =>
-      runsOf(e, shared ?? []).map(({ e: run, both, other }, k) => ({
-        run,
-        both,
-        other,
-        key: `${i}-${k}`,
-        mitres: runMitres(e, run, mitres[i]!),
-        joints: jointsOf(e, run),
-        holes: holesOf(shape, run, h),
-      })),
+    const edges = edgesOf(outline);
+    const byEdge = edges.map((e) => runsOf(e, shared ?? []));
+    const n = edges.length;
+    const idOf = (i: number, k: number) => `${r.id}/${i}-${k}`;
+    const out = edges.flatMap((e, i) =>
+      byEdge[i]!.map(({ e: run, both, other }, k) => {
+        const m = runMitres(e, run, mitres[i]!);
+        // the run at the other side of each mitred corner: the last of
+        // the edge before, the first of the edge after, where this room
+        // builds them up to the corner
+        const before = byEdge[(i - 1 + n) % n]!;
+        const after = byEdge[(i + 1) % n]!;
+        const prev = before.length - 1;
+        const reaches = (a: Edge, b: Edge, end: "a" | "b") =>
+          a[end][0] === b[end][0] && a[end][1] === b[end][1];
+        const start =
+          m[0] > 0 &&
+          prev >= 0 &&
+          reaches(before[prev]!.e, edges[(i - 1 + n) % n]!, "b")
+            ? idOf((i - 1 + n) % n, prev)
+            : null;
+        const end =
+          m[1] > 0 &&
+          after.length > 0 &&
+          reaches(after[0]!.e, edges[(i + 1) % n]!, "a")
+            ? idOf((i + 1) % n, 0)
+            : null;
+        return {
+          run,
+          both,
+          other,
+          key: `${i}-${k}`,
+          id: idOf(i, k),
+          ends: [start, end] as [string | null, string | null],
+          mitres: m,
+          joints: jointsOf(e, run),
+          holes: holesOf(shape, run, h),
+        };
+      }),
     );
     return out;
-  }, [W, D, outline, openings, thickness, shared, h]);
+  }, [W, D, outline, openings, thickness, shared, h, r.id]);
   const onFloorClick = useEvent((e: ThreeEvent<MouseEvent>) => {
     // a drag that looked round and let go over the floor is not a step,
     // nor a tap
@@ -1489,23 +1579,27 @@ export function RoomShell({
           onState={reflection.onState}
         />
       )}
-      {runs.map(({ run, both, other, key, mitres, joints, holes }) => (
-        <WallRun
-          key={key}
-          e={run}
-          w={w}
-          d={d}
-          h={h}
-          t={t}
-          mitres={mitres}
-          joints={joints}
-          wallHex={r.wallHex}
-          floorHex={r.floorHex}
-          holes={holes}
-          both={both}
-          shared={other ? { room: r.id, other } : undefined}
-        />
-      ))}
+      {runs.map(
+        ({ run, both, other, key, id, ends, mitres, joints, holes }) => (
+          <WallRun
+            key={key}
+            id={id}
+            ends={ends}
+            e={run}
+            w={w}
+            d={d}
+            h={h}
+            t={t}
+            mitres={mitres}
+            joints={joints}
+            wallHex={r.wallHex}
+            floorHex={r.floorHex}
+            holes={holes}
+            both={both}
+            shared={other ? { room: r.id, other } : undefined}
+          />
+        ),
+      )}
       {/* the sun's stop: the ceiling as the sun's shadow alone sees it
           (its own layer, never the camera's), so the sun comes in by
           the openings and not over the open top */}
