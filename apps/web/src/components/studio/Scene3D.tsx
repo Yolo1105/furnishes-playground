@@ -38,6 +38,16 @@ import { CATEGORY_NAMES, type AssetNode } from "./assets-data";
 import { Furniture3D } from "./Furniture3D";
 import { ArrowLeftIcon, LockIcon } from "./icons";
 import { CameraMotion, SlowFrames, sharpDpr } from "./camera-motion";
+import {
+  ADAPTER_WAIT_MS,
+  fellBackFor,
+  FIRST_PICTURE_WAIT_MS,
+  INIT_WAIT_MS,
+  shun,
+  shunnedFor,
+  startOverOnWebGL,
+  within,
+} from "./gpu-fallback";
 import { ShadowsOnChange } from "./ShadowsOnChange";
 import { usePieceActions } from "./piece-actions";
 import { PieceActions } from "./PieceActions";
@@ -135,13 +145,26 @@ const hasWebGPU = () => typeof navigator !== "undefined" && "gpu" in navigator;
 type RendererProps = Parameters<
   Extract<NonNullable<CanvasProps["gl"]>, (...args: never[]) => unknown>
 >[0];
-const makeRenderer = async (props: RendererProps, antialias: boolean) => {
+const makeRenderer = async (
+  props: RendererProps,
+  antialias: boolean,
+  forceWebGL = false,
+): Promise<WebGLRenderer> => {
   const canvas = props.canvas as HTMLCanvasElement;
   // the browser may have the API and no adapter behind it: ask first,
-  // so the WebGL backend gets its own context with the buffer kept
-  const adapter = hasWebGPU()
-    ? await navigator.gpu.requestAdapter().catch(() => null)
+  // so the WebGL backend gets its own context with the buffer kept. A
+  // WebGPU given up on lately is not asked (gpu-fallback.ts), nor one
+  // whose adapter does not answer
+  const tryGPU = hasWebGPU() && !forceWebGL && shunnedFor() === null;
+  const asked = tryGPU
+    ? await within(
+        navigator.gpu.requestAdapter().catch(() => null),
+        ADAPTER_WAIT_MS,
+        "late" as const,
+      )
     : null;
+  if (asked === "late") shun("adapter");
+  const adapter = asked === "late" ? null : asked;
   const webgl = !adapter;
   // the desktop extras draw the scene with four attachments a sample
   // (32 bytes, the floor every device has); more is asked for where the
@@ -173,6 +196,27 @@ const makeRenderer = async (props: RendererProps, antialias: boolean) => {
         }
       : {}),
   });
+  if (!webgl) {
+    // a device lost starts the page over on WebGL, once
+    const lost = renderer.onDeviceLost.bind(renderer);
+    renderer.onDeviceLost = (info) => {
+      lost(info);
+      startOverOnWebGL("lost");
+    };
+    // a device that does not answer: the canvas has no WebGPU context
+    // until it does, so the WebGL backend takes the same canvas
+    if (
+      !(await within(
+        renderer.init().then(() => true),
+        INIT_WAIT_MS,
+        false,
+      ))
+    ) {
+      shun("device");
+      return makeRenderer(props, antialias, true);
+    }
+    return renderer as unknown as WebGLRenderer;
+  }
   await renderer.init();
   return renderer as unknown as WebGLRenderer;
 };
@@ -2193,6 +2237,22 @@ export default function Scene3D() {
   // the room's first picture is on the stage: drawn, on a known backend,
   // its shaders built
   const shown = drawn && backend !== null && (post === null || warmed);
+  // on WebGPU, a first picture that never comes (a GPU stuck building)
+  // starts the page over on WebGL, once, rather than leave it blank
+  // until a refresh; a tab out of sight is given its time when back
+  useEffect(() => {
+    if (shown || backend !== "webgpu") return;
+    let t = 0;
+    const arm = () => {
+      t = window.setTimeout(() => {
+        if (document.visibilityState === "visible")
+          startOverOnWebGL("first picture");
+        else arm();
+      }, FIRST_PICTURE_WAIT_MS);
+    };
+    arm();
+    return () => window.clearTimeout(t);
+  }, [shown, backend]);
   const onShaders = useEvent((s: ShaderState) => {
     setShaders(s);
     if (s === "ready") setWarmed(true);
@@ -2275,6 +2335,10 @@ export default function Scene3D() {
       data-photo-size={photo ? `${photo.width}x${photo.height}` : ""}
       data-exposure={scene.exposure}
       data-backend={backend}
+      // why WebGPU was given up on for WebGL here, if it was
+      data-gpu-fallback={
+        backend && backend !== "webgpu" ? (fellBackFor() ?? "none") : "none"
+      }
       data-drawn={shown}
       data-shaders={post === null ? "ready" : shaders}
       // the picture shown is not the room's while its shaders are being

@@ -1162,3 +1162,33 @@ all in the one material every piece and room item is drawn with
 Not changed: the exposure and the tone mapping. A pale cloth face
 square to the sun still reads light; that is the light, not the
 colour.
+
+## A GPU that does not answer (2026-10-12)
+
+The studio sometimes needed several refreshes to start on a real
+machine; in this sandbox (no WebGPU adapter, so WebGL) it started every
+time, cold dev server included (first picture at 23 s, compile and
+all). What WebGPU can do that WebGL does not: an adapter or a device
+asked for and never given, a pipeline built and never finished, the
+device lost. Each of these left the stage blank, since nothing waited
+with an end in sight: the shader warm-up checked its budget only
+between parts, so one build that never settled held the first picture
+for ever. Now (gpu-fallback.ts):
+
+- the adapter has 4 s to answer and the device 8 s; past either the
+  renderer is made on the WebGL backend on the same canvas (it has no
+  WebGPU context until the device answers);
+- a shader build has 6 s; past it the warm-up ends and the frames
+  build what is left as they meet it;
+- a device lost, or no first picture 45 s after the backend is known
+  (on WebGPU, the tab in sight), starts the page over once on WebGL;
+- each of these is remembered for a day (`furnishes.gpu` in local
+  storage), so the next visit starts on WebGL at once, and the one
+  after a day tries WebGPU again. The stage says why it fell back in
+  `data-gpu-fallback` (`adapter`, `device`, `lost`, `first picture`,
+  or `none`).
+
+Verified here: an adapter that never answers (an e2e test stubs
+`navigator.gpu`) gets its room drawn on WebGL with
+`data-gpu-fallback="adapter"`. Not verifiable here: a real device that
+hangs or is lost; the paths are the same code with another trigger.

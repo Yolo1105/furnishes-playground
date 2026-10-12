@@ -5476,3 +5476,28 @@ test("the WebGPU checklist guides through the plan's checks and makes a report",
   expect(text).toMatch(/\| 2 \| The first frame \| pass \|/);
   expect(text).toContain("## Frame bench");
 });
+
+test("a GPU that never answers still gets a room, drawn on WebGL", async ({
+  page,
+}) => {
+  // a browser with WebGPU whose adapter is asked for and never given
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "gpu", {
+      configurable: true,
+      value: { requestAdapter: () => new Promise(() => {}) },
+    });
+  });
+  await page.goto("/rounded?probes=fast");
+  const stage = page.locator(".shell-stage .stage-3d");
+  await expect(stage).toHaveAttribute("data-drawn", "true", {
+    timeout: 120_000,
+  });
+  await expect(stage).not.toHaveAttribute("data-backend", "webgpu");
+  await expect(stage).toHaveAttribute("data-gpu-fallback", "adapter");
+  // remembered: the next visit does not ask again
+  expect(
+    await page.evaluate(
+      () => JSON.parse(localStorage.getItem("furnishes.gpu")!).why,
+    ),
+  ).toBe("adapter");
+});

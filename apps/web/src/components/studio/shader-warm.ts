@@ -10,6 +10,7 @@ import {
   type Side,
 } from "three";
 import type { PassNode, WebGPURenderer } from "three/webgpu";
+import { BUILD_WAIT_MS, within } from "./gpu-fallback";
 
 /**
  * The scene's shaders built ahead of the frames that need them. A
@@ -150,7 +151,17 @@ export const warmParts = async (
     renderer.setRenderTarget(pass.renderTarget);
     renderer.setMRT(pass.getMRT());
     try {
-      await renderer.compileAsync(part, camera, scene);
+      // a build that never finishes (a GPU stuck on a pipeline) ends the
+      // warm-up: the frames draw what is left as they meet it, and
+      // the stage never waits on it for ever (gpu-fallback.ts)
+      if (
+        (await within(
+          renderer.compileAsync(part, camera, scene).then(() => true),
+          BUILD_WAIT_MS,
+          false,
+        )) === false
+      )
+        throw new Error("a shader's build did not finish");
     } finally {
       renderer.setRenderTarget(target);
       renderer.setMRT(mrt);
