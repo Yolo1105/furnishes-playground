@@ -93,6 +93,17 @@ export const tierOf = (
   return backend === "webgpu" && memory >= DESKTOP_GB ? "desktop" : "laptop";
 };
 
+/** the tiers from the most the picture does to the least */
+const TIERS: readonly Tier[] = ["desktop", "laptop", "phone"];
+/** a tier taken `steps` down, never below the phone's: a device whose
+    frames came slow while the camera moved is given a lighter picture */
+export const tierBelow = (tier: Tier | null, steps: number): Tier | null =>
+  tier === null
+    ? null
+    : TIERS[
+        Math.min(TIERS.indexOf(tier) + Math.max(0, steps), TIERS.length - 1)
+      ]!;
+
 /** which backend a renderer came up on, and whether its GPU is a
     software one (SwiftShader, llvmpipe), which gets the phone's tier */
 /** the largest side a texture can have on the device, px, read from

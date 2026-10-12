@@ -38,6 +38,7 @@ import { CATEGORY_NAMES, type AssetNode } from "./assets-data";
 import { Furniture3D } from "./Furniture3D";
 import { ArrowLeftIcon, LockIcon, RotateIcon } from "./icons";
 import { TURN_HINT, useGuide } from "./guide-store";
+import { LighterWhileMoving, SlowFrames, sharpDpr } from "./LighterWhileMoving";
 import { ShadowsOnChange } from "./ShadowsOnChange";
 import { usePieceActions } from "./piece-actions";
 import { PieceActions } from "./PieceActions";
@@ -78,6 +79,7 @@ import {
   Post,
   type ShaderState,
   textureSideOf,
+  tierBelow,
   tierOf,
   TONE_MAPPING,
 } from "./Post";
@@ -1908,7 +1910,16 @@ export default function Scene3D() {
   // which of the desktop extras the chain draws (Post.tsx says)
   const [fx, setFx] = useState<EffectStates>(EFFECTS_OFF);
   const bytesPerSample = useStudio((s) => s.bytesPerSample);
-  const tier = backend ? tierOf(scene.quality, coarse, backend) : null;
+  // the tiers taken down because the frames came slow (SlowFrames), on
+  // the auto picture alone: a picture asked for is kept
+  const [slower, setSlower] = useState(0);
+  const onSlow = useEvent(() => setSlower((n) => n + 1));
+  const tier = backend
+    ? tierBelow(
+        tierOf(scene.quality, coarse, backend),
+        scene.quality === "auto" ? slower : 0,
+      )
+    : null;
   // the studio reads the tier too (the machining's cuts follow it)
   useEffect(() => useStudio.getState().setTier(tier), [tier]);
   const cutsOn = useStudio((s) => s.cutsOn());
@@ -2072,9 +2083,9 @@ export default function Scene3D() {
         // drag or a change in the room; the rest of the time the GPU rests
         frameloop="demand"
         shadows={shadows ? SHADOWS : false}
-        // at most two device pixels per CSS pixel: a phone's screen draws
-        // less than half of what it would, with nothing to see for it
-        dpr={[1, 2]}
+        // at most one and a half device pixels per CSS pixel, one while
+        // the camera moves (LighterWhileMoving)
+        dpr={sharpDpr()}
         gl={coarse ? makeRendererCoarse : makeRendererFine}
         camera={{ fov: FOV.overview, ...CLIP }}
         onPointerMissed={() => undefined}
@@ -2107,6 +2118,10 @@ export default function Scene3D() {
         {!backend && <HoldFrames />}
         <BenchFrames />
         {shadows && <ShadowsOnChange />}
+        <LighterWhileMoving stage={stage} />
+        {scene.quality === "auto" && tier !== "phone" && (
+          <SlowFrames onSlow={onSlow} />
+        )}
         <FirstFrame onDrawn={() => setDrawn(true)} />
         <LiveHandle
           w={w}

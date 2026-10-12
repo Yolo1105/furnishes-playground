@@ -9,6 +9,7 @@ import {
   useRef,
 } from "react";
 import type { Group, Texture } from "three";
+import { cameraMoving } from "./LighterWhileMoving";
 import { type StillState, stillOf } from "./capture";
 import { devParam } from "./dev-flags";
 import { warming } from "./shader-warm";
@@ -211,7 +212,8 @@ export function Probes({
       job.current = { at: 0, pass: 0 };
     }
     const j = job.current;
-    if (!j) return;
+    // a moving camera is drawn first: the bake goes on once it stands
+    if (!j || cameraMoving()) return;
     const total = grid.resolution.x * grid.resolution.y * grid.resolution.z;
     const t0 = performance.now();
     do {

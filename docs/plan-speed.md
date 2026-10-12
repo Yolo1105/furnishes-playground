@@ -77,6 +77,50 @@ median kept: one build gave 12.6 s and 4.9 s on two runs in a row.
    instead of 1.64 s, and the shader building is gone from the switch's
    profile; the rest of its wait is the camera's glide, frame by frame.
 
+6. **Shadow maps drawn when what they show changes**
+   (ShadowsOnChange.tsx). Each frame drew both shadow maps again, every
+   caster in the flat, and again for every other camera the frame drew
+   with: each face of each probe the bake takes, the floor's picture.
+   Moving the camera changes nothing in them. The casters and the
+   casting lights are now read each frame as one number (place, turn,
+   size, shown, layers, geometry; the lights' place and shadow box), and
+   the maps are drawn again only on the frame it changes.
+7. **A lighter picture while the camera moves** (LighterWhileMoving.tsx).
+   The canvas drew two device pixels to a CSS pixel on a Retina screen,
+   four times the pixels through the scene pass and every post pass. It
+   now draws at most one and a half, and one while the camera moves (an
+   orbit, a glide, a pan, a walk); a moment after the camera's last move
+   a frame is asked for, and the picture is drawn sharp only if the
+   camera stood through it, so a slow device is not drawn sharp and soft
+   by turns through a drag. The stage says which (`data-moving`). The
+   probes' bake waits while the camera moves, so a drag is not drawn
+   behind it.
+8. **A lighter tier for a device the picture is too much for**
+   (`SlowFrames`, `tierBelow` in Post.tsx). On the auto picture, when the
+   middle of two dozen moving frames is slower than 50 ms (20 frames a
+   second), the tier is taken down a step (desktop to laptop to phone,
+   never below), and read again three seconds later. A picture asked
+   for in the View settings is kept as asked.
+
+Measured on an orbit of thirty steps on the full picture (the desktop
+tier), the sandbox's software renderer standing in for the GPU's work:
+
+| the orbit, full picture         | before | after |
+| ------------------------------- | -----: | ----: |
+| one device pixel to a CSS pixel |   88 s |  79 s |
+| two (a Retina screen), drawn    |  279 s |  83 s |
+| its script per frame (middle)   |  21 ms | 14 ms |
+
+The breakdown on one device pixel: without shadows the same orbit took
+72 s, without the post chain 54 s; the scene pass itself, which grows
+with the pixels, is the largest share, which is why the pixels drawn
+while moving are the lever.
+
+A browser that kept its projects from an earlier studio also opened its
+first project as it was, so the HDB 5-room flat reached a new project
+alone; it is now given to such a browser once, as a project of its own,
+opened (project-store.ts, `SHOWCASE`).
+
 ## The numbers
 
 | what (sandbox, dev server)             | before |     after |
