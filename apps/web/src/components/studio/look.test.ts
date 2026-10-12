@@ -4,6 +4,7 @@ import { CURTAIN, curtainGeometry } from "./curtain";
 import {
   cameraFor,
   cornerOf,
+  openCorner,
   FOV,
   roomFov,
   walkStart,
@@ -49,19 +50,49 @@ describe("the look: a curtain's cloth", () => {
   });
 });
 
-describe("the room's corner shot", () => {
-  it("stands inside the room and looks across it with a wide lens", () => {
+describe("the room's view from above its corner", () => {
+  it("stands outside the room, over its walls, and looks down at all of it", () => {
     const room = { w: 7, d: 4.5 };
     const p = cameraFor("Perspective", 15, 9, 2.6, [1, 2], room, 16 / 10);
-    expect(Math.abs(p.pos[0])).toBeLessThan(room.w / 2);
-    expect(Math.abs(p.pos[2])).toBeLessThan(room.d / 2);
-    // it looks from its corner towards the far one
-    expect(p.at[0]).toBeLessThan(p.pos[0]);
-    expect(p.at[2]).toBeLessThan(p.pos[2]);
-    expect(p.fov).toBe(FOV.room);
-    // the overviews keep the narrower lens
+    // beyond the room's corner, above the walls' tops
+    expect(Math.abs(p.pos[0])).toBeGreaterThan(room.w / 2);
+    expect(Math.abs(p.pos[2])).toBeGreaterThan(room.d / 2);
+    expect(p.pos[1]).toBeGreaterThan(2.6);
+    // looking at the room's middle, at the overviews' lens
+    expect(p.at[0]).toBe(0);
+    expect(p.at[2]).toBe(0);
+    expect(p.fov).toBe(FOV.overview);
+    // the whole room fits: its far corners are inside the lens's cone
+    const [x, y, z] = p.pos;
+    const dir: [number, number, number] = [-x, p.at[1] - y, -z];
+    const n = Math.hypot(...dir);
+    const corners: [number, number][] = [
+      [-room.w / 2, -room.d / 2],
+      [room.w / 2, -room.d / 2],
+      [-room.w / 2, room.d / 2],
+    ];
+    for (const [cx, cz] of corners) {
+      const v: [number, number, number] = [cx - x, 0 - y, cz - z];
+      const cos =
+        (v[0] * dir[0] + v[1] * dir[1] + v[2] * dir[2]) /
+        (Math.hypot(...v) * n);
+      expect((Math.acos(cos) * 180) / Math.PI).toBeLessThan(
+        (FOV.overview / 2) * 1.6,
+      );
+    }
     expect(cameraFor("Front", 15, 9, 2.6, [1, 2], room).fov).toBe(FOV.overview);
+    // the walk still stands in the room at eye height, with the wide lens
     expect(walkStart(7, 4.5).fov).toBe(FOV.room);
+  });
+  it("is seen from above over the flat's outside walls, not over the rooms beside it", () => {
+    // the living room: the bedrooms and the hall stand west and south
+    // of it; north and east are the flat's outside walls
+    const flat = useRoom.getInitialState();
+    const living = flat.rooms.find((r) => r.id === SHOWCASE_ROOMS.living)!;
+    const others = flat.rooms.filter((r) => r.id !== living.id);
+    expect(openCorner(living, others, [-1, 1])).toEqual([1, -1]);
+    // a room alone keeps the corner its picture is taken from
+    expect(openCorner(living, [], [-1, 1])).toEqual([-1, 1]);
   });
   it("is taken from the side facing the window, away from the doors", () => {
     // the living room: its window north, its entry door and the

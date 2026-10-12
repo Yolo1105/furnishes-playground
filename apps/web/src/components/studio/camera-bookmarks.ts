@@ -6,13 +6,13 @@ import type { Angle } from "./studio-store";
  * Where the camera stands for each named angle of the 3D view: the
  * stage's own poses, and the ones a glTF export carries as named
  * cameras. The overviews (the four sides and the top) are scaled to
- * the flat's box and look at its middle; the perspective stands in a
- * corner of the room being worked on (cornerOf) and looks across it
- * with a wide lens, as a room is photographed: the walls round it, the
- * ceiling over it, the window the light comes in by. From outside
- * the room, the rooms beside it stood between the camera and the room
- * (the 5-room flat's bedrooms are south of the living room), and a
- * room looked into over a cut wall reads as a model.
+ * the flat's box and look at its middle; the perspective is the room
+ * being worked on from above its photographed corner (cornerOf), at a
+ * three-quarter angle like an isometric drawing: the whole room and
+ * everything in it in one picture, the two near walls down to their
+ * foot as the camera passes over them, the far walls and the window
+ * the light comes in by behind. The walk stands in the room at eye
+ * height (walkStart).
  */
 /** eye height, m: the walk's */
 export const EYE = 1.6;
@@ -24,13 +24,12 @@ export const FOV = { overview: 42, room: 58, widest: 78 } as const;
 /** the stage camera's near and far clip, m, which a glTF's cameras
     carry too */
 export const CLIP = { near: 0.05, far: 100 } as const;
-/** the corner shot: how far in from each wall the camera stands, its
-    height, and where it looks: a share of the room's half-size across
-    it, and the height it looks at (a little down, verticals near
-    upright) */
-const CORNER = { inset: 0.45, height: 1.4, across: 0.38, look: 1.0 };
 /** the least the room spans across the picture, degrees */
 const ROOM_ACROSS = 66;
+/** the room from above its corner: how high the camera looks down,
+    degrees; how far off the corner's diagonal it turns, so the longer
+    walls read; the margin round the room in the picture */
+const ROOM_VIEW = { elevation: 38, skew: 0.7, margin: 1.12 };
 
 export type Pose = { pos: Vector3Tuple; at: Vector3Tuple; fov: number };
 
@@ -76,6 +75,57 @@ export const cornerOf = (
   return across ? [end, facing] : [facing, end];
 };
 
+/** a room on the sheet: its north-west corner and its size, mm */
+type Placed = { pos: readonly [number, number]; width: number; depth: number };
+/** how far apart two rooms stand to be neighbours (the wall between
+    them, up to its thickest), and how long their sides must run
+    together, mm */
+const TOUCH = 400;
+const ALONG = 400;
+
+/** the corner a room is seen from above: on the sides with no room
+    beyond them (the flat's outside walls), so only the room's own near
+    walls stand between the camera and it, and those drop to their
+    foot; where two corners are as open, the one its picture is taken
+    from (`photo`) */
+export const openCorner = (
+  room: Placed,
+  others: readonly Placed[],
+  photo: Corner,
+): Corner => {
+  const [x0, y0] = room.pos;
+  const x1 = x0 + room.width;
+  const y1 = y0 + room.depth;
+  const overlap = (a0: number, a1: number, b0: number, b1: number) =>
+    Math.min(a1, b1) - Math.max(a0, b0);
+  // how much of each side has a room beyond it, mm
+  const shut = { w: 0, e: 0, n: 0, s: 0 };
+  for (const o of others) {
+    const [ox0, oy0] = o.pos;
+    const ox1 = ox0 + o.width;
+    const oy1 = oy0 + o.depth;
+    const alongY = overlap(y0, y1, oy0, oy1);
+    const alongX = overlap(x0, x1, ox0, ox1);
+    if (alongY > ALONG && Math.abs(ox1 - x0) < TOUCH) shut.w += alongY;
+    if (alongY > ALONG && Math.abs(ox0 - x1) < TOUCH) shut.e += alongY;
+    if (alongX > ALONG && Math.abs(oy1 - y0) < TOUCH) shut.n += alongX;
+    if (alongX > ALONG && Math.abs(oy0 - y1) < TOUCH) shut.s += alongX;
+  }
+  const corners: Corner[] = [
+    [photo[0], photo[1]],
+    [photo[0], -photo[1] as -1 | 1],
+    [-photo[0] as -1 | 1, photo[1]],
+    [-photo[0] as -1 | 1, -photo[1] as -1 | 1],
+  ];
+  const blocked = ([sx, sz]: Corner) =>
+    (sx > 0 ? shut.e : shut.w) / room.depth +
+    (sz > 0 ? shut.s : shut.n) / room.width;
+  // the least blocked; the photographed corner first among equals
+  return corners.reduce((best, c) =>
+    blocked(c) < blocked(best) - 0.01 ? c : best,
+  );
+};
+
 /** the vertical lens that keeps a room's corner shot `ROOM_ACROSS`
     wide on a screen of this shape (width / height) */
 export const roomFov = (aspect: number) => {
@@ -106,20 +156,29 @@ export const cameraFor = (
   // all in view, as a section through the room is drawn
   const over = h * 1.3;
   const side: Vector3Tuple = [cx, h / 3, cz];
+  // the perspective: the room from above its corner, far enough back
+  // that all of it (its walls' height too) fits the picture both ways
+  const up = (ROOM_VIEW.elevation * Math.PI) / 180;
+  const yaw = Math.atan2(sx * ROOM_VIEW.skew, sz);
+  const reach = Math.hypot(room.w, room.d) / 2;
+  const half = (FOV.overview * Math.PI) / 360;
+  const tall = reach * Math.sin(up) + (h * Math.cos(up)) / 2;
+  const far =
+    ROOM_VIEW.margin *
+    Math.max(
+      tall / Math.tan(half),
+      reach / (Math.tan(half) * Math.max(0.5, aspect)),
+    );
+  const look = h / 4;
   const at: Record<string, Vector3Tuple> = {
-    // the perspective looks from its corner across to the far one
-    Perspective: [
-      (-sx * room.w * CORNER.across) / 2,
-      CORNER.look,
-      (-sz * room.d * CORNER.across) / 2,
-    ],
+    Perspective: [0, look, 0],
     Top: [cx, h / 2, cz],
   };
   const pos: Record<string, Vector3Tuple> = {
     Perspective: [
-      sx * (room.w / 2 - Math.min(CORNER.inset, room.w / 4)),
-      CORNER.height,
-      sz * (room.d / 2 - Math.min(CORNER.inset, room.d / 4)),
+      far * Math.cos(up) * Math.sin(yaw),
+      look + far * Math.sin(up),
+      far * Math.cos(up) * Math.cos(yaw),
     ],
     // across the flat's width: far enough that its near corners, closer
     // to the camera than its middle, stay in the picture
@@ -129,11 +188,10 @@ export const cameraFor = (
     Right: [cx + r * 1.3, over, cz],
     Top: [cx, r * 1.8, cz + 0.01],
   };
-  const inside = (angle in pos ? angle : "Perspective") === "Perspective";
   return {
     pos: pos[angle] ?? pos.Perspective!,
     at: at[angle] ?? side,
-    fov: inside ? roomFov(aspect) : FOV.overview,
+    fov: FOV.overview,
   };
 };
 

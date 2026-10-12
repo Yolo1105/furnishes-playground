@@ -93,6 +93,7 @@ import {
   CLIP,
   type Corner,
   cornerOf,
+  openCorner,
   EYE,
   FOV,
   walkStart,
@@ -2090,6 +2091,15 @@ export default function Scene3D() {
   // the camera back in its corner
   const [cornerX, cornerZ] = cornerOf(openings, room.width, room.depth);
   const corner = useMemo((): Corner => [cornerX, cornerZ], [cornerX, cornerZ]);
+  // the corner the room is seen from above (the perspective, and the
+  // opening's way in to it): on its outside walls, where no other
+  // room stands between the camera and it
+  const [viewX, viewZ] = openCorner(
+    room,
+    rooms.filter((r) => r.id !== room.id),
+    corner,
+  );
+  const viewCorner = useMemo((): Corner => [viewX, viewZ], [viewX, viewZ]);
   const backend = useStudio((s) => s.backend);
   // the picture's finish follows the device once the backend is known; a
   // render has it whatever the View settings; a stage that fails on this
@@ -2305,7 +2315,7 @@ export default function Scene3D() {
             centre={centre}
             roomW={w}
             roomD={d}
-            corner={corner}
+            corner={viewCorner}
             stage={stage}
           />
         )}
