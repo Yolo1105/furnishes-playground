@@ -2079,8 +2079,12 @@
 .plan-svg[data-drawing="true"] {
   cursor: crosshair;
 }
-/* while drawing, the pieces' layer lets the clicks through to the sheet */
-.plan-svg[data-drawing="true"] ~ .plan-pieces {
+/* while drawing, the pieces' layer lets the clicks through to the sheet
+   and the wall handles, every piece in it too (a piece's button turns
+   its own pointer back on, and keeps a least size that can reach over a
+   neighbouring room's wall) */
+.plan-svg[data-drawing="true"] ~ .plan-pieces,
+.plan-svg[data-drawing="true"] ~ .plan-pieces * {
   pointer-events: none;
 }
 /* the sheet's lines: the floor as paper, the band poché-hatched, its
