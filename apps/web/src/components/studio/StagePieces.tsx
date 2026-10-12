@@ -76,6 +76,26 @@ export function StagePieces({
     moved: boolean;
   } | null>(null);
   const press = useRef<number | null>(null);
+  // a move or a turn under the pointer lands once a frame, as in 3D: a
+  // pointer reports more often than the screen draws
+  const nextMove = useRef<(() => void) | null>(null);
+  const moveFrame = useRef(0);
+  const flushFrame = () => {
+    cancelAnimationFrame(moveFrame.current);
+    moveFrame.current = 0;
+    const f = nextMove.current;
+    nextMove.current = null;
+    f?.();
+  };
+  const onFrame = (f: () => void) => {
+    nextMove.current = f;
+    if (!moveFrame.current)
+      moveFrame.current = requestAnimationFrame(() => {
+        moveFrame.current = 0;
+        flushFrame();
+      });
+  };
+  useEffect(() => () => cancelAnimationFrame(moveFrame.current), []);
   /** the turn handle's drag: the angle at the press and the piece's turn */
   const turning = useRef<{
     id: string;
@@ -119,12 +139,14 @@ export function StagePieces({
     const snapped = e.shiftKey
       ? raw
       : Math.round(raw / ROTATE_SNAP) * ROTATE_SNAP;
-    useScene.getState().turnMove(n.id, normTurn(snapped));
+    const turnTo = normTurn(snapped);
+    onFrame(() => useScene.getState().turnMove(n.id, turnTo));
   };
   const onTurnUp = (n: AssetNode) => {
     const t = turning.current;
     if (!t || t.id !== n.id) return;
     turning.current = null;
+    flushFrame();
     if (t.moved) {
       useScene.getState().dragEnd();
       // the click that follows is the drag's end, not a quarter turn
@@ -199,13 +221,14 @@ export function StagePieces({
       magnet,
       others,
     );
-    useScene.getState().dragMove(n.id, to.x, to.y);
+    onFrame(() => useScene.getState().dragMove(n.id, to.x, to.y));
   };
   const onUp = (n: AssetNode) => {
     endPress();
     const d = drag.current;
     if (!d || d.id !== n.id) return;
     drag.current = null;
+    flushFrame();
     if (d.moved) useScene.getState().dragEnd();
   };
   const onClick = (n: AssetNode) => {

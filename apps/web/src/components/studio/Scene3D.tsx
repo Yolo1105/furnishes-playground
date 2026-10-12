@@ -1312,6 +1312,27 @@ function Piece({
   // snapped unless Shift is held. The first turn puts the hint away.
   const camera = useThree((s) => s.camera);
   const canvas = useThree((s) => s.gl.domElement);
+  // a move or a turn under the pointer lands once a frame: a pointer
+  // reports more often than the screen draws (a trackpad, 120 times a
+  // second), and each report redrew everything that reads the scene
+  const nextMove = useRef<(() => void) | null>(null);
+  const moveFrame = useRef(0);
+  const flushFrame = () => {
+    cancelAnimationFrame(moveFrame.current);
+    moveFrame.current = 0;
+    const f = nextMove.current;
+    nextMove.current = null;
+    f?.();
+  };
+  const onFrame = (f: () => void) => {
+    nextMove.current = f;
+    if (!moveFrame.current)
+      moveFrame.current = requestAnimationFrame(() => {
+        moveFrame.current = 0;
+        flushFrame();
+      });
+  };
+  useEffect(() => () => cancelAnimationFrame(moveFrame.current), []);
   const spin = useRef<{ a0: number; r0: number; moved: boolean } | null>(null);
   const spinSkip = useRef(false);
   const [spinning, setSpinning] = useState(false);
@@ -1359,19 +1380,16 @@ function Piece({
     // seen from above the room, the pointer going clockwise on the
     // screen turns the piece clockwise on the plan
     const raw = s.r0 + da;
-    useScene
-      .getState()
-      .turnMove(
-        node.id,
-        normTurn(
-          e.shiftKey ? raw : Math.round(raw / ROTATE_SNAP) * ROTATE_SNAP,
-        ),
-      );
+    const turnTo = normTurn(
+      e.shiftKey ? raw : Math.round(raw / ROTATE_SNAP) * ROTATE_SNAP,
+    );
+    onFrame(() => useScene.getState().turnMove(node.id, turnTo));
   };
   const onSpinUp = useEvent(() => {
     const s = spin.current;
     if (!s) return;
     spin.current = null;
+    flushFrame();
     setSpinning(false);
     if (s.moved) {
       useScene.getState().dragEnd();
@@ -1438,7 +1456,7 @@ function Piece({
       useStudio.getState().magnet,
       others.filter((o) => o.id !== node.id),
     );
-    useScene.getState().dragMove(node.id, to.x, to.y);
+    onFrame(() => useScene.getState().dragMove(node.id, to.x, to.y));
   });
   const onUp = useEvent(() => {
     if (held.current) holdOrbit(getThree().controls, false);
@@ -1446,6 +1464,8 @@ function Piece({
     const dr = drag.current;
     if (!dr) return;
     drag.current = null;
+    // the last move lands before the drag ends
+    flushFrame();
     if (dr.moved) {
       useScene.getState().dragEnd();
       onDragging(false);
@@ -2426,6 +2446,11 @@ export default function Scene3D() {
           // the right button, Shift with the left, or two fingers move the
           // view; the wheel and Safari's pinch are the Rig's own
           enablePan
+          // the view settles quickly once let go, and turns a little
+          // slower than the pointer, so it goes where it is aimed
+          enableDamping
+          dampingFactor={0.2}
+          rotateSpeed={0.8}
           minDistance={1}
           maxDistance={30}
           maxPolarAngle={Math.PI / 2 - 0.02}
