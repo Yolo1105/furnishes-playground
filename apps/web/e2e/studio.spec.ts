@@ -2746,8 +2746,8 @@ test("in 3D a piece is dragged over the floor, the camera glides between angles,
   // a drag on a piece moves it over the floor, snapped to 50 mm; the
   // rest are held where they stood, so no other piece shifts: every
   // piece is read back from the kept project with a place on the grid
-  // the bookwall, by the window, which the room's corner shot has in view
-  const first = top.find((a) => a.name === "Bookwall")!;
+  // the sofa, in the middle of the room's corner shot
+  const first = top.find((a) => a.name === "Sofa")!;
   // the names come on to find the piece (none show until asked)
   await expect(stage).toHaveAttribute("data-hover", "none");
   await page.getByRole("button", { name: "View settings" }).click();
