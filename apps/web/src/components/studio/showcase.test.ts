@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { assetGroups, showcasePlaces } from "./assets-data";
+import {
+  ARRANGEMENTS,
+  arrangementOf,
+  assetGroups,
+  showcasePlaces,
+} from "./assets-data";
 import { healthOf, type Room } from "./room-health";
 import { footprint, isRug, isSmall } from "./piece-detail";
 import { hdbOffset, PRIVATE_ROOMS, SHOWCASE_ROOMS } from "./room-data";
@@ -200,6 +205,52 @@ describe("the flat the studio opens on", () => {
         expect(hit?.name, `leg ${i + 1} at ${x},${y}`).toBeUndefined();
       }
     });
+  });
+
+  it("keeps every arrangement clear of the rules, each one different", () => {
+    const seen = new Set<string>();
+    for (const a of ARRANGEMENTS) {
+      const { groups, overrides } = arrangementOf(a.id);
+      const things = groups
+        .flatMap((g) => g.items)
+        .filter((n) => n.kind !== "fixed");
+      seen.add(
+        things
+          .map((n) => n.id)
+          .sort()
+          .join(","),
+      );
+      for (const r of flat.rooms) {
+        const room: Room = {
+          W: r.width,
+          D: r.depth,
+          outline: footprintOf(r),
+          openings: openingsOf(flat, r),
+          rules: r.rules,
+          thickness: r.thickness,
+        };
+        const boxes = things
+          .filter((n) => inRoom(overrides[n.id] ?? {}, r.id, flat.rooms[0]!.id))
+          .map((n) => {
+            const p = propsOf(n, overrides);
+            const f = footprint(p);
+            return {
+              id: n.id,
+              name: n.name,
+              x: p.x!,
+              y: p.y!,
+              ...f,
+              h: p.height,
+              own: { w: p.width, d: p.depth, rotation: p.rotation },
+            };
+          });
+        expect(
+          healthOf(boxes, room).map((i) => `${i.kind} ${i.text}`),
+          `${a.name}: ${r.room}`,
+        ).toEqual([]);
+      }
+    }
+    expect(seen.size).toBe(ARRANGEMENTS.length);
   });
 
   it("tells the pieces for sale from the room items", () => {

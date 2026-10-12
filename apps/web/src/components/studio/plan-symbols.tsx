@@ -137,6 +137,9 @@ export function PlanSymbol({
       const x1 = (w * (i + 1)) / folds;
       line(x0, i % 2 ? d - 20 : 20, x1, i % 2 ? 20 : d - 20);
     }
+  } else if (/bean bag/.test(name)) {
+    circle(w / 2, d / 2, Math.min(w, d) / 2 - 20);
+    circle(w / 2, d / 2, Math.min(w, d) / 4);
   } else if (cat === "seating" && !/bench|stool/.test(name)) {
     const arm = Math.min(ARM, w * 0.12);
     const back = Math.min(BACK, d * 0.3);

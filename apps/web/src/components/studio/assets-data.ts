@@ -351,18 +351,20 @@ const SHOWCASE: [AssetNode, Place][] = [
   [piece("work-cart"), { roomId: R.yard, x: 0, y: 1500, rotation: 180 }],
 ];
 
-/** where everything in the flat stands as it opens, as the scene's
-    overrides over each piece's defaults */
-export const showcasePlaces: Record<
-  string,
-  Partial<PieceProps>
-> = Object.fromEntries(SHOWCASE.map(([n, place]) => [n.id, place]));
+type Entry = [AssetNode, Place];
 
-/** the things in the flat by category, in the categories' order, the
-    architecture last */
-export const assetGroups: AssetGroup[] = [
+/** where everything stands, as the scene's overrides over each piece's
+    defaults */
+const placesOf = (
+  entries: readonly Entry[],
+): Record<string, Partial<PieceProps>> =>
+  Object.fromEntries(entries.map(([n, place]) => [n.id, place]));
+
+/** the things by category, in the categories' order, the architecture
+    last */
+const groupsOf = (entries: readonly Entry[]): AssetGroup[] => [
   ...ASSET_CATEGORIES.filter((c) => c !== "architecture").flatMap((c) => {
-    const items = SHOWCASE.map(([n]) => n).filter((n) => n.category === c);
+    const items = entries.map(([n]) => n).filter((n) => n.category === c);
     return items.length ? [{ id: c, name: CATEGORY_NAMES[c], items }] : [];
   }),
   {
@@ -375,6 +377,144 @@ export const assetGroups: AssetGroup[] = [
     ],
   },
 ];
+
+/** where everything in the flat stands as it opens */
+export const showcasePlaces = placesOf(SHOWCASE);
+/** the things in the flat by category */
+export const assetGroups: AssetGroup[] = groupsOf(SHOWCASE);
+
+/** an arrangement's change to the flat: things taken out by id, things
+    added; and the rooms' paint and floors, by room id */
+type Variant = {
+  out: readonly string[];
+  add: readonly Entry[];
+  rooms?: Record<string, { wallTone?: string; floor?: string }>;
+};
+const varied = (v: Variant): Entry[] => [
+  ...SHOWCASE.filter(([n]) => !v.out.includes(n.id)),
+  ...v.add,
+];
+
+/**
+ * The flat's arrangements, after the family apartment planner's three:
+ * each opens as a project of its own. Balanced is the flat as above.
+ * Study-focused gives the children more to learn at: a learning library
+ * beside the homework desk, a study desk for the two sharing a room in
+ * place of their rug, soft white walls. Leisure gives them more to play
+ * in: a leisure bench and a reading chair under the living room's
+ * window in place of the homework desk, a low play table in the shared
+ * room, a bean bag in place of the single room's desk, sand and sage
+ * walls over parquet.
+ */
+const BEDROOMS = [R.master, R.bedroom2, R.bedroom3];
+export const ARRANGEMENTS: {
+  id: "balanced" | "study" | "leisure";
+  name: string;
+  entries: Entry[];
+  rooms: Record<string, { wallTone?: string; floor?: string }>;
+}[] = [
+  { id: "balanced", name: "Balanced", entries: SHOWCASE, rooms: {} },
+  {
+    id: "study",
+    name: "Study-focused",
+    ...(() => {
+      const v: Variant = {
+        out: ["rug-2"],
+        add: [
+          [
+            piece(
+              "bookwall",
+              "learning-library",
+              undefined,
+              "Learning library",
+            ),
+            { x: 0, y: 2500, rotation: 270 },
+          ],
+          [
+            decor("kids-desk", "Two-child study desk", "tables"),
+            { roomId: R.bedroom3, x: 1000, y: 0, width: 1400, depth: 600 },
+          ],
+          [
+            decor("kids-chair", "Desk chair 5", "seating"),
+            { roomId: R.bedroom3, x: 1150, y: 650, rotation: 180 },
+          ],
+          [
+            decor("kids-chair-2", "Desk chair 6", "seating"),
+            { roomId: R.bedroom3, x: 1800, y: 650, rotation: 180 },
+          ],
+        ],
+        rooms: Object.fromEntries(
+          [R.living, ...BEDROOMS].map((id) => [id, { wallTone: "white" }]),
+        ),
+      };
+      return { entries: varied(v), rooms: v.rooms ?? {} };
+    })(),
+  },
+  {
+    id: "leisure",
+    name: "Leisure",
+    ...(() => {
+      const v: Variant = {
+        out: [
+          "homework-desk",
+          "desk-chair",
+          "desk-chair-2",
+          "desk-chair-3",
+          "study-desk",
+          "desk-chair-4",
+        ],
+        add: [
+          [
+            piece("bench", "leisure-bench", undefined, "Leisure bench"),
+            { x: 300, y: 0 },
+          ],
+          [
+            decor("reading-chair", "Reading armchair", "seating"),
+            { x: 2100, y: 0 },
+          ],
+          [
+            decor("play-table", "Play table", "tables"),
+            {
+              roomId: R.bedroom3,
+              x: 1600,
+              y: 1700,
+              width: 750,
+              depth: 600,
+              height: 450,
+            },
+          ],
+          [
+            decor("bean-bag", "Bean bag", "seating"),
+            {
+              roomId: R.bedroom2,
+              x: 0,
+              y: 1000,
+              width: 700,
+              depth: 700,
+              height: 450,
+            },
+          ],
+        ],
+        rooms: {
+          [R.living]: { wallTone: "sand", floor: "Parquet" },
+          ...Object.fromEntries(
+            BEDROOMS.map((id) => [id, { wallTone: "sage", floor: "Parquet" }]),
+          ),
+        },
+      };
+      return { entries: varied(v), rooms: v.rooms ?? {} };
+    })(),
+  },
+];
+/** an arrangement's things and places, as a project starts with them */
+export const arrangementOf = (id: (typeof ARRANGEMENTS)[number]["id"]) => {
+  const a = ARRANGEMENTS.find((x) => x.id === id) ?? ARRANGEMENTS[0]!;
+  return {
+    groups: groupsOf(a.entries),
+    overrides: placesOf(a.entries),
+    rooms: a.rooms,
+  };
+};
 
 export const pieceTotals = (nodes: AssetNode[]) => {
   const pieces = nodes.filter((n) => n.kind === "piece");

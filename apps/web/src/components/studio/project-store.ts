@@ -11,7 +11,12 @@ import {
 import type { Point } from "./room-templates";
 import { type RoomSpec, useRoom } from "./room-store";
 import { useScene } from "./scene-store";
-import { ASSET_KINDS, type AssetNode } from "./assets-data";
+import {
+  ARRANGEMENTS,
+  arrangementOf,
+  ASSET_KINDS,
+  type AssetNode,
+} from "./assets-data";
 import { products } from "./catalogue";
 
 /**
@@ -40,9 +45,10 @@ const SAVE_AFTER = 600; // ms after the last change
     (the projects it had are noted gone, so an account's copies go too).
     3: the HDB 5-room flat, and nothing kept from before it; 4: the
     same flat re-laid after a family planner (the bedrooms and
-    bathrooms off a hall, the household shelter, the service yard) */
+    bathrooms off a hall, the household shelter, the service yard); 5:
+    the planner's three arrangements, a project each */
 const SHOWCASE_KEY = "furnishes.showcase";
-const SHOWCASE = { version: 4, name: "HDB 5-room flat" };
+const SHOWCASE = { version: 5, name: "HDB 5-room" };
 
 type RoomData = ReturnType<typeof useRoom.getState>;
 type SceneData = ReturnType<typeof useScene.getState>;
@@ -126,6 +132,33 @@ const snapshot = (): Snapshot => {
       persona: ev.persona,
     },
   };
+};
+
+/** the flat in one of its arrangements: its things and places, and
+    its rooms' paint and floors */
+const arranged = (id: (typeof ARRANGEMENTS)[number]["id"]): Snapshot => {
+  const base = fresh();
+  const a = arrangementOf(id);
+  return {
+    ...base,
+    room: {
+      ...base.room,
+      rooms: base.room.rooms.map((r) => ({ ...r, ...a.rooms[r.id] })),
+    },
+    scene: { ...base.scene, groups: a.groups, overrides: a.overrides },
+  };
+};
+/** the studio's own projects: the flat in each of its arrangements,
+    the first the one that opens */
+const showcaseProjects = (): Project[] => {
+  const at = Date.now();
+  return ARRANGEMENTS.map((a, i) => ({
+    id: newId("p"),
+    name: `${SHOWCASE.name} · ${a.name}`,
+    // the first the latest, so a list by time keeps their order
+    at: at - i,
+    data: arranged(a.id),
+  }));
 };
 
 /** a fresh project's contents: the stores' defaults, Eva's slate clean */
@@ -343,7 +376,8 @@ export const importProject = (name: string, data: Snapshot) => {
   // so the start-over on arrival does not take the shared room with
   // what an earlier studio kept
   const over = showcaseSeen() < SHOWCASE.version;
-  const earlier = kept.projects?.length && !over ? kept.projects : [FIRST];
+  const earlier =
+    kept.projects?.length && !over ? kept.projects : showcaseProjects();
   const gone = {
     ...(kept.gone ?? {}),
     ...(over
@@ -439,24 +473,20 @@ export const useProjects = create<ProjectState>((set, get) => ({
 export function useProjectSync(wanted: string | null = null) {
   useEffect(() => {
     const kept = readKept();
-    if (kept.projects?.length && showcaseSeen() < SHOWCASE.version) {
-      // the studio started over: what an earlier one kept goes, noted
-      // gone, and the flat opens alone
+    if (!kept.projects?.length || showcaseSeen() < SHOWCASE.version) {
+      // a first visit, or the studio started over: the flat opens in
+      // each of its arrangements, a project each, and what an earlier
+      // studio kept goes, noted gone
       const at = Date.now();
-      const p: Project = {
-        id: newId("p"),
-        name: SHOWCASE.name,
-        at,
-        data: fresh(),
-      };
+      const ps = showcaseProjects();
       const gone = {
         ...(kept.gone ?? {}),
-        ...Object.fromEntries(kept.projects.map((k) => [k.id, at])),
+        ...Object.fromEntries((kept.projects ?? []).map((k) => [k.id, at])),
       };
-      useProjects.setState({ projects: [p], activeId: p.id, gone });
-      load(p.data!);
-      writeKept({ projects: [p], activeId: p.id, gone });
-    } else if (kept.projects?.length) {
+      useProjects.setState({ projects: ps, activeId: ps[0]!.id, gone });
+      load(ps[0]!.data!);
+      writeKept({ projects: ps, activeId: ps[0]!.id, gone });
+    } else {
       useProjects.setState({
         projects: kept.projects,
         gone: kept.gone ?? {},

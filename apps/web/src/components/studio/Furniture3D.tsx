@@ -466,6 +466,16 @@ function Form(p: Props) {
       />
     );
 
+  // a bean bag: one soft, slumped form
+  if (/bean bag/.test(name))
+    return (
+      <Soft
+        f={cloth(p.colour)}
+        at={[0, h / 2, 0]}
+        dims={[w, h, d]}
+        radius={Math.min(w, h, d) * 0.45}
+      />
+    );
   switch (cat) {
     case "seating":
       if (/stool/.test(name)) return <Stool w={w} h={h} d={d} />;
