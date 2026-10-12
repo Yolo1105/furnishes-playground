@@ -123,9 +123,13 @@ const fixed = (id: string, name: string): AssetNode => ({
 /** where a thing stands in the flat: its room (the living room when
     unset), the north-west corner of its footprint in mm from the
     room's, its turn in degrees clockwise on the plan (0 faces south),
-    and a size other than what its name gives it */
+    and a size other than what its name gives it; a Furnishes piece's
+    add-ons where they are not the recipe's own */
 type Place = Partial<
-  Pick<PieceProps, "roomId" | "rotation" | "width" | "depth" | "height">
+  Pick<
+    PieceProps,
+    "roomId" | "rotation" | "width" | "depth" | "height" | "accessories"
+  >
 > & { x: number; y: number };
 
 /**
@@ -135,9 +139,9 @@ type Place = Partial<
  * window with its chairs, the bookwall on the west wall beside it; the
  * sofa facing the media wall on the east wall, the rug and the coffee
  * table between, the armchair at the rug's south end; the dining table
- * by the kitchen's slider with four chairs; the sideboard on the south
- * wall between the slider and the entrance, the entry organiser for
- * shoes on the east wall by the door. The kitchen: the counter with its
+ * by the kitchen's slider with four chairs; the sideboard, a charging
+ * dock on its top, on the south wall between the slider and the
+ * entrance, the entry organiser for shoes on the east wall by the door. The kitchen: the counter with its
  * wall cabinets along the south wall, the fridge and the trolley on the
  * north wall clear of the slider. The parents' room: a queen bed with
  * its head on the north wall and a bedside cabinet each side, the
@@ -157,7 +161,12 @@ const SHOWCASE: [AssetNode, Place][] = [
     piece("bookwall", "bookwall", ["Segment A", "Segment B"]),
     { x: 0, y: 1300, rotation: 270 },
   ],
-  [piece("sideboard"), { x: 2200, y: 5900, rotation: 180 }],
+  // the family's command sideboard: the tablets and the phones charge
+  // on its top, by the way in
+  [
+    piece("sideboard"),
+    { x: 2200, y: 5900, rotation: 180, accessories: ["charging-dock"] },
+  ],
   [piece("entry"), { x: 5300, y: 4700, rotation: 90 }],
   [
     decor("homework-desk", "Homework desk", "tables"),

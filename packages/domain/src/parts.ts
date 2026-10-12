@@ -451,6 +451,22 @@ export function assembly(p: Product, c: Configuration): PartNode[] {
         "accessory",
         "Rail and supports; final specification pending",
       );
+    else if (id === "charging-dock")
+      // on the top, towards the end away from the hinge side, its
+      // back to the back panel, where the cables go down
+      add(
+        id,
+        accessoryName(id),
+        Math.max(0, p.width - 360),
+        D - 170,
+        baseZ + bodyHeight,
+        280,
+        150,
+        45,
+        "Accessories",
+        "accessory",
+        "Three slots; cables down through the back to one plug",
+      );
     else if (id === "kitchen-rail")
       add(
         id,

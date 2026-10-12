@@ -230,7 +230,7 @@ export function buildSteps(p: Product, c: Configuration): Step[] {
   push(
     "A17",
     "Add the accessories",
-    "Hooks, trays and rails hang on the exposed holes. No bolts for hooks; rails take two.",
+    "Hooks, trays and rails hang on the exposed holes; a charging dock sits on the top, its cables down the back. No bolts for hooks; rails take two.",
     "Accessories",
     () => true,
     0,

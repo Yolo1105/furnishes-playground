@@ -158,8 +158,8 @@ export const products: Product[] = [
       "A freestanding landing place for bags, keys and everyday shoes. Hanging space above, a shoe shelf below, and a small tray for the things that travel with you.",
     source: "1.1",
     defaultAccessories: ["coat-hook", "key-tray"],
-    optionalAccessories: ["headphone-hook"],
-    does: ["hang", "put down"],
+    optionalAccessories: ["headphone-hook", "charging-dock"],
+    does: ["hang", "put down", "charge"],
   },
   {
     ...base,
@@ -184,7 +184,7 @@ export const products: Product[] = [
       "An independent organising surface beside the desk you already like. Open shelves and a functional panel keep the everyday visible without using your desktop.",
     source: "1.2",
     defaultAccessories: ["headphone-hook"],
-    optionalAccessories: ["key-tray", "coat-hook"],
+    optionalAccessories: ["key-tray", "coat-hook", "charging-dock"],
     does: ["hang", "put down", "work", "charge"],
   },
   {
@@ -210,7 +210,7 @@ export const products: Product[] = [
       "One tabletop and an open compartment for the things you keep close. Explore an open front or a door, then compare the preliminary body height with your bedside space.",
     source: "1.3",
     door: true,
-    optionalAccessories: ["key-tray"],
+    optionalAccessories: ["key-tray", "charging-dock"],
     does: ["put down", "hide", "charge"],
   },
   {
@@ -289,7 +289,8 @@ export const products: Product[] = [
       "Three storage bays form a longer piece for a living room, hallway or workspace. Explore open compartments or doors across the front.",
     source: "1.10",
     door: true,
-    does: ["put down", "hide", "display"],
+    optionalAccessories: ["charging-dock", "key-tray"],
+    does: ["put down", "hide", "display", "charge"],
   },
   {
     ...base,
@@ -338,7 +339,7 @@ export const products: Product[] = [
       "A desk surface, independent supports and an upright organising body form one workspace. Unlike a desk-side organiser, this design includes the desk.",
     source: "2.11",
     defaultAccessories: ["headphone-hook"],
-    optionalAccessories: ["key-tray"],
+    optionalAccessories: ["key-tray", "charging-dock"],
     does: ["work", "hang", "charge"],
   },
   {
@@ -495,6 +496,11 @@ export const ACCESSORIES: Record<
   "clothes-rail": {
     name: "Clothes rail assembly",
     description: "A hanging rail and its supports.",
+  },
+  "charging-dock": {
+    name: "Charging dock",
+    description:
+      "A slotted block on the top for two tablets and a phone, its cables run down through the back to one plug.",
   },
 };
 
