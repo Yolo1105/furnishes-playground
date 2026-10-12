@@ -52,6 +52,9 @@ const BAKE_MS = 6;
 const BOUNCES = 1;
 /** a change waits this long before the probes are baked again, ms */
 const SETTLE_MS = 400;
+/** a bake held back (shaders building, the camera moving) looks again
+    after this, ms */
+const RETRY_MS = 250;
 
 /** the renderer told how the grid lights a material, once, before any
     material is built with the grid in the scene */
@@ -158,7 +161,15 @@ export function Probes({
   const job = useRef<{ at: number; pass: number } | null>(null);
   const due = useRef(0);
   const wake = useRef(0);
-  useEffect(() => () => window.clearTimeout(wake.current), []);
+  // the wake let go with the component: a stale one would keep wakeAt
+  // from setting the next (a fast refresh keeps the refs)
+  useEffect(
+    () => () => {
+      window.clearTimeout(wake.current);
+      wake.current = 0;
+    },
+    [],
+  );
   const seen = useRef<Texture | null>(null);
   // a new grid is baked from its first frame on, before anything is
   // drawn with it in the room: a material built while the grid has no
@@ -195,8 +206,12 @@ export function Probes({
   }, [grid, key, stamp, get, invalidate, onState]);
   useFrame((state) => {
     // the room's shaders being built hold the renderer's outputs: the
-    // bake goes on once they are (the post chain asks for the frame)
-    if (warming()) return;
+    // bake goes on once they are; it looks again shortly, so it never
+    // waits on a frame nothing asks for
+    if (warming()) {
+      wakeAt(wake, performance.now() + RETRY_MS, state.invalidate);
+      return;
+    }
     // the surroundings arrive on their own time: a new map starts over
     if (state.scene.environment !== seen.current) {
       seen.current = state.scene.environment;
@@ -212,7 +227,11 @@ export function Probes({
     }
     const j = job.current;
     // a moving camera is drawn first: the bake goes on once it stands
-    if (!j || cameraMoving()) return;
+    if (!j) return;
+    if (cameraMoving()) {
+      wakeAt(wake, performance.now() + RETRY_MS, state.invalidate);
+      return;
+    }
     const total = grid.resolution.x * grid.resolution.y * grid.resolution.z;
     const t0 = performance.now();
     do {

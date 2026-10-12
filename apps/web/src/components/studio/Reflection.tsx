@@ -132,7 +132,15 @@ export function FloorReflection({
   const camera = useMemo(() => new CubeCamera(NEAR, FAR, target), [target]);
   const due = useRef(0);
   const wake = useRef(0);
-  useEffect(() => () => window.clearTimeout(wake.current), []);
+  // the wake let go with the component: a stale one would keep wakeAt
+  // from setting the next (a fast refresh keeps the refs)
+  useEffect(
+    () => () => {
+      window.clearTimeout(wake.current);
+      wake.current = 0;
+    },
+    [],
+  );
   const seen = useRef<Texture | null>(null);
   useEffect(() => {
     due.current = performance.now() + SETTLE_MS;
