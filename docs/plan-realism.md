@@ -1192,3 +1192,92 @@ Verified here: an adapter that never answers (an e2e test stubs
 `navigator.gpu`) gets its room drawn on WebGL with
 `data-gpu-fallback="adapter"`. Not verifiable here: a real device that
 hangs or is lost; the paths are the same code with another trigger.
+
+## Read as a photo at a glance (2026-10-12)
+
+Up close the studio was detailed; at a glance it read as CG, because
+the eye judges a photo first by how the light falls across the room,
+then by its exposure and camera, and only then by detail. An outside
+review changed a handful of constants and rendered the corner view
+(software GPU, Full, `?probes=fast`); five causes, and what was done
+about each:
+
+1. **Light came from every direction at once**: a hemisphere fill at
+   2.4, a light from straight above at 45 % of it shining down through
+   the ceiling, the outdoor HDRI lighting the walls at 0.35–0.4, a
+   glowing ceiling at 0.5, and the probes. The window's sun (7) was the
+   only direction left in it, washed out: flat, milky, no fall-off from
+   the window, the ceiling the brightest surface. Now the window
+   carries the room, the probes carry the bounce and the fills are a
+   whisper:
+
+   | Where                        | Was              | Now                     |
+   | ---------------------------- | ---------------- | ----------------------- |
+   | sun, day                     | 7                | 11                      |
+   | hemisphere fill, day         | 2.4              | 0.6                     |
+   | the sky's light from above   | 45 % of the fill | removed (the light too) |
+   | floor bounce colour          | `#a39483`        | `#d6cabb`               |
+   | ceiling glow                 | 0.5              | 0.12                    |
+   | surroundings, panels day/eve | 0.35 / 0.2       | 0.12 / 0.05             |
+   | surroundings, maps day/eve   | 0.4 / 0.25       | 0.15 / 0.05             |
+   | probe pictures, desktop      | 8 px             | 16 px (the sun's patch) |
+
+   The probes' bounce pass already ran on every hardware backend (the
+   software renderer alone skips it); their bake renders the sun and
+   its shadow, so the sunlit floor patch is in their pictures, and at
+   16 px a side on the desktop tier it covers enough of them not to
+   flicker in and out. `?noskyshadow` went with the light.
+
+2. **The exposure made up for the fills, not for the window.** It is
+   now kept per light: day 2.5 (the walls white, the windows let go),
+   evening 1.3; the slider moves the light on show's. `EXPOSURE.max`
+   is 3. A saved single number is dropped once on the next visit (its
+   type no longer matches the default's), so everyone sees the new
+   exposures.
+3. **The camera** stood at 1.4 m looking down to 1.0 m, verticals
+   leaning, the ceiling a third of the frame. The opening keeps its
+   view down onto the living room (asked for earlier this session);
+   the room as a photograph takes it is a view of its own, **Corner**,
+   beside Walk on the cube: level at 1.15 m, 0.15 m into the corner,
+   the frame shifted 15 % down by `camera.setViewOffset` (a shift
+   lens) rather than tilted, on the window's side when that corner's
+   foreground is clear (no piece within 1.2 m in the frame, a rug
+   aside), else the next clear corner, else the clearest
+   (camera-bookmarks.ts, `shotCorner`). The walk starts level.
+4. **The sofa fabric looked camouflaged**: the cloth set's normal map
+   carried large tilted patches. The pack meant to fix it was not
+   attached here; the same fix was made from the set in the repo
+   (each map less a 12 px wrapped Gaussian blur of itself, plus its
+   mean), keeping the fine weave (materials/LICENSES.md).
+5. **Glossy things reflected the outdoor sky**, so the television read
+   as a black hole. A television's glass, a lacquered or satin front
+   (a coat, or roughness under 0.5) and a window pane now reflect the
+   floor's box-projected picture of the room (Reflection.tsx), one
+   node shared by all, one material per look (finish.tsx); asked for
+   the light it gathers from all round, the node gives none, as the
+   probes carry the bounce already. The surroundings stay where the
+   room has no picture. The television is a satin-metal body round a
+   black glass screen.
+
+**The evening** read as daytime at the new exposure: its lamps glowed
+and lit nothing. The floor and table lamps' bulbs (2700 K, `#ffb877`,
+14 cd and 4 cd, decay 2) light only in the evening, the floor lamp's
+with a shadow on the desktop tier; a spot under the ceiling light
+(20 cd, wide and soft) lights the room being worked on. Every one is
+there by day at nothing, so the light count, and every shader, stays
+as it is. The evening sun is down to 1.5 and the sky's fill to 0.15.
+The photo copy keeps the lit lamps.
+
+**Finishing cues**: a faint bloom on the desktop tier of what stands
+past twice white after the exposure (at once white, the walls hazed
+over at 2.5); a 6.5 % lens fall-off at the room's corners; each room's
+floor starts from its own place in the tile, with a slow, faint
+unevenness across it (±7 %), and parquet is a satin lacquer (0.42).
+The occlusion was left at its radius and scale: the contact lines
+under the sofa and the legs still read at the new exposure.
+
+Not verified here (software renderer, no bounce pass): how bright the
+ceiling and the far side come out with the probes' bounce on, whether
+the walls clip at 2.5 on a real GPU (lower the day exposure a little
+if they do), the reflections and the lamps' shadow on WebGPU, and
+`?bench=walk`'s opening numbers with the glossy node materials.
