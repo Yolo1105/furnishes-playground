@@ -38,6 +38,7 @@ import { CATEGORY_NAMES, type AssetNode } from "./assets-data";
 import { Furniture3D } from "./Furniture3D";
 import { ArrowLeftIcon, LockIcon, RotateIcon } from "./icons";
 import { TURN_HINT, useGuide } from "./guide-store";
+import { ShadowsOnChange } from "./ShadowsOnChange";
 import { usePieceActions } from "./piece-actions";
 import { PieceActions } from "./PieceActions";
 import {
@@ -2105,6 +2106,7 @@ export default function Scene3D() {
         <Backend />
         {!backend && <HoldFrames />}
         <BenchFrames />
+        {shadows && <ShadowsOnChange />}
         <FirstFrame onDrawn={() => setDrawn(true)} />
         <LiveHandle
           w={w}
