@@ -1869,6 +1869,7 @@ export default function Scene3D() {
   // how many listed sets are still on their way (-1 before the index
   // is read): a picture taken before they land would be taken again
   const photo = useStudio((s) => s.photo);
+  const materialsTotal = useMaterials((s) => s.listed?.length ?? 0);
   const materialsPending = useMaterials((s) =>
     s.listed === null ? -1 : s.listed.length - Object.keys(s.loaded).length,
   );
@@ -2117,6 +2118,9 @@ export default function Scene3D() {
   // of tier builds them again
   const [shaders, setShaders] = useState<ShaderState>("building");
   const [warmed, setWarmed] = useState(false);
+  // the room's first picture is on the stage: drawn, on a known backend,
+  // its shaders built
+  const shown = drawn && backend !== null && (post === null || warmed);
   const onShaders = useEvent((s: ShaderState) => {
     setShaders(s);
     if (s === "ready") setWarmed(true);
@@ -2198,7 +2202,7 @@ export default function Scene3D() {
       data-photo-size={photo ? `${photo.width}x${photo.height}` : ""}
       data-exposure={scene.exposure}
       data-backend={backend}
-      data-drawn={drawn && backend !== null && (post === null || warmed)}
+      data-drawn={shown}
       data-shaders={post === null ? "ready" : shaders}
       // the picture shown is not the room's while its shaders are being
       // built: the last frame stands until they are
@@ -2386,6 +2390,25 @@ export default function Scene3D() {
         />
       </Canvas>
       <div ref={portal} className="stage-3d-overlay" />
+      {/* until the room's first picture: what is being got ready, so the
+          stage is never a blank pane */}
+      {!shown && (
+        <div className="stage-preparing" role="status">
+          <span className="stage-preparing-title">
+            Setting up the room in 3D
+          </span>
+          <span className="stage-preparing-step">
+            {backend === null || materialsPending !== 0
+              ? materialsPending > 0
+                ? `Loading the materials · ${materialsTotal - materialsPending} of ${materialsTotal}`
+                : "Starting the 3D view"
+              : probes && probeState !== "ready"
+                ? "Preparing the light"
+                : "Building the look"}
+          </span>
+          <span className="stage-preparing-bar" aria-hidden="true" />
+        </div>
+      )}
       {a.focus && (
         <>
           <button

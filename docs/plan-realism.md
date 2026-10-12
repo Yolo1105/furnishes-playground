@@ -1100,3 +1100,15 @@ moved were the cut's lines fighting the faces they lie on for depth:
 the cornice's top stood flush with the wall's cut, and the cut faces
 with their own lines. The cornice stands 3 mm lower and the wall's
 faces a hair behind their lines (polygon offset), so the lines win.
+
+## The first picture sooner, and the stage says what it is doing (2026-10-12)
+
+On a real GPU the first picture could wait twice before anything
+showed: up to 6 s on the light probes' first bake, then up to 15 s while
+every material's shaders were built ahead, behind an empty stage. The
+probe wait is now 1.5 s (past it the room is drawn without them and
+built again when they come) and the open budget 6 s (past it the rest
+are built as they are drawn, a frame or two slower, never blank). Until
+the first picture the stage shows what it is getting ready: starting
+the 3D view, loading the materials (n of m), preparing the light,
+building the look.

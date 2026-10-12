@@ -6,7 +6,17 @@ import { Plan2D } from "./Plan2D";
 import { other, useStudio, viewName, type View } from "./studio-store";
 
 /* the 3D scene needs the browser's WebGL: it is never rendered on the server */
-const Scene3D = dynamic(() => import("./Scene3D"), { ssr: false });
+const Scene3D = dynamic(() => import("./Scene3D"), {
+  ssr: false,
+  // the stage says it is on its way while the 3D view's code arrives
+  loading: () => (
+    <div className="stage-preparing" role="status">
+      <span className="stage-preparing-title">Setting up the room in 3D</span>
+      <span className="stage-preparing-step">Starting the 3D view</span>
+      <span className="stage-preparing-bar" aria-hidden="true" />
+    </div>
+  ),
+});
 
 /**
  * The small view in the right rail: whichever of 3D and 2D the main

@@ -61,11 +61,11 @@ export type Tier = "desktop" | "laptop" | "phone";
 /** how long the shaders built ahead may hold the picture, ms: the room's
     first picture, behind the loading line, and a change to a room on
     show; past it the rest are built as they are drawn */
-const OPEN_BUDGET_MS = 15_000;
+const OPEN_BUDGET_MS = 6_000;
 /** how long the first picture waits on the probes' first bake, ms; past
     it the room is drawn without them, and built again when they come
     (the lighting key notes the grid's picture) */
-const PROBE_WAIT_MS = 6_000;
+const PROBE_WAIT_MS = 1_500;
 const CHANGE_BUDGET_MS = 3_000;
 /** the scene's shaders: being built ahead of the first frame, or ready */
 export type ShaderState = "building" | "ready";

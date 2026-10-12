@@ -2896,3 +2896,62 @@ label.add-tile:focus-within .add-tile-pic {
   bottom: 10px;
   transform: none;
 }
+/* the stage before the room's first picture: what is being got ready */
+.stage-preparing {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  translate: -50% -50%;
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  padding: 16px 22px 18px;
+  border-radius: var(--r-card, 14px);
+  background: rgb(from var(--color-glass) r g b / 0.92);
+  border: 1px solid rgb(from var(--color-line) r g b / 0.18);
+  box-shadow: 0 10px 30px -14px rgb(from var(--color-shadow) r g b / 0.4);
+  pointer-events: none;
+  text-align: center;
+}
+.stage-preparing-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+.stage-preparing-step {
+  font-size: 12px;
+  color: rgb(from var(--color-ink) r g b / 0.6);
+}
+.stage-preparing-bar {
+  position: relative;
+  width: 160px;
+  height: 3px;
+  margin-top: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgb(from var(--color-accent) r g b / 0.15);
+}
+.stage-preparing-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  border-radius: inherit;
+  background: var(--color-accent);
+  animation: preparing 1.2s var(--ease) infinite;
+}
+@keyframes preparing {
+  from {
+    translate: -100% 0;
+  }
+  to {
+    translate: 250% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage-preparing-bar::after {
+    animation: none;
+    width: 100%;
+    opacity: 0.4;
+  }
+}
