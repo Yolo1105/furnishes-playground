@@ -14,7 +14,11 @@ import {
   vec2,
   vec3,
 } from "three/tsl";
-import { MeshBasicNodeMaterial } from "three/webgpu";
+import {
+  MeshBasicNodeMaterial,
+  MeshPhysicalNodeMaterial,
+  type Node,
+} from "three/webgpu";
 import {
   type ThreeEvent,
   useFrame,
@@ -63,7 +67,11 @@ import { openingCentre } from "./room-health";
 import type { Point } from "./room-templates";
 import { type Sky, useStudio } from "./studio-store";
 import type { StillState } from "./capture";
-import { FloorReflection, useFloorMaterial } from "./Reflection";
+import {
+  FloorReflection,
+  useFloorMaterial,
+  useRoomReflection,
+} from "./Reflection";
 import { FLOOR_MATERIAL, repeated, tintOver, useMaterial } from "./materials";
 
 /**
@@ -294,6 +302,26 @@ function Outside({
 const GLASS_OPACITY = 0.18;
 /** the glass's own cast, the faint green of float glass */
 const GLASS_HEX = "#eaf1ee";
+/** the panes' glass reflecting the room, where the room has its
+    picture (Reflection.tsx): one material for every pane */
+let glass: { of: Node; m: MeshPhysicalNodeMaterial } | null = null;
+const glassOf = (room: Node) => {
+  if (glass?.of !== room) {
+    glass?.m.dispose();
+    const m = new MeshPhysicalNodeMaterial({
+      color: GLASS_HEX,
+      transparent: true,
+      opacity: GLASS_OPACITY,
+      roughness: 0.03,
+      metalness: 0,
+      depthWrite: false,
+      side: DoubleSide,
+    });
+    m.envNode = room;
+    glass = { of: room, m };
+  }
+  return glass.m;
+};
 
 const ROUGHNESS: Record<Floor, number> = {
   Vinyl: 0.7,
@@ -1062,6 +1090,7 @@ function Curtains({
 }
 
 function Window({ r, o }: { r: RoomShape; o: Opening }) {
+  const room = useRoomReflection((s) => s.node);
   const other = useShared(r, o);
   const width = toMetres(o.width);
   const sill = toMetres(o.sill ?? OPENINGS.window.sill);
@@ -1122,15 +1151,23 @@ function Window({ r, o }: { r: RoomShape; o: Opening }) {
         {/* the glass, set in the sash */}
         <mesh position={[0, mid, zf]}>
           <planeGeometry args={[gw, gh]} />
-          <meshPhysicalMaterial
-            color={GLASS_HEX}
-            transparent
-            opacity={GLASS_OPACITY}
-            roughness={0.03}
-            metalness={0}
-            depthWrite={false}
-            side={DoubleSide}
-          />
+          {room ? (
+            <primitive
+              object={glassOf(room)}
+              attach="material"
+              dispose={null}
+            />
+          ) : (
+            <meshPhysicalMaterial
+              color={GLASS_HEX}
+              transparent
+              opacity={GLASS_OPACITY}
+              roughness={0.03}
+              metalness={0}
+              depthWrite={false}
+              side={DoubleSide}
+            />
+          )}
         </mesh>
         {/* the architrave round the opening on the inside */}
         {[-1, 1].map((s) => (

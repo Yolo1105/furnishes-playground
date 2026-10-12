@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { type Texture, Vector2, type Vector3Tuple } from "three";
+import { Color, type Texture, Vector2, type Vector3Tuple } from "three";
+import { MeshPhysicalNodeMaterial, type Node } from "three/webgpu";
 import { plausible, toned, toneOf } from "./albedo";
 import { type MaterialName, repeated, useMaterial } from "./materials";
+import { useRoomReflection } from "./Reflection";
 import {
   batchesOf,
   JOINT_OPACITY,
@@ -139,6 +141,68 @@ const useStipple = (on: boolean): Stipple | null => {
   return s;
 };
 
+/** a finish that shows what stands round it: a clear coat, or smooth
+    enough to (a lacquer, a satin wood, a screen's glass) */
+export const glossy = (f: Finish) =>
+  !f.metal && !f.mirror && ((f.coat ?? 0) > 0 || f.rough < 0.5);
+
+type MatProps = {
+  colour: string;
+  f: Finish;
+  maps: Partial<Record<"map" | "normalMap" | "roughnessMap", Texture | null>>;
+  normalScale: Vector2;
+  banded: boolean;
+};
+/** the glossy finishes' materials, one for each look (the finish, the
+    colour, the maps), shared by every part that has it, each with the
+    room's reflection; made again when the room's picture is */
+const glossies = new Map<string, MeshPhysicalNodeMaterial>();
+let glossiesOf: Node | null = null;
+const GLOSSIES_KEPT = 400;
+const glossyMaterial = (env: Node, p: MatProps) => {
+  if (glossiesOf !== env) {
+    for (const m of glossies.values()) m.dispose();
+    glossies.clear();
+    glossiesOf = env;
+  }
+  const key = [
+    p.colour,
+    p.f.rough,
+    p.f.sheen ?? "",
+    p.f.coat ?? "",
+    p.banded,
+    p.maps.map?.uuid ?? "",
+    p.maps.normalMap?.uuid ?? "",
+    p.maps.roughnessMap?.uuid ?? "",
+    p.normalScale.x,
+  ].join("|");
+  const had = glossies.get(key);
+  if (had) return had;
+  const m = new MeshPhysicalNodeMaterial({
+    color: new Color(p.colour),
+    roughness: p.f.rough,
+    metalness: 0,
+    map: p.maps.map ?? null,
+    normalMap: p.maps.normalMap ?? null,
+    normalScale: p.normalScale,
+    roughnessMap: p.maps.roughnessMap ?? null,
+    vertexColors: p.banded,
+    polygonOffset: true,
+    polygonOffsetFactor: 1,
+    polygonOffsetUnits: 1,
+    sheen: p.f.sheen ?? 0,
+    sheenColor: new Color(shade(p.colour, 0.1)),
+    sheenRoughness: 0.8,
+    clearcoat: p.f.coat ?? 0,
+    clearcoatRoughness: 0.3,
+  });
+  m.envNode = env;
+  if (glossies.size >= GLOSSIES_KEPT)
+    glossies.delete(glossies.keys().next().value!);
+  glossies.set(key, m);
+  return m;
+};
+
 export function Mat({
   f,
   colour,
@@ -157,6 +221,8 @@ export function Mat({
   const c = plausible(colour ?? f.colour);
   const maps = useGrainMaps(f.grain);
   const stipple = useStipple(!f.grain && !f.metal && !f.mirror);
+  // a glossy finish reflects the room, where the room has its picture
+  const room = useRoomReflection((s) => s.node);
   const grained = {
     // the faces stand a hair behind their own joint lines: a line on
     // its face fought it for depth and flickered in and out as the
@@ -170,6 +236,24 @@ export function Mat({
     roughnessMap: maps?.roughnessMap ?? stipple?.roughnessMap ?? null,
     vertexColors: banded,
   };
+  if (room && glossy(f))
+    return (
+      <primitive
+        object={glossyMaterial(room, {
+          colour: c,
+          f,
+          maps: {
+            map: grained.map,
+            normalMap: grained.normalMap,
+            roughnessMap: grained.roughnessMap,
+          },
+          normalScale: grained.normalScale,
+          banded,
+        })}
+        attach="material"
+        dispose={null}
+      />
+    );
   if (f.sheen !== undefined || f.coat !== undefined)
     return (
       <meshPhysicalMaterial

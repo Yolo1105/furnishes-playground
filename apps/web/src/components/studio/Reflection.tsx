@@ -16,13 +16,19 @@ import {
   getParallaxCorrectNormal,
   pmremTexture,
   reflectVector,
+  uniform,
   vec3,
 } from "three/tsl";
 import {
   CubeRenderTarget,
   MeshStandardNodeMaterial,
+  type Node,
+  type NodeBuilder,
+  TempNode,
   type WebGPURenderer,
 } from "three/webgpu";
+import { Vector3 } from "three";
+import { create } from "zustand";
 import { type StillState, stillOf, wakeAt } from "./capture";
 import { warming } from "./shader-warm";
 
@@ -51,6 +57,47 @@ export const floorCube: { current: CubeRenderTarget | null } = {
   current: null,
 };
 
+/** the room's box the glossy things' reflection is projected on, m:
+    its size and its middle, uniforms so a new size moves no shader */
+const ROOM_BOX = uniform(new Vector3(1, 1, 1));
+const ROOM_MID = uniform(new Vector3(0, 0.5, 0));
+
+/**
+ * The room in a glossy thing (a television's glass, a lacquered front,
+ * a pane): the floor's picture of the room, box-projected as the floor
+ * takes it, so a window lands where it stands. Reflection only: asked
+ * for the light a surface gathers from all round (its irradiance, which
+ * the environment asks for at the roughest level), it gives none, as
+ * the probes already carry the room's bounce and would be counted
+ * twice. One node, shared by every glossy material, so they share
+ * their shaders too.
+ */
+class RoomReflectionNode extends TempNode {
+  constructor(private readonly picture: CubeRenderTarget["texture"]) {
+    super("vec3");
+  }
+  override setup(builder: NodeBuilder): Node {
+    const context = builder.context as {
+      getUV?: (node: Node, builder: NodeBuilder) => Node;
+      getTextureLevel?: (node: Node) => Node;
+    };
+    const level = context.getTextureLevel?.(this) as
+      (Node & { isConstNode?: boolean; value?: number }) | undefined;
+    if (level?.isConstNode && level.value === 1) return vec3(0, 0, 0);
+    const direction = context.getUV?.(this, builder) ?? reflectVector;
+    const uv = getParallaxCorrectNormal(direction, ROOM_BOX, ROOM_MID);
+    return level
+      ? pmremTexture(this.picture, uv, level)
+      : pmremTexture(this.picture, uv);
+  }
+}
+
+/** the room's reflection while the room has its picture (the tiers that
+    take one), else none: glossy things then reflect the surroundings */
+export const useRoomReflection = create<{ node: Node | null }>(() => ({
+  node: null,
+}));
+
 export const useFloorMaterial = (
   w: number,
   h: number,
@@ -70,11 +117,19 @@ export const useFloorMaterial = (
   }, [reflects]);
   useEffect(() => {
     floorCube.current = target;
+    const node = target ? new RoomReflectionNode(target.texture) : null;
+    useRoomReflection.setState({ node });
     return () => {
       if (floorCube.current === target) floorCube.current = null;
+      if (useRoomReflection.getState().node === node)
+        useRoomReflection.setState({ node: null });
       target?.dispose();
     };
   }, [target]);
+  useEffect(() => {
+    ROOM_BOX.value.set(w, h, d);
+    ROOM_MID.value.set(0, h / 2, 0);
+  }, [w, h, d]);
   const material = useMemo(() => {
     const m = new MeshStandardNodeMaterial();
     if (target) {

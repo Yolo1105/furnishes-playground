@@ -262,6 +262,12 @@ const classicOf = (m: Material, own: Owned): Classic => {
     metalness?: number;
     emissive?: Color;
     emissiveIntensity?: number;
+    isMeshPhysicalNodeMaterial?: boolean;
+    clearcoat?: number;
+    clearcoatRoughness?: number;
+    sheen?: number;
+    sheenColor?: Color;
+    sheenRoughness?: number;
   };
   if (!any.isNodeMaterial) {
     if (any.isMeshPhysicalMaterial)
@@ -285,6 +291,20 @@ const classicOf = (m: Material, own: Owned): Classic => {
   });
   if (any.normalScale)
     out.normalScale.set(any.normalScale.x, any.normalScale.y);
+  // a glossy finish's node material (finish.tsx) keeps its coat and its
+  // sheen; the room's reflection it carried is the tracer's own work
+  if (any.isMeshPhysicalNodeMaterial) {
+    const phys = new MeshPhysicalMaterial();
+    // the standard half copied as a standard material copies itself
+    MeshStandardMaterial.prototype.copy.call(phys, out);
+    phys.clearcoat = any.clearcoat ?? 0;
+    phys.clearcoatRoughness = any.clearcoatRoughness ?? 0;
+    phys.sheen = any.sheen ?? 0;
+    if (any.sheenColor) phys.sheenColor.copy(any.sheenColor);
+    phys.sheenRoughness = any.sheenRoughness ?? 1;
+    out.dispose();
+    return withEmbeddableMaps(phys, own);
+  }
   return withEmbeddableMaps(out, own);
 };
 

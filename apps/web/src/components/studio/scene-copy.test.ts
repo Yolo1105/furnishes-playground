@@ -165,4 +165,29 @@ describe("the copy for export", () => {
     const m = outside.material as MeshStandardMaterial;
     expect(m.emissiveIntensity).toBeGreaterThan(1);
   });
+  it("keeps a glossy node material's coat and sheen as a Physical one", () => {
+    const scene = room();
+    const glossy = new MeshPhysicalMaterial({
+      color: "#7a5236",
+      roughness: 0.45,
+      clearcoat: 0.25,
+      sheen: 0.4,
+    });
+    const flags = glossy as Material & {
+      isNodeMaterial?: boolean;
+      isMeshPhysicalNodeMaterial?: boolean;
+    };
+    flags.isNodeMaterial = true;
+    flags.isMeshPhysicalNodeMaterial = true;
+    const piece = scene.children.find((c) => c.userData.export === "piece")!;
+    const panel = piece.children[0]!.children[0] as Mesh;
+    panel.material = glossy;
+    const { root } = copyForExport(scene, { purpose: "trace" });
+    const m = (root.getObjectByName("Bookwall") as Mesh)
+      .material as MeshPhysicalMaterial;
+    expect(m.isMeshPhysicalMaterial).toBe(true);
+    expect(m.clearcoat).toBe(0.25);
+    expect(m.sheen).toBe(0.4);
+    expect(m.roughness).toBe(0.45);
+  });
 });

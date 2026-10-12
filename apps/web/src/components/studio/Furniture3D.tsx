@@ -1685,6 +1685,12 @@ function BunkBed({
 
 /** a low media console: a carcass of two doors on a plinth, and the
     television standing on it, set back on its foot */
+/** the television: its body's satin metal, its screen's black glass,
+    and the rim of body round the screen, m */
+const TV_BEZEL = "#3a3b3f";
+const TV_GLASS = "#0d0e10";
+const TV_RIM = 0.009;
+
 function MediaConsole({
   w,
   h,
@@ -1718,10 +1724,18 @@ function MediaConsole({
   return (
     <group>
       <Built parts={parts} />
+      {/* the set: a satin-metal body round the glass, so the set reads
+          as an object and the screen as glass (which reflects the room,
+          finish.tsx) */}
       <Slab
-        f={{ colour: "#121315", rough: 0.12, coat: 0.7 }}
+        f={metal(TV_BEZEL, 0.38)}
         at={[0, h + 0.08 + tvH / 2, -d * 0.12]}
         dims={[tvW, tvH, 0.03]}
+      />
+      <Slab
+        f={{ colour: TV_GLASS, rough: 0.05, coat: 1 }}
+        at={[0, h + 0.08 + tvH / 2, -d * 0.12 + 0.0155]}
+        dims={[tvW - 2 * TV_RIM, tvH - 2 * TV_RIM, 0.002]}
       />
     </group>
   );
