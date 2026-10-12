@@ -128,7 +128,13 @@ const fixed = (id: string, name: string): AssetNode => ({
 type Place = Partial<
   Pick<
     PieceProps,
-    "roomId" | "rotation" | "width" | "depth" | "height" | "accessories"
+    | "roomId"
+    | "rotation"
+    | "width"
+    | "depth"
+    | "height"
+    | "accessories"
+    | "colour"
   >
 > & { x: number; y: number };
 
@@ -368,7 +374,15 @@ type Entry = [AssetNode, Place];
 const placesOf = (
   entries: readonly Entry[],
 ): Record<string, Partial<PieceProps>> =>
-  Object.fromEntries(entries.map(([n, place]) => [n.id, place]));
+  Object.fromEntries(
+    entries.flatMap(([n, place]) => [
+      [n.id, place],
+      // a piece's parts take its finish
+      ...(place.colour
+        ? (n.children ?? []).map((c) => [c.id, { colour: place.colour }])
+        : []),
+    ]),
+  );
 
 /** the things by category, in the categories' order, the architecture
     last */
@@ -394,27 +408,46 @@ export const showcasePlaces = placesOf(SHOWCASE);
 export const assetGroups: AssetGroup[] = groupsOf(SHOWCASE);
 
 /** an arrangement's change to the flat: things taken out by id, things
-    added; and the rooms' paint and floors, by room id */
+    added, things moved (by id, what of their place changes); the finish
+    every Furnishes piece takes (a colour's id), and a room item's own
+    tone (by id, a hex: the sofa's linen, the rug's wool); and the
+    rooms' paint and floors, by room id */
 type Variant = {
   out: readonly string[];
   add: readonly Entry[];
+  move?: Record<string, Partial<Place>>;
+  paint?: string;
+  tones?: Record<string, string>;
   rooms?: Record<string, { wallTone?: string; floor?: string }>;
 };
-const varied = (v: Variant): Entry[] => [
-  ...SHOWCASE.filter(([n]) => !v.out.includes(n.id)),
-  ...v.add,
-];
+const varied = (v: Variant): Entry[] =>
+  [...SHOWCASE.filter(([n]) => !v.out.includes(n.id)), ...v.add].map(
+    ([n, place]): Entry => [
+      n,
+      {
+        ...place,
+        ...v.move?.[n.id],
+        ...(n.kind === "piece" && v.paint ? { colour: v.paint } : {}),
+        ...(v.tones?.[n.id] ? { colour: v.tones[n.id] } : {}),
+      },
+    ],
+  );
 
 /**
  * The flat's arrangements, after the family apartment planner's three:
- * each opens as a project of its own. Balanced is the flat as above.
+ * each opens as a project of its own, and each reads apart at a glance
+ * by its pieces, its layout and its palette, not its floor alone.
+ * Balanced is the flat as above: oak pieces, a linen sofa, warm walls.
  * Study-focused gives the children more to learn at: a learning library
- * beside the homework desk, a study desk for the two sharing a room in
- * place of their rug, soft white walls. Leisure gives them more to play
- * in: a leisure bench and a reading chair under the living room's
- * window in place of the homework desk, a low play table in the shared
- * room, a bean bag in place of the single room's desk, sand and sage
- * walls over parquet.
+ * beside the bookwall, an organiser workstation in the north-east corner
+ * where the armchair and the lamp were, a study desk for the two sharing
+ * a room in place of their rug; ash white pieces, a cool grey sofa on a
+ * slate rug, white walls. Leisure gives them more to play in: a leisure
+ * bench and a reading chair under the living room's window in place of
+ * the homework desk, a second armchair across the rug, a low play table
+ * in the shared room, a bean bag in place of the single room's desk;
+ * walnut pieces, a terracotta sofa on a rust rug, sand and sage walls
+ * over parquet.
  */
 const BEDROOMS = [R.master, R.bedroom2, R.bedroom3];
 export const ARRANGEMENTS: {
@@ -429,7 +462,7 @@ export const ARRANGEMENTS: {
     name: "Study-focused",
     ...(() => {
       const v: Variant = {
-        out: ["rug-2"],
+        out: ["rug-2", "armchair", "floor-lamp"],
         add: [
           [
             piece(
@@ -439,6 +472,16 @@ export const ARRANGEMENTS: {
               "Learning library",
             ),
             { x: 0, y: 2500, rotation: 270 },
+          ],
+          // a second place to work, in the north-east corner clear of both
+          // windows, the plant moved to the lamp's place
+          [
+            piece("workstation"),
+            { x: 4700, y: 0, rotation: 90, accessories: ["charging-dock"] },
+          ],
+          [
+            decor("desk-chair-7", "Desk chair 7", "seating"),
+            { x: 4100, y: 350, rotation: 270 },
           ],
           [
             decor("kids-desk", "Two-child study desk", "tables"),
@@ -453,6 +496,16 @@ export const ARRANGEMENTS: {
             { roomId: R.bedroom3, x: 1800, y: 650, rotation: 180 },
           ],
         ],
+        // ash white pieces, a cool grey sofa on a slate rug, crisp linen
+        move: { plant: { x: 2550, y: 1500 } },
+        paint: "ash",
+        tones: {
+          sofa: "#aeb3b1",
+          rug: "#5f666a",
+          bed: "#dfe4e8",
+          "bed-2": "#dfe4e8",
+          "bunk-bed": "#dfe4e8",
+        },
         rooms: Object.fromEntries(
           [R.living, ...BEDROOMS].map((id) => [id, { wallTone: "white" }]),
         ),
@@ -482,6 +535,8 @@ export const ARRANGEMENTS: {
             decor("reading-chair", "Reading armchair", "seating"),
             { x: 2100, y: 0 },
           ],
+          // a second armchair across the rug from the first
+          [decor("armchair-2", "Armchair 2", "seating"), { x: 3900, y: 1100 }],
           [
             decor("play-table", "Play table", "tables"),
             {
@@ -505,6 +560,19 @@ export const ARRANGEMENTS: {
             },
           ],
         ],
+        // walnut pieces, a terracotta sofa on a rust rug, oatmeal
+        // armchairs, warm linen
+        paint: "walnut",
+        tones: {
+          sofa: "#8c5c49",
+          rug: "#7a4a36",
+          armchair: "#d6c3a2",
+          "armchair-2": "#d6c3a2",
+          "reading-chair": "#d6c3a2",
+          bed: "#e8d6bf",
+          "bed-2": "#e8d6bf",
+          "bunk-bed": "#e8d6bf",
+        },
         rooms: {
           [R.living]: { wallTone: "sand", floor: "Parquet" },
           ...Object.fromEntries(

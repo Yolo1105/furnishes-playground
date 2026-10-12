@@ -1839,7 +1839,12 @@ function FlatRoom({
               turn={a.focus ? 0 : -(p.rotation * Math.PI) / 180}
               size={[toMetres(p.width), toMetres(p.height), toMetres(p.depth)]}
               colour={
-                n.kind === "piece" ? colourHex(p.colour) : roomItemHex(n.name)
+                n.kind === "piece"
+                  ? colourHex(p.colour)
+                  : // an arrangement's own tone for a room item, a hex
+                    p.colour?.startsWith("#")
+                    ? p.colour
+                    : roomItemHex(n.name)
               }
               parts={(n.children ?? []).map((c) =>
                 colourHex(propsOf(c, a.overrides).colour),

@@ -9,7 +9,7 @@ import { healthOf, type Room } from "./room-health";
 import { footprint, isRug, isSmall } from "./piece-detail";
 import { hdbOffset, PRIVATE_ROOMS, SHOWCASE_ROOMS } from "./room-data";
 import { footprintOf, openingsOf, roomOverlaps, useRoom } from "./room-store";
-import { inRoom, propsOf } from "./scene-store";
+import { inRoom, ownOverrides, propsOf } from "./scene-store";
 
 /**
  * The flat the studio opens on, an HDB 5-room flat read as the planner
@@ -338,5 +338,25 @@ describe("the flat the studio opens on", () => {
     );
     expect(doorways(s.joins)).toEqual(doorways(flat.joins));
     useRoom.setState(useRoom.getInitialState(), true);
+  });
+
+  it("reads each room's own things alike from the room's overrides alone", () => {
+    // a room's reading takes only its own overrides (a drag elsewhere
+    // reads nothing there): a thing in another room must not fall back
+    // to the first room
+    const groups = assetGroups;
+    const firstId = flat.rooms[0]!.id;
+    for (const r of flat.rooms) {
+      const own = ownOverrides(
+        { groups, overrides: showcasePlaces },
+        r.id,
+        firstId,
+      );
+      const here = (o: typeof showcasePlaces) =>
+        items
+          .filter((n) => inRoom(propsOf(n, o), r.id, firstId))
+          .map((n) => n.id);
+      expect(here(own), r.room).toEqual(here(showcasePlaces));
+    }
   });
 });

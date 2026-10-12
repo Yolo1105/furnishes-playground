@@ -236,8 +236,10 @@ const into = (groups: AssetGroup[], node: AssetNode): AssetGroup[] =>
         ...groups,
       ];
 
-/** What stands in the room right now: the outliner, the shelf and the
-    counts all read this one store, so they always agree. */
+/** what a room's reading takes a thing in another room to be */
+const ELSEWHERE: Partial<PieceProps> = Object.freeze({
+  roomId: "(another room)",
+});
 /** the properties of what stands in one room, and of its parts, out of
     every piece's: the pieces a room's reading reads */
 export const ownOverrides = (
@@ -249,7 +251,13 @@ export const ownOverrides = (
   for (const g of s.groups)
     for (const n of g.items) {
       const own = s.overrides[n.id];
-      if (n.kind === "fixed" || !inRoom(own ?? {}, roomId, firstId)) continue;
+      if (n.kind === "fixed") continue;
+      // a thing in another room is marked so, the same mark every time:
+      // left out, it would read as standing in the first room
+      if (!inRoom(own ?? {}, roomId, firstId)) {
+        out[n.id] = ELSEWHERE;
+        continue;
+      }
       if (own) out[n.id] = own;
       for (const c of n.children ?? []) {
         const part = s.overrides[c.id];
@@ -274,6 +282,8 @@ export const settledOverrides = (
   return (frozen ??= s.overrides);
 };
 
+/** What stands in the room right now: the outliner, the shelf and the
+    counts all read this one store, so they always agree. */
 export const useScene = create<SceneState>((set, get) => {
   const snap = (s: SceneState): Snapshot => ({
     groups: s.groups,

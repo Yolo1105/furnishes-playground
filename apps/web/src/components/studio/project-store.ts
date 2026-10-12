@@ -48,7 +48,7 @@ const SAVE_AFTER = 600; // ms after the last change
     bathrooms off a hall, the household shelter, the service yard); 5:
     the planner's three arrangements, a project each */
 const SHOWCASE_KEY = "furnishes.showcase";
-const SHOWCASE = { version: 5, name: "HDB 5-room" };
+const SHOWCASE = { version: 6, name: "HDB 5-room" };
 
 type RoomData = ReturnType<typeof useRoom.getState>;
 type SceneData = ReturnType<typeof useScene.getState>;
