@@ -107,15 +107,10 @@ const METAL_HEX = "#9a948b";
 const THRESHOLD_HEX = "#b9b2a7";
 /** a switch plate and a double socket, m, white as the joinery */
 const PLATE = { switch: 0.086, socket: 0.146, tall: 0.086, deep: 0.009 };
-/** the cut faces of a wall (its open top, a sectioned near wall's
-    top, its ends where a run stops): a neutral cap and a drawn line */
+/** the cut faces of a wall (its open top, its ends where a run stops):
+    a neutral cap and a drawn line */
 const CAP_HEX = "#d6cfc6";
 const CAP_LINE_HEX = "#3d3833";
-/** where a near wall is cut while the camera looks in over it, m */
-const SECTION = 1.1;
-/** the camera must look down at least this far, degrees, for a near
-    wall to stand sectioned; nearer the level it goes altogether */
-const SECTION_PITCH = 22;
 /** the layer the sun's shadow sees that the camera does not: a near
     wall taken out of the picture, and the ceiling that keeps the sun
     out of the open top */
@@ -150,7 +145,6 @@ const SKIRTING_NAME = { name: "Skirting" } as const;
 const CORNICE_NAME = { name: "Cornice" } as const;
 // (each a constant: fiber reads a fresh object as a changed prop and
 // asks for a frame, which would keep the picture from ever settling)
-const SECTION_NAME = { name: "Wall section" } as const;
 const SOCKET_NAME = { name: "Socket" } as const;
 const LEAF_NAME = { name: "Door leaf" } as const;
 const SWITCH_NAME = { name: "Switch" } as const;
@@ -697,40 +691,27 @@ function WallRun({
     [len, h, floorHex, both],
   );
   // the wall built solid, its openings cut through it, so a doorway is
-  // a way through and a window a hole for the glass; the inside is +z.
-  // Twice: at its height, and cut at waist height for when the camera
-  // looks in over it as a near wall
+  // a way through and a window a hole for the glass; the inside is +z
   const full = useMemo(
     () => wallGeometry(len, h, t, mitres, holes, shading, joints),
-    [len, h, t, mitres, holes, shading, joints],
-  );
-  const cut = useMemo(
-    () =>
-      h > SECTION + 0.2
-        ? wallGeometry(len, SECTION, t, mitres, holes, shading, joints)
-        : null,
     [len, h, t, mitres, holes, shading, joints],
   );
   useEffect(
     () => () => {
       full.geometry.dispose();
       full.lines.dispose();
-      cut?.geometry.dispose();
-      cut?.lines.dispose();
     },
-    [full, cut],
+    [full],
   );
-  // which stands: the full wall for the camera on its inner side (or a
-  // shared wall), else the full wall for the sun alone and the cut one
-  // for the camera while it looks down enough to see over it
+  // which stands: the whole wall for the camera on its inner side (or a
+  // shared wall); a near wall, between the camera and the room, goes
+  // whole from the picture (the sun still sees it, for its shadow): a
+  // wall stands at its height or not at all, never cut part way
   const fullRef = useRef<Group>(null);
-  const cutRef = useRef<Group>(null);
-  const state = useRef<"inside" | "cut" | "gone" | null>(null);
+  const state = useRef<"inside" | "gone" | null>(null);
   const at = useMemo(() => new Vector3(), []);
-  const dir = useMemo(() => new Vector3(), []);
   useFrame(({ camera }) => {
     const f = fullRef.current;
-    const c = cutRef.current;
     if (!f) return;
     f.getWorldPosition(at);
     // a shared wall is the near or far wall of whichever of its rooms is
@@ -739,19 +720,10 @@ function WallRun({
     const dot =
       side *
       ((camera.position.x - at.x) * nx + (camera.position.z - at.z) * nz);
-    camera.getWorldDirection(dir);
-    const pitch =
-      (-Math.asin(Math.max(-1, Math.min(1, dir.y))) * 180) / Math.PI;
-    const next =
-      side === 0 || dot > 0
-        ? "inside"
-        : c && pitch > SECTION_PITCH
-          ? "cut"
-          : "gone";
+    const next = side === 0 || dot > 0 ? "inside" : "gone";
     if (next === state.current) return;
     state.current = next;
     layerOf(f, next === "inside" ? 0 : SHADOW_LAYER);
-    if (c) c.visible = next === "cut";
   });
   const wallColour = plaster.photo ? tintOver(wallHex) : wallHex;
   const materials = (
@@ -833,29 +805,6 @@ function WallRun({
           </mesh>
         )}
       </group>
-      {cut && (
-        <group ref={cutRef} visible={false}>
-          <mesh
-            geometry={cut.geometry}
-            position={[-len / 2, 0, 0]}
-            receiveShadow
-            userData={SECTION_NAME}
-          >
-            {materials}
-          </mesh>
-          <lineSegments
-            geometry={cut.lines}
-            position={[-len / 2, 0, 0]}
-            userData={CUT_LINE_NAME}
-          >
-            <lineBasicMaterial color={CAP_LINE_HEX} />
-          </lineSegments>
-          <mesh position={[0, SKIRTING / 2, 0.008]} receiveShadow>
-            <boxGeometry args={[len, SKIRTING, 0.016]} />
-            <meshStandardMaterial color={FRAME_HEX} roughness={0.5} />
-          </mesh>
-        </group>
-      )}
     </group>
   );
 }

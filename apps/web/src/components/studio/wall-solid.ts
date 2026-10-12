@@ -195,10 +195,14 @@ export const wallTriangles = (
     if (ox0 === b.x0 && ox1 === b.x1)
       face(PLASTER, b.x0, b.x1, b.y0, b.y1, oz, false, shading?.outer === true);
     else quad(PLASTER, o0, o1, o2, o3);
-    quad(top ? CAP : REVEAL, i3, o3, o2, i2); // the top, or a head
+    // the top, or a head: its outline along the wall alone, so a corner
+    // where two walls are mitred carries no slanting line across it
+    quad(top ? CAP : REVEAL, i3, o3, o2, i2, false, [1, 3]);
     quad(b.y0 === 0 ? CAP : REVEAL, i0, i1, o1, o0); // the bottom, or a sill
-    quad(atStart ? CAP : REVEAL, i0, o0, o3, i3, false, [2]); // the start end
-    quad(atEnd ? CAP : REVEAL, i1, i2, o2, o1, false, [1]); // the far end
+    // an end draws its top edge where the wall stops, not where it meets
+    // another at a corner (a mitred end is the corner's own joint)
+    quad(atStart ? CAP : REVEAL, i0, o0, o3, i3, false, mitreA ? [] : [2]);
+    quad(atEnd ? CAP : REVEAL, i1, i2, o2, o1, false, mitreB ? [] : [1]);
   }
   const groups: { start: number; count: number; materialIndex: number }[] = [];
   let at = 0;
