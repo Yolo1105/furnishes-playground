@@ -84,7 +84,7 @@ import {
   TONE_MAPPING,
 } from "./Post";
 import { Probes } from "./Probes";
-import type { StillState } from "./capture";
+import { type StillState, wakeAt } from "./capture";
 import { loadMaterials, useMaterials } from "./materials";
 import { RoomLight, RoomShell, SHADOW_LAYER, windowSun } from "./Room3D";
 import { usePartStore } from "./part-client";
@@ -440,6 +440,40 @@ const GRID_HEX = "#b9a797";
 
 const FLOOR = new Plane(new Vector3(0, 1, 0), 0);
 const GLIDE = 0.6; // s, the camera's move between angles
+/** the opening: the whole flat from above at an isometric angle, held a
+    moment once the room is drawn, then the camera eases in to the room's
+    corner; once a page load, never under reduced motion or automation */
+const INTRO = { hold: 1.1, glide: 2.6, elevation: 36, distance: 1.25 };
+let introDone = false;
+const introWanted = () =>
+  !introDone &&
+  !reduced() &&
+  typeof navigator !== "undefined" &&
+  !navigator.webdriver;
+/** the isometric pose over the whole flat, from the side of the room's
+    corner, m */
+const overviewPose = (
+  w: number,
+  d: number,
+  centre: readonly [number, number],
+  corner: Corner,
+  aspect: number,
+) => {
+  const [sx, sz] = corner;
+  const at = new Vector3(centre[0], 0.4, centre[1]);
+  const span = Math.max(w, d) * Math.max(1, Math.sqrt(1.6 / aspect));
+  const dist =
+    (span * INTRO.distance) / Math.tan((FOV.overview * Math.PI) / 360) / 2;
+  const up = (INTRO.elevation * Math.PI) / 180;
+  // a little off the corner's diagonal, so the long walls read
+  const yaw = Math.atan2(sx * 0.62, sz * 1);
+  const pos = new Vector3(
+    at.x + dist * Math.cos(up) * Math.sin(yaw),
+    at.y + dist * Math.sin(up),
+    at.z + dist * Math.cos(up) * Math.cos(yaw),
+  );
+  return { pos, at };
+};
 /** the seconds since the last frame, by the wall clock: the frame
     loop's own clock stands still between frames drawn on demand, so a
     slow renderer would creep through a glide one sliver a frame */
@@ -508,6 +542,12 @@ const WALK: WalkState = {
 const reduced = () =>
   typeof window !== "undefined" &&
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/** whether the opening is under way, written on the stage */
+const intro = (stage: RefObject<HTMLDivElement | null>, on: boolean) => {
+  const el = stage.current;
+  if (el) el.dataset.intro = String(on);
+};
 
 /** the camera's place written on the stage, for the record and the tests */
 const report = (stage: RefObject<HTMLDivElement | null>, p: Vector3) => {
@@ -610,6 +650,11 @@ function Rig({
     fromFov: number;
     toFov: number;
     t: number;
+    /** the opening's: seconds to hold first, its own length, and whether
+        it waits for the room to be drawn */
+    hold?: number;
+    length?: number;
+    waits?: boolean;
   } | null>(null);
   const free = useStudio((s) => s.free);
   // the view moved by hand since the camera last glided to its angle:
@@ -642,6 +687,41 @@ function Rig({
       fov === FOV.overview ? Math.max(1, Math.sqrt(1.45 / aspect)) : 1;
     const toAt = new Vector3(...at);
     const to = new Vector3(...pos).sub(toAt).multiplyScalar(back).add(toAt);
+    // the opening under way keeps going: a size or room settling as the
+    // page loads moves only where it lands
+    const g = glide.current;
+    if (g?.waits) {
+      g.to = to;
+      g.toAt = toAt;
+      g.toFov = fov;
+      invalidate();
+      return;
+    }
+    if (angle === "Perspective" && introWanted()) {
+      // the opening: the camera stands over the whole flat first
+      introDone = true;
+      const o = overviewPose(w, d, centre, corner, aspect);
+      camera.position.copy(o.pos);
+      camera.lookAt(o.at);
+      setLens(camera, FOV.overview);
+      controls?.target.copy(o.at);
+      controls?.update();
+      glide.current = {
+        from: o.pos.clone(),
+        fromAt: o.at.clone(),
+        to,
+        toAt,
+        fromFov: FOV.overview,
+        toFov: fov,
+        t: 0,
+        hold: INTRO.hold,
+        length: INTRO.glide,
+        waits: true,
+      };
+      intro(stage, true);
+      invalidate();
+      return;
+    }
     glide.current = {
       from: camera.position.clone(),
       fromAt: controls?.target.clone() ?? new Vector3(0, h / 2, 0),
@@ -654,6 +734,7 @@ function Rig({
     invalidate();
   }, [
     angle,
+    stage,
     free,
     w,
     d,
@@ -748,6 +829,7 @@ function Rig({
       e.preventDefault();
       e.stopPropagation();
       if (!ready()) return;
+      if (glide.current?.waits) intro(stage, false);
       glide.current = null;
       const read = readWheel(e, wheelMode);
       if (read.kind === "zoom") dolly(read.factor);
@@ -771,6 +853,12 @@ function Rig({
     // move): kept over the flat, and counted as the view moved by hand
     const onStart = () => {
       moved.current = true;
+      // a hand on the view ends the opening where it stands
+      if (glide.current?.waits) {
+        glide.current = null;
+        intro(stage, false);
+        reportGliding(stage, false);
+      }
     };
     const onChange = () => keepIn();
     el.addEventListener("wheel", onWheel, { passive: false, capture: true });
@@ -789,22 +877,50 @@ function Rig({
     };
   }, [stage, camera, controls, invalidate, wheelMode, w, d, h, centre]);
   const last = useRef({ at: 0 });
+  const introWake = useRef(0);
+  useEffect(
+    () => () => {
+      window.clearTimeout(introWake.current);
+      introWake.current = 0;
+    },
+    [],
+  );
   useFrame(() => {
     // the clock runs while the scene rests: a frame after a pause steps
     // no further than a tenth of a second
     const dt = Math.min(stepOf(last.current), FRAME_MAX);
     const g = glide.current;
+    // the opening waits for the room's first picture, then holds on the
+    // whole flat a moment
+    if (g?.waits) {
+      if (stage.current?.dataset.drawn !== "true") {
+        wakeAt(introWake, performance.now() + 200, invalidate);
+        return;
+      }
+      if ((g.hold ?? 0) > 0) {
+        g.hold = (g.hold ?? 0) - dt;
+        invalidate();
+        return;
+      }
+    }
     if (g) {
-      g.t = Math.min(1, g.t + dt / GLIDE);
-      const k = 1 - Math.pow(1 - g.t, 3);
+      g.t = Math.min(1, g.t + dt / (g.length ?? GLIDE));
+      // the opening eases in and out; a move between angles eases out
+      const k = g.length
+        ? g.t < 0.5
+          ? 4 * g.t * g.t * g.t
+          : 1 - Math.pow(-2 * g.t + 2, 3) / 2
+        : 1 - Math.pow(1 - g.t, 3);
       camera.position.lerpVectors(g.from, g.to, k);
       setLens(camera, g.fromFov + (g.toFov - g.fromFov) * k);
       const at = g.fromAt.clone().lerp(g.toAt, k);
       camera.lookAt(at);
       controls?.target.copy(at);
       controls?.update();
-      if (g.t >= 1) glide.current = null;
-      else invalidate();
+      if (g.t >= 1) {
+        glide.current = null;
+        if (g.waits) intro(stage, false);
+      } else invalidate();
       reportGliding(stage, g.t < 1);
     }
     report(stage, camera.position);
