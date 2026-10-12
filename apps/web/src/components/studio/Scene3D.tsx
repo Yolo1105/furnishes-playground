@@ -29,7 +29,6 @@ import {
   type PerspectiveCamera,
   PCFShadowMap,
   Plane,
-  type Scene,
   Vector3,
   type Vector3Tuple,
   type WebGLRenderer,
@@ -1476,6 +1475,7 @@ function Piece({
         parts={parts}
         texture={props.texture}
         doors={props.doors}
+        accessories={props.accessories}
         panels={props.panels}
         editable={selected && !props.locked}
         selected={selected}

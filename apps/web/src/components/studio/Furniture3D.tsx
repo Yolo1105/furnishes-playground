@@ -34,6 +34,7 @@ import {
   ACCENT_HEX,
   bodyOf,
   carcassOf,
+  configOf,
   DANGER_HEX,
   FOLIAGE_HEX,
   isRug,
@@ -41,6 +42,7 @@ import {
   ROOM_ITEM_HEX,
 } from "./piece-detail";
 import { shade } from "./textures";
+import { type FormPart, furnishesForm, type Role } from "./furnishes-forms";
 import {
   cloth,
   type Finish,
@@ -125,6 +127,8 @@ type Props = {
   texture: string;
   /** doors on a carcass's bays, as configured; the recipe's when unset */
   doors?: boolean | undefined;
+  /** a Furnishes piece's add-ons, as configured; the recipe's when unset */
+  accessories?: readonly string[] | undefined;
   selected: boolean;
   /** the pointer is over it: a thin outline says it can be picked */
   hovered: boolean;
@@ -389,10 +393,28 @@ function Form(p: Props) {
     return <Slab f={own} at={[0, h / 2, 0]} dims={[w, h, d]} />; // a drawer
   }
 
-  // a Furnishes piece is built as its recipe has it; another piece by
-  // what it is called
+  // a Furnishes piece is built as its recipe's assembly has it, with
+  // its add-ons and a few things in use (furnishes-forms.ts); another
+  // piece by what it is called
   const r = recipeOf(p.node);
-  const shape = r?.shape;
+  if (r) {
+    const config = configOf(p.node, {
+      ...(p.doors !== undefined ? { doors: p.doors } : {}),
+      ...(p.accessories ? { accessories: [...p.accessories] } : {}),
+    })!;
+    return (
+      <FurnishesPiece
+        id={p.node.id}
+        recipe={r}
+        size={p.size}
+        f={own}
+        colours={p.parts.length ? p.parts : [p.colour]}
+        doors={config.doors}
+        accessories={config.accessories}
+        seed={seed}
+      />
+    );
+  }
   // the kitchen's and the bathroom's fittings, by what they are
   if (/counter|worktop/.test(name)) return <Counter w={w} h={h} d={d} />;
   if (/fridge|refrigerator/.test(name)) return <Fridge w={w} h={h} d={d} />;
@@ -420,14 +442,8 @@ function Form(p: Props) {
             : Array.from({ length: carcassOf(p.node)!.bays }, () => p.colour)
         }
         doors={p.doors ?? carcassOf(p.node)!.doors}
-        books={
-          r ? shape === "shelf" : /bookwall|bookcase|shelf|shelves/.test(name)
-        }
-        hooks={
-          r
-            ? shape === "organiser" || shape === "desk"
-            : /entry|organiser|organizer|coat|hall/.test(name)
-        }
+        books={/bookwall|bookcase|shelf|shelves/.test(name)}
+        hooks={/entry|organiser|organizer|coat|hall/.test(name)}
         seed={seed}
       />
     );
@@ -644,6 +660,97 @@ function Carcass({
   );
 }
 
+/** the house's orange, as its connectors and hooks are anodised */
+const FURNISHES_ORANGE = "#d4652e";
+const RUBBER = "#2b2826";
+
+/** a form part's finish, by what it is made of */
+const finishFor = (role: Role, own: Finish, colour?: string): Finish => {
+  switch (role) {
+    case "body":
+      return own;
+    case "base":
+      return { colour: shade(own.colour, -0.28), rough: 0.8 };
+    case "accent":
+      return { colour: FURNISHES_ORANGE, rough: 0.5 };
+    case "metal":
+      return metal(METAL);
+    case "dark":
+      return { colour: RUBBER, rough: 0.75 };
+    case "cloth":
+      return cloth(colour ?? ROOM_ITEM_HEX);
+    case "thing":
+      return { colour: colour ?? ROOM_ITEM_HEX, rough: 0.8 };
+  }
+};
+
+const partOf = (p: FormPart, own: Finish): Part => {
+  const f = finishFor(p.role, own, p.colour);
+  const turn = p.rotation ? { rotation: p.rotation } : {};
+  return "dims" in p
+    ? {
+        f,
+        at: p.at,
+        dims: p.dims,
+        ...(p.role === "body" && p.colour ? { colour: p.colour } : {}),
+        ...turn,
+      }
+    : { f, at: p.at, rod: p.rod, ...turn };
+};
+
+/** a Furnishes piece: its form's parts drawn a few meshes at a time,
+    its shelves' books, and a mirror on each door when the finish is */
+function FurnishesPiece({
+  id,
+  recipe,
+  size: [w, h, d],
+  f,
+  colours,
+  doors,
+  accessories,
+  seed,
+}: {
+  id: string;
+  recipe: NonNullable<ReturnType<typeof recipeOf>>;
+  size: Vector3Tuple;
+  f: Finish;
+  colours: string[];
+  doors: boolean;
+  accessories: string[];
+  seed: number;
+}) {
+  const key = JSON.stringify([w, h, d, colours, doors, accessories, seed]);
+  const form = useMemo(
+    () =>
+      furnishesForm({
+        recipe,
+        size: [w, h, d],
+        doors,
+        accessories,
+        colours,
+        seed,
+      }),
+    // the form is read again only when what it is built from changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [recipe, key],
+  );
+  const parts = form.parts.map((p) => partOf(p, f));
+  return (
+    <group>
+      <Built parts={parts} />
+      {form.books.map((b, k) => (
+        <Books key={k} {...b} />
+      ))}
+      {f.mirror &&
+        form.doors.map((o, k) => (
+          <Suspense key={k} fallback={null}>
+            <MirrorFace id={`${id}-door-${k}`} at={o.at} size={o.size} />
+          </Suspense>
+        ))}
+    </group>
+  );
+}
+
 /** a shelf's books: spines of different widths, heights and colours,
     the same run every time for the same shelf */
 const bookRun = (bayW: number, room: number, seed: number) => {
@@ -672,13 +779,19 @@ function Books({
   y,
   bayW,
   depth,
+  z = -(depth ?? 0) * 0.08,
+  deep = (depth ?? 0) * 0.7,
   room,
   seed,
 }: {
   x0: number;
   y: number;
   bayW: number;
-  depth: number;
+  /** the shelf's depth: the books a little back of its middle */
+  depth?: number;
+  /** or where they stand in depth, and how deep they are */
+  z?: number;
+  deep?: number;
   room: number;
   seed: number;
 }) {
@@ -686,8 +799,8 @@ function Books({
     if (room < 0.16 || bayW < 0.2) return null;
     const colour = new Color();
     const parts = bookRun(bayW, room, seed).map((b) => {
-      const g = new BoxGeometry(b.bw, b.bh, depth * 0.7);
-      g.translate(x0 + b.x + b.bw / 2, y + b.bh / 2, -depth * 0.08);
+      const g = new BoxGeometry(b.bw, b.bh, deep);
+      g.translate(x0 + b.x + b.bw / 2, y + b.bh / 2, z);
       colour.set(b.colour);
       const n = g.getAttribute("position").count;
       const tone = new Float32Array(n * 3);
@@ -698,7 +811,7 @@ function Books({
     const merged = parts.length ? mergeGeometries(parts) : null;
     for (const g of parts) g.dispose();
     return merged;
-  }, [x0, y, bayW, depth, room, seed]);
+  }, [x0, y, bayW, z, deep, room, seed]);
   useEffect(() => () => geometry?.dispose(), [geometry]);
   if (!geometry) return null;
   return (

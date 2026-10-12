@@ -58,6 +58,7 @@ import { exportCutList, exportPanelDxf, exportPanelStep } from "./machining";
 import { solveSketch, usePartStore } from "./part-client";
 import dynamic from "next/dynamic";
 import { ProductPage } from "./ProductPage";
+import { useRoom } from "./room-store";
 import { ACCESSORIES, dimensionSummary, priceOf } from "@furnishes/domain";
 import { findNode, propsOf, useScene } from "./scene-store";
 import { useStudio } from "./studio-store";
@@ -443,7 +444,13 @@ export function DetailTab() {
           className="main-btn"
           aria-label="Show alone"
           title="Show alone"
-          onClick={() => setFocus(piece.id)}
+          onClick={() => {
+            // a piece in another room is shown alone in its own room
+            const rooms = useRoom.getState();
+            const at = whole_.roomId ?? rooms.rooms[0]?.id;
+            if (at && at !== rooms.activeId) rooms.setActive(at);
+            setFocus(piece.id);
+          }}
         >
           <ExpandIcon size={14} />
         </button>
