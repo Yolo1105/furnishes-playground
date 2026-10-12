@@ -1804,6 +1804,7 @@ function FlatRoom({
           }}
           walk={working?.walk ?? false}
           onWalkTo={working?.onWalkTo ?? noWalk}
+          onFloorTap={putDown}
           // another room's floor takes the surroundings: one picture is
           // the active room's
           reflection={working?.reflection ?? null}
@@ -1901,6 +1902,10 @@ function FlatRoom({
   );
 }
 const noWalk = () => undefined;
+/** a click on the floor or on nothing: the piece in hand is put down */
+const putDown = () => {
+  if (useScene.getState().selectedId !== null) useScene.getState().select(null);
+};
 const noDrag = () => undefined;
 
 export default function Scene3D() {
@@ -2276,7 +2281,10 @@ export default function Scene3D() {
         dpr={sharpDpr()}
         gl={coarse ? makeRendererCoarse : makeRendererFine}
         camera={{ fov: FOV.overview, ...CLIP }}
-        onPointerMissed={() => undefined}
+        // a click on nothing that answers it (the sky, a wall) puts the
+        // piece in hand down, its bar with it; fiber calls this only for
+        // a click that did not travel
+        onPointerMissed={putDown}
       >
         {walk ? (
           <Walker

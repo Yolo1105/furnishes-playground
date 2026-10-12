@@ -1393,6 +1393,7 @@ export function RoomShell({
   r,
   walk,
   onWalkTo,
+  onFloorTap,
   reflection,
 }: {
   r: RoomShape;
@@ -1400,6 +1401,8 @@ export function RoomShell({
   walk: boolean;
   /** a click on the floor while walking: go there */
   onWalkTo: (x: number, z: number) => void;
+  /** a click on the floor otherwise: the piece in hand is put down */
+  onFloorTap?: (() => void) | undefined;
   /** what the floor reflects, when it does (a phone's floor does not):
       a change to the stamp takes the room's picture again, and the
       picture's state is reported */
@@ -1449,10 +1452,12 @@ export function RoomShell({
     return out;
   }, [W, D, outline, openings, thickness, shared, h]);
   const onFloorClick = useEvent((e: ThreeEvent<MouseEvent>) => {
-    // a drag that looked round and let go over the floor is not a step
-    if (!walk || e.delta > CLICK_TRAVEL) return;
+    // a drag that looked round and let go over the floor is not a step,
+    // nor a tap
+    if (e.delta > CLICK_TRAVEL) return;
     e.stopPropagation();
-    onWalkTo(e.point.x, e.point.z);
+    if (walk) onWalkTo(e.point.x, e.point.z);
+    else onFloorTap?.();
   });
   return (
     <group userData={ROOM_TAG}>

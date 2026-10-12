@@ -4540,7 +4540,7 @@ test("the room is its outline: a notch is a wall, the layouts keep out of it, th
   expect(tapped.length).toBeGreaterThanOrEqual(6);
 });
 
-test("in 3D a picked piece carries its bar: its name, a turn, To wall, Duplicate and Remove; a rug's lists the pieces over it", async ({
+test("in 3D a picked piece carries its bar: its name, a turn, To wall, Duplicate and Remove; a rug's lists the pieces over it; a click on nothing puts it down", async ({
   page,
 }) => {
   await page.goto("/rounded");
@@ -4598,6 +4598,11 @@ test("in 3D a picked piece carries its bar: its name, a turn, To wall, Duplicate
   await expect(
     stage.getByRole("toolbar", { name: "Arrange Coffee table" }),
   ).toBeVisible();
+  // a click on nothing (the ceiling, the sky) puts the piece down and
+  // its bar goes with it
+  const box = (await stage.locator("canvas").boundingBox())!;
+  await page.mouse.click(box.x + box.width * 0.3, box.y + box.height * 0.06);
+  await expect(stage.locator(".piece-bar")).toHaveCount(0);
 });
 
 test("View settings: edges, names, a floor grid, shadows and the light, kept for next time", async ({
