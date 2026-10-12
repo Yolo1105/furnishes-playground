@@ -235,8 +235,11 @@ export function StagePieces({
         // square to the walls, the piece is its box; on the slant it is
         // its own size, turned about the box's middle
         const slant = !isSquare(p.rotation);
-        // a rug lies under the rest
-        const zIndex = isRug(n) ? 0 : 1;
+        // a rug lies under the rest; the picked piece stands over its
+        // neighbours, so its actions and its turn handle are never under
+        // the piece beside it (on a whole flat a piece's least size
+        // reaches past its own footprint)
+        const zIndex = isRug(n) ? 0 : selected ? 3 : 1;
         const style = a.focus
           ? undefined
           : slant

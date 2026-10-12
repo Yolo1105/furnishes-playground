@@ -1532,12 +1532,6 @@
   min-height: 24px;
   transform-origin: 50% 50%;
 }
-/* the picked piece stands over its neighbours, so its actions and its
-   turn handle are never under the piece beside it (on a whole flat a
-   piece's least size reaches past its own footprint) */
-.stage-piece[data-selected="true"] {
-  z-index: 3;
-}
 .stage-piece-body {
   appearance: none;
   width: 100%;
