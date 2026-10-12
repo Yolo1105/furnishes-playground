@@ -268,6 +268,16 @@ const clamp = (n: number) => Math.min(100, Math.max(0, n));
 export const other = (v: View): View => (v === "3d" ? "2d" : "3d");
 export const viewName = (v: View) => (v === "3d" ? "3D view" : "2D plan");
 
+/** what runs as the 3D view leaves the main column for the plan, while
+    it still stands there (it keeps its last picture for the small panel) */
+const leave3d = new Set<() => void>();
+export const onLeave3d = (f: () => void) => {
+  leave3d.add(f);
+  return () => {
+    leave3d.delete(f);
+  };
+};
+
 export const useStudio = create<StudioState>((set, get) => ({
   mode: "edit",
   tool: "select",
@@ -349,7 +359,9 @@ export const useStudio = create<StudioState>((set, get) => ({
           }
         : { tool },
     ),
-  setView: (view) =>
+  setView: (view) => {
+    // the 3D view keeps its last picture before the plan takes its place
+    if (view === "2d" && get().view === "3d") leave3d.forEach((f) => f());
     set((s) =>
       s.view === view
         ? {}
@@ -363,7 +375,8 @@ export const useStudio = create<StudioState>((set, get) => ({
               ? { tool: "select" as const }
               : {}),
           },
-    ),
+    );
+  },
   setAngle: (angle) => set({ angle, walk: false, free: false }),
   reportCam: (cam) =>
     set((s) =>

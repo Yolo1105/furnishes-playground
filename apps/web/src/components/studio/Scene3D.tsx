@@ -104,6 +104,7 @@ import { propsOf, useScene } from "./scene-store";
 import { type GestureEvent, readWheel, useCoarse } from "./input";
 import {
   minRenderMs,
+  onLeave3d,
   useStudio,
   type Angle,
   type WorkStep,
@@ -275,6 +276,72 @@ function BenchFrames() {
   return null;
 }
 
+/** the side of the small panel's picture, px */
+const LAST_FRAME_W = 640;
+/**
+ * The view's picture as it stands, kept for the small panel when the
+ * plan takes the main column. A WebGPU canvas is read only in the frame
+ * that drew it (once shown, its picture is gone, and a read after reads
+ * black), so the picture is taken as the view settles, in that frame:
+ * a bitmap made smaller at once, encoded off the frame.
+ */
+const keepLastFrame = (canvas: HTMLCanvasElement) => {
+  if (
+    typeof createImageBitmap !== "function" ||
+    typeof OffscreenCanvas === "undefined" ||
+    !canvas.width
+  )
+    return;
+  const w = Math.min(LAST_FRAME_W, canvas.width);
+  const h = Math.max(1, Math.round((canvas.height * w) / canvas.width));
+  createImageBitmap(canvas, {
+    resizeWidth: w,
+    resizeHeight: h,
+    resizeQuality: "medium",
+  })
+    .then((bitmap) => {
+      const small = new OffscreenCanvas(w, h);
+      small.getContext("2d")?.drawImage(bitmap, 0, 0);
+      bitmap.close();
+      return small.convertToBlob({ type: "image/jpeg", quality: 0.85 });
+    })
+    .then(
+      (blob) =>
+        new Promise<string>((done, fail) => {
+          const read = new FileReader();
+          read.onload = () => done(String(read.result));
+          read.onerror = fail;
+          read.readAsDataURL(blob);
+        }),
+    )
+    .then((url) => useStudio.setState({ lastFrame: url }))
+    .catch(() => {
+      /* the drawn stand-in stays */
+    });
+};
+
+/** the view's picture kept for the small panel as the plan takes the
+    main column: one frame drawn there and then and read in the same
+    task (a WebGPU canvas is read only in the frame that drew it), before
+    the store changes the view */
+function LastFrame() {
+  const advance = useThree((s) => s.advance);
+  const gl = useThree((s) => s.gl);
+  useEffect(
+    () =>
+      onLeave3d(() => {
+        try {
+          advance(performance.now());
+          keepLastFrame(gl.domElement);
+        } catch {
+          /* the drawn stand-in stays */
+        }
+      }),
+    [advance, gl],
+  );
+  return null;
+}
+
 /** which backend the renderer came up on, for the stage to say and
     the store to know */
 function Backend() {
@@ -283,20 +350,6 @@ function Backend() {
   useEffect(() => {
     setBackend(backendOf(gl), textureSideOf(gl), bytesPerSampleOf(gl));
   }, [gl, setBackend]);
-  // leaving the main column (the plan takes it), the view's last
-  // picture is kept for the small panel, as it stood
-  useEffect(
-    () => () => {
-      try {
-        useStudio.setState({
-          lastFrame: gl.domElement.toDataURL("image/jpeg", 0.85),
-        });
-      } catch {
-        /* a context already lost keeps the drawn stand-in */
-      }
-    },
-    [gl],
-  );
   return null;
 }
 
@@ -2115,6 +2168,7 @@ export default function Scene3D() {
         )}
         <Exposure value={scene.exposure} />
         <Backend />
+        <LastFrame />
         {!backend && <HoldFrames />}
         <BenchFrames />
         {shadows && <ShadowsOnChange />}
