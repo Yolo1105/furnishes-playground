@@ -115,7 +115,7 @@ export function PieceBar({
         type="button"
         className="piece-bar-btn shell-tip"
         data-tooltip="Remove (⌫)"
-        aria-label="Remove"
+        aria-label="Remove from the room"
         onClick={onRemove}
       >
         <TrashIcon size={14} />

@@ -1003,14 +1003,21 @@ test("the Room tab starts from drawn walls or a template", async ({ page }) => {
   await expect(howTo.getByText("Don't show next time")).toBeVisible();
   await howTo.getByRole("button", { name: "Close guide" }).click();
   await expect(page.getByRole("button", { name: "Show me how" })).toBeVisible();
-  // four sections, whichever way the room starts; drawing: the size comes
+  // five sections, whichever way the room starts; drawing: the size comes
   // from the walls, so no size fields yet; the openings wait for walls;
   // the flat and room stay, to name the room
   const titles = page.locator(".room .eva-pref-title");
-  await expect(titles).toHaveText(["Start", "Openings", "Rules", "Finish"]);
+  await expect(titles).toHaveText([
+    "Start",
+    "Openings",
+    "On the walls",
+    "Rules",
+    "Finish",
+  ]);
   await expect(page.getByText("No walls yet")).toBeVisible();
   await expect(page.locator(".room-dims")).toHaveCount(0);
-  await expect(page.locator(".eva-pref[data-muted='true']")).toHaveCount(1);
+  // the openings and what hangs on the walls wait for walls
+  await expect(page.locator(".eva-pref[data-muted='true']")).toHaveCount(2);
   await expect(page.getByRole("radio", { name: "5-room" })).toBeVisible();
   await start.getByRole("radio", { name: "Template" }).click();
   await expect(page.locator(".room-dims")).toHaveCount(1);
@@ -1225,6 +1232,8 @@ test("Inspect raises Details and Label over a piece; labels reach Eva, five at m
   // buttons, which is where this test clicks them
   await expect(page.locator(".stage-3d canvas")).toHaveCount(1);
   await page.getByRole("button", { name: "Show 2D plan in main" }).click();
+  // the whole flat: pieces across it are picked below
+  await page.keyboard.press("0");
   const stage = page.locator(".stage-pieces");
   const pieces = top.filter((a) => a.kind === "piece");
   // the room's own items stand on the plan too, but only pieces are counted here
@@ -1278,6 +1287,9 @@ test("Inspect raises Details and Label over a piece; labels reach Eva, five at m
       .getByRole("group", { name: `${name} actions` })
       .getByRole("button", { name: "Label" })
       .click();
+    // Escape puts the actions away, so they cover no neighbour
+    await page.keyboard.press("Escape");
+    await expect(stage.locator(".stage-actions")).toHaveCount(0);
   }
   await expect(agent.locator(".agent-label")).toHaveCount(
     1 + more.filter((n) => living.some((a) => a.name === n)).length,
@@ -2470,7 +2482,8 @@ test("projects: a new one starts clean, the first keeps its room, rename and del
   // a new project: its own room, nothing in the cart, no conversations
   await page.getByRole("button", { name: /^Project, / }).click();
   await page.getByRole("menuitem", { name: "New project" }).click();
-  await expect(name).toHaveText("Project 2");
+  // numbered after the flat's three arrangements
+  await expect(name).toHaveText("Project 4");
   await expect(page.getByRole("tab", { name: /^Cart/ })).toHaveText("Cart0");
   await page.getByRole("tab", { name: "History" }).click();
   await expect(page.getByText("No conversations yet")).toBeVisible();
@@ -3711,6 +3724,8 @@ test("a room widened into its neighbour is a finding: both rooms flush red on th
 }) => {
   await page.goto("/rounded");
   await page.getByRole("button", { name: "Show 2D plan in main" }).click();
+  // the whole flat, not the active room the plan opens on
+  await page.keyboard.press("0");
   const svg = page.locator(".shell-stage .plan-svg");
   const card = page.getByRole("region", { name: "Overlaps" });
   const marked = svg.locator('.plan-room[data-overlap="true"]');
@@ -3728,7 +3743,8 @@ test("a room widened into its neighbour is a finding: both rooms flush red on th
   // the third bedroom, to widen it eastwards into the second
   const floor = svg.getByRole("button", { name: "Work on the Bedroom 3" });
   const fb = (await floor.boundingBox())!;
-  await floor.click({ position: { x: 10, y: fb.height - 10 } });
+  // (its south-west corner has the bench at the bunk's foot)
+  await floor.click({ position: { x: fb.width * 0.6, y: fb.height - 10 } });
   const bedroom = svg.locator('.plan-room[data-active="true"]');
   await expect(bedroom).toHaveAttribute("transform", "translate(3300 0)");
   const width = page.getByRole("spinbutton", {
@@ -4051,6 +4067,9 @@ test("the plan's tools: the wheel and the keys zoom it, a drag pans it, Fit brin
   const zoom = page.getByRole("group", { name: "Plan zoom" });
   await expect(zoom).toBeVisible();
   const sheet = page.locator(".shell-stage .plan");
+  // the plan opens on the active room, zoomed to it; Fit shows the flat
+  await expect(sheet).toHaveAttribute("data-zoomed", "true");
+  await zoom.getByRole("button", { name: "Fit the plan", exact: true }).click();
   await expect(sheet).toHaveAttribute("data-zoomed", "false");
   await expect(
     zoom.getByRole("button", { name: "Fit the plan", exact: true }),
@@ -4478,7 +4497,7 @@ test("in 3D a picked piece carries its bar: its name, a turn, Against wall, Dupl
   await expect(copies).toHaveCount(1);
   const copy = stage.getByRole("toolbar", { name: /^Arrange Sofa \d$/ });
   await expect(copy).toBeVisible();
-  await copy.getByRole("button", { name: "Remove" }).click();
+  await copy.getByRole("button", { name: "Remove from the room" }).click();
   await expect(copies).toHaveCount(0);
   await expect(
     page.getByRole("treeitem", { name: "Sofa", exact: true }),

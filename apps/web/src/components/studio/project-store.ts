@@ -146,6 +146,8 @@ const arranged = (id: (typeof ARRANGEMENTS)[number]["id"]): Snapshot => {
       rooms: base.room.rooms.map((r) => ({ ...r, ...a.rooms[r.id] })),
     },
     scene: { ...base.scene, groups: a.groups, overrides: a.overrides },
+    // the studio's own flat comes with Eva's lean, as the studio opens
+    eva: { ...base.eva, preferences: useEva.getInitialState().preferences },
   };
 };
 /** the studio's own projects: the flat in each of its arrangements,

@@ -199,8 +199,9 @@ export function Plan2D({
   const vw = box.w + 2 * MARGIN;
   const vh = box.h + 2 * MARGIN;
   // the plan frames the room being worked on, as it opens and when
-  // another room is taken up: at the whole flat's scale a room's pieces
-  // were too small to read (Fit shows the whole flat again)
+  // another room is taken up that is not wholly in sight: at the whole
+  // flat's scale a room's pieces were too small to read (Fit shows the
+  // whole flat again)
   const framed = useRef("");
   const roomBox = `${active.id}:${active.pos[0]}:${active.pos[1]}:${active.width}:${active.depth}`;
   useLayoutEffect(() => {
@@ -208,6 +209,7 @@ export function Plan2D({
     const el = sheetRef.current;
     if (!el || !el.offsetWidth || !el.offsetHeight) return;
     if (framed.current === active.id) return;
+    const first = framed.current === "";
     framed.current = active.id;
     // the open stage: between the side panels, under the toolbar, over
     // the shelf (the sheet runs under them, where a room is half hidden)
@@ -224,6 +226,20 @@ export function Plan2D({
     const y0 = Math.max(stage.top, top?.bottom ?? stage.top);
     const y1 = Math.min(stage.bottom, shelf?.top ?? stage.bottom);
     if (x1 - x0 < 40 || y1 - y0 < 40) return;
+    // a room taken up on the plan itself, already wholly in sight, keeps
+    // the view: a click into the next room is no reason to jump
+    const seen = el
+      .querySelector(`.plan-room[data-room="${active.id}"] .plan-floor`)
+      ?.getBoundingClientRect();
+    if (
+      !first &&
+      seen &&
+      seen.left >= x0 &&
+      seen.right <= x1 &&
+      seen.top >= y0 &&
+      seen.bottom <= y1
+    )
+      return;
     const wPx = el.offsetWidth;
     const hPx = el.offsetHeight;
     const rw = (active.width / vw) * wPx;

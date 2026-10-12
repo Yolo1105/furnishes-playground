@@ -277,29 +277,25 @@ export function StagePieces({
                 {label + 1}
               </span>
             )}
-            {a.actionsFor === n.id && !compact && (
-              <PieceActions
-                node={n}
-                label={label}
-                full={a.labelsFull(n)}
-                onDetails={() => a.details(n)}
-                onLabel={() => a.toggleLabel(n.id)}
-              />
-            )}
           </div>
         );
       })}
       {!compact &&
         !a.focus &&
         !rendering &&
-        a.tool === "select" &&
         (() => {
-          // the picked piece's bar, or its distance to the walls while
-          // it is dragged: over the piece, at the screen's own size
-          const n = a.shown.find((x) => x.id === (dragging ?? selectedId));
+          // over the piece, at the screen's own size whatever the plan's
+          // zoom: Inspect's actions, or the picked piece's bar, or its
+          // distance to the walls while it is dragged
+          const id =
+            dragging ??
+            a.actionsFor ??
+            (a.tool === "select" ? selectedId : null);
+          const n = a.shown.find((x) => x.id === id);
           if (!n) return null;
           const p = a.props.get(n.id)!;
-          if (p.locked) return null;
+          const acting = a.actionsFor === n.id && dragging !== n.id;
+          if (p.locked && !acting) return null;
           const at = a.spots.get(n.id)!;
           const f = footprint(p);
           return (
@@ -311,7 +307,15 @@ export function StagePieces({
                 transform: `scale(${1 / zoom})`,
               }}
             >
-              {dragging === n.id ? (
+              {acting ? (
+                <PieceActions
+                  node={n}
+                  label={a.labelOf(n)}
+                  full={a.labelsFull(n)}
+                  onDetails={() => a.details(n)}
+                  onLabel={() => a.toggleLabel(n.id)}
+                />
+              ) : dragging === n.id ? (
                 <GapReadout {...wallGaps(at, f, a.room.outline)} />
               ) : (
                 <PieceBar

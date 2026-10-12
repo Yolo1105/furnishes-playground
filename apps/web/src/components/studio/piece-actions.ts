@@ -251,6 +251,15 @@ export function usePieceActions(roomId?: string) {
   const focusId = useStudio((s) => s.focusId);
   const { setFocus, setPanelTab } = useStudio.getState();
   const [actionsFor, setActionsFor] = useState<string | null>(null);
+  // Escape puts Inspect's actions away
+  useEffect(() => {
+    if (actionsFor === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setActionsFor(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [actionsFor]);
   // the room asked for, else the active one
   const rooms = useRoom((s) => s.rooms);
   const activeId = useRoom((s) => s.activeId);

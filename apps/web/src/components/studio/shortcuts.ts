@@ -33,7 +33,7 @@ export const SHORTCUTS = [
   { keys: ["?"], does: "Help, on this list" },
   {
     keys: ["Esc"],
-    does: "Close a menu, stop a tour, drawing or measuring, leave focus",
+    does: "Close a menu or a piece's actions, stop a tour, drawing or measuring, leave focus",
   },
 ] as const;
 

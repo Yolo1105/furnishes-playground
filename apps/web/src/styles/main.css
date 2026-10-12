@@ -2890,3 +2890,9 @@ label.add-tile:focus-within .add-tile-pic {
   fill: none;
   stroke-dasharray: 40 30;
 }
+/* Inspect's actions stand in the same place, already centred */
+.stage-piece-over > .stage-actions {
+  left: 0;
+  bottom: 10px;
+  transform: none;
+}
