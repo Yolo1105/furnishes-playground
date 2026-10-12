@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type ComponentProps,
@@ -76,6 +77,10 @@ const BAND_PAD = 15; // mm, an opening's gap past the band's faces
 const GRIP_PAD = 60; // mm, a grip past the band's faces
 const LABEL_IN = 260; // mm, an opening's label inside the band
 const MARGIN = 1100; // mm, room for the dimensions, the arrow, the title
+/** the share of the open stage a framed room takes, across or down, and
+    the most a frame zooms */
+const FRAME_SHARE = 0.8;
+const FRAME_ZOOM_MAX = 2.6;
 /** the room's handles with the Wall tool, mm: the bar on a wall takes a
     share of the wall's free run, between a shortest and a longest, and
     carries the wall's length once it is long enough; the corner is a
@@ -192,6 +197,65 @@ export function Plan2D({
   const box = sheetBox(rooms);
   const vw = box.w + 2 * MARGIN;
   const vh = box.h + 2 * MARGIN;
+  // the plan frames the room being worked on, as it opens and when
+  // another room is taken up: at the whole flat's scale a room's pieces
+  // were too small to read (Fit shows the whole flat again)
+  const framed = useRef("");
+  const roomBox = `${active.id}:${active.pos[0]}:${active.pos[1]}:${active.width}:${active.depth}`;
+  useLayoutEffect(() => {
+    if (!interactive) return;
+    const el = sheetRef.current;
+    if (!el || !el.offsetWidth || !el.offsetHeight) return;
+    if (framed.current === active.id) return;
+    framed.current = active.id;
+    // the open stage: between the side panels, under the toolbar, over
+    // the shelf (the sheet runs under them, where a room is half hidden)
+    const box_ = (q: string) =>
+      document.querySelector(q)?.getBoundingClientRect();
+    const stage = el.closest(".shell-stage")?.getBoundingClientRect();
+    if (!stage) return;
+    const left = box_(".shell-rail-left");
+    const right = box_(".shell-rail-right");
+    const top = box_(".main-top");
+    const shelf = box_(".main-shelf");
+    const x0 = Math.max(stage.left, left?.right ?? stage.left);
+    const x1 = Math.min(stage.right, right?.left ?? stage.right);
+    const y0 = Math.max(stage.top, top?.bottom ?? stage.top);
+    const y1 = Math.min(stage.bottom, shelf?.top ?? stage.bottom);
+    if (x1 - x0 < 40 || y1 - y0 < 40) return;
+    const wPx = el.offsetWidth;
+    const hPx = el.offsetHeight;
+    const rw = (active.width / vw) * wPx;
+    const rh = (active.depth / vh) * hPx;
+    const zoom = Math.min(
+      FRAME_ZOOM_MAX,
+      Math.max(
+        1,
+        Math.min(
+          ((x1 - x0) * FRAME_SHARE) / rw,
+          ((y1 - y0) * FRAME_SHARE) / rh,
+        ),
+      ),
+    );
+    // the room's middle from the sheet's, unmoved; the sheet's middle
+    // on screen as it stands, less its pan
+    const ox =
+      ((active.pos[0] + active.width / 2 - box.x + MARGIN) / vw - 0.5) * wPx;
+    const oy =
+      ((active.pos[1] + active.depth / 2 - box.y + MARGIN) / vh - 0.5) * hPx;
+    const now = el.getBoundingClientRect();
+    const { planPan } = useStudio.getState();
+    const mx = now.left + now.width / 2 - planPan.x;
+    const my = now.top + now.height / 2 - planPan.y;
+    useStudio.setState({
+      planZoom: zoom,
+      planPan: {
+        x: (x0 + x1) / 2 - mx - zoom * ox,
+        y: (y0 + y1) / 2 - my - zoom * oy,
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- framed once a room, by its box
+  }, [interactive, roomBox]);
   const outline = footprintOf(r);
   const pos = active.pos;
   /** a point of the sheet in the active room's own frame */

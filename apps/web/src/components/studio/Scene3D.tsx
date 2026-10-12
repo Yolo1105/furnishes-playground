@@ -300,6 +300,19 @@ const keepLastFrame = (canvas: HTMLCanvasElement) => {
     resizeQuality: "medium",
   })
     .then((bitmap) => {
+      // a frame not drawn reads black: it is not kept
+      const probe = new OffscreenCanvas(8, 8).getContext("2d", {
+        willReadFrequently: true,
+      });
+      probe?.drawImage(bitmap, 0, 0, 8, 8);
+      const px = probe?.getImageData(0, 0, 8, 8).data;
+      let sum = 0;
+      for (let i = 0; px && i < px.length; i += 4)
+        sum += px[i]! + px[i + 1]! + px[i + 2]!;
+      if (px && sum / (px.length / 4) < 24) {
+        bitmap.close();
+        throw new Error("blank");
+      }
       const small = new OffscreenCanvas(w, h);
       small.getContext("2d")?.drawImage(bitmap, 0, 0);
       bitmap.close();
