@@ -508,18 +508,28 @@ const CEILING_LIGHT = {
   penumbra: 1,
   drop: 0.05,
 };
-function CeilingLight({ at, lit }: { at: Vector3Tuple; lit: boolean }) {
+function CeilingLight({
+  x,
+  y,
+  z,
+  lit,
+}: {
+  x: number;
+  y: number;
+  z: number;
+  lit: boolean;
+}) {
   const spot = useRef<SpotLight>(null);
   useLayoutEffect(() => {
     const l = spot.current;
     if (!l) return;
-    l.target.position.set(at[0], 0, at[2]);
+    l.target.position.set(x, 0, z);
     l.target.updateMatrixWorld();
-  }, [at]);
+  }, [x, z]);
   return (
     <spotLight
       ref={spot}
-      position={at}
+      position={[x, y, z]}
       color={CEILING_LIGHT.colour}
       intensity={lit ? CEILING_LIGHT.evening : 0}
       angle={CEILING_LIGHT.angle}
@@ -2361,16 +2371,9 @@ export default function Scene3D() {
   });
   // the ceiling light in the middle of the room's box, under the
   // ceiling (as Room3D's diffuser stands)
-  const ceilingAt = useMemo((): Vector3Tuple => {
-    const xs = outline.map(([x]) => x);
-    const ys = outline.map(([, y]) => y);
-    const mid = (v: number[]) => (Math.min(...v) + Math.max(...v)) / 2;
-    return [
-      toMetres(mid(xs) - room.width / 2),
-      h - CEILING_LIGHT.drop,
-      toMetres(mid(ys) - room.depth / 2),
-    ];
-  }, [outline, room.width, room.depth, h]);
+  const midOf = (v: number[]) => (Math.min(...v) + Math.max(...v)) / 2;
+  const ceilingX = toMetres(midOf(outline.map(([x]) => x)) - room.width / 2);
+  const ceilingZ = toMetres(midOf(outline.map(([, y]) => y)) - room.depth / 2);
   const liveSun = useMemo(
     () => ({ position: sunFrom, colour: light.colour, intensity: light.sun }),
     [sunFrom, light.colour, light.sun],
@@ -2551,7 +2554,12 @@ export default function Scene3D() {
           shadow-normalBias={0.02}
         />
         <RoomLight evening={scene.light === "evening"} sky={scene.sky} />
-        <CeilingLight at={ceilingAt} lit={scene.light === "evening"} />
+        <CeilingLight
+          x={ceilingX}
+          y={h - CEILING_LIGHT.drop}
+          z={ceilingZ}
+          lit={scene.light === "evening"}
+        />
         {probes && (
           <Probes
             room={room.id}
