@@ -57,6 +57,7 @@ import {
   Built,
 } from "./finish";
 import { Panels3D } from "./Panels3D";
+import { budgetModel } from "./model-budget";
 
 /** the mirror's reflector and a part's body come when the room first
     has one, not with the studio (React's own lazy: next/dynamic's
@@ -205,7 +206,10 @@ function Model({
   const { scene } = useGLTF(src, DRACO);
   const colour = cloth?.colour;
   const names = cloth?.names;
-  const object = useMemo(() => {
+  const { object, box } = useMemo(() => {
+    // within what any model may cost, stock or generated, once for the
+    // loaded scene its copies share (model-budget.ts)
+    budgetModel(scene);
     const o = scene.clone(true);
     o.traverse((child) => {
       const mesh = child as Mesh;
@@ -216,7 +220,7 @@ function Model({
       if (colour && names?.test(own.name))
         mesh.material = clothOver(own, colour);
     });
-    return o;
+    return { object: o, box: new Box3().setFromObject(o) };
   }, [scene, colour, names]);
   useEffect(
     () => () => {
@@ -227,7 +231,6 @@ function Model({
     },
     [object],
   );
-  const box = new Box3().setFromObject(object);
   const dims = box.getSize(new Vector3());
   const k = Math.min(
     size[0] / (dims.x || 1),
