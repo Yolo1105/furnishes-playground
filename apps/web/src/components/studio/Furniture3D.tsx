@@ -60,6 +60,7 @@ import {
 } from "./finish";
 import { Panels3D } from "./Panels3D";
 import { budgetModel } from "./model-budget";
+import { useStudio } from "./studio-store";
 
 /** the mirror's reflector and a part's body come when the room first
     has one, not with the studio (React's own lazy: next/dynamic's
@@ -1011,6 +1012,19 @@ function Table({ w, h, d }: { w: number; h: number; d: number }) {
   );
 }
 
+/** a lamp's light: a warm bulb (about 2700 K) inside the shade, off by
+    day and lit in the evening, where it makes the pool of light an
+    evening photo is made of; intensity in candela, reach in m. The
+    floor lamp's casts a shadow on the desktop tier, its shade and stem
+    shaping the pool (drawn again only on a change, ShadowsOnChange) */
+const LAMP_LIGHT = {
+  colour: "#ffb877",
+  floor: { evening: 14, reach: 5 },
+  desk: { evening: 4, reach: 2.5 },
+  /** the shade's own glow, lit and unlit */
+  glow: { evening: 0.9, day: 0 },
+} as const;
+
 function Lamp({
   w,
   h,
@@ -1025,6 +1039,9 @@ function Lamp({
   const r = Math.min(w, d) / 2;
   const shadeH = desk ? h * 0.3 : h * 0.22;
   const stemH = h - shadeH * 0.55;
+  const lit = useStudio((s) => s.scene.light === "evening");
+  const shadowed = useStudio((s) => s.tier === "desktop") && !desk;
+  const bulb = desk ? LAMP_LIGHT.desk : LAMP_LIGHT.floor;
   return (
     <group>
       <Rod
@@ -1044,17 +1061,25 @@ function Lamp({
         <meshStandardMaterial
           color={SHADE_HEX}
           emissive={LAMP_GLOW}
-          emissiveIntensity={0.45}
+          emissiveIntensity={
+            lit ? LAMP_LIGHT.glow.evening : LAMP_LIGHT.glow.day
+          }
           roughness={0.9}
           side={DoubleSide}
         />
       </mesh>
+      {/* always there, at nothing by day: a light come and gone would
+          build every shader in the room again */}
       <pointLight
         position={[0, h - shadeH * 0.6, 0]}
-        color={LAMP_GLOW}
-        intensity={desk ? 0.35 : 0.7}
-        distance={desk ? 1.6 : 3.2}
+        color={LAMP_LIGHT.colour}
+        intensity={lit ? bulb.evening : 0}
+        distance={bulb.reach}
         decay={2}
+        castShadow={shadowed}
+        shadow-mapSize={[256, 256]}
+        shadow-bias={-0.002}
+        shadow-camera-near={0.05}
       />
     </group>
   );

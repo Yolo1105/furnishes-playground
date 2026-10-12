@@ -407,6 +407,10 @@
 .view-cube-face[aria-checked="true"] .view-cube-dot {
   fill: var(--color-accent) !important;
 }
+.view-cube-moves {
+  display: flex;
+  gap: 4px;
+}
 .view-cube-walk {
   appearance: none;
   display: inline-flex;

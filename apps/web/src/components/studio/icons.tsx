@@ -464,6 +464,15 @@ export function WalkIcon({ size = 16 }: IconProps) {
   );
 }
 
+export function CameraIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...svg(size)}>
+      <path d="M4 8h3l1.5-2h7L17 8h3v11H4z" />
+      <circle cx="12" cy="13" r="3.2" />
+    </svg>
+  );
+}
+
 export function BoardIcon({ size = 16 }: IconProps) {
   return (
     <svg

@@ -39,8 +39,11 @@ import type { WebGPURenderer } from "three/webgpu";
 const FAST = devParam("probes") === "fast";
 /** probes about this far apart, m */
 const SPACING = FAST ? 3 : 1.5;
-/** the sides of each probe's picture, px */
-const CUBEMAP = FAST ? 4 : 8;
+/** the sides of each probe's picture, px: on the desktop tier twice
+    the side, so the window's sunlit patch on the floor (what lights the
+    ceiling and the room's far side, the walls' fills being a whisper)
+    covers enough of a picture not to flicker in and out of it */
+const CUBEMAP = { fast: 4, fine: 16, plain: 8 } as const;
 /** probes baked in one call */
 const PER_CALL = 2;
 /** the time a frame gives the bake, ms; the rest waits for the next */
@@ -126,6 +129,7 @@ export function Probes({
   stamp,
   pieces,
   bounce,
+  fine = false,
   onState,
   onProgress,
 }: {
@@ -142,6 +146,8 @@ export function Probes({
   /** whether the bounce pass runs (not on a software renderer, where
       a second pass over the pieces would take minutes) */
   bounce: boolean;
+  /** the larger pictures (the desktop tier) */
+  fine?: boolean;
   /** whether a bake is under way or the probes are up to date */
   onState: (state: StillState) => void;
   /** how many probes of how many are baked, as the bake goes */
@@ -238,7 +244,11 @@ export function Probes({
       const count = Math.min(PER_CALL, total - j.at);
       stillOf(state.scene, j.pass === 0 ? [pieces.current] : [], () =>
         grid.bake(state.gl as unknown as WebGPURenderer, state.scene, {
-          cubemapSize: CUBEMAP,
+          cubemapSize: FAST
+            ? CUBEMAP.fast
+            : fine
+              ? CUBEMAP.fine
+              : CUBEMAP.plain,
           start: j.at,
           count,
           pass: j.pass,

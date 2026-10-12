@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, type PointerEvent as ReactPointerEvent } from "react";
-import { MoonIcon, SunIcon, WalkIcon } from "./icons";
+import { CameraIcon, MoonIcon, SunIcon, WalkIcon } from "./icons";
 import { DRAG_FROM } from "./input";
 import { ANGLES, useStudio, type Angle } from "./studio-store";
 
@@ -282,21 +282,38 @@ export function ViewCube() {
         {walk ? "Walking" : view === "3d" && free ? "Free" : angle}
       </span>
       {view === "3d" && (
-        <button
-          type="button"
-          className="view-cube-walk"
-          aria-pressed={walk}
-          aria-label={walk ? "Stop walking" : "Walk the room"}
-          title={
-            walk
-              ? "Stop walking (Esc)"
-              : "Walk the room: W A S D, drag to look, click the floor to go there"
-          }
-          onClick={() => setWalk(!walk)}
-        >
-          <WalkIcon size={13} />
-          {walk ? "Stop" : "Walk"}
-        </button>
+        <div className="view-cube-moves">
+          <button
+            type="button"
+            className="view-cube-walk"
+            // the room as a photograph takes it: from a corner, level
+            aria-pressed={!walk && angle === "Corner" && !free}
+            aria-label="Corner view, as a photograph"
+            title="The room from a corner, level, as a photograph takes it"
+            onClick={() => {
+              if (walk) setWalk(false);
+              setAngle("Corner");
+            }}
+          >
+            <CameraIcon size={13} />
+            Corner
+          </button>
+          <button
+            type="button"
+            className="view-cube-walk"
+            aria-pressed={walk}
+            aria-label={walk ? "Stop walking" : "Walk the room"}
+            title={
+              walk
+                ? "Stop walking (Esc)"
+                : "Walk the room: W A S D, drag to look, click the floor to go there"
+            }
+            onClick={() => setWalk(!walk)}
+          >
+            <WalkIcon size={13} />
+            {walk ? "Stop" : "Walk"}
+          </button>
+        </div>
       )}
       {view === "3d" && !walk && (
         // the light in one click: the time of day, the rest of the light

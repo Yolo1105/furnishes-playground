@@ -131,9 +131,11 @@ const FLOOR_RELIEF = new Vector2(0.5, 0.5);
 /** how strongly the plaster's relief bends the light */
 const PLASTER_RELIEF = new Vector2(0.35, 0.35);
 const CEILING_HEX = "#f8f5f0";
-/** how much light a ceiling has of its own: the room's bounce, which
-    the lights from above cannot reach its underside with */
-const CEILING_GLOW = 0.5;
+/** how much light a ceiling has of its own: a trace only. Its light
+    is the bounce off the sunlit floor, which the probes carry; a
+    ceiling that glows reads as the brightest surface in the room,
+    where a photo's stands a little darker than its walls */
+const CEILING_GLOW = 0.12;
 /** how far under the walls' tops the ceiling stands, m: the tops' cut
     lines then lie just over it, hidden from below (at the same height
     they flickered through it as a dotted line along the cornice) */
@@ -1684,10 +1686,11 @@ export function RoomLight({ evening, sky }: { evening: boolean; sky: Sky }) {
   const file = sky === "panels" ? (evening ? "panels-evening" : "panels") : sky;
   const map = useLoader(HDRLoader, `/sky/${file}.hdr`);
   const get = useThree((s) => s.get);
-  // the surroundings carry the day; in the evening they stand back so
-  // the low sun through the window carries the room
+  // the surroundings are what is outside: the glass and the gloss see
+  // them, and they light the room's walls only faintly, as the sky
+  // through a window does; the window's sun carries the room
   const intensity =
-    sky === "panels" ? (evening ? 0.2 : 0.35) : evening ? 0.25 : 0.4;
+    sky === "panels" ? (evening ? 0.05 : 0.12) : evening ? 0.05 : 0.15;
   useEffect(() => {
     const { scene, invalidate } = get();
     return surround(scene, map, intensity, invalidate);

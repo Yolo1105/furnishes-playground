@@ -43,6 +43,9 @@ export function useArrival() {
         const wheelMode = WHEEL_MODES.some((m) => m.id === saved.wheelMode)
           ? saved.wheelMode!
           : "auto";
+        // an exposure kept as one number, from before each light had its
+        // own, is not the same kind as the default's and is dropped
+        // below: a visit after the change opens on the new exposures
         const scene: SceneLook = {
           ...SCENE_DEFAULT,
           ...Object.fromEntries(
@@ -53,6 +56,14 @@ export function useArrival() {
             ),
           ),
         };
+        if (
+          !["day", "evening"].every(
+            (k) =>
+              typeof (scene.exposure as Record<string, unknown>)[k] ===
+              "number",
+          )
+        )
+          scene.exposure = SCENE_DEFAULT.exposure;
         useStudio.setState({
           view,
           angle,

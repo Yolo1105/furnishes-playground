@@ -59,6 +59,7 @@ import {
 } from "./scene-store";
 import {
   EXPOSURE,
+  exposureOf,
   QUALITIES,
   type ShelfTab,
   SKIES,
@@ -369,15 +370,21 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
                           min={EXPOSURE.min}
                           max={EXPOSURE.max}
                           step={EXPOSURE.step}
-                          value={scene.exposure}
+                          value={exposureOf(scene)}
                           aria-label="Exposure"
-                          aria-valuetext={`${scene.exposure.toFixed(2)}`}
+                          aria-valuetext={`${exposureOf(scene).toFixed(2)}`}
+                          // the light on show's own exposure
                           onChange={(e) =>
-                            setScene({ exposure: Number(e.target.value) })
+                            setScene({
+                              exposure: {
+                                ...scene.exposure,
+                                [scene.light]: Number(e.target.value),
+                              },
+                            })
                           }
                         />
                         <span className="main-prefs-sub f-num">
-                          {scene.exposure.toFixed(2)}
+                          {exposureOf(scene).toFixed(2)}
                         </span>
                       </label>
                       <div className="shell-menu-sep" role="separator" />

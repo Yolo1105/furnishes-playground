@@ -11,9 +11,11 @@ import {
   type Material,
   type Object3D,
   PerspectiveCamera,
+  type PointLight,
   Quaternion,
   RectAreaLight,
   type Scene,
+  type SpotLight,
   Scene as SceneClass,
   SRGBColorSpace,
   type Texture,
@@ -34,8 +36,8 @@ import { CLIP } from "./camera-bookmarks";
  * each named; a window's outside becomes a plane that glows with a
  * picture of the same sky; a glTF copy adds the cameras asked for and
  * the sun as a light. A tracing copy (the photo) is a Scene with the
- * live scene's surroundings, the sun kept, the fills a raster needs
- * (the sky's hemisphere, the sky shadow) left out since a tracer sees
+ * live scene's surroundings, the sun and the lit lamps kept, the fills
+ * a raster needs (the sky's hemisphere) left out since a tracer sees
  * the sky itself, and an area light in each window's opening facing
  * in, so daylight comes through the glass in the photo.
  *
@@ -454,15 +456,29 @@ export const copyForExport = (
     const lights = new Group();
     lights.name = "Lights";
     scene.traverse((o) => {
-      const l = o as DirectionalLight;
-      if (!l.isDirectionalLight || !l.visible) return;
-      // the sky's shadow light is a raster's fill, tagged a helper
+      const l = o as DirectionalLight & SpotLight & PointLight;
+      const lamp = l.isPointLight || l.isSpotLight;
+      if (!(l.isDirectionalLight || lamp) || !l.visible) return;
+      // a lamp off (by day) gives the tracer nothing; a helper's light
+      // is a raster's fill
+      if (lamp && l.intensity === 0) return;
       if (tagOf(o) === "helper") return;
       const copy = l.clone();
       copy.castShadow = false;
       place(copy, o);
+      if (l.isPointLight) {
+        lights.add(copy);
+        return;
+      }
+      // a directional or spot light looks down its -Z at its target,
+      // held as a child; a spot's is where the live one's target is
       copy.add(copy.target);
       copy.target.position.set(0, 0, -1);
+      if (l.isSpotLight) {
+        copy.updateMatrixWorld();
+        const to = l.target.getWorldPosition(new Vector3());
+        copy.target.position.copy(copy.worldToLocal(to));
+      }
       lights.add(copy);
     });
     if (lights.children.length) root.add(lights);

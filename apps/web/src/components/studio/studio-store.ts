@@ -40,8 +40,10 @@ export type SceneLook = {
   grid: boolean;
   light: "day" | "evening";
   sky: Sky;
-  /** how bright the picture is, as a camera's exposure */
-  exposure: number;
+  /** how bright the picture is, as a camera's exposure, one for each
+      light: a day exposed for its walls with the windows let go white,
+      an evening for its lamps' pools */
+  exposure: Record<SceneLook["light"], number>;
   /** the picture's finish: auto follows the device (see Post.tsx), the
       rest pick a tier, plain none */
   quality: Quality;
@@ -75,7 +77,10 @@ export const minRenderMs = () => {
 };
 
 /** the exposure's range: a dim room to a bright one */
-export const EXPOSURE = { min: 0.6, max: 1.8, step: 0.05 };
+export const EXPOSURE = { min: 0.6, max: 3, step: 0.05 };
+/** the exposure of the look's own light */
+export const exposureOf = (s: Pick<SceneLook, "exposure" | "light">) =>
+  s.exposure[s.light];
 export const SCENE_DEFAULT: SceneLook = {
   edges: false,
   shadows: "auto",
@@ -83,7 +88,7 @@ export const SCENE_DEFAULT: SceneLook = {
   grid: false,
   light: "day",
   sky: "panels",
-  exposure: 1.2,
+  exposure: { day: 2.5, evening: 1.3 },
   quality: "auto",
   photoSize: "screen",
   cuts: "auto",
@@ -103,7 +108,7 @@ type PreviewStatus = "idle" | "generating" | "revealing" | "done" | "compare";
 /** the ways to look at each view: a perspective and the straight-on
     sides in 3D, the plan and the elevations in 2D, as a CAD drawing has */
 export const ANGLES: Record<View, readonly string[]> = {
-  "3d": ["Perspective", "Front", "Back", "Left", "Right", "Top"],
+  "3d": ["Perspective", "Corner", "Front", "Back", "Left", "Right", "Top"],
   "2d": ["Plan", "Front", "Back", "Left", "Right"],
 };
 export type Angle = (typeof ANGLES)[View][number];

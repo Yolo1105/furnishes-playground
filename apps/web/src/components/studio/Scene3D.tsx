@@ -33,6 +33,7 @@ import {
   type Vector3Tuple,
   type WebGLRenderer,
   type DirectionalLight,
+  type SpotLight,
 } from "three";
 import { CATEGORY_NAMES, type AssetNode } from "./assets-data";
 import { Furniture3D } from "./Furniture3D";
@@ -99,6 +100,7 @@ import { loadMaterials, useMaterials } from "./materials";
 import { RoomLight, RoomShell, SHADOW_LAYER, windowSun } from "./Room3D";
 import { usePartStore } from "./part-client";
 import {
+  type Box,
   cameraFor,
   CLIP,
   type Corner,
@@ -106,8 +108,13 @@ import {
   openCorner,
   EYE,
   FOV,
+  shotCorner,
   walkStart,
+  windowSide,
 } from "./camera-bookmarks";
+
+/** the stage's shape the corner shot's corner is chosen for */
+const SHOT_ASPECT = 1;
 import { setLive } from "./scene-handle";
 import { recordFrame, recorder } from "./bench";
 import { devFlag, devParam } from "./dev-flags";
@@ -117,6 +124,7 @@ import {
   minRenderMs,
   onLeave3d,
   useStudio,
+  exposureOf,
   type Angle,
   type WorkStep,
 } from "./studio-store";
@@ -445,45 +453,81 @@ const failPost = (set: (failed: boolean) => void) => (error: unknown) => {
 };
 
 /** the sun in the room, the day's or an evening's (warmer and lower),
-    and the sky's fill from above against the floor's from below; the
-    rest comes from the surroundings (RoomLight), never from a flat
-    ambient term. The sun stands beyond the room's widest window
-    (windowSun: `height` up, `back` out, `aside` along the wall) so it
-    comes in through the glass and lays its patch on the floor, the
-    rest of the room in the window's shade, as a room is lit; a room
-    without a window takes it from above the open ceiling (`from`) */
+    and a whisper of the sky's fill from above against the floor's from
+    below. A room is lit through its windows: the sun stands beyond the
+    room's widest window (windowSun: `height` up, `back` out, `aside`
+    along the wall), comes in through the glass and lays its patch on
+    the floor, and the room is bright by the window and darker away
+    from it; the probes carry that patch's bounce to the ceiling and the
+    far side (Probes.tsx), and the exposure is set for the walls with
+    the windows let go white (studio-store's EXPOSURE). A room without a
+    window takes the sun from above the open ceiling (`from`) */
 const LIGHTS = {
   day: {
-    sun: 7,
+    sun: 11,
     colour: "#fff3e2",
     from: [3, 6, 4] as Vector3Tuple,
     height: 4.2,
-    // the sky's light fills the room so the walls read off-white, as a
-    // room is exposed for, with the window above it
-    sky: 2.4,
+    // the sky's fill only lifts the deepest shade a hair: lit from every
+    // side at once, a room reads flat and milky, with no fall-off from
+    // its windows
+    sky: 0.6,
     // the sky's fill: a little cooler than the sun, as daylight is,
-    // but near neutral, so the walls read warm off-white, not grey
+    // but near neutral
     fill: "#ebe6dd",
   },
+  // the evening: the sun low at the horizon and dim, the sky's fill
+  // near gone, so the room is carried by its lamps (Lamp in
+  // Furniture3D, CeilingLight here), warm pools with darker corners
+  // between, the window dusk outside
   evening: {
-    sun: 3.5,
-    colour: "#ffd2a0",
+    sun: 1.5,
+    colour: "#ffc68c",
     from: [2, 1.8, -7] as Vector3Tuple,
     height: 1.6,
-    sky: 0.5,
+    sky: 0.15,
     fill: "#9aa6ba",
   },
 } as const;
 /** how far beyond the window the sun stands, and how far along the
     wall, m */
 const SUN = { back: 5.5, aside: -1 };
-/** the sky's shadow on the desktop tier: how much of the sky's light
-    comes as a shadowed light from above, from how high, m, and how
-    soft its shadow is */
-const SKY_SHADOW = { share: 0.45, height: 12, radius: 8 };
-/** what the floor gives back to the undersides: the floor's tone,
-    well down, so an underside and a ceiling stand darker than a wall */
-const GROUND_HEX = "#a39483";
+/** what the floor gives back to the undersides: a light floor's tone,
+    as a light floor bounces light up */
+const GROUND_HEX = "#d6cabb";
+
+/** the room's ceiling light as a light: a spot under the flush
+    diffuser (Room3D draws it), pointing down with a wide, soft edge,
+    off by day and lit in the evening; intensity in candela. One, in
+    the room being worked on, always there (at nothing by day), so the
+    light count, and with it every shader, stays as it is */
+const CEILING_LIGHT = {
+  colour: "#ffc48a",
+  evening: 20,
+  angle: 1.15,
+  penumbra: 1,
+  drop: 0.05,
+};
+function CeilingLight({ at, lit }: { at: Vector3Tuple; lit: boolean }) {
+  const spot = useRef<SpotLight>(null);
+  useLayoutEffect(() => {
+    const l = spot.current;
+    if (!l) return;
+    l.target.position.set(at[0], 0, at[2]);
+    l.target.updateMatrixWorld();
+  }, [at]);
+  return (
+    <spotLight
+      ref={spot}
+      position={at}
+      color={CEILING_LIGHT.colour}
+      intensity={lit ? CEILING_LIGHT.evening : 0}
+      angle={CEILING_LIGHT.angle}
+      penumbra={CEILING_LIGHT.penumbra}
+      decay={2}
+    />
+  );
+}
 
 /** the renderer's tone mapping and exposure follow the look */
 function Exposure({ value }: { value: number }) {
@@ -681,6 +725,19 @@ const setLens = (camera: Camera, fov: number) => {
   c.updateProjectionMatrix();
 };
 
+/** the frame's shift down, a share of its height (a shift lens) */
+const shiftOf = (camera: Camera) => {
+  const v = (camera as PerspectiveCamera).view;
+  return v?.enabled ? v.offsetY / v.fullHeight : 0;
+};
+const setShift = (camera: Camera, shift: number) => {
+  const c = camera as PerspectiveCamera;
+  if (!c.isPerspectiveCamera || Math.abs(shiftOf(c) - shift) < 1e-4) return;
+  if (shift === 0) c.clearViewOffset();
+  // in thousandths of the frame: the shift is a share, whatever its size
+  else c.setViewOffset(1000, 1000, 0, shift * 1000, 1000, 1000);
+};
+
 /** the camera glides to the angle's place */
 function Rig({
   angle,
@@ -718,6 +775,9 @@ function Rig({
     /** the lens, vertical degrees, from and to */
     fromFov: number;
     toFov: number;
+    /** the frame's shift, from and to */
+    fromShift: number;
+    toShift: number;
     t: number;
     /** the opening's: seconds to hold first, its own length, and whether
         it waits for the room to be drawn */
@@ -761,7 +821,12 @@ function Rig({
     placed.current = key;
     moved.current = false;
     const aspect = size.height ? size.width / size.height : 1.5;
-    const { pos, at, fov } = cameraFor(
+    const {
+      pos,
+      at,
+      fov,
+      shift = 0,
+    } = cameraFor(
       angle,
       w,
       d,
@@ -784,6 +849,7 @@ function Rig({
       g.to = to;
       g.toAt = toAt;
       g.toFov = fov;
+      g.toShift = shift;
       invalidate();
       return;
     }
@@ -803,6 +869,8 @@ function Rig({
         toAt,
         fromFov: FOV.overview,
         toFov: fov,
+        fromShift: 0,
+        toShift: shift,
         t: 0,
         hold: INTRO.hold,
         length: INTRO.glide,
@@ -819,6 +887,8 @@ function Rig({
       toAt,
       fromFov: lensOf(camera),
       toFov: fov,
+      fromShift: shiftOf(camera),
+      toShift: shift,
       t: reduced() ? 1 : 0,
     };
     invalidate();
@@ -1003,6 +1073,7 @@ function Rig({
         : 1 - Math.pow(1 - g.t, 3);
       camera.position.lerpVectors(g.from, g.to, k);
       setLens(camera, g.fromFov + (g.toFov - g.fromFov) * k);
+      setShift(camera, g.fromShift + (g.toShift - g.fromShift) * k);
       const at = g.fromAt.clone().lerp(g.toAt, k);
       camera.lookAt(at);
       controls?.target.copy(at);
@@ -1060,8 +1131,8 @@ function Walker({
     live.current = blocks;
   }, [blocks]);
   useEffect(() => {
-    // in from the room's corner, looking into the room, a little down,
-    // with the room's own lens
+    // in from the room's corner, looking level into the room, with the
+    // room's own lens and no shift (the corner shot's is its own)
     const s = WALK;
     const start = walkStart(
       w,
@@ -1076,6 +1147,7 @@ function Walker({
     s.wake = invalidate;
     camera.position.set(s.x, EYE, s.z);
     setLens(camera, start.fov);
+    setShift(camera, 0);
     camera.rotation.set(0, 0, 0, "YXZ");
     const typing = (t: EventTarget | null) =>
       t instanceof HTMLElement &&
@@ -2153,6 +2225,32 @@ export default function Scene3D() {
     corner,
   );
   const viewCorner = useMemo((): Corner => [viewX, viewZ], [viewX, viewZ]);
+  // the corner the room's photograph is taken from: the photographed
+  // corner unless a piece would stand cut in its foreground
+  // a rug lies flat: it stands in no foreground
+  const boxes: Box[] = a.shown
+    .filter((n) => !isRug(n))
+    .map((n) => {
+      const p = a.props.get(n.id)!;
+      const at = a.spots.get(n.id)!;
+      const f = footprint(p);
+      return {
+        x: toMetres(at.x + f.w / 2 - room.width / 2),
+        z: toMetres(at.y + f.d / 2 - room.depth / 2),
+        w: toMetres(f.w),
+        d: toMetres(f.d),
+      };
+    });
+  const [shotX, shotZ] = shotCorner(
+    toMetres(room.width),
+    toMetres(room.depth),
+    boxes,
+    corner,
+    // the stage stands about square: the frame across is the lens's
+    SHOT_ASPECT,
+    windowSide(openings),
+  );
+  const shot = useMemo((): Corner => [shotX, shotZ], [shotX, shotZ]);
   const backend = useStudio((s) => s.backend);
   // the picture's finish follows the device once the backend is known; a
   // render has it whatever the View settings; a stage that fails on this
@@ -2261,12 +2359,22 @@ export default function Scene3D() {
     setShaders(s);
     if (s === "ready") setWarmed(true);
   });
-  const skyShadow = shadows && tier === "desktop" && !devFlag("noskyshadow");
+  // the ceiling light in the middle of the room's box, under the
+  // ceiling (as Room3D's diffuser stands)
+  const ceilingAt = useMemo((): Vector3Tuple => {
+    const xs = outline.map(([x]) => x);
+    const ys = outline.map(([, y]) => y);
+    const mid = (v: number[]) => (Math.min(...v) + Math.max(...v)) / 2;
+    return [
+      toMetres(mid(xs) - room.width / 2),
+      h - CEILING_LIGHT.drop,
+      toMetres(mid(ys) - room.depth / 2),
+    ];
+  }, [outline, room.width, room.depth, h]);
   const liveSun = useMemo(
     () => ({ position: sunFrom, colour: light.colour, intensity: light.sun }),
     [sunFrom, light.colour, light.sun],
   );
-  const skyReach = Math.max(w, d) * 0.75;
   // a graded render is the work the stage does anyway, counted: the
   // light baked, the floor's picture, the edges settled; it ends when
   // all of it is done and the line has had its moment
@@ -2337,7 +2445,7 @@ export default function Scene3D() {
       data-photo-samples={photo?.samples ?? 0}
       data-photo-ms={photo?.ms ?? 0}
       data-photo-size={photo ? `${photo.width}x${photo.height}` : ""}
-      data-exposure={scene.exposure}
+      data-exposure={exposureOf(scene)}
       data-backend={backend}
       // why WebGPU was given up on for WebGL here, if it was
       data-gpu-fallback={
@@ -2388,11 +2496,11 @@ export default function Scene3D() {
             centre={centre}
             roomW={w}
             roomD={d}
-            corner={viewCorner}
+            corner={angle === "Corner" ? shot : viewCorner}
             stage={stage}
           />
         )}
-        <Exposure value={scene.exposure} />
+        <Exposure value={exposureOf(scene)} />
         <Backend />
         <LastFrame />
         {!backend && <HoldFrames />}
@@ -2427,9 +2535,7 @@ export default function Scene3D() {
           />
         )}
         <hemisphereLight
-          // the desktop tier takes part of the sky's light as a shadowed
-          // light from above instead
-          intensity={light.sky * (skyShadow ? 1 - SKY_SHADOW.share : 1)}
+          intensity={light.sky}
           color={light.fill}
           groundColor={GROUND_HEX}
         />
@@ -2444,37 +2550,21 @@ export default function Scene3D() {
           shadow-bias={-0.0003}
           shadow-normalBias={0.02}
         />
-        {skyShadow && (
-          // the sky's shadow: a dim light from straight above with a wide,
-          // soft shadow, so undersides and the floor beneath a piece
-          // darken as they do under an open sky
-          <directionalLight
-            position={[0.3, SKY_SHADOW.height, 0.2]}
-            intensity={light.sky * SKY_SHADOW.share}
-            color={light.fill}
-            castShadow
-            shadow-mapSize={[1024, 1024]}
-            shadow-radius={SKY_SHADOW.radius}
-            shadow-bias={-0.0005}
-            shadow-normalBias={0.04}
-            shadow-camera-left={-skyReach}
-            shadow-camera-right={skyReach}
-            shadow-camera-top={skyReach}
-            shadow-camera-bottom={-skyReach}
-            shadow-camera-near={1}
-            shadow-camera-far={SKY_SHADOW.height + 2}
-          />
-        )}
         <RoomLight evening={scene.light === "evening"} sky={scene.sky} />
+        <CeilingLight at={ceilingAt} lit={scene.light === "evening"} />
         {probes && (
           <Probes
             room={room.id}
             w={w}
             h={h}
             d={d}
-            stamp={probeStamp}
+            // a change of picture size bakes again
+            stamp={`${probeStamp}|${tier === "desktop" ? "fine" : "plain"}`}
             pieces={pieces}
+            // the bounce on every hardware tier: with the fills a
+            // whisper, it is what lights the ceiling and the far side
             bounce={backend !== "software"}
+            fine={tier === "desktop"}
             onState={setProbeState}
             onProgress={(at, of) => setProbeDone({ at, of })}
           />
