@@ -1043,3 +1043,15 @@ corner neither changed the picture much (the probes and the
 surroundings carry most of the fill), and the spot light laid a hot
 highlight on the dining table that no window gives, so the light stays
 as it was.
+
+## Neutral instead of AgX (2026-10-12)
+
+The studio was seen on a real screen and read grey: warm-white walls,
+oak and linen all came out a shade of putty. AgX, chosen in R1 for how
+it rolls a window's highlight off, desaturates and darkens every pale
+surface on the way, which in a room of white walls is most of the
+picture. The tone mapping is now Khronos PBR Neutral
+(`NeutralToneMapping`): a white wall stays white and a colour keeps its
+hue, and the window still rolls off rather than clipping. The exposure
+is unchanged. This reverses the R1 decision on purpose; the visual
+baselines were taken again for it.

@@ -157,7 +157,7 @@ const OUTSIDE_IN = 0.01;
 
 /** the outside a window looks onto, by day and at dusk: the sky from
     its zenith to a hazy horizon, the sun, the ground, a line of trees;
-    linear light, lit as a scene is against the room (the AgX tone
+    linear light, lit as a scene is against the room (the tone
     mapping rolls the sun off) */
 const OUTLOOK = {
   day: {

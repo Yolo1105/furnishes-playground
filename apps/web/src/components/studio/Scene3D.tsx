@@ -129,7 +129,7 @@ import {
     promise). On the WebGL backend the drawing buffer is kept, so Export
     can read the canvas as a picture; on WebGPU it is kept by the
     platform. Anti-aliasing is the hardware's on a mouse and off under a
-    finger. AgX rolls the window's highlights off instead of clipping. */
+    finger. The tone mapping (Post.tsx) rolls the window's highlights off. */
 const hasWebGPU = () => typeof navigator !== "undefined" && "gpu" in navigator;
 type RendererProps = Parameters<
   Extract<NonNullable<CanvasProps["gl"]>, (...args: never[]) => unknown>

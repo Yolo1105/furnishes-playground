@@ -5,7 +5,7 @@ import { devFlag } from "./dev-flags";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
 import {
-  AgXToneMapping,
+  NeutralToneMapping,
   type Camera,
   type Object3D,
   type PerspectiveCamera,
@@ -70,9 +70,10 @@ const CHANGE_BUDGET_MS = 3_000;
 /** the scene's shaders: being built ahead of the first frame, or ready */
 export type ShaderState = "building" | "ready";
 
-/** the tone mapping of the picture: AgX rolls the highlights off
-    instead of clipping them */
-export const TONE_MAPPING = AgXToneMapping;
+/** the tone mapping of the picture: Khronos PBR Neutral keeps a white
+    wall white and a colour its own (AgX, before it, laid a grey over
+    every pale surface: the flat read grey however warm its paint) */
+export const TONE_MAPPING = NeutralToneMapping;
 
 /** the memory a browser that does not say is taken to have, GB */
 const MEMORY_UNSAID = 8;
