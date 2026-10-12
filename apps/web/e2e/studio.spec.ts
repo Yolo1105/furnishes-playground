@@ -4316,10 +4316,10 @@ test("the room is its outline: a notch is a wall, the layouts keep out of it, th
   const place = (name: string, x: string, y: string) =>
     placeByMm(page, name, x, y);
   // the L's notch: x past 0.6 of the width, y under 0.45 of the depth
-  await place("Storage bench", "5000", "500");
-  await expect(health).toContainText("Storage bench stands past the wall");
-  await health.getByRole("button", { name: /^Fix: Storage bench/ }).click();
-  await expect(health.getByText(/Storage bench stands past/)).toHaveCount(0);
+  await place("Entry organiser", "5000", "500");
+  await expect(health).toContainText("Entry organiser stands past the wall");
+  await health.getByRole("button", { name: /^Fix: Entry organiser/ }).click();
+  await expect(health.getByText(/Entry organiser stands past/)).toHaveCount(0);
   // the layouts keep out of the notch too
   const layouts = page
     .locator(".agent")
