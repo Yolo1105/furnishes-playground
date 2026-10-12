@@ -1083,3 +1083,20 @@ This replaces Realism 6's single double socket, which stood near the
 start of the first long run in every room as a scale cue: real outlets
 now do that job, where a person would put them, so the fixed one went.
 The switch plate beside each door stays.
+
+## A gone wall keeps its foot; no dashed tops (2026-10-12)
+
+A near wall going whole from the picture (as asked: wholly cut or
+wholly shown, never cut part way) took its thickness with it, so from
+above the flat fell apart into boxes with strips of the backdrop
+between them, and a picture hung on a gone wall floated on its own.
+A gone wall now leaves its foot: its solid 120 mm tall, doorways open,
+its cut on top in the cap colour, so the flat reads as a plan of its
+rooms. Wall items go and come with their wall by the same rule,
+shared walls included.
+
+The dashes that ran along the wall tops and flickered as the camera
+moved were the cut's lines fighting the faces they lie on for depth:
+the cornice's top stood flush with the wall's cut, and the cut faces
+with their own lines. The cornice stands 3 mm lower and the wall's
+faces a hair behind their lines (polygon offset), so the lines win.

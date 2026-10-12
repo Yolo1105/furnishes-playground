@@ -15,7 +15,7 @@ import {
 } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { Opening } from "./room-data";
-import { inward, yawOf } from "./Room3D";
+import { inward, sideOf, yawOf } from "./Room3D";
 import type { Point } from "./room-templates";
 import {
   itemCentre,
@@ -325,6 +325,7 @@ const ITEM_NAME = { name: "Wall item" } as const;
 export function WallItems3D({
   r,
   items,
+  shared,
 }: {
   r: {
     id: string;
@@ -334,6 +335,17 @@ export function WallItems3D({
     openings: readonly Opening[];
   };
   items: readonly WallItem[];
+  /** the stretches of its walls shared with another room, mm along the
+      wall in the room's frame: an item there answers to whichever of
+      the two rooms is worked on, as the wall does */
+  shared?:
+    | readonly {
+        wall: WallItem["wall"];
+        from: number;
+        to: number;
+        other: string;
+      }[]
+    | undefined;
 }) {
   const w = toMetres(r.W);
   const d = toMetres(r.D);
@@ -349,9 +361,13 @@ export function WallItems3D({
         const horizontal = it.wall === "north" || it.wall === "south";
         const px = horizontal ? c.centre : c.at;
         const py = horizontal ? c.at : c.centre;
+        const s = shared?.find(
+          (x) => x.wall === it.wall && x.from <= c.centre && c.centre <= x.to,
+        );
         return (
           <WallItem3D
             key={it.id}
+            pair={s ? { room: r.id, other: s.other } : null}
             kind={it.kind}
             seed={seed}
             at={[
@@ -372,7 +388,10 @@ function WallItem3D({
   seed,
   at,
   wall,
+  pair,
 }: {
+  /** on a wall shared with another room: this room and that one */
+  pair: { room: string; other: string } | null;
   kind: WallItemKind;
   seed: number;
   at: [number, number, number];
@@ -382,15 +401,20 @@ function WallItem3D({
   const ref = useRef<Group>(null);
   const [nx, nz] = inward(wall);
   const world = useMemo(() => new Vector3(), []);
-  // seen from behind its wall (the wall gone from the picture as the
-  // near wall), the item goes too
+  // the item goes when its wall does (Room3D's WallRun): seen from
+  // behind, or on a shared wall, as whichever room is worked on has it
   useFrame(({ camera }) => {
     const o = ref.current;
     if (!o) return;
+    const side = pair ? sideOf(pair.room, pair.other) : 1;
+    if (side === 0) {
+      o.visible = true;
+      return;
+    }
     o.getWorldPosition(world);
     const dot =
       (camera.position.x - world.x) * nx + (camera.position.z - world.z) * nz;
-    o.visible = dot > 0;
+    o.visible = side * dot > 0;
   });
   const lit = kind !== "outlet" && kind !== "clock";
   return (

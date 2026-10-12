@@ -1762,7 +1762,7 @@ function FlatRoom({
           reflection={working?.reflection ?? null}
         />
       )}
-      {!focus && <WallItems3D r={wallShape} items={items} />}
+      {!focus && <WallItems3D r={wallShape} items={items} shared={shared} />}
       <group
         ref={working?.pieces ?? null}
         userData={working ? PIECES_TAG : NO_TAG}

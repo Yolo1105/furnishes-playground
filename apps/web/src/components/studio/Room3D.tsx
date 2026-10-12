@@ -105,6 +105,11 @@ const DOOR = {
 };
 const METAL_HEX = "#9a948b";
 const THRESHOLD_HEX = "#b9b2a7";
+/** how far the cornice's top stands under the wall's cut, m */
+const CORNICE_DROP = 0.003;
+/** a gone wall's foot, m: the height its solid stays at */
+const STUB_H = 0.12;
+const STUB_NAME = { name: "Wall foot" } as const;
 /** a switch plate, m, white as the joinery */
 const PLATE = { switch: 0.086, tall: 0.086, deep: 0.009 };
 /** the cut faces of a wall (its open top, its ends where a run stops):
@@ -329,7 +334,7 @@ type Stretch = {
     side of the room being worked on (1 for this room, -1 for the room
     beyond), so the wall is that room's near or far wall; 0 when neither
     is, and it stands */
-const sideOf = (room: string, other: string) => {
+export const sideOf = (room: string, other: string) => {
   const active = useRoom.getState().activeId;
   return active === room ? 1 : active === other ? -1 : 0;
 };
@@ -699,6 +704,32 @@ function WallRun({
     },
     [full],
   );
+  // where the wall has gone from the picture, its foot stays: the solid
+  // a hand's height tall, its doorways open and its cut on top, so the
+  // flat still reads as a plan of its rooms and not boxes with gaps
+  const stub = useMemo(
+    () =>
+      wallGeometry(
+        len,
+        STUB_H,
+        t,
+        mitres,
+        holes
+          .filter((o) => o.y0 < STUB_H)
+          .map((o) => ({ ...o, y1: Math.min(o.y1, STUB_H) })),
+        shadingOf(len, STUB_H, floorHex, both),
+        joints,
+      ),
+    [len, t, mitres, holes, floorHex, both, joints],
+  );
+  useEffect(
+    () => () => {
+      stub.geometry.dispose();
+      stub.lines.dispose();
+    },
+    [stub],
+  );
+  const stubRef = useRef<Group>(null);
   // which stands: the whole wall for the camera on its inner side (or a
   // shared wall); a near wall, between the camera and the room, goes
   // whole from the picture (the sun still sees it, for its shadow): a
@@ -720,11 +751,20 @@ function WallRun({
     if (next === state.current) return;
     state.current = next;
     layerOf(f, next === "inside" ? 0 : SHADOW_LAYER);
+    if (stubRef.current) stubRef.current.visible = next === "gone";
   });
   const wallColour = plaster.photo ? tintOver(wallHex) : wallHex;
+  // the faces stand a hair behind their own cut lines: a line on a face
+  // fought it for depth and flickered into dashes as the camera moved
+  const behind = {
+    polygonOffset: true,
+    polygonOffsetFactor: 1,
+    polygonOffsetUnits: 1,
+  } as const;
   const materials = (
     <>
       <meshStandardMaterial
+        {...behind}
         attach={`material-${PLASTER}`}
         color={wallColour}
         map={plasterMaps.map}
@@ -735,11 +775,13 @@ function WallRun({
         vertexColors
       />
       <meshStandardMaterial
+        {...behind}
         attach={`material-${REVEAL}`}
         color={FRAME_HEX}
         roughness={0.55}
       />
       <meshStandardMaterial
+        {...behind}
         attach={`material-${CAP}`}
         color={CAP_HEX}
         roughness={1}
@@ -783,13 +825,28 @@ function WallRun({
           <meshStandardMaterial color={FRAME_HEX} roughness={0.5} />
         </mesh>
         <mesh
-          position={[0, h - CORNICE / 2, 0.006]}
+          // its top a few mm under the wall's cut: flush with it, the
+          // cut's line along the inner edge flickered into dashes
+          position={[0, h - CORNICE / 2 - CORNICE_DROP, 0.006]}
           receiveShadow
           userData={CORNICE_NAME}
         >
           <boxGeometry args={[len, CORNICE, 0.012]} />
           <meshStandardMaterial color={FRAME_HEX} roughness={0.5} />
         </mesh>
+      </group>
+      <group ref={stubRef} visible={false} userData={STUB_NAME}>
+        <mesh
+          geometry={stub.geometry}
+          position={[-len / 2, 0, 0]}
+          receiveShadow
+          raycast={noPick}
+        >
+          {materials}
+        </mesh>
+        <lineSegments geometry={stub.lines} position={[-len / 2, 0, 0]}>
+          <lineBasicMaterial color={CAP_LINE_HEX} />
+        </lineSegments>
       </group>
     </group>
   );
