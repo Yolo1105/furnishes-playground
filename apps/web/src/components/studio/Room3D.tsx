@@ -105,8 +105,8 @@ const DOOR = {
 };
 const METAL_HEX = "#9a948b";
 const THRESHOLD_HEX = "#b9b2a7";
-/** a switch plate and a double socket, m, white as the joinery */
-const PLATE = { switch: 0.086, socket: 0.146, tall: 0.086, deep: 0.009 };
+/** a switch plate, m, white as the joinery */
+const PLATE = { switch: 0.086, tall: 0.086, deep: 0.009 };
 /** the cut faces of a wall (its open top, its ends where a run stops):
     a neutral cap and a drawn line */
 const CAP_HEX = "#d6cfc6";
@@ -145,7 +145,6 @@ const SKIRTING_NAME = { name: "Skirting" } as const;
 const CORNICE_NAME = { name: "Cornice" } as const;
 // (each a constant: fiber reads a fresh object as a changed prop and
 // asks for a frame, which would keep the picture from ever settling)
-const SOCKET_NAME = { name: "Socket" } as const;
 const LEAF_NAME = { name: "Door leaf" } as const;
 const SWITCH_NAME = { name: "Switch" } as const;
 const SUN_STOP_NAME = { name: "Sun stop", export: "helper" } as const;
@@ -469,7 +468,7 @@ const floorShape = (
 const noPick = () => null;
 
 /** a wall's turn so its face points into the room */
-const yawOf = (wall: Wall) =>
+export const yawOf = (wall: Wall) =>
   wall === "north"
     ? 0
     : wall === "south"
@@ -479,7 +478,7 @@ const yawOf = (wall: Wall) =>
         : -Math.PI / 2;
 
 /** the inward normal of a wall, in the scene's x and z */
-const inward = (wall: Wall): [number, number] =>
+export const inward = (wall: Wall): [number, number] =>
   wall === "north"
     ? [0, 1]
     : wall === "south"
@@ -648,7 +647,6 @@ function WallRun({
   holes,
   both = false,
   shared,
-  socket = false,
 }: {
   e: Edge;
   w: number;
@@ -672,8 +670,6 @@ function WallRun({
   /** when shared, this room and the room beyond: the wall answers to
       whichever is being worked on */
   shared?: { room: string; other: string } | undefined;
-  /** a double socket near the wall's start, for scale */
-  socket?: boolean;
 }) {
   // the walls' plaster, its maps repeated by its stretch over the
   // solid's metres
@@ -794,16 +790,6 @@ function WallRun({
           <boxGeometry args={[len, CORNICE, 0.012]} />
           <meshStandardMaterial color={FRAME_HEX} roughness={0.5} />
         </mesh>
-        {socket && (
-          <mesh
-            position={[-len / 2 + 0.6, 0.3, PLATE.deep / 2]}
-            receiveShadow
-            userData={SOCKET_NAME}
-          >
-            <boxGeometry args={[PLATE.socket, PLATE.tall, PLATE.deep]} />
-            <meshStandardMaterial color={FRAME_HEX} roughness={0.4} />
-          </mesh>
-        )}
       </group>
     </group>
   );
@@ -1267,9 +1253,8 @@ export function RoomShell({
   const floorMat = useMaterial(FLOOR_MATERIAL[r.floor], r.floorHex);
   const floorMaps = repeated(floorMat);
   const t = toMetres(r.thickness);
-  // the wall runs with their mitres and holes, and which one carries
-  // the room's socket (the first run long enough with nothing cut from
-  // it): read once per shape, not per frame, since a wall's geometry is
+  // the wall runs with their mitres and holes: read once per shape, not
+  // per frame, since a wall's geometry is
   // rebuilt when these change and a rebuild asks for another frame
   const { W, D, outline, openings, thickness, shared } = r;
   const runs = useMemo(() => {
@@ -1284,15 +1269,8 @@ export function RoomShell({
         mitres: runMitres(e, run, mitres[i]!),
         joints: jointsOf(e, run),
         holes: holesOf(shape, run, h),
-        socket: false,
       })),
     );
-    const first = out.find(
-      ({ run, holes }) =>
-        holes.length === 0 &&
-        Math.hypot(run.b[0] - run.a[0], run.b[1] - run.a[1]) > 1500,
-    );
-    if (first) first.socket = true;
     return out;
   }, [W, D, outline, openings, thickness, shared, h]);
   const onFloorClick = useEvent((e: ThreeEvent<MouseEvent>) => {
@@ -1331,7 +1309,7 @@ export function RoomShell({
           onState={reflection.onState}
         />
       )}
-      {runs.map(({ run, both, other, key, mitres, joints, holes, socket }) => (
+      {runs.map(({ run, both, other, key, mitres, joints, holes }) => (
         <WallRun
           key={key}
           e={run}
@@ -1346,7 +1324,6 @@ export function RoomShell({
           holes={holes}
           both={both}
           shared={other ? { room: r.id, other } : undefined}
-          socket={socket}
         />
       ))}
       {/* the sun's stop: the ceiling as the sun's shadow alone sees it

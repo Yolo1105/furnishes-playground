@@ -2870,3 +2870,23 @@ label.add-tile:focus-within .add-tile-pic {
 .part-rule {
   text-align: left;
 }
+/* what hangs on the walls, on the plan: outlets as a drawing marks them,
+   the rest as a light block off the wall, the overhead ones dashed */
+.plan-wall-items {
+  pointer-events: none;
+}
+.plan-outlet circle,
+.plan-outlet line {
+  fill: rgb(from var(--color-glass) r g b / 0.9);
+  stroke: var(--color-accent);
+  stroke-width: 18;
+}
+.plan-wall-item {
+  fill: rgb(from var(--color-accent) r g b / 0.12);
+  stroke: rgb(from var(--color-accent) r g b / 0.75);
+  stroke-width: 14;
+}
+.plan-wall-item[data-high="true"] {
+  fill: none;
+  stroke-dasharray: 40 30;
+}

@@ -1,5 +1,6 @@
 "use client";
 
+import { RoomWallItems } from "./PlanWallItems";
 import {
   useEffect,
   useLayoutEffect,
@@ -884,6 +885,7 @@ export function Plan2D({
                   }}
                 />
                 <Band outline={shell.outline} t={rm.thickness} />
+                <RoomWallItems spec={rm} shell={shell} />
                 {drawOpenings(shell, rm.thickness, false)}
                 <text
                   className="plan-room-name"
@@ -1013,6 +1015,7 @@ export function Plan2D({
               ))}
             </g>
           )}
+          <RoomWallItems spec={active} shell={opening} />
           {drawOpenings(opening, active.thickness, grips)}
 
           {dim([0, 0], [W, 0], `${W}`, [0, -1])}

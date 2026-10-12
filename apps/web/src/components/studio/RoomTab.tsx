@@ -38,6 +38,7 @@ import {
 } from "./room-data";
 import { CloseIcon, PlusIcon } from "./icons";
 import { RoomStart } from "./RoomStart";
+import { WallItemsSection } from "./WallItemsSection";
 import { WALL_RANGE } from "./room-geometry";
 import { useStudio } from "./studio-store";
 import { openingCentre, wallSpan } from "./room-health";
@@ -66,6 +67,8 @@ import {
  * The openings are a list: each door (hinged, sliding, double, or an
  * open passage) and window on its wall, sized by name or in millimetres,
  * with a row to add another; the plan's Wall tool moves them too.
+ * Then what is on the walls: the outlets and what hangs there, suggested
+ * for the room until changed (WallItemsSection).
  * Before the choice, only the choice. The Rules come last: the walkway,
  * what is kept clear, a bed against a wall, what the room must have, and
  * how far apart a layout spreads the pieces; the plan's health and its
@@ -517,6 +520,9 @@ export function RoomTab() {
           </>
         )}
       </section>
+      {/* a room from the flat as it came, not begun here: its walls are
+          there, so what hangs on them is too */}
+      {start === null && <WallItemsSection index={index()} muted={false} />}
       {start !== null && (
         <>
           <section
@@ -600,6 +606,10 @@ export function RoomTab() {
               </p>
             </div>
           </section>
+          <WallItemsSection
+            index={index()}
+            muted={start === "draw" && walls === 0}
+          />
           <section className="eva-pref" data-set="true">
             <div className="eva-pref-head">
               <span className="eva-pref-index f-num">{index()}</span>

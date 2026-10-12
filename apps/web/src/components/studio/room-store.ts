@@ -1,3 +1,4 @@
+import type { WallItem } from "./wall-items";
 import { create } from "zustand";
 import { newId } from "./ids";
 import {
@@ -61,6 +62,9 @@ export type RoomSpec = {
   thickness: number;
   /** the doors and windows in the walls */
   openings: Opening[];
+  /** what hangs on the walls, outlets too, once the visitor has made
+      the list their own; unset, the room has the suggested set */
+  items?: WallItem[] | undefined;
   floor: string;
   wallTone: string;
   /** true until the visitor edits a size: sizes then stop following presets */
@@ -124,6 +128,9 @@ type RoomState = RoomConfig & {
       door, unless one is named); returns its id */
   addOpening: (kind: OpeningKind, wall?: Wall, at?: number) => string;
   removeOpening: (id: string) => void;
+  /** the active room's wall items, its own from now; undefined goes
+      back to the suggested set */
+  setItems: (items: WallItem[] | undefined) => void;
   resetSize: () => void;
   setRules: (patch: Partial<Rules>) => void;
   /** the rules back to what this room starts with */
@@ -889,6 +896,7 @@ export const useRoom = create<RoomState>((set, get) => {
         }));
       else active((r) => ({ openings: r.openings.filter((o) => o.id !== id) }));
     },
+    setItems: (items) => active({ items }),
     resetSize: () => {
       active((r, s) => {
         const size = sized(s.flat, r.room);

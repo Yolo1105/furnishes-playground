@@ -1055,3 +1055,31 @@ picture. The tone mapping is now Khronos PBR Neutral
 hue, and the window still rolls off rather than clipping. The exposure
 is unchanged. This reverses the R1 decision on purpose; the visual
 baselines were taken again for it.
+
+## What hangs on the walls (2026-10-12)
+
+Rooms read empty because their walls were bare: real rooms have a
+picture, a mirror, the air-con unit high on a wall, a clock, outlets;
+a bathroom has its mirror cabinet, towel rail and water heater. Each
+room now has wall items (`wall-items.ts`), suggested for its kind and
+placed by rule: clear of the doors and windows (150 mm to their edges),
+off a stretch of wall a tall piece stands against (a picture never
+hangs behind a wardrobe; a low sideboard keeps it), the larger items
+first in the middle of the longest clear stretch, outlets near the ends
+of stretches and on the wall with the fewest, over the worktop in a
+kitchen and a yard. The suggestion follows the room and its furniture
+until the visitor changes an item in the Room tab's "On the walls"
+(which also shows while a room is made); from then the room keeps its
+own list, and Suggest again goes back.
+
+In 3D each item is one merged, vertex-coloured mesh (a mirror's glass a
+second, polished one), its geometry made once per kind and shared by
+the flat, and it goes from the picture with its wall when that wall is
+the near wall. On the plan an outlet is drawn as drawings mark one (a
+circle with two lines on the wall's face) and the rest as their depth
+off the wall, the overhead ones dashed.
+
+This replaces Realism 6's single double socket, which stood near the
+start of the first long run in every room as a scale cue: real outlets
+now do that job, where a person would put them, so the fixed one went.
+The switch plate beside each door stays.

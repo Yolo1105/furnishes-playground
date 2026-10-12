@@ -43,6 +43,8 @@ import { ShadowsOnChange } from "./ShadowsOnChange";
 import { usePieceActions } from "./piece-actions";
 import { PieceActions } from "./PieceActions";
 import { GapReadout, PieceBar } from "./PieceBar";
+import { useWallItems } from "./wall-items";
+import { WallItems3D } from "./WallItems3D";
 import {
   ACCENT_HEX,
   colourHex,
@@ -1679,6 +1681,12 @@ function FlatRoom({
   const outline = useMemo(() => footprintOf(rm), [rm]);
   const openings = useMemo(() => openingsOf(st, rm), [st, rm]);
   const shared = useMemo(() => sharedOf(st, rm), [st, rm]);
+  // what hangs on its walls: its own list, or the suggestion for it
+  const items = useWallItems(rm);
+  const wallShape = useMemo(
+    () => ({ id: rm.id, W: rm.width, D: rm.depth, outline, openings }),
+    [rm.id, rm.width, rm.depth, outline, openings],
+  );
   const w = toMetres(rm.width);
   const d = toMetres(rm.depth);
   const wall =
@@ -1725,6 +1733,7 @@ function FlatRoom({
           reflection={working?.reflection ?? null}
         />
       )}
+      {!focus && <WallItems3D r={wallShape} items={items} />}
       <group
         ref={working?.pieces ?? null}
         userData={working ? PIECES_TAG : NO_TAG}
@@ -1846,6 +1855,8 @@ export default function Scene3D() {
   const shared = useMemo(() => sharedOf({ rooms }, spec), [rooms, spec]);
   // how many rooms the active one stands into, for the stage to say
   const roomsOver = roomOverlaps(rooms, room.id).length;
+  // and how many things hang on its walls, outlets too
+  const wallItems = useWallItems(spec);
   // standing room for the walk: any room's floor, or a doorway between
   // two, from a point in metres about the active room's middle
   const walkable = useMemo(() => {
@@ -2131,6 +2142,7 @@ export default function Scene3D() {
       className="stage-3d"
       data-focus={a.focus !== null}
       data-rooms-overlap={roomsOver}
+      data-wall-items={wallItems.length}
       data-parts={partsPending}
       data-part-builds={partBuilds}
       data-walk={walk}

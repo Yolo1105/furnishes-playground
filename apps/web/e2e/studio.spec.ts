@@ -3302,6 +3302,55 @@ test("the room knows its flat: what fits, where the door is, a kitchen without a
   ).toBeVisible();
 });
 
+test("on the walls: each room has outlets and what hangs there, suggested; an outlet added is the room's own, drawn on the plan and counted on the stage; Suggest again goes back", async ({
+  page,
+}) => {
+  await page.goto("/rounded");
+  const stage = page.locator(".shell-stage .stage-3d");
+  await expect(stage).toHaveAttribute("data-settled", "true", {
+    timeout: 60_000,
+  });
+  // the living room's suggested set: a picture, a shelf, the air-con, a
+  // clock and three outlets
+  await expect(stage).toHaveAttribute("data-wall-items", "7");
+  await page.getByRole("tab", { name: "Room", exact: true }).click();
+  const walls = page.locator("section", { hasText: "On the walls" });
+  await expect(walls).toContainText("suggested for the room");
+  await expect(
+    walls.getByRole("button", { name: "Suggest again" }),
+  ).toHaveCount(0);
+  // an outlet of the visitor's own, on the plan too
+  await page.getByRole("button", { name: "Show 2D plan in main" }).click();
+  const outlets = page.locator(
+    ".shell-stage .plan-room[data-active='true'] .plan-outlet",
+  );
+  await expect(outlets).toHaveCount(3);
+  await walls.getByRole("button", { name: "Add a power outlet" }).click();
+  await expect(outlets).toHaveCount(4);
+  await expect(
+    walls.getByRole("button", { name: "Suggest again" }),
+  ).toBeVisible();
+  // placed where it is typed: along its wall and how high
+  const along = walls.getByRole("spinbutton", {
+    name: "Power outlet 4 along its wall in millimetres",
+  });
+  await along.fill("1000");
+  await expect(along).toHaveValue("1000");
+  const high = walls.getByRole("spinbutton", {
+    name: "Power outlet 4 height in millimetres",
+  });
+  await high.fill("1100");
+  await expect(high).toHaveValue("1100");
+  // one taken off: the picture
+  await walls.getByRole("button", { name: "Remove Framed art" }).click();
+  await page.getByRole("button", { name: "Show 3D view in main" }).click();
+  await expect(stage).toHaveAttribute("data-wall-items", "7");
+  // the suggestion again
+  await walls.getByRole("button", { name: "Suggest again" }).click();
+  await expect(stage).toHaveAttribute("data-wall-items", "7");
+  await expect(walls).toContainText("suggested for the room");
+});
+
 test("openings are a list: the + strip adds them, the Wall tool moves and sizes them, the Room tab names and removes them", async ({
   page,
 }) => {
