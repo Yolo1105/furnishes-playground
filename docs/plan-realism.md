@@ -1112,3 +1112,25 @@ are built as they are drawn, a frame or two slower, never blank). Until
 the first picture the stage shows what it is getting ready: starting
 the 3D view, loading the materials (n of m), preparing the light,
 building the look.
+
+## Doors that open (2026-10-12)
+
+A click on a door's leaf opens it and another shuts it: a hinged leaf
+swings into the room it opens into, near square to the wall (83°, as a
+door stands on its stop), turning about its hinge on the far edge from
+the lever; the front panel of a sliding pair runs over the one behind.
+It moves there over a third of a second, eased, and the stage draws
+only while it moves. Which doors stand open is the session's
+(`doorsOpen` in the studio store, a shared doorway known by its join,
+a room's own by room and opening), not the project's, and the stage
+counts them (`data-doors-open`); over a leaf the pointer is a finger
+(`data-over-door`). The walk has no collisions, so a door open or
+shut never stops it; the open leaf is there to read as a way through.
+
+Two things had to be right for the click to be the door's. A leaf
+hidden with its wall is still hit by the ray (three.js does not skip
+an invisible object), so a leaf takes the pointer only when it and
+every group above it are shown. And the press has to be the leaf's
+too: a piece behind it takes the pointer on its press, and a click
+with the pointer held goes to everything under it, which opened two
+doors and picked the counter behind them at once.

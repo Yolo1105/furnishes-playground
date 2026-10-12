@@ -3387,6 +3387,87 @@ test("on the walls: each room has outlets and what hangs there, suggested; an ou
   await expect(walls).toContainText("suggested for the room");
 });
 
+test("a door opens on a click and shuts on the next, and a piece behind it is not picked through it", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await page.goto("/rounded");
+  const stage = page.locator(".shell-stage .stage-3d");
+  await expect(stage).toHaveAttribute("data-settled", "true", {
+    timeout: 60_000,
+  });
+  await expect(stage).toHaveAttribute("data-doors-open", "0");
+  // from the back the flat stands open, its doors in view (the cube's
+  // back face is behind its others: picked as the keyboard would)
+  await page
+    .getByRole("radiogroup", { name: "View angle" })
+    .getByRole("radio", { name: "Back" })
+    .dispatchEvent("click");
+  await page.waitForTimeout(3_500);
+  // the leaves shown, where they are on the screen, nearest first
+  const leaves = () =>
+    page.evaluate(() => {
+      type O = {
+        visible: boolean;
+        parent: O | null;
+        uuid: string;
+        userData: { name?: string };
+        getWorldPosition: (v: V) => V;
+      };
+      type V = {
+        x: number;
+        y: number;
+        z: number;
+        clone: () => V;
+        project: (c: unknown) => V;
+        distanceTo: (v: V) => number;
+      };
+      const w = window as unknown as {
+        __scene: { traverse: (f: (o: O) => void) => void };
+        __camera: { position: V };
+      };
+      const r = document
+        .querySelector(".shell-stage .stage-3d canvas")!
+        .getBoundingClientRect();
+      const out: { id: string; x: number; y: number; far: number }[] = [];
+      w.__scene.traverse((o) => {
+        if (o.userData.name !== "Door leaf") return;
+        for (let q: O | null = o; q; q = q.parent) if (!q.visible) return;
+        const at = o.getWorldPosition(w.__camera.position.clone());
+        at.y = 1.3;
+        const far = at.distanceTo(w.__camera.position);
+        const s = at.project(w.__camera);
+        if (Math.abs(s.x) < 0.85 && Math.abs(s.y) < 0.7 && s.z < 1)
+          out.push({
+            id: o.uuid,
+            x: r.left + ((s.x + 1) / 2) * r.width,
+            y: r.top + ((1 - s.y) / 2) * r.height,
+            far,
+          });
+      });
+      return out.sort((a, b) => a.far - b.far);
+    });
+  // the first leaf the pointer finds over it (a finger on the stage)
+  let leaf: { id: string; x: number; y: number } | null = null;
+  for (const l of await leaves()) {
+    await page.mouse.move(l.x, l.y);
+    if ((await stage.getAttribute("data-over-door")) === "true") {
+      leaf = l;
+      break;
+    }
+  }
+  expect(leaf).not.toBeNull();
+  await page.mouse.click(leaf!.x, leaf!.y);
+  await expect(stage).toHaveAttribute("data-doors-open", "1");
+  // the click was the door's: no piece behind it was picked
+  await expect(page.locator(".piece-bar")).toHaveCount(0);
+  // swung open, the leaf is clicked where it now stands, and shuts
+  await page.waitForTimeout(800);
+  const open = (await leaves()).find((l) => l.id === leaf!.id)!;
+  await page.mouse.click(open.x, open.y);
+  await expect(stage).toHaveAttribute("data-doors-open", "0");
+});
+
 test("openings are a list: the + strip adds them, the Wall tool moves and sizes them, the Room tab names and removes them", async ({
   page,
 }) => {

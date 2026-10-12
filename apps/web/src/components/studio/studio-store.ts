@@ -256,6 +256,10 @@ type StudioState = {
   setWheelMode: (wheelMode: WheelMode) => void;
   setMagnet: (magnet: boolean) => void;
   setScene: (patch: Partial<SceneLook>) => void;
+  /** the doors stood open, by doorway (a shared one by its join, a
+      room's own by room and opening): a click on a leaf opens or shuts it */
+  doorsOpen: Record<string, boolean>;
+  toggleDoor: (key: string) => void;
   /** play the tour: the 3D room comes up, walking, and the camera goes */
   startTour: () => void;
   stopTour: () => void;
@@ -476,6 +480,9 @@ export const useStudio = create<StudioState>((set, get) => ({
   setWheelMode: (wheelMode) => set({ wheelMode }),
   setMagnet: (magnet) => set({ magnet }),
   setScene: (patch) => set((s) => ({ scene: { ...s.scene, ...patch } })),
+  doorsOpen: {},
+  toggleDoor: (key) =>
+    set((s) => ({ doorsOpen: { ...s.doorsOpen, [key]: !s.doorsOpen[key] } })),
   startTour: () =>
     set((s) => ({
       touring: true,

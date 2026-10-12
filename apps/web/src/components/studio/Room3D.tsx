@@ -60,7 +60,7 @@ import {
 } from "./wall-solid";
 import { openingCentre } from "./room-health";
 import type { Point } from "./room-templates";
-import type { Sky } from "./studio-store";
+import { type Sky, useStudio } from "./studio-store";
 import type { StillState } from "./capture";
 import { FloorReflection, useFloorMaterial } from "./Reflection";
 import { FLOOR_MATERIAL, repeated, tintOver, useMaterial } from "./materials";
@@ -1106,8 +1106,10 @@ function Window({ r, o }: { r: RoomShape; o: Opening }) {
     hung towards the room and a shade smaller than the lining all
     round, with its lever and rose at hand height; a double door's two
     leaves; a sliding door's two panels, one before the other; nothing
-    at all in a passage. The leaf is painted. A switch plate stands
-    beside the opening on the handle's side. */
+    at all in a passage. The leaf is painted. A click on a leaf opens
+    it (a hinged one swings into the room, the front sliding panel runs
+    over the other) and another shuts it. A switch plate stands beside
+    the opening on the handle's side. */
 function Door({ r, o }: { r: RoomShape; o: Opening }) {
   const other = useShared(r, o);
   const width = toMetres(o.width);
@@ -1118,7 +1120,7 @@ function Door({ r, o }: { r: RoomShape; o: Opening }) {
   const [x, z] = placeOf(r, o);
   const yaw = yawOf(o.wall);
   const t = toMetres(r.thickness);
-  const { leaf, lining, architrave, proud, gap, threshold, lever } = DOOR;
+  const { lining, architrave, proud, threshold } = DOOR;
   const sliding = o.kind === "sliding";
   const leaves =
     o.kind === "door"
@@ -1142,59 +1144,31 @@ function Door({ r, o }: { r: RoomShape; o: Opening }) {
   const leafZ = -Math.min(t / 2, 0.06);
   const faces = o.join !== undefined ? [1, -1] : [1];
   const handleSide = leaves[0] ? Math.sign(leaves[0].handle) || 1 : 1;
+  // a click on a leaf opens it, another shuts it; a doorway shared by
+  // two rooms is known by its join, a room's own by room and opening
+  const key = o.join ?? `${r.id}:${o.id}`;
+  const open = useStudio((s) => !!s.doorsOpen[key]);
+  const toggleDoor = useStudio((s) => s.toggleDoor);
+  const toggle = useEvent(() => toggleDoor(key));
   return (
     <Inside
       normal={inward(o.wall)}
       shared={other ? { room: r.id, other } : null}
     >
       <group position={[x, 0, z]} rotation={[0, yaw, 0]} userData={DOOR_NAME}>
-        {leaves.map((l, i) => {
-          const zl = sliding ? -0.02 - i * (leaf + 0.01) : leafZ;
-          const front = zl + leaf / 2;
-          return (
-            <group key={i}>
-              <mesh
-                position={[l.x, (tall - gap) / 2, zl]}
-                castShadow
-                receiveShadow
-                userData={LEAF_NAME}
-              >
-                <boxGeometry
-                  args={[l.w - 2 * gap - 2 * lining, tall - gap, leaf]}
-                />
-                <meshStandardMaterial color={DOOR_HEX} roughness={DOOR_ROUGH} />
-              </mesh>
-              {/* the lever and its rose, at hand height on the opening
-                  side, standing off the leaf's face */}
-              <mesh
-                position={[l.x + l.handle, 1.0, front + 0.004]}
-                rotation={[Math.PI / 2, 0, 0]}
-              >
-                <cylinderGeometry args={[0.026, 0.026, 0.008, 24]} />
-                <meshStandardMaterial
-                  color={METAL_HEX}
-                  roughness={0.3}
-                  metalness={0.8}
-                />
-              </mesh>
-              <mesh
-                position={[
-                  l.x + l.handle - (Math.sign(l.handle) * lever) / 2 + 0.01,
-                  1.0,
-                  front + 0.04,
-                ]}
-                castShadow
-              >
-                <boxGeometry args={[lever, 0.016, 0.016]} />
-                <meshStandardMaterial
-                  color={METAL_HEX}
-                  roughness={0.3}
-                  metalness={0.8}
-                />
-              </mesh>
-            </group>
-          );
-        })}
+        {leaves.map((l, i) => (
+          <DoorLeaf
+            key={i}
+            l={l}
+            i={i}
+            tall={tall}
+            sliding={sliding}
+            leafZ={leafZ}
+            travel={width / 2}
+            open={open}
+            onToggle={toggle}
+          />
+        ))}
         {/* the lining: two jambs and a head board in the reveal */}
         {[-1, 1].map((s) => (
           <mesh
@@ -1265,6 +1239,150 @@ function Door({ r, o }: { r: RoomShape; o: Opening }) {
         )}
       </group>
     </Inside>
+  );
+}
+
+/** how far a hinged leaf swings open, radians: a little short of square
+    to the wall, as a door stands on its stop */
+const SWING = 1.45;
+/** how quickly a leaf goes to where it is asked, per second */
+const SWING_RATE = 6;
+
+/** one leaf of a doorway, hung on its hinge (or its track) so a click
+    swings it into the room, or slides it behind the other, and another
+    click brings it back; it moves there over a third of a second */
+function DoorLeaf({
+  l,
+  i,
+  tall,
+  sliding,
+  leafZ,
+  travel,
+  open,
+  onToggle,
+}: {
+  l: { x: number; w: number; handle: number };
+  i: number;
+  tall: number;
+  sliding: boolean;
+  leafZ: number;
+  /** how far a sliding panel runs, m */
+  travel: number;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const { leaf, lining, gap, lever } = DOOR;
+  const pivot = useRef<Group>(null);
+  const k = useRef(open ? 1 : 0);
+  const invalidate = useThree((s) => s.invalidate);
+  useEffect(() => invalidate(), [open, invalidate]);
+  const zl = sliding ? -0.02 - i * (leaf + 0.01) : leafZ;
+  const lw = l.w - 2 * gap - 2 * lining;
+  const s = Math.sign(l.handle) || 1;
+  // the hinge: the leaf's far edge from its handle, on its room face;
+  // a sliding panel hangs from its middle
+  const hx = sliding ? l.x : l.x - (s * lw) / 2;
+  const hz = sliding ? zl : zl + leaf / 2;
+  // only the front panel of a sliding pair runs, over the one behind
+  const moves = !sliding || i === 0;
+  const pose = (g: Group, v: number) => {
+    if (sliding) g.position.x = hx + v * travel;
+    else g.rotation.y = -s * SWING * v;
+  };
+  useLayoutEffect(() => {
+    if (pivot.current) pose(pivot.current, k.current);
+  });
+  useFrame((_, dt) => {
+    const g = pivot.current;
+    if (!g || !moves) return;
+    const to = open ? 1 : 0;
+    if (k.current === to) return;
+    const step = Math.min(dt, 0.1) * SWING_RATE;
+    const next = k.current + Math.sign(to - k.current) * step;
+    k.current = Math.abs(to - k.current) <= step ? to : next;
+    // eased: quick to start, settling on its stop
+    const v = k.current * k.current * (3 - 2 * k.current);
+    pose(g, v);
+    invalidate();
+  });
+  const front = zl + leaf / 2;
+  // a leaf hidden with its wall is still in the ray's way: it takes no
+  // press, and lets one through to what is behind it
+  const shown = (e: ThreeEvent<Event>) => {
+    for (let o: Object3D | null = e.eventObject; o; o = o.parent)
+      if (!o.visible) return false;
+    return true;
+  };
+  // the press is the leaf's, so a piece behind it does not take the
+  // pointer (a piece holds the pointer from its press, and a held
+  // pointer's click goes to everything under it)
+  const onDown = (e: ThreeEvent<PointerEvent>) => {
+    if (moves && shown(e)) e.stopPropagation();
+  };
+  const onClick = (e: ThreeEvent<MouseEvent>) => {
+    if (!moves || !shown(e)) return;
+    e.stopPropagation();
+    onToggle();
+  };
+  // a finger over a leaf that opens, said on the stage
+  const stageOf = (e: ThreeEvent<PointerEvent>) =>
+    (e.nativeEvent.target as HTMLElement | null)?.closest<HTMLElement>(
+      ".stage-3d",
+    );
+  const onOver = (e: ThreeEvent<PointerEvent>) => {
+    if (!moves || !shown(e)) return;
+    e.stopPropagation();
+    const el = stageOf(e);
+    if (el) el.dataset.overDoor = "true";
+  };
+  const onOut = (e: ThreeEvent<PointerEvent>) => {
+    const el = stageOf(e);
+    if (el) delete el.dataset.overDoor;
+  };
+  return (
+    <group ref={pivot} position={[hx, 0, hz]}>
+      <group
+        position={[l.x - hx, 0, -hz]}
+        onPointerDown={onDown}
+        onClick={onClick}
+        onPointerOver={onOver}
+        onPointerOut={onOut}
+      >
+        <mesh
+          position={[0, (tall - gap) / 2, zl]}
+          castShadow
+          receiveShadow
+          userData={LEAF_NAME}
+        >
+          <boxGeometry args={[lw, tall - gap, leaf]} />
+          <meshStandardMaterial color={DOOR_HEX} roughness={DOOR_ROUGH} />
+        </mesh>
+        {/* the lever and its rose, at hand height on the opening side,
+            standing off the leaf's face */}
+        <mesh
+          position={[l.handle, 1.0, front + 0.004]}
+          rotation={[Math.PI / 2, 0, 0]}
+        >
+          <cylinderGeometry args={[0.026, 0.026, 0.008, 24]} />
+          <meshStandardMaterial
+            color={METAL_HEX}
+            roughness={0.3}
+            metalness={0.8}
+          />
+        </mesh>
+        <mesh
+          position={[l.handle - (s * lever) / 2 + 0.01, 1.0, front + 0.04]}
+          castShadow
+        >
+          <boxGeometry args={[lever, 0.016, 0.016]} />
+          <meshStandardMaterial
+            color={METAL_HEX}
+            roughness={0.3}
+            metalness={0.8}
+          />
+        </mesh>
+      </group>
+    </group>
   );
 }
 

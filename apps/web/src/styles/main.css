@@ -447,7 +447,8 @@
 .stage-3d[data-hover="grab"] canvas {
   cursor: grab;
 }
-.stage-3d[data-hover="pick"] canvas {
+.stage-3d[data-hover="pick"] canvas,
+.stage-3d[data-over-door="true"] canvas {
   cursor: pointer;
 }
 .plan-pieces .stage-piece[data-clash="true"] .stage-piece-body {

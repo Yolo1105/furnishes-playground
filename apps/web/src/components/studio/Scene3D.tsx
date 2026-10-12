@@ -238,10 +238,11 @@ function LiveHandle({
       corner,
       sun,
     });
-    // in development the scene is at hand in the console too, for
-    // hiding one thing at a time when a defect is hunted
+    // in development the scene and its camera are at hand in the
+    // console too, for hiding one thing at a time when a defect is
+    // hunted, and for a script to find where a thing is on screen
     if (process.env.NODE_ENV !== "production")
-      (window as unknown as { __scene?: Scene }).__scene = scene;
+      Object.assign(window, { __scene: scene, __camera: camera });
     return () => setLive(null);
   }, [scene, camera, w, d, h, spanW, spanD, centre, corner, sun]);
   return null;
@@ -1941,6 +1942,10 @@ export default function Scene3D() {
   const roomsOver = roomOverlaps(rooms, room.id).length;
   // and how many things hang on its walls, outlets too
   const wallItems = useWallItems(spec);
+  // the doors stood open, to show on the stage
+  const doorsOpen = useStudio(
+    (s) => Object.values(s.doorsOpen).filter(Boolean).length,
+  );
   // standing room for the walk: any room's floor, or a doorway between
   // two, from a point in metres about the active room's middle
   const walkable = useMemo(() => {
@@ -2233,6 +2238,7 @@ export default function Scene3D() {
       data-parts={partsPending}
       data-part-builds={partBuilds}
       data-walk={walk}
+      data-doors-open={doorsOpen}
       data-dragging={dragging}
       data-edges={edges}
       data-cuts={cutsOn ? "on" : "off"}
