@@ -2481,12 +2481,12 @@ test("projects: a new one starts clean, the first keeps its room, rename and del
   await expect(page.getByRole("menuitem", { name: "Delete" })).toBeDisabled();
 });
 
-test("a browser that kept projects from an earlier studio is given the 5-room flat once, as a project of its own", async ({
+test("a browser that kept projects from an earlier studio starts over: the 5-room flat alone, once", async ({
   page,
 }) => {
-  // what an earlier studio kept: its first project, under another name,
-  // and no word of the flat it was given (set once, before the first
-  // load only, so the reload below reads what the studio kept)
+  // what an earlier studio kept: a project of its own, and no word of
+  // the studio starting over (set before the first load only, so the
+  // reload below reads what this studio kept)
   await page.addInitScript(() => {
     if (sessionStorage.getItem("seeded")) return;
     sessionStorage.setItem("seeded", "1");
@@ -2507,15 +2507,18 @@ test("a browser that kept projects from an earlier studio is given the 5-room fl
     page.getByRole("radiogroup", { name: "Rooms" }).getByRole("radio"),
   ).toHaveCount(7);
   await page.getByRole("button", { name: /^Project, / }).click();
-  await expect(page.getByRole("menuitemradio")).toHaveText([
-    "My flat",
-    "HDB 5-room flat",
-  ]);
+  await expect(page.getByRole("menuitemradio")).toHaveText(["HDB 5-room flat"]);
   await page.keyboard.press("Escape");
-  // once: a reload opens it again and adds no other
+  // the earlier project is noted gone, so an account's copy goes too
+  const gone = await page.evaluate(
+    () => JSON.parse(localStorage.getItem("furnishes.projects")!).gone,
+  );
+  expect(Object.keys(gone)).toEqual(["p-first"]);
+  // once: a project made now survives the reload
+  await page.getByRole("button", { name: /^Project, / }).click();
+  await page.getByRole("menuitem", { name: "New project" }).click();
   await page.waitForTimeout(900);
   await page.reload();
-  await expect(name).toHaveText("HDB 5-room flat");
   await page.getByRole("button", { name: /^Project, / }).click();
   await expect(page.getByRole("menuitemradio")).toHaveCount(2);
 });

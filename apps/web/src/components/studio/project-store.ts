@@ -35,11 +35,12 @@ const KEY = "furnishes.projects";
 const SNAPSHOT_VERSION = 2;
 const SAVE_AFTER = 600; // ms after the last change
 /** the studio's own flat, the one a new project opens on, by version:
-    raised when that flat changes, so a browser that kept projects from
-    an earlier one is given the new flat once, as a project of its own,
-    opened; what it kept stays as it was. 2: the HDB 5-room flat */
+    raised when the studio starts over, so a browser that kept projects
+    from an earlier studio keeps none of them and opens the flat alone
+    (the projects it had are noted gone, so an account's copies go too).
+    3: the HDB 5-room flat, and nothing kept from before it */
 const SHOWCASE_KEY = "furnishes.showcase";
-const SHOWCASE = { version: 2, name: "HDB 5-room flat" };
+const SHOWCASE = { version: 3, name: "HDB 5-room flat" };
 
 type RoomData = ReturnType<typeof useRoom.getState>;
 type SceneData = ReturnType<typeof useScene.getState>;
@@ -433,7 +434,24 @@ export const useProjects = create<ProjectState>((set, get) => ({
 export function useProjectSync(wanted: string | null = null) {
   useEffect(() => {
     const kept = readKept();
-    if (kept.projects?.length) {
+    if (kept.projects?.length && showcaseSeen() < SHOWCASE.version) {
+      // the studio started over: what an earlier one kept goes, noted
+      // gone, and the flat opens alone
+      const at = Date.now();
+      const p: Project = {
+        id: newId("p"),
+        name: SHOWCASE.name,
+        at,
+        data: fresh(),
+      };
+      const gone = {
+        ...(kept.gone ?? {}),
+        ...Object.fromEntries(kept.projects.map((k) => [k.id, at])),
+      };
+      useProjects.setState({ projects: [p], activeId: p.id, gone });
+      load(p.data!);
+      writeKept({ projects: [p], activeId: p.id, gone });
+    } else if (kept.projects?.length) {
       useProjects.setState({
         projects: kept.projects,
         gone: kept.gone ?? {},
@@ -445,19 +463,6 @@ export function useProjectSync(wanted: string | null = null) {
         .getState()
         .projects.find((p) => p.id === useProjects.getState().activeId);
       if (open?.data) load(open.data);
-      if (showcaseSeen() < SHOWCASE.version) {
-        const p: Project = {
-          id: newId("p"),
-          name: SHOWCASE.name,
-          at: Date.now(),
-          data: fresh(),
-        };
-        useProjects.setState((s) => ({ projects: [...s.projects, p] }));
-        if (!wanted) useProjects.getState().open(p.id);
-        // kept at once, with the word that it was given
-        const { projects, activeId, gone } = useProjects.getState();
-        writeKept({ projects, activeId, gone });
-      }
     }
     showcaseShown();
     if (wanted) useProjects.getState().open(wanted);

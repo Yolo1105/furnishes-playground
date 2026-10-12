@@ -2,15 +2,23 @@
 
 import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
-import type { Light, LightShadow, Mesh, Object3D } from "three";
+import type {
+  Light,
+  LightShadow,
+  Material,
+  Mesh,
+  Object3D,
+  Texture,
+} from "three";
 
 /** a light that casts, with its shadow */
 type Caster = Light & { shadow: LightShadow };
 
 /** a number that changes when anything a shadow map shows changes:
     each caster's place, size and turn in the world, whether it is
-    shown, the layers it is drawn on and its geometry; each casting
-    light's place and its shadow camera's box */
+    shown, the layers it is drawn on, its geometry and what its
+    materials cut out of it; each casting light's place and its shadow
+    camera's box */
 const signatureOf = (scene: Object3D, lights: Caster[]) => {
   let sum = 0;
   let n = 0;
@@ -24,9 +32,35 @@ const signatureOf = (scene: Object3D, lights: Caster[]) => {
     const m = o as Mesh;
     if (!m.castShadow || !m.isMesh) return;
     add(m.id);
-    add(m.geometry.id);
     add(m.layers.mask);
     for (const e of m.matrixWorld.elements) add(e * 1000);
+    // the shape it casts: its geometry, changed in place too, and what
+    // its materials cut out of it (a leaf's alpha, a side, an opacity),
+    // which change as their pictures arrive
+    const g = m.geometry;
+    add(g.id);
+    add(
+      (g.attributes.position as { version?: number } | undefined)?.version ?? 0,
+    );
+    add(g.index?.version ?? 0);
+    add(g.drawRange.count);
+    for (const mat of Array.isArray(m.material) ? m.material : [m.material]) {
+      const t = mat as Material & {
+        id: number;
+        map?: Texture | null;
+        alphaMap?: Texture | null;
+      };
+      add(t.id);
+      add(t.version);
+      add(t.side);
+      add(t.alphaTest * 1000);
+      add(t.opacity * 1000);
+      add(t.visible ? 1 : 2);
+      for (const tex of [t.map, t.alphaMap]) {
+        add(tex?.id ?? 0);
+        add(tex?.version ?? 0);
+      }
+    }
   });
   for (const l of lights) {
     add(l.id);

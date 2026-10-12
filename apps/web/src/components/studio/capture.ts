@@ -17,13 +17,21 @@ export const stillOf = (
 ) => {
   const shown = hidden.map((o) => o?.visible ?? true);
   for (const o of hidden) if (o) o.visible = false;
-  const paused: LightShadow[] = [];
+  // no shadow map is drawn in the still: one drawn with the pieces
+  // hidden would be the one the room is then drawn with (a map is drawn
+  // only when asked for, ShadowsOnChange.tsx); the ask waits for the
+  // room's own frame
+  const paused: { shadow: LightShadow; auto: boolean; asked: boolean }[] = [];
   scene.traverse((o) => {
     const shadow = (o as { shadow?: LightShadow }).shadow;
-    if (shadow?.autoUpdate) {
-      shadow.autoUpdate = false;
-      paused.push(shadow);
-    }
+    if (!shadow) return;
+    paused.push({
+      shadow,
+      auto: shadow.autoUpdate,
+      asked: shadow.needsUpdate,
+    });
+    shadow.autoUpdate = false;
+    shadow.needsUpdate = false;
   });
   try {
     take();
@@ -31,6 +39,9 @@ export const stillOf = (
     hidden.forEach((o, i) => {
       if (o) o.visible = shown[i]!;
     });
-    for (const shadow of paused) shadow.autoUpdate = true;
+    for (const p of paused) {
+      p.shadow.autoUpdate = p.auto;
+      p.shadow.needsUpdate = p.asked;
+    }
   }
 };
