@@ -22,7 +22,7 @@ import {
 const OUTLET_R = 80;
 /** the least depth an item is drawn at, so a picture still shows, mm */
 const MIN_DEPTH = 50;
-const HIGH: WallItemKind[] = ["aircon", "water-heater"];
+const HIGH: WallItemKind[] = ["aircon", "water-heater", "drying-rack"];
 
 export function PlanWallItems({
   shell,

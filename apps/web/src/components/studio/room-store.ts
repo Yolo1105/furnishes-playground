@@ -574,8 +574,8 @@ export const sheetBox = (rooms: readonly RoomSpec[]) =>
  * lives in one (after the family apartment planner it was asked to
  * follow): the three bedrooms in a row along the north, the parents' at
  * the west end and the children's two beside it; a hall under the
- * children's rooms that every bedroom, both bathrooms and the household
- * shelter open off; the living and dining room across the east end, the
+ * children's rooms that every bedroom, the common bathroom and the
+ * household shelter open off, the parents' bathroom off their own room; the living and dining room across the east end, the
  * hall coming into it, the entrance in its south wall by the east
  * corner; the kitchen a galley along the south, open to the dining end
  * through a glass slider, with the service yard behind it to the west.
@@ -665,15 +665,24 @@ const showcaseFlat = (): Pick<
       head: 2100,
     }),
   ];
+  // the parents' own bathroom, through a door in their room's south
+  // wall beside the wardrobe, as an HDB master bedroom has it
   const bathroom2 = at(
-    "bathroom",
+    "ensuite",
     SHOWCASE_ROOMS.bathroom2,
-    [5900, 5100],
-    1500,
+    [900, 5000],
+    2100,
     1700,
   );
   bathroom2.floor = "Tiles";
-  bathroom2.openings = [];
+  bathroom2.openings = [
+    makeOpening("window", "west", {
+      at: 450,
+      width: 600,
+      sill: 1500,
+      head: 2100,
+    }),
+  ];
   const hall = at("hall", SHOWCASE_ROOMS.hall, [3300, 3700], 6000, 1100);
   hall.openings = [];
   const shelter = at(
@@ -714,8 +723,8 @@ const showcaseFlat = (): Pick<
     [bathroom, hall, { kind: "door", width: 750, at: 4000, into: bathroom.id }],
     [
       bathroom2,
-      hall,
-      { kind: "door", width: 700, at: 6650, into: bathroom2.id },
+      master,
+      { kind: "door", width: 700, at: 2550, into: bathroom2.id },
     ],
     [shelter, hall, { kind: "door", width: 800, at: 8500, into: shelter.id }],
     [yard, kitchen, { kind: "door", width: 800, at: 8000, into: yard.id }],

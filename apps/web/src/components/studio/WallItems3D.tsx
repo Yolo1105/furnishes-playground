@@ -193,6 +193,37 @@ const partsOf = (kind: WallItemKind, seed: number): Part[] => {
     }
     case "mirror-cabinet":
       return [{ box: [w, h, d], at: [0, 0, d / 2], colour: WHITE }];
+    case "drying-rack": {
+      // poles along the wall on two brackets, washing on two of them
+      const poles = [0.16, 0.32, 0.48].map((z): Part => ({
+        box: [w, 0.022, 0.022],
+        at: [0, h / 2 - 0.03, z],
+        colour: CHROME,
+      }));
+      return [
+        {
+          box: [0.03, 0.06, d],
+          at: [-w / 2 + 0.06, h / 2 - 0.03, d / 2],
+          colour: CHROME,
+        },
+        {
+          box: [0.03, 0.06, d],
+          at: [w / 2 - 0.06, h / 2 - 0.03, d / 2],
+          colour: CHROME,
+        },
+        ...poles,
+        {
+          box: [0.42, h - 0.06, 0.008],
+          at: [-w * 0.2, -0.03, 0.16],
+          colour: "#cfd9d6",
+        },
+        {
+          box: [0.3, h * 0.7, 0.008],
+          at: [w * 0.22, h * 0.12, 0.32],
+          colour: "#e7d7c1",
+        },
+      ];
+    }
     case "water-heater":
       return [
         { box: [w, h, d], at: [0, 0, d / 2], colour: "#f7f6f2" },

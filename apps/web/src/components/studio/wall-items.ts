@@ -10,7 +10,7 @@ import type { Point } from "./room-templates";
  * What hangs on a room's walls: the power outlets, and the things a
  * lived-in room has on its walls (a picture, a mirror, a shelf, the
  * air-con unit, a clock; in a bathroom the mirror cabinet, the towel
- * rail and the water heater). Each stands on a wall at a place along it
+ * rail and the water heater; the service yard's drying rack). Each stands on a wall at a place along it
  * (as an opening does: mm from the room's west or north side, null for
  * the wall's middle) and at a height, its centre above the floor.
  *
@@ -30,7 +30,8 @@ export type WallItemKind =
   | "clock"
   | "towel-rail"
   | "mirror-cabinet"
-  | "water-heater";
+  | "water-heater"
+  | "drying-rack";
 
 export type WallItem = {
   id: string;
@@ -81,6 +82,13 @@ export const WALL_ITEMS: Record<
     depth: 320,
     y: 2050,
   },
+  "drying-rack": {
+    label: "Drying rack",
+    width: 1200,
+    height: 300,
+    depth: 520,
+    y: 2150,
+  },
 };
 export const WALL_ITEM_KINDS = Object.keys(WALL_ITEMS) as WallItemKind[];
 
@@ -96,7 +104,7 @@ const SUGGESTED: Record<RoomId, WallItemKind[]> = {
   ensuite: ["mirror-cabinet", "towel-rail", "water-heater"],
   hall: ["mirror", "outlet"],
   shelter: ["outlet"],
-  yard: ["outlet"],
+  yard: ["drying-rack", "outlet"],
 };
 /** a kitchen's and a yard's outlets stand over the worktop */
 const OUTLET_HIGH: RoomId[] = ["kitchen", "yard"];

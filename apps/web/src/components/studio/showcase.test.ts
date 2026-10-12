@@ -24,7 +24,7 @@ const items = assetGroups
   .filter((n) => n.kind !== "fixed");
 
 describe("the flat the studio opens on", () => {
-  it("is a 5-room flat: three bedrooms, two bathrooms, the hall, the shelter and the yard, standing clear", () => {
+  it("is a 5-room flat: three bedrooms, a common bathroom and the master's own, the hall, the shelter and the yard, standing clear", () => {
     expect(flat.flat).toBe("5-room");
     expect(flat.rooms.map((r) => r.room)).toEqual([
       "living",
@@ -33,7 +33,7 @@ describe("the flat the studio opens on", () => {
       "bedroom-1",
       "bedroom-2",
       "bathroom",
-      "bathroom",
+      "ensuite",
       "hall",
       "shelter",
       "yard",
@@ -44,7 +44,7 @@ describe("the flat the studio opens on", () => {
     expect(flat.activeId).toBe(SHOWCASE_ROOMS.living);
   });
 
-  it("joins the rooms as the plan does: the bedrooms and bathrooms off the hall", () => {
+  it("joins the rooms as the plan does: the bedrooms and the common bathroom off the hall, the parents' bathroom off their room", () => {
     const {
       living,
       kitchen,
@@ -71,14 +71,13 @@ describe("the flat the studio opens on", () => {
       kind: "passage",
       open: true,
     });
-    // every bedroom and bathroom, and the shelter, has its door from the
-    // hall, its leaf swinging into it
+    // every bedroom, the common bathroom and the shelter have their door
+    // from the hall, the leaf swinging into the room
     for (const [room, width] of [
       [master, 800],
       [bedroom2, 800],
       [bedroom3, 800],
       [bathroom, 750],
-      [bathroom2, 700],
       [shelter, 800],
     ] as const)
       expect(between(hall, room), room).toMatchObject({
@@ -87,6 +86,21 @@ describe("the flat the studio opens on", () => {
         width,
         open: true,
       });
+    // the parents' bathroom from their room alone
+    expect(between(master, bathroom2)).toMatchObject({
+      kind: "door",
+      into: bathroom2,
+      width: 700,
+      open: true,
+    });
+    expect(
+      flat.joins.some(
+        (j) =>
+          j.open &&
+          (j.a === bathroom2 || j.b === bathroom2) &&
+          (j.a === hall || j.b === hall),
+      ),
+    ).toBe(false);
     // the yard from the kitchen alone
     expect(between(kitchen, yard)).toMatchObject({
       kind: "door",

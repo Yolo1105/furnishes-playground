@@ -597,7 +597,7 @@ the sheet, mm.
 | Bedroom 2         | bedroom-1 | 2700 × 3400  | (6600, 0)    | door from the hall            |
 | Bedroom 3         | bedroom-2 | 3000 × 3400  | (3300, 0)    | door from the hall            |
 | Bathroom          | bathroom  | 2300 × 1700  | (3300, 5100) | 750 door from the hall        |
-| Bathroom 2        | bathroom  | 1500 × 1700  | (5900, 5100) | 700 door from the hall        |
+| Master bathroom   | ensuite   | 2100 × 1700  | (900, 5000)  | 700 door from the master      |
 | Hall              | hall      | 6000 × 1100  | (3300, 3700) | 1.0 m opening from the living |
 | Household shelter | shelter   | 1600 × 1200  | (7700, 5100) | door from the hall            |
 | Service yard      | yard      | 1500 × 1900  | (5900, 7100) | door from the kitchen         |
@@ -694,3 +694,15 @@ and Shift R, [ and ] by 15° (Shift, 1°), the arrows by 50 mm (Shift,
 Each room also has what hangs on its walls, outlets included, suggested
 for its kind and editable in the Room tab's On the walls (see "What
 hangs on the walls" in plan-realism.md).
+
+### The parents' own bathroom, and a yard that reads as one (2026-10-12)
+
+The flat had two bathrooms side by side off the hall, with the shelter
+and a tiled service yard beside them, and from above it read as four
+bathrooms. An HDB 5-room flat has a common bathroom off the corridor
+and the master bedroom's own. The second bathroom is now the master
+bathroom (the `ensuite` kind), 2.1 × 1.7 m south of the master bedroom,
+its door in the bedroom's south wall beside the wardrobe and a high
+window in its outside wall; the hall keeps the common bathroom and the
+shelter. The yard carries a drying rack up high, so it reads as the
+laundry it is.

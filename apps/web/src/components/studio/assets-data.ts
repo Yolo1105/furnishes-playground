@@ -332,7 +332,7 @@ const SHOWCASE: [AssetNode, Place][] = [
   ],
   [
     decor("wc-2", "WC 2", "fittings"),
-    { roomId: R.bathroom2, x: 1100, y: 1050, rotation: 180 },
+    { roomId: R.bathroom2, x: 1350, y: 1000, rotation: 180 },
   ],
   [
     decor("shower-screen-2", "Shower screen 2", "fittings"),
