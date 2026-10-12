@@ -2063,14 +2063,14 @@ test("the plan reads as a drawing: hatched walls, a door swing, dimensions, a ti
   await page.getByRole("button", { name: "Show 2D plan in main" }).click();
   const svg = page.locator(".plan-svg");
   await expect(svg.locator(".plan-wall").first()).toHaveCSS("fill", /url/);
-  // the flat's six hinged doors swing (the entry's, the three bedrooms'
-  // and the two bathrooms', each drawn on the side it opens into); the
-  // sliding door into the kitchen is two leaves on each side of its
-  // wall; the seven windows are three lines each; the active room is
-  // dimensioned
-  await expect(svg.locator(".plan-swing")).toHaveCount(6);
-  await expect(svg.locator(".plan-leaf")).toHaveCount(6 + 4);
-  await expect(svg.locator(".plan-line")).toHaveCount(7 * 3);
+  // the flat's eight hinged doors swing (the entry's, the three
+  // bedrooms', the two bathrooms', the shelter's and the yard's, each
+  // drawn on the side it opens into); the sliding door into the kitchen
+  // is two leaves on each side of its wall; the eight windows are three
+  // lines each; the active room is dimensioned
+  await expect(svg.locator(".plan-swing")).toHaveCount(8);
+  await expect(svg.locator(".plan-leaf")).toHaveCount(8 + 4);
+  await expect(svg.locator(".plan-line")).toHaveCount(8 * 3);
   await expect(svg.locator(".plan-dim")).toHaveCount(2);
   await expect(svg.locator(".plan-north")).toHaveCount(1);
   await expect(svg.locator(".plan-title text").first()).toContainText("HDB");
