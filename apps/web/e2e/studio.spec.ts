@@ -1260,12 +1260,13 @@ test("Inspect raises Details and Label over a piece; labels reach Eva, five at m
   // (pieces with room round them on the plan, where the actions rise
   // clear: a bedside cabinet's would stand over the bed). A piece picked
   // in another room makes that room the one worked on, and Eva's chips
-  // show the labels in it: the kitchen's trolley and the shelter's
-  // shelving first, then the living room's pieces, so the living room
-  // is active again
+  // show the labels in it: the shelter's shelving and the kitchen's
+  // trolley first (in that order: the trolley's actions would stand
+  // over the shelving, just north of it), then the living room's
+  // pieces, so the living room is active again
   const more = [
-    "Kitchen trolley",
     "Shelter shelving",
+    "Kitchen trolley",
     "Three-bay sideboard",
     "Entry organiser",
   ];
