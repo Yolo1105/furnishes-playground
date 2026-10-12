@@ -735,17 +735,31 @@ const setLens = (camera: Camera, fov: number) => {
   c.updateProjectionMatrix();
 };
 
-/** the frame's shift down, a share of its height (a shift lens) */
-const shiftOf = (camera: Camera) => {
-  const v = (camera as PerspectiveCamera).view;
-  return v?.enabled ? v.offsetY / v.fullHeight : 0;
-};
+/** the frame's shift down, a share of its height (a shift lens): the
+    frustum moved down in the projection, after three has made it, so
+    it stands with TRAA's jitter, which owns the camera's view offset
+    and sets and clears it every frame */
+const shiftOf = (camera: Camera) =>
+  (camera.userData.shift as number | undefined) ?? 0;
+const shifting = new WeakSet<PerspectiveCamera>();
 const setShift = (camera: Camera, shift: number) => {
   const c = camera as PerspectiveCamera;
   if (!c.isPerspectiveCamera || Math.abs(shiftOf(c) - shift) < 1e-4) return;
-  if (shift === 0) c.clearViewOffset();
-  // in thousandths of the frame: the shift is a share, whatever its size
-  else c.setViewOffset(1000, 1000, 0, shift * 1000, 1000, 1000);
+  if (!shifting.has(c)) {
+    shifting.add(c);
+    const made = c.updateProjectionMatrix.bind(c);
+    c.updateProjectionMatrix = () => {
+      made();
+      const s = shiftOf(c);
+      if (!s) return;
+      // a frustum moved down by `s` of its height: its top and bottom
+      // both lower, so (top + bottom) / (top - bottom) less 2s
+      c.projectionMatrix.elements[9]! -= 2 * s;
+      c.projectionMatrixInverse.copy(c.projectionMatrix).invert();
+    };
+  }
+  c.userData.shift = shift;
+  c.updateProjectionMatrix();
 };
 
 /** the camera glides to the angle's place */

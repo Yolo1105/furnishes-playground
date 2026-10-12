@@ -136,6 +136,10 @@ test("the room from its corner, as a photograph takes it", async ({ page }) => {
   await page
     .getByRole("button", { name: "Corner view, as a photograph" })
     .click();
+  // the glide in begins on the next frame: until it does, the stage
+  // still says it is settled from before; the picture waits for it to
+  // glide in and settle again (on a software renderer, some seconds)
+  await page.waitForTimeout(SETTLE);
   await picture(page, "corner.png");
 });
 
