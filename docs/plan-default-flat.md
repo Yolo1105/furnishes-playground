@@ -600,7 +600,7 @@ the sheet, mm.
 | Master bathroom   | ensuite   | 2100 × 1700  | (900, 5000)  | 700 door from the master      |
 | Hall              | hall      | 6000 × 1100  | (3300, 3700) | 1.0 m opening from the living |
 | Household shelter | shelter   | 1600 × 1200  | (7700, 5100) | door from the hall            |
-| Service yard      | yard      | 1500 × 1900  | (5900, 7100) | door from the kitchen         |
+| Service yard      | yard      | 1500 × 3900  | (5900, 5100) | door from the kitchen         |
 
 Every other shared wall stands closed, so each bedroom and bathroom is
 reached only by its own door from the hall. Hall, shelter and yard are
@@ -705,4 +705,5 @@ bathroom (the `ensuite` kind), 2.1 × 1.7 m south of the master bedroom,
 its door in the bedroom's south wall beside the wardrobe and a high
 window in its outside wall; the hall keeps the common bathroom and the
 shelter. The yard carries a drying rack up high, so it reads as the
-laundry it is.
+laundry it is, and runs up to the hall's wall, where the second
+bathroom stood, so the flat has no hole in it.

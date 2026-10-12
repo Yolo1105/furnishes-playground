@@ -346,9 +346,10 @@ const SHOWCASE: [AssetNode, Place][] = [
   // the service yard
   [
     decor("washer", "Washing machine", "fittings"),
-    { roomId: R.yard, x: 0, y: 0 },
+    // by the window at the yard's far end, its back to the west wall
+    { roomId: R.yard, x: 0, y: 3250, rotation: 270 },
   ],
-  [piece("work-cart"), { roomId: R.yard, x: 0, y: 1500, rotation: 180 }],
+  [piece("work-cart"), { roomId: R.yard, x: 0, y: 1500, rotation: 270 }],
 ];
 
 type Entry = [AssetNode, Place];

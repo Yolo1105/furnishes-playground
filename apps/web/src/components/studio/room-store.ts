@@ -694,7 +694,9 @@ const showcaseFlat = (): Pick<
   );
   shelter.floor = "Concrete";
   shelter.openings = [];
-  const yard = at("yard", SHOWCASE_ROOMS.yard, [5900, 7100], 1500, 1900);
+  // the service yard runs from the hall's wall down to the flat's back,
+  // a long utility strip beside the kitchen
+  const yard = at("yard", SHOWCASE_ROOMS.yard, [5900, 5100], 1500, 3900);
   yard.floor = "Tiles";
   yard.openings = [makeOpening("window", "south", { width: 1200 })];
   const rooms = [

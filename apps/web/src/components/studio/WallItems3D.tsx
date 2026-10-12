@@ -10,6 +10,7 @@ import {
   CylinderGeometry,
   Float32BufferAttribute,
   type Group,
+  MeshStandardMaterial,
   Vector3,
 } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
@@ -310,6 +311,14 @@ const geometryOf = (kind: WallItemKind, seed: number) => {
   return g;
 };
 
+/** every wall item's materials, shared: an item placed anew draws with
+    a shader already built */
+const BODY = new MeshStandardMaterial({ vertexColors: true, roughness: 0.6 });
+const GLASS = new MeshStandardMaterial({
+  vertexColors: true,
+  metalness: 0.55,
+  roughness: 0.12,
+});
 const noPick = () => null;
 const ITEM_NAME = { name: "Wall item" } as const;
 
@@ -388,21 +397,19 @@ function WallItem3D({
     <group ref={ref} position={at} rotation={[0, yawOf(wall), 0]}>
       <mesh
         geometry={g.body}
+        material={BODY}
         raycast={noPick}
         castShadow={lit}
         receiveShadow
         userData={ITEM_NAME}
-      >
-        <meshStandardMaterial vertexColors roughness={0.6} />
-      </mesh>
+      />
       {g.glass && (
-        <mesh geometry={g.glass} raycast={noPick} userData={ITEM_NAME}>
-          <meshStandardMaterial
-            vertexColors
-            metalness={0.55}
-            roughness={0.12}
-          />
-        </mesh>
+        <mesh
+          geometry={g.glass}
+          material={GLASS}
+          raycast={noPick}
+          userData={ITEM_NAME}
+        />
       )}
     </group>
   );

@@ -459,6 +459,12 @@ const GLIDE = 0.6; // s, the camera's move between angles
     corner; once a page load, never under reduced motion or automation */
 const INTRO = { hold: 1.1, glide: 2.6, elevation: 36, distance: 1.25 };
 let introDone = false;
+/** the next change of room keeps the view: a room taken up by a pick in
+    3D, where the camera stays and only the scene's origin moves */
+let viewHeld = false;
+const holdView = () => {
+  viewHeld = true;
+};
 const introWanted = () =>
   !introDone &&
   !reduced() &&
@@ -676,11 +682,32 @@ function Rig({
   // turned) keeps it; a new angle or room glides as ever
   const moved = useRef(false);
   const placed = useRef("");
+  /** the flat's middle from the active room's as the view last stood */
+  const shownCentre = useRef<readonly [number, number] | null>(null);
   useEffect(() => {
     // turned by hand: the camera stays where the cube or the canvas put
     // it; the angle picked again, free cleared, glides back to it
     if (free) return;
     const key = JSON.stringify([angle, w, d, h, centre, roomW, roomD, corner]);
+    const was = shownCentre.current;
+    shownCentre.current = centre;
+    if (viewHeld && was && placed.current) {
+      // the room changed under a pick: the scene stands about the new
+      // room's middle, so the camera moves with it and the picture holds
+      viewHeld = false;
+      const dx = centre[0] - was[0];
+      const dz = centre[1] - was[1];
+      const shift = new Vector3(dx, 0, dz);
+      camera.position.add(shift);
+      controls?.target.add(shift);
+      controls?.update();
+      glide.current = null;
+      placed.current = key;
+      moved.current = true;
+      invalidate();
+      return;
+    }
+    viewHeld = false;
     if (key === placed.current && moved.current) return;
     placed.current = key;
     moved.current = false;
@@ -1670,6 +1697,8 @@ function FlatRoom({
   sun: Vector3Tuple;
 }) {
   const a = usePieceActions(rm.id);
+  const walking = useStudio((s) => s.walk);
+  const canDragHere = a.tool === "select" && !a.focus && !rendering && !walking;
   // only the two slices the shell reads, so a point drawn elsewhere
   // does not redraw the room
   const st = useRoom(
@@ -1769,7 +1798,9 @@ function FlatRoom({
               rendering={rendering}
               clash={a.clashes.has(n.id)}
               label={label}
-              canDrag={!!working?.canDrag && !p.locked && !working.walk}
+              // a piece in any room is taken by the pointer at once: the
+              // room it stands in need not be the one worked on
+              canDrag={canDragHere && !p.locked}
               room={{
                 W: rm.width,
                 D: rm.depth,
@@ -1779,9 +1810,14 @@ function FlatRoom({
                 thickness: rm.thickness,
               }}
               others={rects}
-              onPick={() => a.onPick(n)}
+              onPick={() => {
+                // a piece picked in another room makes that room the one
+                // worked on, the view kept where it is
+                if (!working) holdView();
+                a.onPick(n);
+              }}
               onDragging={working?.onDragging ?? noDrag}
-              hoverable={!!working && !rendering}
+              hoverable={!rendering}
               // a name behind the walls of the room worked on would float
               // over them: another room's pieces carry none
               labels={working?.labels ?? false}

@@ -280,7 +280,13 @@ export function useWallItems(spec: RoomSpec): WallItem[] {
   const firstId = useRoom((s) => s.rooms[0]!.id);
   const groups = useScene((s) => s.groups);
   const overrides = useScene((s) => s.overrides);
+  // while a piece is dragged the suggestion stays as it was: a wardrobe
+  // carried along a wall would send the picture from wall to wall, and
+  // each new place built its mesh again under the pointer
+  const dragging = useScene((s) => s.dragFrom !== null);
   return useMemo(() => {
+    const had = lastItems.get(spec.id);
+    if (dragging && had && spec.items === undefined) return had.items;
     const next =
       spec.items ??
       suggestItems(
@@ -294,9 +300,8 @@ export function useWallItems(spec: RoomSpec): WallItem[] {
         blockersOf(spec.id, firstId, groups, overrides),
       );
     const key = JSON.stringify(next);
-    const had = lastItems.get(spec.id);
     if (had?.key === key) return had.items;
     lastItems.set(spec.id, { key, items: next });
     return next;
-  }, [spec, joins, firstId, groups, overrides]);
+  }, [spec, joins, firstId, groups, overrides, dragging]);
 }
