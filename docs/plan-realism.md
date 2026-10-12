@@ -1134,3 +1134,31 @@ every group above it are shown. And the press has to be the leaf's
 too: a piece behind it takes the pointer on its press, and a click
 with the pointer held goes to everything under it, which opened two
 doors and picked the counter behind them at once.
+
+## Colours a real surface can carry (2026-10-12)
+
+A piece in a near-pure colour (a pure white, a jet black, a full red)
+drew as a flat sticker: no paint or dyed cloth reflects all the light,
+none of it, or a pure hue, so the light and the grain had no room to
+show and one could not tell whether the room read real. Three changes,
+all in the one material every piece and room item is drawn with
+(`Mat`, finish.tsx), so nothing is left out:
+
+- `plausible` (albedo.ts) holds a finish's colour inside what a real
+  surface carries: HSL lightness 0.08 to 0.92 (a black paint reflects
+  about 4 % of the light, a white one about 85 %) and saturation at
+  most 0.62, its hue kept. The palette's five colours and the room
+  items' tones are already inside and are drawn as before (a test).
+- A plain finish (no grain, not metal, not a mirror: a paint, a
+  lacquer, a laminate, an appliance's enamel) takes the plaster's fine
+  relief and roughness faintly (normal scale 0.25), from a copy of the
+  plaster's maps so the walls keep their own repeat; the copies share
+  the pictures, so nothing more is uploaded.
+- Each board and each cushion takes a hair of its own tone (±3 %, read
+  from where it stands in its piece, so the same every time): a board
+  in its batch's vertex colours, so a batch is still one draw; a
+  cushion in its own material's colour.
+
+Not changed: the exposure and the tone mapping. A pale cloth face
+square to the sun still reads light; that is the light, not the
+colour.

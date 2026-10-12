@@ -17,6 +17,7 @@ import {
   mergeGeometries,
   toCreasedNormals,
 } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { toneOf } from "./albedo";
 import type { Finish } from "./finish";
 import { WOOD_M } from "./textures";
 
@@ -172,6 +173,14 @@ const placed = (parts: Part[], shape: (p: Part) => BufferGeometry) => {
       q.setFromEuler(e.set(...(p.rotation ?? [0, 0, 0]))),
       one,
     );
+    // each board a hair its own tone (albedo.ts), in its vertex
+    // colours, so the batch stays one draw
+    const tone = g.getAttribute("color");
+    if (tone) {
+      const k = toneOf(p.at);
+      for (let v = 0; v < tone.count; v++)
+        tone.setXYZ(v, tone.getX(v) * k, tone.getY(v) * k, tone.getZ(v) * k);
+    }
     return g.applyMatrix4(m);
   });
   const merged = mergeGeometries(each);

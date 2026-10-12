@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { Vector2, type Vector3Tuple } from "three";
+import { type Texture, Vector2, type Vector3Tuple } from "three";
+import { plausible, toned, toneOf } from "./albedo";
 import { type MaterialName, repeated, useMaterial } from "./materials";
 import {
   batchesOf,
@@ -107,6 +108,37 @@ const useGrainMaps = (grain: Grain | undefined) => {
   return repeated(m, m.tile / WOOD_M);
 };
 
+/** how strongly a plain finish's stipple bends the light */
+const STIPPLE_SCALE = new Vector2(0.25, 0.25);
+type Stipple = { normalMap: Texture; roughnessMap: Texture };
+const stipples = new WeakMap<object, Stipple>();
+/** a plain finish (a paint, a lacquer, a laminate with no grain) is
+    never a perfectly even sheet: the plaster's fine relief and its
+    roughness, faintly, so the light breaks across it as across a real
+    coat. A copy of the plaster's maps, repeated over the wood tiles a
+    part's texture lies in, so the walls keep their own repeat; the
+    copies share the plaster's pictures */
+const useStipple = (on: boolean): Stipple | null => {
+  const m = useMaterial("plaster");
+  if (!on) return null;
+  let s = stipples.get(m.surface);
+  if (!s) {
+    const r = WOOD_M / m.tile;
+    const copy = (t: Texture) => {
+      const c = t.clone();
+      c.repeat.set(r, r);
+      c.needsUpdate = true;
+      return c;
+    };
+    s = {
+      normalMap: copy(m.surface.normalMap),
+      roughnessMap: copy(m.surface.roughnessMap),
+    };
+    stipples.set(m.surface, s);
+  }
+  return s;
+};
+
 export function Mat({
   f,
   colour,
@@ -121,8 +153,10 @@ export function Mat({
       which is most of what a furnished room costs to open */
   banded?: boolean;
 }) {
-  const c = colour ?? f.colour;
+  // within what a real surface reflects (albedo.ts)
+  const c = plausible(colour ?? f.colour);
   const maps = useGrainMaps(f.grain);
+  const stipple = useStipple(!f.grain && !f.metal && !f.mirror);
   const grained = {
     // the faces stand a hair behind their own joint lines: a line on
     // its face fought it for depth and flickered in and out as the
@@ -131,9 +165,9 @@ export function Mat({
     polygonOffsetFactor: 1,
     polygonOffsetUnits: 1,
     map: maps?.map ?? null,
-    normalMap: maps?.normalMap ?? null,
-    normalScale: RELIEF_SCALE,
-    roughnessMap: maps?.roughnessMap ?? null,
+    normalMap: maps?.normalMap ?? stipple?.normalMap ?? null,
+    normalScale: maps ? RELIEF_SCALE : STIPPLE_SCALE,
+    roughnessMap: maps?.roughnessMap ?? stipple?.roughnessMap ?? null,
     vertexColors: banded,
   };
   if (f.sheen !== undefined || f.coat !== undefined)
@@ -261,7 +295,8 @@ export function Soft({
       receiveShadow
       geometry={softGeometry(dims, Math.max(0.002, r))}
     >
-      <Mat f={f} banded />
+      {/* each cushion a hair its own tone, as no two are alike */}
+      <Mat f={f} colour={toned(f.colour, toneOf(at))} banded />
     </mesh>
   );
 }
