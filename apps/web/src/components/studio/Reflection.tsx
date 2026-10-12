@@ -23,7 +23,7 @@ import {
   MeshStandardNodeMaterial,
   type WebGPURenderer,
 } from "three/webgpu";
-import { type StillState, stillOf } from "./capture";
+import { type StillState, stillOf, wakeAt } from "./capture";
 import { warming } from "./shader-warm";
 
 /**
@@ -131,6 +131,8 @@ export function FloorReflection({
   const invalidate = useThree((s) => s.invalidate);
   const camera = useMemo(() => new CubeCamera(NEAR, FAR, target), [target]);
   const due = useRef(0);
+  const wake = useRef(0);
+  useEffect(() => () => window.clearTimeout(wake.current), []);
   const seen = useRef<Texture | null>(null);
   useEffect(() => {
     due.current = performance.now() + SETTLE_MS;
@@ -148,10 +150,9 @@ export function FloorReflection({
     // the room's shaders being built hold the renderer's outputs: the
     // picture is taken once they are (the post chain asks for the frame)
     if (warming()) return;
-    if (performance.now() < due.current) {
-      state.invalidate();
-      return;
-    }
+    // a frame is asked for when the wait is over, not drawn each frame
+    // of it: the room stood still is drawn once
+    if (wakeAt(wake, due.current, state.invalidate)) return;
     due.current = 0;
     camera.position.set(0, h / 2, 0);
     take(

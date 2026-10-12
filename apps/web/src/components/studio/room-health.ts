@@ -297,6 +297,22 @@ const clearSpot = (b: Box, others: Box[], r: Room, zones: Zones) => {
   return undefined;
 };
 
+/** an issue whose fix is found when it is first read: the search for a
+    clear spot ran for every finding of every reading (each step of a
+    drag read the room again) though only a finding's card or its Fix
+    reads it */
+const withFix = (
+  issue: Omit<Issue, "fix">,
+  find: () => Issue["fix"],
+): Issue => {
+  let found: { fix: Issue["fix"] } | null = null;
+  return Object.defineProperty(issue as Issue, "fix", {
+    enumerable: true,
+    configurable: true,
+    get: () => (found ??= { fix: find() }).fix,
+  });
+};
+
 export const healthOf = (boxes: Box[], r: Room): Issue[] => {
   const zones = zonesOf(r);
   const issues: Issue[] = [];
@@ -312,62 +328,86 @@ export const healthOf = (boxes: Box[], r: Room): Issue[] => {
     const others = boxes.filter((o) => o.id !== b.id);
     const t = troubles(b, others, r, zones);
     if (t.includes("outside"))
-      issues.push({
-        kind: "outside",
-        text: `${b.name} stands past the wall`,
-        pieceId: b.id,
-        fix: fixFor(b),
-      });
+      issues.push(
+        withFix(
+          {
+            kind: "outside",
+            text: `${b.name} stands past the wall`,
+            pieceId: b.id,
+          },
+          () => fixFor(b),
+        ),
+      );
     if (t.includes("door"))
-      issues.push({
-        kind: "door",
-        text: zones.doors.some((d) => d.swings && meets(b, d.zone))
-          ? `${b.name} blocks the door's swing`
-          : `${b.name} blocks the doorway`,
-        pieceId: b.id,
-        fix: fixFor(b),
-      });
+      issues.push(
+        withFix(
+          {
+            kind: "door",
+            text: zones.doors.some((d) => d.swings && meets(b, d.zone))
+              ? `${b.name} blocks the door's swing`
+              : `${b.name} blocks the doorway`,
+            pieceId: b.id,
+          },
+          () => fixFor(b),
+        ),
+      );
     if (t.includes("window"))
-      issues.push({
-        kind: "window",
-        text: `${b.name} blocks the window`,
-        pieceId: b.id,
-        fix: fixFor(b),
-      });
+      issues.push(
+        withFix(
+          {
+            kind: "window",
+            text: `${b.name} blocks the window`,
+            pieceId: b.id,
+          },
+          () => fixFor(b),
+        ),
+      );
     if (t.includes("bed"))
-      issues.push({
-        kind: "bed",
-        text:
-          r.rules.bedWall === "required"
-            ? `${b.name} must stand against a wall`
-            : `${b.name} would sit better against a wall`,
-        pieceId: b.id,
-        fix: fixFor(b),
-      });
+      issues.push(
+        withFix(
+          {
+            kind: "bed",
+            text:
+              r.rules.bedWall === "required"
+                ? `${b.name} must stand against a wall`
+                : `${b.name} would sit better against a wall`,
+            pieceId: b.id,
+          },
+          () => fixFor(b),
+        ),
+      );
     for (const o of others) {
       const key = [b.id, o.id].sort().join("|");
       if (seenPair.has(key) || flat(b) || flat(o)) continue;
       if (overlaps(b, o)) {
         seenPair.add(key);
-        issues.push({
-          kind: "overlap",
-          text: `${b.name} overlaps ${o.name}`,
-          pieceId: o.id,
-          otherId: b.id,
-          fix: fixFor(o),
-        });
+        issues.push(
+          withFix(
+            {
+              kind: "overlap",
+              text: `${b.name} overlaps ${o.name}`,
+              pieceId: o.id,
+              otherId: b.id,
+            },
+            () => fixFor(o),
+          ),
+        );
         continue;
       }
       const g = minor(b) || minor(o) ? null : gapBetween(b, o);
       if (g !== null && g > 0 && g < r.rules.walkway) {
         seenPair.add(key);
-        issues.push({
-          kind: "walkway",
-          text: `Only ${g} mm between ${b.name} and ${o.name}; ${r.rules.walkway} mm walks`,
-          pieceId: o.id,
-          otherId: b.id,
-          fix: fixFor(o),
-        });
+        issues.push(
+          withFix(
+            {
+              kind: "walkway",
+              text: `Only ${g} mm between ${b.name} and ${o.name}; ${r.rules.walkway} mm walks`,
+              pieceId: o.id,
+              otherId: b.id,
+            },
+            () => fixFor(o),
+          ),
+        );
       }
     }
   }

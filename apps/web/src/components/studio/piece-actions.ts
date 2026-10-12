@@ -45,11 +45,16 @@ export const layoutsOf = (
   const props = new Map(pieces.map((n) => [n.id, propsOf(n, overrides)]));
   const named = pieces.map((n) => ({ ...props.get(n.id)!, name: n.name }));
   const laid = layoutRoom(named, room, gapOf(spec.rules));
+  let plans: ReturnType<typeof layoutPlans> | undefined;
   return {
     room,
     props,
     laid,
-    plans: layoutPlans(named, room, laid, spec.room),
+    /** the four layouts, laid when first read: only the planner shows
+        them, and a drag read the room again at every step */
+    get plans() {
+      return (plans ??= layoutPlans(named, room, laid, spec.room));
+    },
   };
 };
 
@@ -123,41 +128,69 @@ const readRoom = (
       .flatMap((i) => [i.pieceId!, i.otherId!]),
   );
   // the four layouts, each read against the same rules, costed by the
-  // priorities and explained: what each would leave and move
-  const plans = read.plans.map((plan) => {
-    const e = explainPlan(
-      plan.id,
-      plan.places,
-      laid,
-      pieces.map((n) => ({ id: n.id, name: n.name, props: props.get(n.id)! })),
-      healthOf(
-        boxes((i) => plan.places[i]),
-        room,
-      ),
-      rules,
-    );
-    return {
-      ...plan,
-      ...e,
-      findings: e.issues.length,
-      applied: pieces.every((n, i) => {
-        const p = plan.places[i]!;
-        const s = laid[i]!;
-        return (
-          p.x === s.x && p.y === s.y && p.rotation === props.get(n.id)!.rotation
-        );
-      }),
-    };
-  });
-  // the lowest cost; when costs tie, the layout that moves the least
-  const pick = plans.reduce((best, p, i) => {
-    const b = plans[best]!;
-    if (p.score < b.score) return i;
-    if (p.score === b.score && travel(p.moves) < travel(b.moves)) return i;
-    return best;
-  }, 0);
-  const tied = plans.filter((p) => p.score === plans[pick]!.score).length > 1;
-  return { pieces, room, props, spots, issues, clashes, plans, pick, tied };
+  // priorities and explained: what each would leave and move; worked
+  // out when first read (the planner's panel), not at every reading
+  const planAll = () => {
+    const plans = read.plans.map((plan) => {
+      const e = explainPlan(
+        plan.id,
+        plan.places,
+        laid,
+        pieces.map((n) => ({
+          id: n.id,
+          name: n.name,
+          props: props.get(n.id)!,
+        })),
+        healthOf(
+          boxes((i) => plan.places[i]),
+          room,
+        ),
+        rules,
+      );
+      return {
+        ...plan,
+        ...e,
+        findings: e.issues.length,
+        applied: pieces.every((n, i) => {
+          const p = plan.places[i]!;
+          const s = laid[i]!;
+          return (
+            p.x === s.x &&
+            p.y === s.y &&
+            p.rotation === props.get(n.id)!.rotation
+          );
+        }),
+      };
+    });
+    // the lowest cost; when costs tie, the layout that moves the least
+    const pick = plans.reduce((best, p, i) => {
+      const b = plans[best]!;
+      if (p.score < b.score) return i;
+      if (p.score === b.score && travel(p.moves) < travel(b.moves)) return i;
+      return best;
+    }, 0);
+    const tied = plans.filter((p) => p.score === plans[pick]!.score).length > 1;
+    return { plans, pick, tied };
+  };
+  let planning: ReturnType<typeof planAll> | undefined;
+  const planned = () => (planning ??= planAll());
+  return {
+    pieces,
+    room,
+    props,
+    spots,
+    issues,
+    clashes,
+    get plans() {
+      return planned().plans;
+    },
+    get pick() {
+      return planned().pick;
+    },
+    get tied() {
+      return planned().tied;
+    },
+  };
 };
 type Reading = ReturnType<typeof readRoom>;
 
@@ -211,11 +244,11 @@ export function usePieceActions(roomId?: string) {
   const activeId = useRoom((s) => s.activeId);
   const spec = rooms.find((r) => r.id === (roomId ?? activeId)) ?? rooms[0]!;
   const joins = useRoom((s) => s.joins);
-  const { pieces, room, props, spots, issues, clashes, plans, pick, tied } =
-    useMemo(
-      () => readingOf(spec, rooms, joins, groups, overrides, builtParts),
-      [spec, rooms, joins, groups, overrides, builtParts],
-    );
+  const reading = useMemo(
+    () => readingOf(spec, rooms, joins, groups, overrides, builtParts),
+    [spec, rooms, joins, groups, overrides, builtParts],
+  );
+  const { pieces, room, props, spots, issues, clashes } = reading;
   // the store holds the laid-out pieces here before any one of them is
   // changed, so a move never shifts the rest
   useEffect(() => {
@@ -295,13 +328,20 @@ export function usePieceActions(roomId?: string) {
       else if (i.add) add(i.add);
       else if (i.fix && i.pieceId) setProps(i.pieceId, i.fix);
     },
-    /** the room laid out four ways, and which Eva would pick */
-    plans,
-    pick,
+    /** the room laid out four ways, and which Eva would pick, worked
+        out when first read */
+    get plans() {
+      return reading.plans;
+    },
+    get pick() {
+      return reading.pick;
+    },
     /** more than one layout costs the same: the pick is the one that moves least */
-    tied,
+    get tied() {
+      return reading.tied;
+    },
     /** stand every piece as a layout says, one undo step */
-    apply: (plan: (typeof plans)[number]) =>
+    apply: (plan: Reading["plans"][number]) =>
       placeAll(
         Object.fromEntries(
           pieces.map((n, i) => [

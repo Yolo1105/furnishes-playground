@@ -9,8 +9,8 @@ import {
   useRef,
 } from "react";
 import type { Group, Texture } from "three";
-import { cameraMoving } from "./LighterWhileMoving";
-import { type StillState, stillOf } from "./capture";
+import { cameraMoving } from "./camera-motion";
+import { type StillState, stillOf, wakeAt } from "./capture";
 import { devParam } from "./dev-flags";
 import { warming } from "./shader-warm";
 import { LightProbeGrid } from "three/examples/jsm/lighting/LightProbeGrid.js";
@@ -157,6 +157,8 @@ export function Probes({
   // last change happened, so a run of them is baked once
   const job = useRef<{ at: number; pass: number } | null>(null);
   const due = useRef(0);
+  const wake = useRef(0);
+  useEffect(() => () => window.clearTimeout(wake.current), []);
   const seen = useRef<Texture | null>(null);
   // a new grid is baked from its first frame on, before anything is
   // drawn with it in the room: a material built while the grid has no
@@ -204,10 +206,7 @@ export function Probes({
       onState("pending");
     }
     if (due.current) {
-      if (performance.now() < due.current) {
-        state.invalidate();
-        return;
-      }
+      if (wakeAt(wake, due.current, state.invalidate)) return;
       due.current = 0;
       job.current = { at: 0, pass: 0 };
     }

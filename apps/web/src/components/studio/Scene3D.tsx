@@ -38,7 +38,7 @@ import { CATEGORY_NAMES, type AssetNode } from "./assets-data";
 import { Furniture3D } from "./Furniture3D";
 import { ArrowLeftIcon, LockIcon, RotateIcon } from "./icons";
 import { TURN_HINT, useGuide } from "./guide-store";
-import { LighterWhileMoving, SlowFrames, sharpDpr } from "./LighterWhileMoving";
+import { CameraMotion, SlowFrames, sharpDpr } from "./camera-motion";
 import { ShadowsOnChange } from "./ShadowsOnChange";
 import { usePieceActions } from "./piece-actions";
 import { PieceActions } from "./PieceActions";
@@ -2083,8 +2083,8 @@ export default function Scene3D() {
         // drag or a change in the room; the rest of the time the GPU rests
         frameloop="demand"
         shadows={shadows ? SHADOWS : false}
-        // at most one and a half device pixels per CSS pixel, one while
-        // the camera moves (LighterWhileMoving)
+        // at most one and a half device pixels per CSS pixel
+        // (camera-motion.tsx)
         dpr={sharpDpr()}
         gl={coarse ? makeRendererCoarse : makeRendererFine}
         camera={{ fov: FOV.overview, ...CLIP }}
@@ -2118,7 +2118,7 @@ export default function Scene3D() {
         {!backend && <HoldFrames />}
         <BenchFrames />
         {shadows && <ShadowsOnChange />}
-        <LighterWhileMoving stage={stage} />
+        <CameraMotion stage={stage} />
         {scene.quality === "auto" && tier !== "phone" && (
           <SlowFrames onSlow={onSlow} />
         )}

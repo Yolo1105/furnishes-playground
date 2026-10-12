@@ -45,3 +45,24 @@ export const stillOf = (
     }
   }
 };
+
+/**
+ * Whether a wait until `at` (performance.now's clock) is still under
+ * way; while it is, one frame is asked for when it ends, by a timer,
+ * rather than a frame drawn each moment of it (a still room drew the
+ * whole picture a frame at a time through every wait).
+ */
+export const wakeAt = (
+  timer: { current: number },
+  at: number,
+  invalidate: () => void,
+) => {
+  const left = at - performance.now();
+  if (left <= 0) return false;
+  if (!timer.current)
+    timer.current = window.setTimeout(() => {
+      timer.current = 0;
+      invalidate();
+    }, left);
+  return true;
+};

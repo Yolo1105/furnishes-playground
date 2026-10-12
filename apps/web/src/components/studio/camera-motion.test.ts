@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { medianOf, SLOW_MS } from "./LighterWhileMoving";
+import { medianOf, SLOW_MS } from "./camera-motion";
 import { tierBelow } from "./Post";
 
 describe("a lighter picture for a slow device", () => {
