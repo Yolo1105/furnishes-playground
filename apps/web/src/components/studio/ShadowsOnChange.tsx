@@ -1,7 +1,8 @@
 "use client";
 
 import { useFrame } from "@react-three/fiber";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
+import { useScene } from "./scene-store";
 import type {
   Light,
   LightShadow,
@@ -74,6 +75,9 @@ const signatureOf = (scene: Object3D, lights: Caster[]) => {
   return sum;
 };
 
+/** under a drag, the least time between two drawings of the maps, ms */
+const DRAG_EVERY_MS = 200;
+
 /**
  * The shadow maps drawn when what they show changes, not every frame.
  * A light's shadow map was drawn again for every frame and for every
@@ -87,7 +91,34 @@ const signatureOf = (scene: Object3D, lights: Caster[]) => {
  */
 export function ShadowsOnChange() {
   const last = useRef<number | null>(null);
-  useFrame(({ scene }) => {
+  const drawnAt = useRef(0);
+  const dragging = useRef(false);
+  const pending = useRef<number | null>(null);
+  useEffect(() => {
+    const off = useScene.subscribe((s) => {
+      dragging.current = s.dragFrom !== null;
+    });
+    return () => {
+      off();
+      if (pending.current !== null) window.clearTimeout(pending.current);
+    };
+  }, []);
+  useFrame(({ scene, invalidate }) => {
+    // under a drag the maps follow a few times a second, not every
+    // frame: each drawing is every caster in the flat, and drawn on
+    // every frame of a drag it was what made a drag heavy; the frame
+    // after the drag ends (and a frame asked for here) catches up
+    const at = performance.now();
+    const wait = drawnAt.current + DRAG_EVERY_MS - at;
+    if (dragging.current && wait > 0) {
+      // one frame asked for when the wait is over, for a piece held
+      // still mid-drag
+      pending.current ??= window.setTimeout(() => {
+        pending.current = null;
+        invalidate();
+      }, wait);
+      return;
+    }
     const lights: Caster[] = [];
     scene.traverse((o) => {
       const l = o as Caster;
@@ -100,6 +131,7 @@ export function ShadowsOnChange() {
     const now = signatureOf(scene, lights);
     if (now === last.current) return;
     last.current = now;
+    drawnAt.current = at;
     for (const l of lights) l.shadow.needsUpdate = true;
   });
   return null;

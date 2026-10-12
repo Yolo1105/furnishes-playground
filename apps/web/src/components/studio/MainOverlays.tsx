@@ -52,6 +52,7 @@ import { ComponentGlyph } from "./component-glyphs";
 import {
   findNode,
   propsOf,
+  settledOverrides,
   topLevelOf,
   useScene,
   useTopLevel,
@@ -848,7 +849,7 @@ export function MainShelf() {
   const items = useTopLevel();
   const groups = useScene((s) => s.groups);
   const cart = useScene((s) => s.cart);
-  const overrides = useScene((s) => s.overrides);
+  const overrides = useScene(settledOverrides);
   const selectedId = useScene((s) => s.selectedId);
   const selectedAt = useScene((s) => s.selectedAt);
   const { select, toggleCart } = useScene.getState();

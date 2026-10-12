@@ -60,7 +60,7 @@ import dynamic from "next/dynamic";
 import { ProductPage } from "./ProductPage";
 import { useRoom } from "./room-store";
 import { ACCESSORIES, dimensionSummary, priceOf } from "@furnishes/domain";
-import { findNode, propsOf, useScene } from "./scene-store";
+import { findNode, propsOf, settledOverrides, useScene } from "./scene-store";
 import { useStudio } from "./studio-store";
 
 /** the shapes a panel is given, at its size: a rectangle is no
@@ -115,7 +115,7 @@ export function DetailTab() {
   const [sketching, setSketching] = useState(false);
   const groups = useScene((s) => s.groups);
   const selectedId = useScene((s) => s.selectedId);
-  const overrides = useScene((s) => s.overrides);
+  const overrides = useScene(settledOverrides);
   const cart = useScene((s) => s.cart);
   const labels = useScene((s) => s.labels);
   const panelId = useScene((s) => s.panelId);

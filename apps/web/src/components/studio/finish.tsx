@@ -124,6 +124,12 @@ export function Mat({
   const c = colour ?? f.colour;
   const maps = useGrainMaps(f.grain);
   const grained = {
+    // the faces stand a hair behind their own joint lines: a line on
+    // its face fought it for depth and flickered in and out as the
+    // camera moved, the furniture seeming to blink (the walls' cure)
+    polygonOffset: true,
+    polygonOffsetFactor: 1,
+    polygonOffsetUnits: 1,
     map: maps?.map ?? null,
     normalMap: maps?.normalMap ?? null,
     normalScale: RELIEF_SCALE,

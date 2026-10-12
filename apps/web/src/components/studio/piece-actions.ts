@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import type { AssetGroup, AssetNode } from "./assets-data";
 import { products } from "./catalogue";
 import { describeItem } from "./generation-store";
@@ -32,7 +33,13 @@ import {
   type Join,
   type RoomSpec,
 } from "./room-store";
-import { inRoom, noteStanding, propsOf, useScene } from "./scene-store";
+import {
+  inRoom,
+  noteStanding,
+  ownOverrides,
+  propsOf,
+  useScene,
+} from "./scene-store";
 import { useStudio } from "./studio-store";
 import { partOutline } from "./part-outline";
 import { usePartStore, type PartBuilt } from "./part-store";
@@ -241,7 +248,16 @@ const readingOf = (...from: Parameters<typeof readRoom>): Reading => {
  */
 export function usePieceActions(roomId?: string) {
   const groups = useScene((s) => s.groups);
-  const overrides = useScene((s) => s.overrides);
+  // the room asked for, else the active one
+  const rooms = useRoom((s) => s.rooms);
+  const activeId = useRoom((s) => s.activeId);
+  const spec = rooms.find((r) => r.id === (roomId ?? activeId)) ?? rooms[0]!;
+  // this room's own pieces' properties (and their parts'), compared one
+  // by one: a piece moved in another room, as a drag does every frame,
+  // reads nothing here again
+  const overrides = useScene(
+    useShallow((s) => ownOverrides(s, spec.id, rooms[0]!.id)),
+  );
   const labels = useScene((s) => s.labels);
   const { select, toggleLabel, setProps, placeAll, addProduct, addItem } =
     useScene.getState();
@@ -262,10 +278,6 @@ export function usePieceActions(roomId?: string) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [actionsFor]);
-  // the room asked for, else the active one
-  const rooms = useRoom((s) => s.rooms);
-  const activeId = useRoom((s) => s.activeId);
-  const spec = rooms.find((r) => r.id === (roomId ?? activeId)) ?? rooms[0]!;
   const joins = useRoom((s) => s.joins);
   const reading = useMemo(
     () => readingOf(spec, rooms, joins, groups, overrides, builtParts),

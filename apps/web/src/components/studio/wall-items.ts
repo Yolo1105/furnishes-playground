@@ -3,7 +3,14 @@ import { footprint } from "./piece-detail";
 import type { Opening, RoomId, Wall } from "./room-data";
 import { openingCentre, wallSpan } from "./room-health";
 import { footprintOf, openingsOf, useRoom, type RoomSpec } from "./room-store";
-import { inRoom, propsOf, standingOf, useScene } from "./scene-store";
+import { useShallow } from "zustand/react/shallow";
+import {
+  inRoom,
+  ownOverrides,
+  propsOf,
+  standingOf,
+  useScene,
+} from "./scene-store";
 import type { Point } from "./room-templates";
 
 /**
@@ -279,7 +286,10 @@ export function useWallItems(spec: RoomSpec): WallItem[] {
   const joins = useRoom((s) => s.joins);
   const firstId = useRoom((s) => s.rooms[0]!.id);
   const groups = useScene((s) => s.groups);
-  const overrides = useScene((s) => s.overrides);
+  // this room's own pieces alone: a piece moved elsewhere reads nothing
+  const overrides = useScene(
+    useShallow((s) => ownOverrides(s, spec.id, firstId)),
+  );
   // while a piece is dragged the suggestion stays as it was: a wardrobe
   // carried along a wall would send the picture from wall to wall, and
   // each new place built its mesh again under the pointer

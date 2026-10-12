@@ -29,7 +29,12 @@ import { whyLines } from "./plan-explain";
 import { LABEL_MAX } from "./piece-detail";
 import { metres, ROOM_NAMES } from "./room-data";
 import { useActiveRoom, useRoom } from "./room-store";
-import { inRoom as standsIn, useScene, useTopLevel } from "./scene-store";
+import {
+  inRoom as standsIn,
+  settledOverrides,
+  useScene,
+  useTopLevel,
+} from "./scene-store";
 
 /**
  * The Agent tab: Eva, what she has read from the room in one line, and
@@ -51,7 +56,7 @@ export function AgentTab() {
   const room = useActiveRoom();
   const flat = useRoom((s) => s.flat);
   const all = useTopLevel();
-  const overrides = useScene((s) => s.overrides);
+  const overrides = useScene(settledOverrides);
   const firstId = useRoom((s) => s.rooms[0]!.id);
   // what stands in the active room: the line counts it, the labels
   // reach it

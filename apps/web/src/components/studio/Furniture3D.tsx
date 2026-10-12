@@ -739,7 +739,13 @@ function FurnishesPiece({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [recipe, key],
   );
-  const parts = form.parts.map((p) => partOf(p, f));
+  // the parts with their finishes, built again only when the form or
+  // the finish changes, not on every draw of the piece (a drag)
+  const finish = JSON.stringify(f);
+  const parts = useMemo(
+    () => form.parts.map((p) => partOf(p, JSON.parse(finish) as Finish)),
+    [form, finish],
+  );
   return (
     <group>
       <Built parts={parts} />

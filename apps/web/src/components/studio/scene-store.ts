@@ -238,6 +238,42 @@ const into = (groups: AssetGroup[], node: AssetNode): AssetGroup[] =>
 
 /** What stands in the room right now: the outliner, the shelf and the
     counts all read this one store, so they always agree. */
+/** the properties of what stands in one room, and of its parts, out of
+    every piece's: the pieces a room's reading reads */
+export const ownOverrides = (
+  s: Pick<SceneState, "groups" | "overrides">,
+  roomId: string,
+  firstId: string,
+) => {
+  const out: Record<string, Partial<PieceProps>> = {};
+  for (const g of s.groups)
+    for (const n of g.items) {
+      const own = s.overrides[n.id];
+      if (n.kind === "fixed" || !inRoom(own ?? {}, roomId, firstId)) continue;
+      if (own) out[n.id] = own;
+      for (const c of n.children ?? []) {
+        const part = s.overrides[c.id];
+        if (part) out[c.id] = part;
+      }
+    }
+  return out;
+};
+
+/** every piece's properties as they stood before the drag under way,
+    for what need not follow a piece across the floor (the shelf, the
+    Detail tab, Eva's view): read with a selector, the same object for
+    the length of a drag, so a drag frame draws none of them again */
+let frozen: Record<string, Partial<PieceProps>> | null = null;
+export const settledOverrides = (
+  s: Pick<SceneState, "dragFrom" | "overrides">,
+) => {
+  if (s.dragFrom === null) {
+    frozen = null;
+    return s.overrides;
+  }
+  return (frozen ??= s.overrides);
+};
+
 export const useScene = create<SceneState>((set, get) => {
   const snap = (s: SceneState): Snapshot => ({
     groups: s.groups,
