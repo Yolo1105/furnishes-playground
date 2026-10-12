@@ -2481,6 +2481,45 @@ test("projects: a new one starts clean, the first keeps its room, rename and del
   await expect(page.getByRole("menuitem", { name: "Delete" })).toBeDisabled();
 });
 
+test("a browser that kept projects from an earlier studio is given the 5-room flat once, as a project of its own", async ({
+  page,
+}) => {
+  // what an earlier studio kept: its first project, under another name,
+  // and no word of the flat it was given (set once, before the first
+  // load only, so the reload below reads what the studio kept)
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem("seeded")) return;
+    sessionStorage.setItem("seeded", "1");
+    localStorage.setItem(
+      "furnishes.projects",
+      JSON.stringify({
+        projects: [{ id: "p-first", name: "My flat", at: 1, data: null }],
+        activeId: "p-first",
+        gone: {},
+      }),
+    );
+  });
+  await page.goto("/rounded");
+  const name = page.locator(".shell-project-name");
+  await expect(name).toHaveText("HDB 5-room flat");
+  await page.getByRole("tab", { name: "Room", exact: true }).click();
+  await expect(
+    page.getByRole("radiogroup", { name: "Rooms" }).getByRole("radio"),
+  ).toHaveCount(7);
+  await page.getByRole("button", { name: /^Project, / }).click();
+  await expect(page.getByRole("menuitemradio")).toHaveText([
+    "My flat",
+    "HDB 5-room flat",
+  ]);
+  await page.keyboard.press("Escape");
+  // once: a reload opens it again and adds no other
+  await page.waitForTimeout(900);
+  await page.reload();
+  await expect(name).toHaveText("HDB 5-room flat");
+  await page.getByRole("button", { name: /^Project, / }).click();
+  await expect(page.getByRole("menuitemradio")).toHaveCount(2);
+});
+
 test("a project kept by an earlier studio comes up to the catalogue as it is read", async ({
   page,
 }) => {

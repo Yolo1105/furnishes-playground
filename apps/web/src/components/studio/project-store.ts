@@ -34,6 +34,12 @@ const KEY = "furnishes.projects";
     in `upgrade` that brings the older shape up */
 const SNAPSHOT_VERSION = 2;
 const SAVE_AFTER = 600; // ms after the last change
+/** the studio's own flat, the one a new project opens on, by version:
+    raised when that flat changes, so a browser that kept projects from
+    an earlier one is given the new flat once, as a project of its own,
+    opened; what it kept stays as it was. 2: the HDB 5-room flat */
+const SHOWCASE_KEY = "furnishes.showcase";
+const SHOWCASE = { version: 2, name: "HDB 5-room flat" };
 
 type RoomData = ReturnType<typeof useRoom.getState>;
 type SceneData = ReturnType<typeof useScene.getState>;
@@ -309,6 +315,22 @@ const writeKept = (
   }
 };
 
+/** which of the studio's flats this browser has been given */
+const showcaseSeen = () => {
+  try {
+    return Number(localStorage.getItem(SHOWCASE_KEY)) || 0;
+  } catch {
+    return SHOWCASE.version;
+  }
+};
+const showcaseShown = () => {
+  try {
+    localStorage.setItem(SHOWCASE_KEY, String(SHOWCASE.version));
+  } catch {
+    /* given again next time */
+  }
+};
+
 /** a shared room taken in as a new project, kept and made the open
     one; the studio opens it on arrival */
 export const importProject = (name: string, data: Snapshot) => {
@@ -423,7 +445,21 @@ export function useProjectSync(wanted: string | null = null) {
         .getState()
         .projects.find((p) => p.id === useProjects.getState().activeId);
       if (open?.data) load(open.data);
+      if (showcaseSeen() < SHOWCASE.version) {
+        const p: Project = {
+          id: newId("p"),
+          name: SHOWCASE.name,
+          at: Date.now(),
+          data: fresh(),
+        };
+        useProjects.setState((s) => ({ projects: [...s.projects, p] }));
+        if (!wanted) useProjects.getState().open(p.id);
+        // kept at once, with the word that it was given
+        const { projects, activeId, gone } = useProjects.getState();
+        writeKept({ projects, activeId, gone });
+      }
     }
+    showcaseShown();
     if (wanted) useProjects.getState().open(wanted);
     let timer: ReturnType<typeof setTimeout> | undefined;
     const now = () => {
