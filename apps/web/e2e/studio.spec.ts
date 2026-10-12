@@ -2081,11 +2081,12 @@ test("the plan reads as a drawing: hatched walls, a door swing, dimensions, a ti
   // the flat's eight hinged doors swing (the entry's, the three
   // bedrooms', the two bathrooms', the shelter's and the yard's, each
   // drawn on the side it opens into); the sliding door into the kitchen
-  // is two leaves on each side of its wall; the eight windows are three
-  // lines each; the active room is dimensioned
+  // is two leaves on each side of its wall; the nine windows (the
+  // ensuite's high one among them) are three lines each; the active room
+  // is dimensioned
   await expect(svg.locator(".plan-swing")).toHaveCount(8);
   await expect(svg.locator(".plan-leaf")).toHaveCount(8 + 4);
-  await expect(svg.locator(".plan-line")).toHaveCount(8 * 3);
+  await expect(svg.locator(".plan-line")).toHaveCount(9 * 3);
   await expect(svg.locator(".plan-dim")).toHaveCount(2);
   await expect(svg.locator(".plan-north")).toHaveCount(1);
   await expect(svg.locator(".plan-title text").first()).toContainText("HDB");
