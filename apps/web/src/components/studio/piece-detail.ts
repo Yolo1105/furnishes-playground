@@ -115,6 +115,9 @@ const ROOM_ITEM_TONES: readonly (readonly [RegExp, string])[] = [
   [/\brug\b/i, "#8b8377"],
   [/\bbed\b/i, "#e6e0d7"],
   [/wardrobe/i, "#e8e2d8"],
+  // the desk's chairs in a soft sage, so they read apart from the
+  // dining chairs' linen
+  [/desk chair/i, "#c4c9b4"],
 ];
 export const roomItemHex = (name: string) =>
   ROOM_ITEM_TONES.find(([re]) => re.test(name))?.[1] ?? ROOM_ITEM_HEX;

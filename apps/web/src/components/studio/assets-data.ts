@@ -255,8 +255,8 @@ const SHOWCASE: [AssetNode, Place][] = [
     { roomId: R.bedroom2, x: 1700, y: 0, width: 1000, depth: 1900 },
   ],
   [
-    piece("bedside", "bedside-bedroom2", undefined, "Bedside cabinet 3"),
-    { roomId: R.bedroom2, x: 1100, y: 0 },
+    piece("desk", "desk-side-bedroom2"),
+    { roomId: R.bedroom2, x: 0, y: 400, rotation: 270 },
   ],
   [
     decor("study-desk", "Study desk", "tables"),
@@ -290,8 +290,8 @@ const SHOWCASE: [AssetNode, Place][] = [
     { roomId: R.bedroom3, x: 0, y: 400, width: 1000, depth: 2000 },
   ],
   [
-    piece("bedside", "bedside-bedroom3", undefined, "Bedside cabinet 4"),
-    { roomId: R.bedroom3, x: 1000, y: 400 },
+    piece("bench", "bench-bedroom3"),
+    { roomId: R.bedroom3, x: 0, y: 3000, rotation: 180 },
   ],
   [
     decor("wardrobe-3", "Wardrobe 3", "storage"),
@@ -325,22 +325,18 @@ const SHOWCASE: [AssetNode, Place][] = [
     decor("bath-mat", "Bath mat", "decor"),
     { roomId: R.bathroom, x: 600, y: 400 },
   ],
-  [
-    piece("kitchen", "trolley-bath", undefined, "Kitchen trolley 2"),
-    { roomId: R.bathroom, x: 1900, y: 200, rotation: 90 },
-  ],
   // the second bathroom
   [
     decor("basin-2", "Basin cabinet 2", "fittings"),
-    { roomId: R.bathroom2, x: 0, y: 750, rotation: 270 },
+    { roomId: R.bathroom2, x: 0, y: 300, rotation: 270, depth: 400 },
   ],
   [
     decor("wc-2", "WC 2", "fittings"),
-    { roomId: R.bathroom2, x: 450, y: 1050, rotation: 180 },
+    { roomId: R.bathroom2, x: 1100, y: 1050, rotation: 180 },
   ],
   [
-    piece("kitchen", "trolley-bath-2", undefined, "Kitchen trolley 3"),
-    { roomId: R.bathroom2, x: 1100, y: 0, rotation: 90 },
+    decor("shower-screen-2", "Shower screen 2", "fittings"),
+    { roomId: R.bathroom2, x: 0, y: 900, rotation: 90, depth: 700 },
   ],
   // the household shelter
   [

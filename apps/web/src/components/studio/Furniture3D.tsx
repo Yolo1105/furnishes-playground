@@ -161,6 +161,10 @@ const STOCK_CLOTH: Record<string, RegExp> = {
 const stockOf = (node: AssetNode) => {
   const name = node.name.toLowerCase();
   const cat = node.category;
+  // a plain chair is built: the stock one is in dark leather, one
+  // picture that takes no colour, and a room of them read heavy
+  if (/\bchair\b/.test(name) && !/arm|lounge|easy|reading/.test(name))
+    return null;
   const fits =
     cat === "seating" ||
     cat === "tables" ||

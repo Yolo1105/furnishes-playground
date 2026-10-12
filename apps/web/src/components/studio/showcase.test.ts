@@ -205,14 +205,20 @@ describe("the flat the studio opens on", () => {
   it("tells the pieces for sale from the room items", () => {
     const pieces = items.filter((n) => n.kind === "piece");
     const decor = items.filter((n) => n.kind === "decor");
-    expect(pieces.length).toBe(12);
+    expect(pieces.length).toBe(10);
     expect(pieces.every((n) => n.productId && n.price)).toBe(true);
     expect(decor.every((n) => !n.productId && n.price === undefined)).toBe(
       true,
     );
-    // every room but the hall has something to buy in it
+    // every room has something to buy in it but the hall, kept clear,
+    // and the bathrooms, whose storage is their basin cabinets
+    const fitted: string[] = [
+      SHOWCASE_ROOMS.hall,
+      SHOWCASE_ROOMS.bathroom,
+      SHOWCASE_ROOMS.bathroom2,
+    ];
     for (const id of Object.values(SHOWCASE_ROOMS).filter(
-      (id) => id !== SHOWCASE_ROOMS.hall,
+      (id) => !fitted.includes(id),
     ))
       expect(
         pieces.some((n) =>
