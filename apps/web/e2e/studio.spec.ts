@@ -4365,30 +4365,29 @@ test("in 3D a picked piece carries its name and a knob with a hint, until its fi
   // nothing picked: no names, no knob, no hint
   await expect(stage.locator(".stage-3d-name")).toHaveCount(0);
   await expect(stage.locator(".stage-turn-hint")).toHaveCount(0);
-  // the dining table, in the middle of the room's corner shot (the
+  // the sofa, in the middle of the room's corner shot (the
   // project comes back from the browser a moment after the stage
   // settles, and a pick before that is lost: pick until it holds)
   const pick = () =>
     expect(async () => {
-      await page
-        .getByRole("treeitem", { name: "Dining table", exact: true })
-        .click();
-      await expect(stage.locator(".stage-3d-name")).toHaveText("Dining table", {
+      await page.getByRole("treeitem", { name: "Sofa", exact: true }).click();
+      await expect(stage.locator(".stage-3d-name")).toHaveText("Sofa", {
         timeout: 2_000,
       });
     }).toPass({ timeout: 20_000 });
   await pick();
-  const knob = stage.getByRole("button", { name: "Turn Dining table" });
+  const knob = stage.getByRole("button", { name: "Turn Sofa" });
   await expect(knob).toBeVisible();
   await expect(stage.getByRole("status")).toHaveText(
     "Drag round the ring to turn it, or click for a quarter turn",
   );
-  // a click on the knob is a quarter turn, and the hint is done with
+  // a click on the knob is a quarter turn (from 270, facing the
+  // television, round to 0), and the hint is done with
   await knob.click();
   await page.getByRole("tab", { name: "Detail", exact: true }).click();
   await expect(
-    page.getByRole("spinbutton", { name: "Dining table turn in degrees" }),
-  ).toHaveValue("90");
+    page.getByRole("spinbutton", { name: "Sofa turn in degrees" }),
+  ).toHaveValue("0");
   await expect(stage.locator(".stage-turn-hint")).toHaveCount(0);
   expect(
     await page.evaluate(
@@ -4409,9 +4408,7 @@ test("in 3D a picked piece carries its name and a knob with a hint, until its fi
     timeout: 60_000,
   });
   await pick();
-  await expect(
-    stage.getByRole("button", { name: "Turn Dining table" }),
-  ).toBeVisible();
+  await expect(stage.getByRole("button", { name: "Turn Sofa" })).toBeVisible();
   await expect(stage.locator(".stage-turn-hint")).toHaveCount(0);
 });
 
