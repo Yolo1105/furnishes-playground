@@ -4203,7 +4203,8 @@ test("a piece turns freely: the handle drags round it in steps of 15, Shift free
   });
   await sofa.getByRole("button", { name: "Sofa", exact: true }).click();
   const handle = page.getByRole("button", { name: "Turn Sofa" });
-  // a drag round the piece: from the handle's angle, 50 degrees on, read as 45
+  // a drag round the piece: from the handle's angle, 50 degrees on, read
+  // as 45 more than the sofa's own turn (270: it faces the television)
   const box = (await sofa.boundingBox())!;
   const c = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
   const h = (await handle.boundingBox())!;
@@ -4221,12 +4222,12 @@ test("a piece turns freely: the handle drags round it in steps of 15, Shift free
     await page.mouse.move(p.x, p.y);
   }
   await page.mouse.up();
-  await expect(sofa).toHaveAttribute("data-turn", "45");
+  await expect(sofa).toHaveAttribute("data-turn", "315");
   await expect(sofa).toHaveCSS("transform", /matrix\(0\.70/);
   // the Detail tab reads it, Square brings it to the nearest quarter
   await page.getByRole("tab", { name: "Detail", exact: true }).click();
   const deg = page.getByRole("spinbutton", { name: "Sofa turn in degrees" });
-  await expect(deg).toHaveValue("45");
+  await expect(deg).toHaveValue("315");
   await deg.fill("52");
   await deg.press("Tab");
   await expect(sofa).toHaveAttribute("data-turn", "52");
@@ -4243,15 +4244,9 @@ test("a piece turns freely: the handle drags round it in steps of 15, Shift free
   const placeAt = (name: string, x: string, y: string) =>
     placeByMm(page, name, x, y);
   // (the rest of the pieces hold their places: the lounge's other pieces
-  // are hidden first, so the sofa goes to clear floor south of the rug,
-  // its turned box past the south wall)
+  // are hidden first, so the sofa's turned box stands on clear floor)
   await page.getByRole("tab", { name: "Assets", exact: true }).click();
-  for (const name of [
-    "Coffee table",
-    "Armchair",
-    "Storage bench",
-    "Three-bay sideboard",
-  ])
+  for (const name of ["Coffee table", "Armchair"])
     await page
       .getByRole("treeitem", { name, exact: true })
       .getByRole("button", { name: `Hide ${name}` })
