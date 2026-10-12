@@ -4315,16 +4315,17 @@ test("a piece turns by its bar: a quarter either way, typed degrees, the bracket
   expect(Math.abs(m1.y - m0.y)).toBeLessThan(2);
   await bar.getByRole("button", { name: "Turn left" }).click();
   await expect(sofa).toHaveAttribute("data-turn", "270");
-  // degrees typed on the bar; the brackets turn by 15 from there: four
-  // on from 255 is 315, on the slant
+  // the angle on the bar, a click makes it a field to type in; the
+  // brackets turn by 15 from there: four on from 255 is 315, on the slant
+  const angle = bar.getByRole("button", { name: /type an angle$/ });
+  await expect(angle).toHaveText("270°");
+  await angle.click();
   const typed = bar.getByRole("spinbutton", { name: "Turn, degrees" });
   await typed.fill("255");
   await typed.press("Enter");
   await expect(sofa).toHaveAttribute("data-turn", "255");
   for (let k = 0; k < 4; k++) await page.keyboard.press("]");
-  await expect(
-    bar.getByRole("spinbutton", { name: "Turn, degrees" }),
-  ).toHaveValue("315");
+  await expect(angle).toHaveText("315°");
   await expect(sofa).toHaveAttribute("data-turn", "315");
   await expect(sofa).toHaveCSS("transform", /matrix\(0\.70/);
   // the Detail tab reads it, Square brings it to the nearest quarter
@@ -4457,7 +4458,7 @@ test("the room is its outline: a notch is a wall, the layouts keep out of it, th
   expect(tapped.length).toBeGreaterThanOrEqual(6);
 });
 
-test("in 3D a picked piece carries its bar: its name, a turn, Against wall, Duplicate and Remove", async ({
+test("in 3D a picked piece carries its bar: its name, a turn, To wall, Duplicate and Remove; a rug's lists the pieces over it", async ({
   page,
 }) => {
   await page.goto("/rounded");
@@ -4477,17 +4478,16 @@ test("in 3D a picked piece carries its bar: its name, a turn, Against wall, Dupl
     await expect(bar).toBeVisible({ timeout: 2_000 });
   }).toPass({ timeout: 20_000 });
   await expect(bar).toContainText("Sofa");
-  await expect(bar).toContainText("drag to move");
   // a quarter turn (from 270, facing the television, round to 0)
   await bar.getByRole("button", { name: "Turn right" }).click();
   await page.getByRole("tab", { name: "Detail", exact: true }).click();
   const deg = page.getByRole("spinbutton", { name: "Sofa turn in degrees" });
   await expect(deg).toHaveValue("0");
-  await expect(
-    bar.getByRole("spinbutton", { name: "Turn, degrees" }),
-  ).toHaveValue("0");
-  // Against wall: square to a wall, its back to it
-  await bar.getByRole("button", { name: "Against wall" }).click();
+  await expect(bar.getByRole("button", { name: /type an angle$/ })).toHaveText(
+    "0°",
+  );
+  // To wall: square to a wall, its back to it
+  await bar.getByRole("button", { name: "To wall" }).click();
   await expect(deg).toHaveValue(/^(0|90|180|270)$/);
   // Duplicate: a second sofa, picked; Remove takes the picked one out
   await page.getByRole("tab", { name: "Assets", exact: true }).click();
@@ -4502,6 +4502,20 @@ test("in 3D a picked piece carries its bar: its name, a turn, Against wall, Dupl
   await expect(
     page.getByRole("treeitem", { name: "Sofa", exact: true }),
   ).toHaveCount(1);
+  // a rug's bar: no To wall (a rug does not stand against one), and its
+  // name lists the pieces standing on it, any of which it picks
+  await page.getByRole("treeitem", { name: "Rug", exact: true }).click();
+  const rug = stage.getByRole("toolbar", { name: "Arrange Rug" });
+  await expect(rug).toBeVisible();
+  await expect(rug.getByRole("button", { name: "To wall" })).toHaveCount(0);
+  await rug.getByRole("button", { name: /pick another piece here/ }).click();
+  await rug
+    .getByRole("menu", { name: "Pieces here" })
+    .getByRole("menuitem", { name: "Coffee table" })
+    .click();
+  await expect(
+    stage.getByRole("toolbar", { name: "Arrange Coffee table" }),
+  ).toBeVisible();
 });
 
 test("View settings: edges, names, a floor grid, shadows and the light, kept for next time", async ({

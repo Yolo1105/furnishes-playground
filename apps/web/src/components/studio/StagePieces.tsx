@@ -176,9 +176,23 @@ export function StagePieces({
       setDragging(null);
     }
   };
-  const onClick = (n: AssetNode) => {
+  const onClick = (n: AssetNode, x: number, y: number) => {
     // the click after a drag is the drag's end, not a pick
     if (drag.current?.moved) return;
+    // a click on the piece already picked reaches the one under it at
+    // that spot: a rug under a table under a sofa, each in turn
+    if (n.id === selectedId && typeof document !== "undefined") {
+      const here = document
+        .elementsFromPoint(x, y)
+        .filter((el) => el.classList.contains("stage-piece-body"))
+        .map((el) => el.getAttribute("aria-label"));
+      const names = a.shown.filter((o) => here.includes(o.name));
+      if (names.length > 1) {
+        const i = names.findIndex((o) => o.id === n.id);
+        a.onPick(names[(i + 1) % names.length]!);
+        return;
+      }
+    }
     a.onPick(n);
   };
 
@@ -248,7 +262,7 @@ export function StagePieces({
               onPointerMove={(e) => onMove(e, n)}
               onPointerUp={() => onUp(n)}
               onPointerCancel={() => onUp(n)}
-              onClick={() => onClick(n)}
+              onClick={(e) => onClick(n, e.clientX, e.clientY)}
             >
               <PlanSymbol node={n} props={p} turn={slant ? 0 : p.rotation} />
               {!compact && (a.focus || nameFits(n.name, f.w, f.d)) && (
@@ -301,9 +315,11 @@ export function StagePieces({
           return (
             <div
               className="stage-piece-over"
+              // under the piece, so it never covers what it acts on
+              data-side="below"
               style={{
                 left: `${((at.x + f.w / 2) / W) * 100}%`,
-                top: `${(at.y / D) * 100}%`,
+                top: `${((at.y + f.d) / D) * 100}%`,
                 transform: `scale(${1 / zoom})`,
               }}
             >
@@ -321,8 +337,10 @@ export function StagePieces({
                 <PieceBar
                   node={n}
                   rotation={p.rotation}
+                  stack={a.stackOf(n)}
+                  onPickOther={a.pickById}
                   onTurnTo={(r) => a.turnTo(n, r)}
-                  onToWall={() => a.toWall(n)}
+                  onToWall={a.wallable(n) ? () => a.toWall(n) : null}
                   onDuplicate={() => a.duplicate(n)}
                   onRemove={() => a.remove(n)}
                 />

@@ -6,6 +6,8 @@ import { products } from "./catalogue";
 import { describeItem } from "./generation-store";
 import {
   footprint,
+  isRug,
+  isSmall,
   LABEL_MAX,
   turnAbout,
   turned,
@@ -323,6 +325,33 @@ export function usePieceActions(roomId?: string) {
     const to = againstWall(spots.get(n.id)!, props.get(n.id)!, room.outline);
     if (to) setProps(n.id, to);
   };
+  /** the pieces standing over or under a piece (their outlines meet),
+      lowest first: a rug, the table on it, the sofa over its edge */
+  const stackOf = (n: AssetNode) => {
+    const at = spots.get(n.id);
+    if (!at) return [];
+    const f = footprint(props.get(n.id)!);
+    return shown
+      .filter((o) => o.id !== n.id)
+      .flatMap((o) => {
+        const p = props.get(o.id)!;
+        const b = spots.get(o.id);
+        if (!b) return [];
+        const g = footprint(p);
+        const meet =
+          at.x < b.x + g.w &&
+          b.x < at.x + f.w &&
+          at.y < b.y + g.d &&
+          b.y < at.y + f.d;
+        return meet
+          ? [{ id: o.id, name: o.name, h: isRug(o) ? 0 : p.height }]
+          : [];
+      })
+      .sort((a, b) => a.h - b.h)
+      .map(({ id, name }) => ({ id, name }));
+  };
+  /** a piece that stands against a wall: not a rug, nor a small thing */
+  const wallable = (n: AssetNode) => !isRug(n) && !isSmall(props.get(n.id)!);
   /** a second of the piece beside it: to its east when the room has
       the space, else to its south, else over it a little */
   const duplicate = (n: AssetNode) => {
@@ -400,6 +429,13 @@ export function usePieceActions(roomId?: string) {
     turn,
     turnTo,
     toWall,
+    stackOf,
+    wallable,
+    /** another piece picked from the bar's list, as a click would */
+    pickById: (id: string) => {
+      const o = shown.find((x) => x.id === id);
+      if (o) onPick(o);
+    },
     duplicate,
     remove: (n: AssetNode) => useScene.getState().removeNode(n.id),
     actionsFor,

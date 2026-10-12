@@ -31,11 +31,11 @@ export const HELP_TABS: readonly HelpTab[] = [
           },
           {
             does: "Turn a piece",
-            how: "Pick it: the bar over it turns it a quarter either way, or type its degrees there. R and Shift R turn a quarter, [ and ] by 15°.",
+            how: "Pick it: the bar under it turns it a quarter either way; click its angle to type one. R and Shift R turn a quarter, [ and ] by 15°.",
           },
           {
             does: "Put a piece against a wall",
-            how: "Against wall, on its bar: its back to the nearest wall, flush. The arrows nudge a picked piece 50 mm (Shift, 10 mm).",
+            how: "To wall, on its bar: its back to the nearest wall, flush. The arrows nudge a picked piece 50 mm (Shift, 10 mm). Where pieces stand over each other, click again to pick the one under, or pick it from the list on the bar's name.",
           },
           {
             does: "Zoom the plan",
@@ -88,7 +88,7 @@ export const HELP_TABS: readonly HelpTab[] = [
           },
           {
             does: "Turn a piece",
-            how: "Pick it, then the turns on the bar over it, or its degrees; R turns a quarter.",
+            how: "Pick it, then the turns on the bar under it, or its degrees; R turns a quarter.",
           },
           {
             does: "Walk",
@@ -126,7 +126,7 @@ export const HELP_TABS: readonly HelpTab[] = [
           { does: "Move a piece", how: "Drag it with one finger." },
           {
             does: "Turn a piece",
-            how: "Tap it, then a turn on the bar over it, or type its degrees there.",
+            how: "Tap it, then a turn on the bar under it, or tap its angle to type one.",
           },
           { does: "A piece's actions", how: "Press and hold it." },
           {
@@ -152,7 +152,7 @@ export const HELP_TABS: readonly HelpTab[] = [
           { does: "Move a piece", how: "Drag it over the floor." },
           {
             does: "Turn a piece",
-            how: "Tap it, then a turn on the bar over it.",
+            how: "Tap it, then a turn on the bar under it.",
           },
           {
             does: "Walk",

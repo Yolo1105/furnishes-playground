@@ -1588,8 +1588,55 @@
   bottom: 10px;
   translate: -50% 0;
 }
+.stage-piece-over[data-side="below"] > *,
+.stage-piece-over[data-side="below"] > .stage-actions {
+  bottom: auto;
+  top: 10px;
+}
 .plan-pieces:has(.stage-piece-over) {
   z-index: 2;
+}
+/* the list of the pieces standing over or under the picked one */
+.piece-bar-stack {
+  position: relative;
+}
+.piece-bar-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.piece-bar-menu {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  z-index: 3;
+  display: grid;
+  min-width: 160px;
+  padding: 4px;
+  border-radius: var(--r-control);
+  background: rgb(from var(--color-glass) r g b / 0.98);
+  border: 1px solid rgb(from var(--color-line) r g b / 0.18);
+  box-shadow: 0 8px 22px -10px rgb(from var(--color-shadow) r g b / 0.45);
+}
+.piece-bar-menu-item {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 6px 9px;
+  border-radius: calc(var(--r-control) - 2px);
+  font: inherit;
+  font-size: 12px;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+.piece-bar-menu-item:hover {
+  background: rgb(from var(--color-accent) r g b / 0.1);
+}
+.piece-bar-angle {
+  min-width: 40px;
+  justify-content: center;
+  color: var(--color-ink);
 }
 /* the bar reads over the plan's lines and the room's busy picture
    alike: nearly opaque, in the shell's own type, not the plan's */
@@ -1619,12 +1666,6 @@
   max-width: 14em;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-.piece-bar-hint {
-  padding: 0 8px 0 6px;
-  font-size: 11px;
-  font-weight: 500;
-  color: rgb(from var(--color-ink) r g b / 0.55);
 }
 .piece-bar-rule {
   width: 1px;

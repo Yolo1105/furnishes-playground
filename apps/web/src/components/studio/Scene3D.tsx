@@ -1356,6 +1356,8 @@ function Piece({
       });
   };
   useEffect(() => () => cancelAnimationFrame(moveFrame.current), []);
+  // the bar's place, worked out from the piece's size
+  const placeBar = useMemo(() => aroundPiece(size), [size]);
   // in hand: its distance to the walls shows in place of its bar
   const [dragging, setDragging] = useState(false);
   const drag = useRef<{
@@ -1506,12 +1508,15 @@ function Piece({
       {canDrag && (dragging || (selected && bar && !actions)) && (
         <Html
           portal={portal}
-          position={[0, size[1] + 0.1, 0]}
+          position={[0, 0, 0]}
           center
           zIndexRange={[45, 35]}
-          calculatePosition={inOpenStage}
+          calculatePosition={placeBar}
         >
-          <div className="stage-piece-over stage-piece-over-3d">
+          <div
+            className="stage-piece-over stage-piece-over-3d"
+            data-side="below"
+          >
             {dragging ? <GapReadout {...gaps()} /> : bar}
           </div>
         </Html>
@@ -1559,34 +1564,75 @@ function Piece({
   );
 }
 
-/** the bar's place on the canvas: over the piece, but kept to the open
-    stage between the side panels and under the top bar, so a piece at
-    the screen's edge has its whole bar in sight */
+/** the bar's place on the canvas: under the piece's outline as the
+    camera sees it (its footprint's corners on the floor), or over its
+    top where the shelf leaves no room below, so it never covers the
+    piece; kept to the open stage between the side panels and under the
+    top bar. The side it takes is written on the bar's holder */
 const BAR_MARGIN = 8;
-const barAt = new Vector3();
-const inOpenStage: NonNullable<
-  ComponentProps<typeof Html>["calculatePosition"]
-> = (el, camera, size) => {
-  barAt.setFromMatrixPosition(el.matrixWorld).project(camera);
-  let x = ((barAt.x + 1) / 2) * size.width;
-  let y = ((1 - barAt.y) / 2) * size.height;
-  const bar = document.querySelector<HTMLElement>(".stage-3d .piece-bar");
-  const canvas = bar?.closest(".stage-3d")?.querySelector("canvas");
-  if (!bar || !canvas) return [x, y];
-  const c = canvas.getBoundingClientRect();
-  const edge = (sel: string, side: "left" | "right" | "bottom") => {
-    const r = document.querySelector(sel)?.getBoundingClientRect();
-    return r && r.width > 0 ? r[side] : null;
+const BAR_GAP = 12;
+const barCorner = new Vector3();
+const aroundPiece =
+  (
+    size: Vector3Tuple,
+  ): NonNullable<ComponentProps<typeof Html>["calculatePosition"]> =>
+  (el, camera, view) => {
+    const piece = el.parent ?? el;
+    const onScreen = (x: number, y: number, z: number) => {
+      barCorner.set(x, y, z);
+      piece.localToWorld(barCorner).project(camera);
+      return [
+        ((barCorner.x + 1) / 2) * view.width,
+        ((1 - barCorner.y) / 2) * view.height,
+      ] as const;
+    };
+    const [w, h, d] = [size[0] / 2, size[1], size[2] / 2];
+    const foot = [
+      onScreen(-w, 0, -d),
+      onScreen(w, 0, -d),
+      onScreen(w, 0, d),
+      onScreen(-w, 0, d),
+    ];
+    const head = [
+      onScreen(-w, h, -d),
+      onScreen(w, h, -d),
+      onScreen(w, h, d),
+      onScreen(-w, h, d),
+    ];
+    const all = [...foot, ...head];
+    let x = all.reduce((t, p) => t + p[0], 0) / all.length;
+    const below = Math.max(...all.map((p) => p[1])) + BAR_GAP;
+    const above = Math.min(...all.map((p) => p[1])) - BAR_GAP;
+    const holder = document.querySelector<HTMLElement>(
+      ".stage-3d .stage-piece-over-3d",
+    );
+    const bar = holder?.firstElementChild as HTMLElement | null | undefined;
+    const canvas = holder?.closest(".stage-3d")?.querySelector("canvas");
+    if (!holder || !bar || !canvas) return [x, below];
+    const c = canvas.getBoundingClientRect();
+    const edge = (sel: string, side: "left" | "right" | "top" | "bottom") => {
+      const r = document.querySelector(sel)?.getBoundingClientRect();
+      return r && r.width > 0 ? r[side] : null;
+    };
+    const half = bar.offsetWidth / 2 + BAR_MARGIN;
+    const lo = Math.max(c.left, edge(".shell-rail-left", "right") ?? c.left);
+    const hi = Math.min(c.right, edge(".shell-rail-right", "left") ?? c.right);
+    if (hi - lo > 2 * half)
+      x = Math.min(hi - c.left - half, Math.max(lo - c.left + half, x));
+    const top = Math.max(c.top, edge(".main-top", "bottom") ?? c.top) - c.top;
+    const floor =
+      Math.min(c.bottom, edge(".main-shelf", "top") ?? c.bottom) - c.top;
+    const tall = bar.offsetHeight + BAR_MARGIN;
+    // below when it fits there, else above, else as near as it can be
+    const side =
+      below + tall <= floor ? "below" : above - tall >= top ? "above" : "below";
+    if (holder.dataset.side !== side) holder.dataset.side = side;
+    const y =
+      side === "below"
+        ? Math.min(below, floor - tall)
+        : Math.max(above, top + tall);
+    return [x, y];
   };
-  const half = bar.offsetWidth / 2 + BAR_MARGIN;
-  const lo = Math.max(c.left, edge(".shell-rail-left", "right") ?? c.left);
-  const hi = Math.min(c.right, edge(".shell-rail-right", "left") ?? c.right);
-  if (hi - lo > 2 * half)
-    x = Math.min(hi - c.left - half, Math.max(lo - c.left + half, x));
-  const top = Math.max(c.top, edge(".main-top", "bottom") ?? c.top);
-  y = Math.max(top - c.top + bar.offsetHeight + 2 * BAR_MARGIN + 10, y);
-  return [x, y];
-};
 
 /** drawn, never picked: a halo under the pointer leaves the pick to
     the piece */
@@ -1822,17 +1868,18 @@ function FlatRoom({
               // over them: another room's pieces carry none
               labels={working?.labels ?? false}
               edges={edges}
+              // the picked piece's bar, in whichever room it stands
               bar={
-                working ? (
-                  <PieceBar
-                    node={n}
-                    rotation={p.rotation}
-                    onTurnTo={(r) => a.turnTo(n, r)}
-                    onToWall={() => a.toWall(n)}
-                    onDuplicate={() => a.duplicate(n)}
-                    onRemove={() => a.remove(n)}
-                  />
-                ) : null
+                <PieceBar
+                  node={n}
+                  rotation={p.rotation}
+                  stack={a.stackOf(n)}
+                  onPickOther={a.pickById}
+                  onTurnTo={(r) => a.turnTo(n, r)}
+                  onToWall={a.wallable(n) ? () => a.toWall(n) : null}
+                  onDuplicate={() => a.duplicate(n)}
+                  onRemove={() => a.remove(n)}
+                />
               }
               actions={
                 working && a.actionsFor === n.id ? (
