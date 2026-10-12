@@ -107,3 +107,23 @@ from the start.
 - The plan's symbols are unchanged.
 - A Mirror finish still lays a reflector on each door, from the form's
   door faces.
+
+## The room items, after (2026-10-12)
+
+A look at every room item side by side showed three out of step with
+the rest, all now drawn with the built forms the rest share:
+
+- the sofa was the stock tufted Chesterfield, a period piece among
+  plywood and linen: it is the built seat now, linen cushions on a low
+  base with slim legs, taking the room's colour;
+- the coffee table was the stock near-square side table fitted to a
+  1000 × 600 table, so it stood a third of its size: it is the built
+  table now, the dining table's light wood and legs, low;
+- the double and single beds stood on a dark-brown block beside a
+  light-wood bunk: their frame is the light wood now, on a darker
+  recessed plinth as the Furnishes pieces stand on their base.
+
+The armchair, the plant, the vase and the desk lamp keep their stock
+meshes: they sit with the rest. The wardrobe, the media console and
+the kitchen and bathroom fittings keep their quiet laminate and white,
+so the pieces for sale stand out against them.

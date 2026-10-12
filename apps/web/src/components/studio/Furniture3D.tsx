@@ -73,22 +73,22 @@ const Part3D = lazy(() =>
 
 /**
  * A piece's form in 3D, built from what it is, at the size the Detail
- * tab gives it. Furnishes pieces are 18 mm panel furniture: a carcass of
- * sides, top, bottom and a thin back on a recessed plinth, a bay per
- * part with its own colour, shelves by height; a sideboard's bays get
- * doors with handles, a bookwall's shelves get books, an organiser its
- * hooks, a bench its cushion, a cart its frame and castors. Room items
- * are the things a room has: a sofa and an armchair with cushions, arms
- * and legs in cloth; a table with a top, an apron and turned legs; a
- * lamp with its base, stem and lit shade; a plant in its pot; a vase
- * turned on a lathe; a rug with a border; a bed with pillows and a
- * duvet; a screen on its feet. A finish of wood grain is painted on
- * from the palette. A generated item with a mesh of its own shows
- * that; and a room item with a stock mesh to its name (a sofa, an
- * armchair, a chair, a coffee table, a plant, a vase, a desk lamp:
- * the Poly Haven models under public/props) is drawn from it, the
- * cloth taking the item's own colour over the model's own weave, the
- * built form standing in until it loads or should it fail.
+ * tab gives it. Furnishes pieces are built from their assembly record
+ * by furnishes-forms.ts: bays of 18 mm panels on a base or castors,
+ * each with what it is for and the add-ons chosen for it. Another
+ * carcass (a wardrobe, a cabinet) has sides, top, bottom and a thin
+ * back on a recessed plinth, shelves by height, doors with handles.
+ * Room items are the things a room has: a sofa and an armchair with
+ * cushions, arms and legs in cloth; a table with a top, an apron and
+ * turned legs; a lamp with its base, stem and lit shade; a plant in its
+ * pot; a vase turned on a lathe; a rug with a border; a bed with
+ * pillows and a duvet on a light frame; a screen on its feet. A finish
+ * of wood grain is painted on from the palette. A generated item with a
+ * mesh of its own shows that; and a room item with a stock mesh to its
+ * name (an armchair, a plant, a vase, a desk lamp: the Poly Haven
+ * models under public/props) is drawn from it, the cloth taking the
+ * item's own colour over the model's own weave, the built form standing
+ * in until it loads or should it fail.
  */
 const PLINTH = 0.06;
 /** the gap between an overlay door and its neighbours, m */
@@ -166,9 +166,14 @@ const stockOf = (node: AssetNode) => {
   const name = node.name.toLowerCase();
   const cat = node.category;
   // a plain chair is built: the stock one is in dark leather, one
-  // picture that takes no colour, and a room of them read heavy
+  // picture that takes no colour, and a room of them read heavy. So is
+  // a sofa (the stock one is a tufted Chesterfield, a period piece
+  // among plywood and linen) and a coffee table (the stock one is a
+  // near-square side table, fitted to a 1 m table it stood a third of
+  // the size): the built forms keep to the room's calm language
   if (/\bchair\b/.test(name) && !/arm|lounge|easy|reading/.test(name))
     return null;
+  if (/sofa|couch|settee|coffee table/.test(name)) return null;
   const fits =
     cat === "seating" ||
     cat === "tables" ||
@@ -1486,7 +1491,19 @@ function Bed({
   const pw = (w - 0.2) / 2;
   return (
     <group>
-      <Slab f={wood(DARK_WOOD)} at={[0, base / 2, 0]} dims={[w, base, d]} />
+      {/* the frame in the light wood the room's tables and the bunk
+          are, on a darker recessed plinth, as the Furnishes pieces
+          stand on their base */}
+      <Slab
+        f={{ colour: shade(LIGHT_WOOD, -0.3), rough: 0.8 }}
+        at={[0, 0.03, 0]}
+        dims={[w - 0.1, 0.06, d - 0.1]}
+      />
+      <Slab
+        f={wood(LIGHT_WOOD)}
+        at={[0, 0.06 + (base - 0.06) / 2, 0]}
+        dims={[w, base - 0.06, d]}
+      />
       <Soft
         f={linen}
         at={[0, base + mattress / 2, 0]}
