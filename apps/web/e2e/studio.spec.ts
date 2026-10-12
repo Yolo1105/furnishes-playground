@@ -2273,8 +2273,8 @@ test("Select drags a piece about the plan, turns it, locks it; the eye hides, Re
   await page.goto("/rounded");
   await page.getByRole("button", { name: "Show 2D plan in main" }).click();
   const stage = page.locator(".stage-pieces");
-  const pieces = top.filter((a) => a.kind === "piece");
-  const name = pieces[0]!.name;
+  // the sideboard stands square to the plan, long side along its wall
+  const name = top.find((a) => a.id === "sideboard")!.name;
   const body = stage.getByRole("button", { name, exact: true });
   // the plan fades up with a slight scale: measure once it stands still
   await page
