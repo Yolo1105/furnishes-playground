@@ -4,7 +4,7 @@ import { defineConfig, devices } from "@playwright/test";
  * The studio is driven by a mouse, a trackpad, a finger and a pen, in
  * Chrome, Edge, Safari and Firefox. Chromium is always here: the desktop
  * project runs the studio's own suite with a mouse, the visual project
- * compares five fixed views of the room with their kept pictures, and
+ * compares six fixed views of the room with their kept pictures, and
  * two touch projects run the touch suite on an iPad's and a phone's
  * screen with a finger (Chromium emulating both). The WebKit and Firefox engines run
  * the desktop suite too, where they are installed (`npx playwright
@@ -37,7 +37,7 @@ export default defineConfig({
       },
     },
     {
-      // the five fixed views, compared with their kept pictures; each
+      // the six fixed views, compared with their kept pictures; each
       // waits for the full finish (probes, the floor's picture, the
       // shadows) on the software GPU, most of a minute by itself
       name: "visual",

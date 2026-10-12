@@ -20,6 +20,7 @@ import { smaa } from "three/examples/jsm/tsl/display/SMAANode.js";
 import { ssgi } from "three/examples/jsm/tsl/display/SSGINode.js";
 import { ssr } from "three/examples/jsm/tsl/display/SSRNode.js";
 import { traa } from "three/examples/jsm/tsl/display/TRAANode.js";
+import { bloom } from "three/examples/jsm/tsl/display/BloomNode.js";
 import {
   float,
   Fn,
@@ -35,6 +36,8 @@ import {
   roughness,
   rtt,
   screenUV,
+  smoothstep,
+  toneMappingExposure,
   uniform,
   vec2,
   vec3,
@@ -234,6 +237,15 @@ const backdropNode = (b: Backdrop, place: Place): Node<"vec3"> => {
   })();
 };
 
+/** the windows' glow into the frame (the desktop tier): only what is
+    well past white after the exposure blooms, faintly, so the glass
+    and the sun's patch shine a little and nothing else does (at a
+    threshold of 1 a room exposed for its walls hazed over: its white
+    walls stand past 1 too) */
+const GLOW = { strength: 0.06, radius: 0.2, threshold: 2 };
+/** a lens's fall-off at the frame's corners, a share of the light */
+const VIGNETTE = { depth: 0.065, from: 0.4, to: 0.72 };
+
 /** the scene pass darkened by the occlusion where there is one,
     tone-mapped and laid over the backdrop: the frame as the page shows
     it, opaque, which the edge passes then resolve. The room's silhouette
@@ -247,19 +259,44 @@ const frameOf = (
   backdrop: Node<"vec3">,
   /** light added before the tone mapping: reflections, bounce */
   added: Node<"vec3"> | null = null,
+  /** the windows' glow (the desktop tier) */
+  glows = false,
 ) => {
   const shaded = occlusion ? scenePass.rgb.mul(occlusion) : scenePass.rgb;
   const lit = added ? shaded.add(added) : shaded;
-  return rtt(
+  // the glow is found in the exposed picture and handed back unexposed,
+  // so the tone mapping takes it with the rest
+  // the renderer's exposure as a float node (its reference is typed
+  // apart from the float the arithmetic takes)
+  const exposure = toneMappingExposure as unknown as Node<"float">;
+  const glow = glows
+    ? bloom(
+        vec4(lit.mul(exposure), 1),
+        GLOW.strength,
+        GLOW.radius,
+        GLOW.threshold,
+      )
+    : null;
+  const withGlow = glow ? lit.add(glow.rgb.div(exposure)) : lit;
+  // the lens darkens the room's corners a little, not the page behind
+  const lens = float(1).sub(
+    smoothstep(VIGNETTE.from, VIGNETTE.to, screenUV.sub(0.5).length()).mul(
+      VIGNETTE.depth,
+    ),
+  );
+  const frame = rtt(
     vec4(
       mix(
         backdrop,
-        renderOutput(vec4(lit, 1), TONE_MAPPING, SRGBColorSpace).rgb,
+        renderOutput(vec4(withGlow, 1), TONE_MAPPING, SRGBColorSpace).rgb.mul(
+          lens,
+        ),
         depth.r.lessThan(1).select(1, 0),
       ),
       1,
     ),
   );
+  return { frame, glow };
 };
 
 type Chain = {
@@ -305,7 +342,7 @@ const build = (
   const warm: Chain["warm"] = (parts, budget) =>
     warmParts(renderer, scenePass, parts, scene, camera, budget);
   if (tier === "phone") {
-    const frame = frameOf(scenePass, depth, null, backdrop);
+    const { frame } = frameOf(scenePass, depth, null, backdrop);
     const edges = smaa(frame);
     pipeline.outputNode = edges;
     return {
@@ -402,12 +439,13 @@ const build = (
       added = added ? added.add(gi) : gi;
     }
   }
-  const frame = frameOf(
+  const { frame, glow } = frameOf(
     scenePass,
     depth,
     occlusion ? occlusion.getTextureNode().sample(screenUV).r : null,
     backdrop,
     added,
+    tier === "desktop",
   );
   const resolve = traa(
     frame,
@@ -423,6 +461,7 @@ const build = (
     dispose: () => {
       resolve.dispose();
       frame.dispose();
+      glow?.dispose();
       reflections?.dispose();
       bounce?.dispose();
       occlusion?.dispose();

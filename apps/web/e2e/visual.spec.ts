@@ -3,7 +3,7 @@ import { GUIDE_STORAGE_KEY } from "../src/components/studio/guide-store";
 import { LOOK_STORAGE_KEY } from "../src/components/studio/useArrival";
 
 /**
- * The room as it looks: five fixed views of the first project, each
+ * The room as it looks: six fixed views of the first project, each
  * kept as a picture beside this file and compared on every run, so a
  * change to the light, the materials or the renderer is seen before it
  * ships. A pixel counts as changed past a twentieth of its colour (the
@@ -130,6 +130,13 @@ test("the room in the evening, with its shadows", async ({ page }) => {
   await page.keyboard.press("Escape");
   await settled(page);
   await picture(page, "evening-panels.png");
+});
+
+test("the room from its corner, as a photograph takes it", async ({ page }) => {
+  await page
+    .getByRole("button", { name: "Corner view, as a photograph" })
+    .click();
+  await picture(page, "corner.png");
 });
 
 test("the front elevation", async ({ page }) => {

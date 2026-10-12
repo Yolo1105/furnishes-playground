@@ -13,8 +13,12 @@ import {
   type Texture,
 } from "three";
 import {
+  float,
   getParallaxCorrectNormal,
+  materialColor,
+  mx_noise_float,
   pmremTexture,
+  positionWorld,
   reflectVector,
   uniform,
   vec3,
@@ -42,6 +46,9 @@ import { warming } from "./shader-warm";
 
 /** the sides of the room's picture, px */
 const CUBE = 256;
+/** the floor's slow unevenness: its scale, per m, and how far it
+    moves the tone either way */
+const FLOOR_VARIATION = { scale: 0.45, depth: 0.07 };
 /** a change waits this long before the picture is taken again, ms */
 const SETTLE_MS = 400;
 /** how near and how far the picture sees, m */
@@ -132,6 +139,15 @@ export const useFloorMaterial = (
   }, [w, h, d]);
   const material = useMemo(() => {
     const m = new MeshStandardNodeMaterial();
+    // a slow, faint unevenness across the floor (boards from different
+    // trees, a little wear), so its tile never reads as a repeat
+    m.colorNode = materialColor.mul(
+      float(1).add(
+        mx_noise_float(positionWorld.xz.mul(FLOOR_VARIATION.scale)).mul(
+          FLOOR_VARIATION.depth,
+        ),
+      ),
+    );
     if (target) {
       m.envNode = pmremTexture(
         target.texture,

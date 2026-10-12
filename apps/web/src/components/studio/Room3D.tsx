@@ -42,6 +42,7 @@ import {
   type Object3D,
   type Scene,
   Shape,
+  ShapeGeometry,
   type Texture,
   Vector2,
   Vector3,
@@ -326,7 +327,8 @@ const glassOf = (room: Node) => {
 const ROUGHNESS: Record<Floor, number> = {
   Vinyl: 0.7,
   Tiles: 0.35,
-  Parquet: 0.6,
+  // a satin lacquer: the window reflects in it as a soft streak
+  Parquet: 0.42,
   Concrete: 0.9,
 };
 
@@ -504,6 +506,14 @@ const floorShape = (
 
 /** never under the pointer */
 const noPick = () => null;
+
+/** where in its tile a room's floor starts, m: read from its id, the
+    same every time, up to a few metres either way */
+const tileOffset = (id: string): [number, number] => {
+  let n = 0;
+  for (const c of id) n = (Math.imul(n, 31) + c.charCodeAt(0)) | 0;
+  return [(((n >>> 0) % 997) / 997) * 7.3, (((n >>> 10) % 991) / 991) * 5.9];
+};
 
 /** a wall's turn so its face points into the room */
 export const yawOf = (wall: Wall) =>
@@ -1530,6 +1540,17 @@ export function RoomShell({
   // the tone laid lightly over it, else the grown floor in the tone
   const floorMat = useMaterial(FLOOR_MATERIAL[r.floor], r.floorHex);
   const floorMaps = repeated(floorMat);
+  // each room's floor laid from its own place in the tile, so two rooms
+  // side by side never repeat the same boards at the same spot
+  const floorGeometry = useMemo(() => {
+    const g = new ShapeGeometry(shape);
+    const [u, v] = tileOffset(r.id);
+    const uv = g.getAttribute("uv");
+    for (let i = 0; i < uv.count; i++)
+      uv.setXY(i, uv.getX(i) + u, uv.getY(i) + v);
+    return g;
+  }, [shape, r.id]);
+  useEffect(() => () => floorGeometry.dispose(), [floorGeometry]);
   const t = toMetres(r.thickness);
   // the wall runs with their mitres and holes: read once per shape, not
   // per frame, since a wall's geometry is
@@ -1597,7 +1618,7 @@ export function RoomShell({
         receiveShadow
         onClick={onFloorClick}
       >
-        <shapeGeometry args={[shape]} />
+        <primitive object={floorGeometry} attach="geometry" />
         <primitive
           object={material}
           attach="material"
