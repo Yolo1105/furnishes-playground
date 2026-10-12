@@ -234,7 +234,9 @@ test("rails collapse into the toolbar and come back", async ({ page }) => {
   const main = page.locator(".shell-main");
   const wide = (await main.boundingBox())!.width;
 
-  await expect(page.locator(".shell-project-name")).toHaveText("First project");
+  await expect(page.locator(".shell-project-name")).toHaveText(
+    "HDB 5-room · Balanced",
+  );
   // only the project's name is the button; the brand is not
   await expect(page.getByRole("button", { name: /Furnishes/ })).toHaveCount(0);
 
@@ -2184,6 +2186,10 @@ test("the gear opens Settings, Help and the Guide; keys drive the tools", async 
   await expect(settings).toHaveCount(0);
   await page.keyboard.press("2");
   const sheet = page.locator(".shell-stage .plan");
+  // the plan opens on the active room; Fit (0) shows the whole flat
+  await expect(sheet).toHaveCSS("transform", /matrix\((?!1, )/);
+  await page.keyboard.press("0");
+  await expect(sheet).toHaveCSS("transform", "matrix(1, 0, 0, 1, 0, 0)");
   const box = (await page.locator(".shell-stage .plan-svg").boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.wheel(0, 120);
@@ -2477,24 +2483,37 @@ test("projects: a new one starts clean, the first keeps its room, rename and del
   await expect(name).toHaveText("Study corner");
   // back to the first: its cart is as it was; and it survives a reload
   await page.getByRole("button", { name: /^Project, / }).click();
-  await page.getByRole("menuitemradio", { name: "First project" }).click();
+  await page
+    .getByRole("menuitemradio", { name: "HDB 5-room · Balanced" })
+    .click();
   await expect(page.getByRole("tab", { name: /^Cart/ })).toHaveText("Cart1");
   await page.waitForTimeout(900);
   await page.reload();
-  await expect(name).toHaveText("First project");
+  await expect(name).toHaveText("HDB 5-room · Balanced");
   await expect(page.getByRole("tab", { name: /^Cart/ })).toHaveText("Cart1");
+  // the flat's three arrangements and the new one
   await page.getByRole("button", { name: /^Project, / }).click();
-  await expect(page.getByRole("menuitemradio")).toHaveCount(2);
-  // delete the other; the last one cannot go
-  await page.getByRole("menuitemradio", { name: "Study corner" }).click();
-  await page.getByRole("button", { name: /^Project, / }).click();
-  await page.getByRole("menuitem", { name: "Delete" }).click();
-  await expect(name).toHaveText("First project");
-  await page.getByRole("button", { name: /^Project, / }).click();
+  await expect(page.getByRole("menuitemradio")).toHaveCount(4);
+  // delete the others; the last one cannot go
+  for (const other of [
+    "Study corner",
+    "HDB 5-room · Study-focused",
+    "HDB 5-room · Leisure",
+  ]) {
+    await page.getByRole("menuitemradio", { name: other }).click();
+    await expect(name).toHaveText(other);
+    await page.getByRole("button", { name: /^Project, / }).click();
+    await page.getByRole("menuitem", { name: "Delete" }).click();
+    await expect(name).not.toHaveText(other);
+    await page.getByRole("button", { name: /^Project, / }).click();
+  }
+  await expect(page.getByRole("menuitemradio")).toHaveText([
+    "HDB 5-room · Balanced",
+  ]);
   await expect(page.getByRole("menuitem", { name: "Delete" })).toBeDisabled();
 });
 
-test("a browser that kept projects from an earlier studio starts over: the 5-room flat alone, once", async ({
+test("a browser that kept projects from an earlier studio starts over: the 5-room flat's three arrangements, once", async ({
   page,
 }) => {
   // what an earlier studio kept: a project of its own, and no word of
@@ -2514,13 +2533,17 @@ test("a browser that kept projects from an earlier studio starts over: the 5-roo
   });
   await page.goto("/rounded");
   const name = page.locator(".shell-project-name");
-  await expect(name).toHaveText("HDB 5-room flat");
+  await expect(name).toHaveText("HDB 5-room · Balanced");
   await page.getByRole("tab", { name: "Room", exact: true }).click();
   await expect(
     page.getByRole("radiogroup", { name: "Rooms" }).getByRole("radio"),
   ).toHaveCount(10);
   await page.getByRole("button", { name: /^Project, / }).click();
-  await expect(page.getByRole("menuitemradio")).toHaveText(["HDB 5-room flat"]);
+  await expect(page.getByRole("menuitemradio")).toHaveText([
+    "HDB 5-room · Balanced",
+    "HDB 5-room · Study-focused",
+    "HDB 5-room · Leisure",
+  ]);
   await page.keyboard.press("Escape");
   // the earlier project is noted gone, so an account's copy goes too
   const gone = await page.evaluate(
@@ -2533,7 +2556,7 @@ test("a browser that kept projects from an earlier studio starts over: the 5-roo
   await page.waitForTimeout(900);
   await page.reload();
   await page.getByRole("button", { name: /^Project, / }).click();
-  await expect(page.getByRole("menuitemradio")).toHaveCount(2);
+  await expect(page.getByRole("menuitemradio")).toHaveCount(4);
 });
 
 test("a project kept by an earlier studio comes up to the catalogue as it is read", async ({
@@ -5224,7 +5247,7 @@ test("a room shared by link: read-only for anyone, taken into a studio as a proj
   const b = await ctxB.newPage();
   await b.goto(url);
   await expect(
-    b.getByRole("heading", { name: "First project", exact: true }),
+    b.getByRole("heading", { name: "HDB 5-room · Balanced", exact: true }),
   ).toBeVisible();
   await expect(b.locator(".stage-3d canvas")).toHaveCount(1);
   const inRoom = b.getByRole("list").last();
@@ -5234,10 +5257,10 @@ test("a room shared by link: read-only for anyone, taken into a studio as a proj
   // into a studio of their own, as a new project
   await b.getByRole("button", { name: "Open in my studio" }).click();
   await expect(b.locator(".shell-project-name")).toHaveText(
-    "First project (shared)",
+    "HDB 5-room · Balanced (shared)",
   );
   await b.getByRole("button", { name: /^Project, / }).click();
-  await expect(b.getByRole("menuitemradio")).toHaveCount(2);
+  await expect(b.getByRole("menuitemradio")).toHaveCount(4);
   // the gear's Account lists it under Shared rooms; taking it down ends
   // the link
   await a.getByRole("button", { name: "Settings", exact: true }).click();
@@ -5245,7 +5268,7 @@ test("a room shared by link: read-only for anyone, taken into a studio as a proj
   const dialogA = a.getByRole("dialog", { name: "Account" });
   await expect(dialogA.getByText(/^shared /)).toBeVisible();
   await dialogA
-    .getByRole("button", { name: "Stop sharing First project" })
+    .getByRole("button", { name: "Stop sharing HDB 5-room · Balanced" })
     .click();
   await b.goto(url);
   await expect(b.getByText("This room is no longer shared")).toBeVisible();

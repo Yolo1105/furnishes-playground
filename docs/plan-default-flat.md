@@ -653,3 +653,44 @@ doorway. Before, the rooms followed the type's sizes and were stood
 back together, which a ten-room plan packed wall to wall does not
 survive. The start-over version is 4, so a browser that kept the
 earlier flat opens on this one.
+
+### Three arrangements, three projects (2026-10-12)
+
+The planner offers more than one way to furnish the children's rooms
+and the living room, and those now open as projects of their own in
+the project menu, each a full flat (`ARRANGEMENTS` in assets-data.ts,
+`showcaseProjects()` in project-store.ts); the start-over version is 5.
+
+- **HDB 5-room · Balanced** — the flat as above, with fewer repeated
+  pieces than the first lay-out (one desk chair per desk, a bench at
+  the foot of bedroom 3's bunk instead of a second rug, the bathrooms'
+  trolleys gone) and no dark chairs: a plain chair is drawn as the
+  studio's own light form, never the dark stock model.
+- **HDB 5-room · Study-focused** — the living room gives its rug to a
+  learning library on the west wall; bedroom 3 has a two-child study
+  desk under its window with two chairs; the bedrooms and the living
+  room in white.
+- **HDB 5-room · Leisure** — the homework desk and its chairs leave the
+  living room for a leisure bench and a reading armchair; bedroom 3 has
+  a play table and bedroom 2 a bean bag; parquet floors, sand walls in
+  the living room and sage in the bedrooms.
+
+Every arrangement passes the same rules as it opens (showcase.test.ts:
+nothing over another, doors and windows clear, walkways, what each
+room must have), and no two are the same.
+
+### Arranging a piece, and the walls (2026-10-12)
+
+The turn ring with its knob in 3D and the turn handle on the plan read
+as nothing to most people, and a drag fired more store writes than the
+screen draws. A picked piece now carries a labelled bar over it in both
+views (PieceBar.tsx): its name and "drag to move", a quarter turn either
+way about its middle, its degrees typed, Against wall (its back to the
+nearest wall, flush), Duplicate and Remove; while it is dragged, its
+distance to the walls shows in the bar's place. The keys follow it: R
+and Shift R, [ and ] by 15° (Shift, 1°), the arrows by 50 mm (Shift,
+10 mm). Moves and turns land once a frame and the orbit has damping.
+
+Each room also has what hangs on its walls, outlets included, suggested
+for its kind and editable in the Room tab's On the walls (see "What
+hangs on the walls" in plan-realism.md).
