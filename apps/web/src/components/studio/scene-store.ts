@@ -123,6 +123,9 @@ type SceneState = {
   placeAll: (places: Record<string, Partial<PieceProps>>) => void;
   /** take a piece out of the room altogether */
   removeNode: (id: string) => void;
+  /** a second of a piece, as it is configured, standing at `at` (mm),
+      picked; one undo step. The copy's id */
+  duplicate: (id: string, at: { x: number; y: number }) => string | null;
   /** Eva's changes as one undo step: pieces taken out, catalogue
       pieces and room items brought in, then every piece placed as
       `placesFor` says once the new nodes are known */
@@ -476,6 +479,53 @@ export const useScene = create<SceneState>((set, get) => {
           ...remember(s),
         };
       }),
+    duplicate: (id, at) => {
+      const s = get();
+      const n = s.groups.flatMap((g) => g.items).find((x) => x.id === id);
+      if (!n || n.kind === "fixed") return null;
+      // numbered after the ones of its name already there: a second
+      // "Desk chair 2" is "Desk chair 3"
+      const base = n.name.replace(/ \d+$/, "");
+      const same = (name: string) =>
+        name === base ||
+        (name.startsWith(`${base} `) &&
+          /^\d+$/.test(name.slice(base.length + 1)));
+      const count = s.groups
+        .flatMap((g) => g.items)
+        .filter((x) => same(x.name)).length;
+      const copy: AssetNode = {
+        ...n,
+        id: newId(n.kind),
+        name: `${base} ${count + 1}`,
+        ...(n.children
+          ? {
+              children: n.children.map((c) => ({ ...c, id: newId(c.kind) })),
+            }
+          : {}),
+      };
+      const children = Object.fromEntries(
+        (n.children ?? []).flatMap((c, i) => {
+          const o = s.overrides[c.id];
+          return o ? [[copy.children![i]!.id, { ...o }]] : [];
+        }),
+      );
+      set((st) => {
+        const overrides = held(st);
+        return {
+          groups: into(st.groups, copy),
+          overrides: {
+            ...overrides,
+            ...children,
+            [copy.id]: { ...overrides[id], x: at.x, y: at.y },
+          },
+          selectedId: copy.id,
+          panelId: null,
+          selectedAt: st.selectedAt + 1,
+          ...remember(st),
+        };
+      });
+      return copy.id;
+    },
     dragStart: () => set((s) => ({ dragFrom: snap(s), overrides: held(s) })),
     dragMove: (id, x, y) =>
       set((s) => ({

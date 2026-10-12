@@ -31,7 +31,11 @@ export const HELP_TABS: readonly HelpTab[] = [
           },
           {
             does: "Turn a piece",
-            how: "Drag its turn handle, in steps of 15°; hold Shift to turn freely. A click on the handle turns it a quarter.",
+            how: "Pick it: the bar over it turns it a quarter either way, or type its degrees there. R and Shift R turn a quarter, [ and ] by 15°.",
+          },
+          {
+            does: "Put a piece against a wall",
+            how: "Against wall, on its bar: its back to the nearest wall, flush. The arrows nudge a picked piece 50 mm (Shift, 10 mm).",
           },
           {
             does: "Zoom the plan",
@@ -82,7 +86,10 @@ export const HELP_TABS: readonly HelpTab[] = [
             does: "Move a piece",
             how: "Drag it over the floor; it outlines in red where it meets another, and the overlaps are listed in a card at the top left.",
           },
-          { does: "Turn a piece", how: "Drag the spin handle over it." },
+          {
+            does: "Turn a piece",
+            how: "Pick it, then the turns on the bar over it, or its degrees; R turns a quarter.",
+          },
           {
             does: "Walk",
             how: "G, or Walk under the view cube. W A S D or the arrows move, a drag looks round, a click on the floor (not the end of a drag) goes there; Escape stops.",
@@ -119,7 +126,7 @@ export const HELP_TABS: readonly HelpTab[] = [
           { does: "Move a piece", how: "Drag it with one finger." },
           {
             does: "Turn a piece",
-            how: "Drag its turn handle, in steps of 15°; a tap on the handle turns it a quarter.",
+            how: "Tap it, then a turn on the bar over it, or type its degrees there.",
           },
           { does: "A piece's actions", how: "Press and hold it." },
           {
@@ -143,7 +150,10 @@ export const HELP_TABS: readonly HelpTab[] = [
           { does: "Zoom", how: "Pinch with two fingers." },
           { does: "Move the view", how: "Drag with two fingers." },
           { does: "Move a piece", how: "Drag it over the floor." },
-          { does: "Turn a piece", how: "Drag the spin handle over it." },
+          {
+            does: "Turn a piece",
+            how: "Tap it, then a turn on the bar over it.",
+          },
           {
             does: "Walk",
             how: "Walk under the view cube; drag to look round, tap the floor to go there; Stop ends it.",

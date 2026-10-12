@@ -7,6 +7,7 @@ import {
 } from "./piece-detail";
 import { ARCHETYPES, type Placement, type Rule } from "./archetypes";
 import { edgesOf, rectInside, type Edge } from "./room-geometry";
+import type { Point } from "./room-templates";
 import {
   keepOff,
   meets,
@@ -651,4 +652,104 @@ export const settle = (
     }
   }
   return spot;
+};
+
+/** the turn that puts a piece's back to a wall: at no turn the back
+    is to the north */
+const BACK_TO: Record<Wall, number> = {
+  north: 0,
+  east: 90,
+  south: 180,
+  west: 270,
+};
+
+/** a point's distance to an edge's segment, mm */
+const toEdge = (x: number, y: number, e: Edge) => {
+  const [ax, ay] = e.a;
+  const [bx, by] = e.b;
+  const dx = bx - ax;
+  const dy = by - ay;
+  const len = dx * dx + dy * dy || 1;
+  const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / len));
+  return Math.hypot(x - (ax + t * dx), y - (ay + t * dy));
+};
+
+/**
+ * A piece put against the wall nearest its middle: turned with its
+ * back to that wall, flush to the wall's face, still where it was
+ * along the wall (kept within the wall's length). The answer is the
+ * piece's new spot and turn; null when the room has no straight wall.
+ */
+export const againstWall = (
+  at: Spot,
+  p: Pick<PieceProps, "width" | "depth" | "rotation">,
+  outline: readonly Point[],
+): Placed | null => {
+  const f0 = footprint(p as PieceProps);
+  const cx = at.x + f0.w / 2;
+  const cy = at.y + f0.d / 2;
+  const square = edgesOf(outline).filter(
+    (e) => e.a[0] === e.b[0] || e.a[1] === e.b[1],
+  );
+  let best: Edge | null = null;
+  let near = Infinity;
+  for (const e of square) {
+    const gap = toEdge(cx, cy, e);
+    if (gap < near) {
+      near = gap;
+      best = e;
+    }
+  }
+  if (!best) return null;
+  const rotation = BACK_TO[best.wall];
+  const f = footprint({ ...p, rotation } as PieceProps);
+  const along = (c: number, size: number, p0: number, p1: number) => {
+    const lo = Math.min(p0, p1);
+    const hi = Math.max(p0, p1);
+    // a piece longer than its wall stands centred on it
+    if (size >= hi - lo) return (lo + hi) / 2 - size / 2;
+    return Math.max(lo, Math.min(hi - size, c - size / 2));
+  };
+  const line = best.wall === "north" || best.wall === "south";
+  if (line) {
+    const x = along(cx, f.w, best.a[0], best.b[0]);
+    const y = best.wall === "north" ? best.a[1] : best.a[1] - f.d;
+    return { x, y, rotation };
+  }
+  const y = along(cy, f.d, best.a[1], best.b[1]);
+  const x = best.wall === "west" ? best.a[0] : best.a[0] - f.w;
+  return { x, y, rotation };
+};
+
+/**
+ * How far a piece stands from the walls: the nearest wall across (west
+ * or east) and along (north or south), each a wall whose length the
+ * piece stands beside, mm; null on an axis with no such wall or where
+ * the piece stands past it.
+ */
+export const wallGaps = (at: Spot, f: Size, outline: readonly Point[]) => {
+  let across: number | null = null;
+  let along: number | null = null;
+  const least = (had: number | null, gap: number) =>
+    gap < 0 ? had : had === null ? gap : Math.min(had, gap);
+  for (const e of edgesOf(outline)) {
+    if (e.a[1] === e.b[1]) {
+      const lo = Math.min(e.a[0], e.b[0]);
+      const hi = Math.max(e.a[0], e.b[0]);
+      if (!(at.x < hi && lo < at.x + f.w)) continue;
+      along = least(
+        along,
+        e.wall === "north" ? at.y - e.a[1] : e.a[1] - (at.y + f.d),
+      );
+    } else if (e.a[0] === e.b[0]) {
+      const lo = Math.min(e.a[1], e.b[1]);
+      const hi = Math.max(e.a[1], e.b[1]);
+      if (!(at.y < hi && lo < at.y + f.d)) continue;
+      across = least(
+        across,
+        e.wall === "west" ? at.x - e.a[0] : e.a[0] - (at.x + f.w),
+      );
+    }
+  }
+  return { across, along };
 };

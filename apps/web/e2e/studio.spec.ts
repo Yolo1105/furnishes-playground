@@ -450,7 +450,7 @@ test("the right rail holds the other view, and the swap trades them", async ({
   await piece.click();
   await expect(piece).toHaveAttribute("aria-pressed", "true");
   await expect(view.locator(".view-mini .stage-piece-name")).toHaveCount(0);
-  await expect(view.locator(".view-mini .stage-piece-turn")).toHaveCount(0);
+  await expect(view.locator(".view-mini .piece-bar")).toHaveCount(0);
   const pb = (await piece.boundingBox())!;
   await page.mouse.move(pb.x + pb.width / 2, pb.y + pb.height / 2);
   await page.mouse.down();
@@ -2298,22 +2298,28 @@ test("Select drags a piece about the plan, turns it, locks it; the eye hides, Re
     before.y + before.height / 2 + 90,
     { steps: 6 },
   );
+  // in hand, it reads its distance to the walls
+  await expect(page.locator(".piece-gaps")).toContainText(/mm/);
   await page.mouse.up();
+  await expect(page.locator(".piece-gaps")).toHaveCount(0);
   const after = (await body.boundingBox())!;
   expect(after.x).toBeGreaterThan(before.x + 60);
   expect(after.y).toBeGreaterThan(before.y + 40);
   await expect(page.getByRole("button", { name: "Undo" })).toBeEnabled();
   await page.getByRole("button", { name: "Undo" }).click();
   expect((await body.boundingBox())!.x).toBeCloseTo(before.x, 0);
-  // picked, it shows a turn handle; a turn swaps its footprint
+  // picked, it carries its bar; a turn swaps its footprint
   await body.click();
-  await page.getByRole("button", { name: `Turn ${name}` }).click();
+  await page
+    .getByRole("toolbar", { name: `Arrange ${name}` })
+    .getByRole("button", { name: "Turn right" })
+    .click();
   // (small pieces keep a minimum size on the plan, so the swap is read as
   // narrower and deeper, not to the pixel)
   const turned = (await body.boundingBox())!;
   expect(turned.width).toBeLessThan(before.width);
   expect(turned.height).toBeGreaterThan(before.height * 2);
-  // the Detail tab places it in millimetres, locks it (no handle, no drag)
+  // the Detail tab places it in millimetres, locks it (no bar, no drag)
   await page.getByRole("tab", { name: "Detail", exact: true }).click();
   const x = page.getByRole("spinbutton", {
     name: `${name} from the west wall in millimetres`,
@@ -2324,9 +2330,9 @@ test("Select drags a piece about the plan, turns it, locks it; the eye hides, Re
     page.locator(".detail-of").filter({ hasText: /1000 ·/ }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Lock", exact: true }).click();
-  await expect(page.getByRole("button", { name: `Turn ${name}` })).toHaveCount(
-    0,
-  );
+  await expect(
+    page.getByRole("toolbar", { name: `Arrange ${name}` }),
+  ).toHaveCount(0);
   await expect(stage.locator(".stage-piece[data-locked='true']")).toHaveCount(
     1,
   );
@@ -4192,7 +4198,7 @@ test("Eva's extras: who answers, Brainstorm, a pinned answer, Refine, follow-ups
   ).toBeVisible();
 });
 
-test("a piece turns freely: the handle drags round it in steps of 15, Shift frees it, Square brings it back; turned outlines decide a clash", async ({
+test("a piece turns by its bar: a quarter either way, typed degrees, the brackets; Square brings it back; turned outlines decide a clash", async ({
   page,
 }) => {
   await page.goto("/rounded");
@@ -4203,26 +4209,31 @@ test("a piece turns freely: the handle drags round it in steps of 15, Shift free
     has: page.getByRole("button", { name: "Sofa", exact: true }),
   });
   await sofa.getByRole("button", { name: "Sofa", exact: true }).click();
-  const handle = page.getByRole("button", { name: "Turn Sofa" });
-  // a drag round the piece: from the handle's angle, 50 degrees on, read
-  // as 45 more than the sofa's own turn (270: it faces the television)
-  const box = (await sofa.boundingBox())!;
-  const c = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
-  const h = (await handle.boundingBox())!;
-  const hc = { x: h.x + h.width / 2, y: h.y + h.height / 2 };
-  const r = Math.hypot(hc.x - c.x, hc.y - c.y);
-  const a0 = Math.atan2(hc.y - c.y, hc.x - c.x);
-  const at = (deg: number) => ({
-    x: c.x + r * Math.cos(a0 + (deg * Math.PI) / 180),
-    y: c.y + r * Math.sin(a0 + (deg * Math.PI) / 180),
-  });
-  await page.mouse.move(hc.x, hc.y);
-  await page.mouse.down();
-  for (let k = 1; k <= 10; k++) {
-    const p = at(5 * k);
-    await page.mouse.move(p.x, p.y);
-  }
-  await page.mouse.up();
+  const bar = page.getByRole("toolbar", { name: "Arrange Sofa" });
+  // a quarter either way from the sofa's own turn (270: it faces the
+  // television), about its middle
+  const mid = async () => {
+    const b = (await sofa.boundingBox())!;
+    return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+  };
+  const m0 = await mid();
+  await bar.getByRole("button", { name: "Turn right" }).click();
+  await expect(sofa).toHaveAttribute("data-turn", "0");
+  const m1 = await mid();
+  expect(Math.abs(m1.x - m0.x)).toBeLessThan(2);
+  expect(Math.abs(m1.y - m0.y)).toBeLessThan(2);
+  await bar.getByRole("button", { name: "Turn left" }).click();
+  await expect(sofa).toHaveAttribute("data-turn", "270");
+  // degrees typed on the bar; the brackets turn by 15 from there: four
+  // on from 255 is 315, on the slant
+  const typed = bar.getByRole("spinbutton", { name: "Turn, degrees" });
+  await typed.fill("255");
+  await typed.press("Enter");
+  await expect(sofa).toHaveAttribute("data-turn", "255");
+  for (let k = 0; k < 4; k++) await page.keyboard.press("]");
+  await expect(
+    bar.getByRole("spinbutton", { name: "Turn, degrees" }),
+  ).toHaveValue("315");
   await expect(sofa).toHaveAttribute("data-turn", "315");
   await expect(sofa).toHaveCSS("transform", /matrix\(0\.70/);
   // the Detail tab reads it, Square brings it to the nearest quarter
@@ -4355,7 +4366,7 @@ test("the room is its outline: a notch is a wall, the layouts keep out of it, th
   expect(tapped.length).toBeGreaterThanOrEqual(6);
 });
 
-test("in 3D a picked piece carries its name and a knob with a hint, until its first turn; the hint stays away next time", async ({
+test("in 3D a picked piece carries its bar: its name, a turn, Against wall, Duplicate and Remove", async ({
   page,
 }) => {
   await page.goto("/rounded");
@@ -4363,54 +4374,43 @@ test("in 3D a picked piece carries its name and a knob with a hint, until its fi
   await expect(stage).toHaveAttribute("data-settled", "true", {
     timeout: 60_000,
   });
-  // nothing picked: no names, no knob, no hint
+  // nothing picked: no names, no bar
   await expect(stage.locator(".stage-3d-name")).toHaveCount(0);
-  await expect(stage.locator(".stage-turn-hint")).toHaveCount(0);
-  // the sofa, in the middle of the room's corner shot (the
-  // project comes back from the browser a moment after the stage
-  // settles, and a pick before that is lost: pick until it holds)
-  const pick = () =>
-    expect(async () => {
-      await page.getByRole("treeitem", { name: "Sofa", exact: true }).click();
-      await expect(stage.locator(".stage-3d-name")).toHaveText("Sofa", {
-        timeout: 2_000,
-      });
-    }).toPass({ timeout: 20_000 });
-  await pick();
-  const knob = stage.getByRole("button", { name: "Turn Sofa" });
-  await expect(knob).toBeVisible();
-  await expect(stage.getByRole("status")).toHaveText(
-    "Drag round the ring to turn it, or click for a quarter turn",
-  );
-  // a click on the knob is a quarter turn (from 270, facing the
-  // television, round to 0), and the hint is done with
-  await knob.click();
+  await expect(stage.locator(".piece-bar")).toHaveCount(0);
+  // the sofa (the project comes back from the browser a moment after
+  // the stage settles, and a pick before that is lost: pick until it
+  // holds)
+  const bar = stage.getByRole("toolbar", { name: "Arrange Sofa" });
+  await expect(async () => {
+    await page.getByRole("treeitem", { name: "Sofa", exact: true }).click();
+    await expect(bar).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 20_000 });
+  await expect(bar).toContainText("Sofa");
+  await expect(bar).toContainText("drag to move");
+  // a quarter turn (from 270, facing the television, round to 0)
+  await bar.getByRole("button", { name: "Turn right" }).click();
   await page.getByRole("tab", { name: "Detail", exact: true }).click();
+  const deg = page.getByRole("spinbutton", { name: "Sofa turn in degrees" });
+  await expect(deg).toHaveValue("0");
   await expect(
-    page.getByRole("spinbutton", { name: "Sofa turn in degrees" }),
+    bar.getByRole("spinbutton", { name: "Turn, degrees" }),
   ).toHaveValue("0");
-  await expect(stage.locator(".stage-turn-hint")).toHaveCount(0);
-  expect(
-    await page.evaluate(
-      () => JSON.parse(localStorage.getItem("furnishes.guides")!).turn,
-    ),
-  ).toBe(true);
-  // (the tests' own seed writes the guide record afresh on every load:
-  // the next load carries what this one kept)
-  await page.addInitScript(
-    ({ key, value }) => localStorage.setItem(key, value),
-    {
-      key: GUIDE_STORAGE_KEY,
-      value: JSON.stringify({ intro: true, turn: true }),
-    },
-  );
-  await page.reload();
-  await expect(stage).toHaveAttribute("data-settled", "true", {
-    timeout: 60_000,
-  });
-  await pick();
-  await expect(stage.getByRole("button", { name: "Turn Sofa" })).toBeVisible();
-  await expect(stage.locator(".stage-turn-hint")).toHaveCount(0);
+  // Against wall: square to a wall, its back to it
+  await bar.getByRole("button", { name: "Against wall" }).click();
+  await expect(deg).toHaveValue(/^(0|90|180|270)$/);
+  // Duplicate: a second sofa, picked; Remove takes the picked one out
+  await page.getByRole("tab", { name: "Assets", exact: true }).click();
+  const copies = page.getByRole("treeitem", { name: /^Sofa \d$/ });
+  await expect(copies).toHaveCount(0);
+  await bar.getByRole("button", { name: "Duplicate" }).click();
+  await expect(copies).toHaveCount(1);
+  const copy = stage.getByRole("toolbar", { name: /^Arrange Sofa \d$/ });
+  await expect(copy).toBeVisible();
+  await copy.getByRole("button", { name: "Remove" }).click();
+  await expect(copies).toHaveCount(0);
+  await expect(
+    page.getByRole("treeitem", { name: "Sofa", exact: true }),
+  ).toHaveCount(1);
 });
 
 test("View settings: edges, names, a floor grid, shadows and the light, kept for next time", async ({

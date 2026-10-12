@@ -81,6 +81,22 @@ export const footprint = (p: PieceProps) => {
 
 /** the next quarter turn, from the nearest square one */
 export const turned = (t: number) => normTurn(Math.round(t / 90) * 90 + 90);
+/** a turn to `rotation` about the piece's middle, from its spot `at`
+    (mm): the box on the plan changes with the turn, the middle stays */
+export const turnAbout = (
+  at: { x: number; y: number },
+  p: PieceProps,
+  rotation: number,
+) => {
+  const f0 = footprint(p);
+  const r = normTurn(rotation);
+  const f = footprint({ ...p, rotation: r });
+  return {
+    rotation: r,
+    x: Math.round(at.x + f0.w / 2 - f.w / 2),
+    y: Math.round(at.y + f0.d / 2 - f.d / 2),
+  };
+};
 /** the nearest square turn */
 export const squared = (t: number) => normTurn(Math.round(t / 90) * 90);
 /** a drag snaps to this, mm */

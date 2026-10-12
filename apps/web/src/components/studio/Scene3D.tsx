@@ -14,6 +14,7 @@ import {
   useThree,
 } from "@react-three/fiber";
 import {
+  type ComponentProps,
   type RefObject,
   useEffect,
   useLayoutEffect,
@@ -36,12 +37,12 @@ import {
 } from "three";
 import { CATEGORY_NAMES, type AssetNode } from "./assets-data";
 import { Furniture3D } from "./Furniture3D";
-import { ArrowLeftIcon, LockIcon, RotateIcon } from "./icons";
-import { TURN_HINT, useGuide } from "./guide-store";
+import { ArrowLeftIcon, LockIcon } from "./icons";
 import { CameraMotion, SlowFrames, sharpDpr } from "./camera-motion";
 import { ShadowsOnChange } from "./ShadowsOnChange";
 import { usePieceActions } from "./piece-actions";
 import { PieceActions } from "./PieceActions";
+import { GapReadout, PieceBar } from "./PieceBar";
 import {
   ACCENT_HEX,
   colourHex,
@@ -50,11 +51,9 @@ import {
   isRug,
   roomItemHex,
   type PieceProps,
-  normTurn,
-  ROTATE_SNAP,
 } from "./piece-detail";
 import { FLOOR_TONES, WALL_TONES, type Floor } from "./room-data";
-import { settle, type Rect } from "./room-layout";
+import { settle, wallGaps, type Rect } from "./room-layout";
 import { insideOutline, WALL_MM } from "./room-geometry";
 import type { Point } from "./room-templates";
 import {
@@ -1260,8 +1259,8 @@ function Piece({
   room,
   others,
   actions,
+  bar,
   onPick,
-  onTurn,
   onDragging,
   hoverable,
   labels,
@@ -1296,8 +1295,9 @@ function Piece({
   /** the other pieces on the floor, in mm, which draw a dragged one too */
   others: (Rect & { id: string })[];
   actions: React.ReactNode;
+  /** the picked piece's bar (PieceBar), when it may be arranged */
+  bar: React.ReactNode;
   onPick: () => void;
-  onTurn: () => void;
   onDragging: (on: boolean) => void;
   /** the pointer over this piece gives it an outline, its name and the
       hand (not while a render is taken, nor in another room) */
@@ -1306,13 +1306,7 @@ function Piece({
   labels: boolean;
   edges: boolean;
 }) {
-  // the ring and its knob: a click on the knob turns a quarter; a drag
-  // round the piece, from the knob or anywhere on the ring, turns it by
-  // the angle the pointer makes about the piece's middle on the screen,
-  // snapped unless Shift is held. The first turn puts the hint away.
-  const camera = useThree((s) => s.camera);
-  const canvas = useThree((s) => s.gl.domElement);
-  // a move or a turn under the pointer lands once a frame: a pointer
+  // a move under the pointer lands once a frame: a pointer
   // reports more often than the screen draws (a trackpad, 120 times a
   // second), and each report redrew everything that reads the scene
   const nextMove = useRef<(() => void) | null>(null);
@@ -1333,72 +1327,8 @@ function Piece({
       });
   };
   useEffect(() => () => cancelAnimationFrame(moveFrame.current), []);
-  const spin = useRef<{ a0: number; r0: number; moved: boolean } | null>(null);
-  const spinSkip = useRef(false);
-  const [spinning, setSpinning] = useState(false);
-  const [ringHover, setRingHover] = useState(false);
-  const turnSeen = useGuide((s) => !s.hydrated || s.dismissed.turn === true);
-  const turned = () => {
-    if (!useGuide.getState().dismissed.turn)
-      useGuide.getState().setDismissed("turn", true);
-  };
-  const angleAbout = (e: { clientX: number; clientY: number }) => {
-    const c = new Vector3(at[0], 0, at[2]).project(camera);
-    const r = canvas.getBoundingClientRect();
-    const cx = r.left + ((c.x + 1) / 2) * r.width;
-    const cy = r.top + ((1 - c.y) / 2) * r.height;
-    return Math.atan2(e.clientY - cy, e.clientX - cx);
-  };
-  /** the drag begins; `hold` keeps the pointer on what was pressed */
-  const spinStart = (
-    e: { clientX: number; clientY: number; button: number },
-    hold: () => void,
-  ) => {
-    if (e.button !== 0) return;
-    spin.current = { a0: angleAbout(e), r0: props.rotation, moved: false };
-    try {
-      hold();
-    } catch {
-      /* a pointer the browser no longer knows */
-    }
-  };
-  const spinMove = (e: {
-    clientX: number;
-    clientY: number;
-    shiftKey: boolean;
-  }) => {
-    const s = spin.current;
-    if (!s) return;
-    let da = ((angleAbout(e) - s.a0) * 180) / Math.PI;
-    da = ((da + 540) % 360) - 180;
-    if (!s.moved) {
-      if (Math.abs(da) < 3) return;
-      s.moved = true;
-      setSpinning(true);
-      useScene.getState().dragStart();
-    }
-    // seen from above the room, the pointer going clockwise on the
-    // screen turns the piece clockwise on the plan
-    const raw = s.r0 + da;
-    const turnTo = normTurn(
-      e.shiftKey ? raw : Math.round(raw / ROTATE_SNAP) * ROTATE_SNAP,
-    );
-    onFrame(() => useScene.getState().turnMove(node.id, turnTo));
-  };
-  const onSpinUp = useEvent(() => {
-    const s = spin.current;
-    if (!s) return;
-    spin.current = null;
-    flushFrame();
-    setSpinning(false);
-    if (s.moved) {
-      useScene.getState().dragEnd();
-      spinSkip.current = true;
-      turned();
-    }
-  });
-  // the ring's reach round the footprint, m
-  const ringR = Math.hypot(size[0], size[2]) / 2 + RING_OUT;
+  // in hand: its distance to the walls shows in place of its bar
+  const [dragging, setDragging] = useState(false);
   const drag = useRef<{
     hit: Vector3;
     x0: number;
@@ -1410,6 +1340,17 @@ function Piece({
   const held = useRef(false);
   const getThree = useThree((st) => st.get);
   const f = footprint(props);
+  /** where it stands, mm from the room's north-west corner, against the
+      room's walls */
+  const gaps = () =>
+    wallGaps(
+      {
+        x: (at[0] + room.w / 2) * 1000 - f.w / 2,
+        y: (at[2] + room.d / 2) * 1000 - f.d / 2,
+      },
+      f,
+      room.outline,
+    );
   const hitFloor = (e: ThreeEvent<PointerEvent>) => {
     const p = new Vector3();
     return e.ray.intersectPlane(FLOOR, p) ? p : null;
@@ -1448,6 +1389,7 @@ function Piece({
       moved.current = true;
       useScene.getState().dragStart();
       onDragging(true);
+      setDragging(true);
     }
     const to = settle(
       { x: dr.x0 + dx * 1000, y: dr.y0 + dz * 1000 },
@@ -1469,6 +1411,7 @@ function Piece({
     if (dr.moved) {
       useScene.getState().dragEnd();
       onDragging(false);
+      setDragging(false);
     }
   });
   const hovered = useHovered((s) => s.id === node.id) && hoverable;
@@ -1480,32 +1423,6 @@ function Piece({
     if (hoverable) hoverPiece(node.id, true);
   });
   const onOut = useEvent(() => hoverPiece(node.id, false));
-  const onRingOver = useEvent((e: ThreeEvent<PointerEvent>) => {
-    e.stopPropagation();
-    setRingHover(true);
-  });
-  const onRingOut = useEvent(() => setRingHover(false));
-  const onRingDown = useEvent((e: ThreeEvent<PointerEvent>) => {
-    e.stopPropagation();
-    // the canvas's event system holds the pointer on the mesh
-    spinStart(e.nativeEvent, () =>
-      (
-        e.target as unknown as {
-          setPointerCapture: (id: number) => void;
-        }
-      ).setPointerCapture(e.pointerId),
-    );
-  });
-  const onRingMove = useEvent((e: ThreeEvent<PointerEvent>) => {
-    if (!spin.current) return;
-    e.stopPropagation();
-    spinMove(e.nativeEvent);
-  });
-  const onRingUp = useEvent((e: ThreeEvent<PointerEvent>) => {
-    if (!spin.current) return;
-    e.stopPropagation();
-    onSpinUp();
-  });
   return (
     <group
       position={at}
@@ -1552,94 +1469,23 @@ function Piece({
         </Html>
       )}
       {/* picked: a halo on the floor round the footprint says which piece
-          is in hand; the ring round it is where it turns, its knob at the
-          piece's front */}
+          is in hand; over it its bar, or its distance to the walls while
+          it is dragged */}
       {selected && (
         <Halo size={size} colour={clash ? DANGER_HEX : ACCENT_HEX} />
       )}
-      {selected && canDrag && (
-        <>
-          <mesh
-            rotation={[-Math.PI / 2, 0, 0]}
-            position={[0, RING_Y, 0]}
-            raycast={unpickable}
-            userData={HELPER_TAG}
-          >
-            <ringGeometry args={[ringR - RING_W, ringR, 96]} />
-            <meshBasicMaterial
-              color={ACCENT_HEX}
-              transparent
-              opacity={spinning || ringHover ? 0.95 : 0.7}
-              depthWrite={false}
-            />
-          </mesh>
-          {/* the ring's reach for the pointer: a wider band, unseen,
-              that takes a drag from anywhere round the piece */}
-          <mesh
-            rotation={[-Math.PI / 2, 0, 0]}
-            position={[0, RING_Y, 0]}
-            userData={HELPER_TAG}
-            onPointerOver={onRingOver}
-            onPointerOut={onRingOut}
-            onPointerDown={onRingDown}
-            onPointerMove={onRingMove}
-            onPointerUp={onRingUp}
-            onPointerCancel={onSpinUp}
-          >
-            <ringGeometry args={[ringR - RING_REACH, ringR + RING_REACH, 64]} />
-            <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-          </mesh>
-          <Html
-            portal={portal}
-            position={[0, RING_Y, ringR]}
-            center
-            zIndexRange={[45, 35]}
-          >
-            <button
-              type="button"
-              className="stage-turn-knob shell-tip"
-              data-tooltip={TURN_HINT}
-              aria-label={`Turn ${node.name}`}
-              data-spinning={spinning}
-              onPointerDown={(e) =>
-                spinStart(e, () =>
-                  e.currentTarget.setPointerCapture(e.pointerId),
-                )
-              }
-              onPointerMove={spinMove}
-              onPointerUp={onSpinUp}
-              onPointerCancel={onSpinUp}
-              onClick={() => {
-                if (spinSkip.current) {
-                  spinSkip.current = false;
-                  return;
-                }
-                onTurn();
-                turned();
-              }}
-            >
-              <RotateIcon size={13} />
-            </button>
-            {!turnSeen && !spinning && (
-              <span className="stage-turn-hint" role="status">
-                {TURN_HINT}
-              </span>
-            )}
-          </Html>
-          {spinning && (
-            <Html
-              portal={portal}
-              position={[0, size[1] + 0.12, 0]}
-              center
-              zIndexRange={[46, 36]}
-              style={{ pointerEvents: "none" }}
-            >
-              <span className="stage-turn-readout f-num">
-                {props.rotation}°
-              </span>
-            </Html>
-          )}
-        </>
+      {canDrag && (dragging || (selected && bar && !actions)) && (
+        <Html
+          portal={portal}
+          position={[0, size[1] + 0.1, 0]}
+          center
+          zIndexRange={[45, 35]}
+          calculatePosition={inOpenStage}
+        >
+          <div className="stage-piece-over stage-piece-over-3d">
+            {dragging ? <GapReadout {...gaps()} /> : bar}
+          </div>
+        </Html>
       )}
       {props.locked && (
         <Html
@@ -1667,7 +1513,7 @@ function Piece({
       {/* the name floats just over the piece: the one under the pointer
           and the one picked carry theirs, every piece with the View
           setting on; a piece being turned shows its degrees instead */}
-      {(labels || hovered || selected) && !spinning && (
+      {(labels || hovered || (selected && !bar)) && (
         <Html
           portal={portal}
           position={[0, size[1] + 0.05, 0]}
@@ -1684,16 +1530,40 @@ function Piece({
   );
 }
 
-/** drawn, never picked: a halo or a ring under the pointer leaves the
-    pick to the piece */
+/** the bar's place on the canvas: over the piece, but kept to the open
+    stage between the side panels and under the top bar, so a piece at
+    the screen's edge has its whole bar in sight */
+const BAR_MARGIN = 8;
+const barAt = new Vector3();
+const inOpenStage: NonNullable<
+  ComponentProps<typeof Html>["calculatePosition"]
+> = (el, camera, size) => {
+  barAt.setFromMatrixPosition(el.matrixWorld).project(camera);
+  let x = ((barAt.x + 1) / 2) * size.width;
+  let y = ((1 - barAt.y) / 2) * size.height;
+  const bar = document.querySelector<HTMLElement>(".stage-3d .piece-bar");
+  const canvas = bar?.closest(".stage-3d")?.querySelector("canvas");
+  if (!bar || !canvas) return [x, y];
+  const c = canvas.getBoundingClientRect();
+  const edge = (sel: string, side: "left" | "right" | "bottom") => {
+    const r = document.querySelector(sel)?.getBoundingClientRect();
+    return r && r.width > 0 ? r[side] : null;
+  };
+  const half = bar.offsetWidth / 2 + BAR_MARGIN;
+  const lo = Math.max(c.left, edge(".shell-rail-left", "right") ?? c.left);
+  const hi = Math.min(c.right, edge(".shell-rail-right", "left") ?? c.right);
+  if (hi - lo > 2 * half)
+    x = Math.min(hi - c.left - half, Math.max(lo - c.left + half, x));
+  const top = Math.max(c.top, edge(".main-top", "bottom") ?? c.top);
+  y = Math.max(top - c.top + bar.offsetHeight + 2 * BAR_MARGIN + 10, y);
+  return [x, y];
+};
+
+/** drawn, never picked: a halo under the pointer leaves the pick to
+    the piece */
 const unpickable = () => null;
-/** the ring's distance past the footprint's corners, its width, and
-    the height both it and the halo lie at above the floor, m */
-const RING_OUT = 0.1;
-const RING_W = 0.012;
-const RING_Y = 0.006;
-/** how far either side of the ring a press still takes hold of it, m */
-const RING_REACH = 0.045;
+/** the height the halo lies at above the floor, m */
+const HALO_Y = 0.006;
 /** the halo's margin round the footprint, m, and its picture's size */
 const HALO_OUT = 0.12;
 const HALO_PX = 256;
@@ -1737,7 +1607,7 @@ function Halo({
   return (
     <mesh
       rotation={[-Math.PI / 2, 0, 0]}
-      position={[0, RING_Y, 0]}
+      position={[0, HALO_Y, 0]}
       raycast={unpickable}
       userData={HELPER_TAG}
     >
@@ -1901,13 +1771,24 @@ function FlatRoom({
               }}
               others={rects}
               onPick={() => a.onPick(n)}
-              onTurn={() => a.turn(n)}
               onDragging={working?.onDragging ?? noDrag}
               hoverable={!!working && !rendering}
               // a name behind the walls of the room worked on would float
               // over them: another room's pieces carry none
               labels={working?.labels ?? false}
               edges={edges}
+              bar={
+                working ? (
+                  <PieceBar
+                    node={n}
+                    rotation={p.rotation}
+                    onTurnTo={(r) => a.turnTo(n, r)}
+                    onToWall={() => a.toWall(n)}
+                    onDuplicate={() => a.duplicate(n)}
+                    onRemove={() => a.remove(n)}
+                  />
+                ) : null
+              }
               actions={
                 working && a.actionsFor === n.id ? (
                   <PieceActions

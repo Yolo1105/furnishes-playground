@@ -1571,68 +1571,136 @@
   transform-origin: 50% 50%;
 }
 /* the label for Eva: a numbered tag on the piece's corner */
-/* a picked piece's turn handle, and the lock on one that stays put */
-.stage-piece-turn {
+/* a picked piece's bar, over it in the plan and in 3D: what can be
+   done with it, in words; while it is dragged, its distance to the
+   walls in the same place. On the plan the anchor is the piece's top
+   middle, scaled back to the screen's own size against the zoom */
+.stage-piece-over {
   position: absolute;
-  top: -10px;
-  left: -10px;
+  z-index: 4;
+  width: 0;
+  height: 0;
+  transform-origin: 0 0;
+}
+.stage-piece-over > * {
+  position: absolute;
+  left: 0;
+  bottom: 10px;
+  translate: -50% 0;
+}
+.plan-pieces:has(.stage-piece-over) {
   z-index: 2;
-  width: 20px;
-  height: 20px;
+}
+/* the bar reads over the plan's lines and the room's busy picture
+   alike: nearly opaque, in the shell's own type, not the plan's */
+.piece-bar,
+.piece-gaps {
+  background: rgb(from var(--color-glass) r g b / 0.97);
+  border: 1px solid rgb(from var(--color-line) r g b / 0.18);
+  text-transform: none;
+  letter-spacing: 0;
+  line-height: 1;
+}
+.piece-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--r-control);
+  white-space: nowrap;
+  box-shadow: 0 6px 18px -8px rgb(from var(--color-shadow) r g b / 0.45);
+  pointer-events: auto;
+}
+.piece-bar-name {
+  padding-left: 7px;
+  font-size: 11.5px;
+  font-weight: 650;
+  color: var(--color-ink);
+  max-width: 14em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.piece-bar-hint {
+  padding: 0 8px 0 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgb(from var(--color-ink) r g b / 0.55);
+}
+.piece-bar-rule {
+  width: 1px;
+  height: 18px;
+  margin: 0 3px;
+  background: rgb(from var(--color-line) r g b / 0.25);
+}
+.piece-bar-btn {
+  appearance: none;
   border: 0;
-  border-radius: 999px;
-  background: var(--color-glass);
-  color: var(--color-accent);
-  display: grid;
-  place-items: center;
-  box-shadow: 0 2px 6px -2px rgb(from var(--color-shadow) r g b / 0.35);
+  background: transparent;
+  display: inline-grid;
+  grid-auto-flow: column;
+  align-items: center;
+  gap: 5px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 7px;
+  border-radius: var(--r-control);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: rgb(from var(--color-ink) r g b / 0.75);
   cursor: pointer;
 }
-/* in 3D the handle floats over the piece's corner, placed by the scene */
-/* in 3D the turn is a ring on the floor round the piece, with a knob at
-   its front: a small glass disc rimmed in the accent, larger in hand,
-   and a readout of the degrees above the piece while it turns */
-.stage-turn-knob {
-  appearance: none;
+.piece-bar-btn:hover {
+  background: rgb(from var(--color-ink) r g b / 0.06);
+  color: var(--color-ink);
+}
+.piece-bar-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+.piece-bar-flip {
   display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border-radius: 50%;
-  border: 2px solid var(--color-accent);
-  background: var(--color-glass);
-  color: var(--color-accent);
-  box-shadow: 0 2px 6px -2px rgb(from var(--color-shadow) r g b / 0.4);
-  cursor: grab;
-  touch-action: none;
-  transition: transform 0.15s var(--ease);
+  transform: scaleX(-1);
 }
-.stage-turn-knob:hover,
-.stage-turn-knob[data-spinning="true"] {
-  transform: scale(1.15);
-}
-.stage-turn-knob[data-spinning="true"] {
-  cursor: grabbing;
-  background: var(--color-accent);
-  color: var(--color-paper);
-}
-/* the first-time hint beside the knob, until the piece is first turned */
-.stage-turn-hint {
-  position: absolute;
-  left: calc(100% + 8px);
-  top: 50%;
-  transform: translateY(-50%);
-  padding: 4px 9px;
-  border-radius: var(--r-chip);
-  background: rgb(from var(--color-glass) r g b / 0.95);
-  border: 1px solid rgb(from var(--color-line) r g b / 0.2);
-  box-shadow: 0 4px 12px -6px rgb(from var(--color-shadow) r g b / 0.4);
+.piece-bar-deg {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 6px 0 4px;
+  border-radius: var(--r-control);
+  background: rgb(from var(--color-ink) r g b / 0.05);
   font-size: 11.5px;
-  font-weight: 500;
-  letter-spacing: 0;
-  text-transform: none;
-  color: rgb(from var(--color-ink) r g b / 0.8);
+  font-weight: 600;
+  color: rgb(from var(--color-ink) r g b / 0.7);
+}
+.piece-bar-deg input {
+  width: 3.2em;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: right;
+  color: var(--color-ink);
+  appearance: textfield;
+}
+.piece-bar-deg input::-webkit-inner-spin-button,
+.piece-bar-deg input::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+.piece-bar-deg input:focus {
+  outline: none;
+}
+.piece-bar-deg:focus-within {
+  box-shadow: inset 0 0 0 1.5px var(--color-accent);
+}
+.piece-gaps {
+  display: flex;
+  gap: 10px;
+  padding: 4px 10px;
+  border-radius: var(--r-chip);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-ink);
   white-space: nowrap;
   pointer-events: none;
 }
@@ -1641,17 +1709,6 @@
   margin: 8px 0;
   font-size: 11.5px;
   color: rgb(from var(--color-ink) r g b / 0.55);
-}
-.stage-turn-readout {
-  display: inline-block;
-  padding: 3px 8px;
-  border-radius: var(--r-chip);
-  background: rgb(from var(--color-glass) r g b / 0.95);
-  border: 1px solid rgb(from var(--color-line) r g b / 0.2);
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--color-ink);
-  white-space: nowrap;
 }
 .stage-piece-lock {
   position: absolute;

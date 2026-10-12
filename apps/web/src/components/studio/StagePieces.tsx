@@ -2,19 +2,14 @@
 
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { CATEGORY_NAMES, type AssetNode } from "./assets-data";
-import { ArrowLeftIcon, LockIcon, RotateIcon } from "./icons";
+import { ArrowLeftIcon, LockIcon } from "./icons";
 import { usePieceActions } from "./piece-actions";
 import { PieceActions } from "./PieceActions";
 import { DRAG_FROM, LONG_PRESS } from "./input";
-import {
-  footprint,
-  isRug,
-  isSquare,
-  normTurn,
-  ROTATE_SNAP,
-} from "./piece-detail";
+import { footprint, isRug, isSquare } from "./piece-detail";
+import { GapReadout, PieceBar } from "./PieceBar";
 import { PlanSymbol } from "./plan-symbols";
-import { settle } from "./room-layout";
+import { settle, wallGaps } from "./room-layout";
 import { useScene } from "./scene-store";
 import { useStudio } from "./studio-store";
 
@@ -22,15 +17,15 @@ import { useStudio } from "./studio-store";
  * The pieces standing in the room, drawn to plan on the stage (the 2D
  * view), each at its place and size in the room's millimetres. Each is a
  * button: Select picks it, and drags it about the room (snapped, kept
- * inside the walls; one undo step for the whole drag); the handle on a
- * picked piece turns it a quarter with a click, or freely with a drag
- * round the piece, snapped to 15 degrees unless Shift is held; Inspect
- * raises its actions. A locked
+ * inside the walls; one undo step for the whole drag), and shows its
+ * distance to the walls while it moves; over a picked piece stands its
+ * bar (PieceBar: turns, degrees, Against wall, Duplicate, Remove);
+ * Inspect raises its actions. A locked
  * piece shows its lock and stays put. A piece in focus stands alone on
  * a blank ground with a way back. Under a finger, a long press raises
  * the actions, as Inspect's click does. `compact` is the view panel's
  * small plan: the same pieces to pick and drag (the 3D room follows),
- * with no names, tags, handles or actions at that size.
+ * with no names, tags, bar or actions at that size.
  */
 /** a plan name's letters, about, in CSS pixels at the plan's own scale */
 const NAME_CHAR_PX = 6.4;
@@ -49,6 +44,10 @@ export function StagePieces({
   const magnet = useStudio((s) => s.magnet);
   // a render is for looking: nothing is dragged while it is up
   const rendering = useStudio((s) => s.mode === "preview");
+  // the bar keeps its own size whatever the plan's zoom
+  const zoom = useStudio((s) => s.planZoom);
+  // the piece in hand, which shows its distance to the walls
+  const [dragging, setDragging] = useState<string | null>(null);
   // the layer's width in pixels, so a name is written only where its
   // whole word fits the footprint; the plan's zoom scales both alike
   const layer = useRef<HTMLDivElement>(null);
@@ -96,64 +95,6 @@ export function StagePieces({
       });
   };
   useEffect(() => () => cancelAnimationFrame(moveFrame.current), []);
-  /** the turn handle's drag: the angle at the press and the piece's turn */
-  const turning = useRef<{
-    id: string;
-    cx: number;
-    cy: number;
-    a0: number;
-    r0: number;
-    moved: boolean;
-  } | null>(null);
-  const angleTo = (cx: number, cy: number, x: number, y: number) =>
-    (Math.atan2(y - cy, x - cx) * 180) / Math.PI;
-  const onTurnDown = (e: PointerEvent<HTMLButtonElement>, n: AssetNode) => {
-    if (e.button !== 0) return;
-    const box = e.currentTarget.parentElement!.getBoundingClientRect();
-    const cx = box.left + box.width / 2;
-    const cy = box.top + box.height / 2;
-    turning.current = {
-      id: n.id,
-      cx,
-      cy,
-      a0: angleTo(cx, cy, e.clientX, e.clientY),
-      r0: a.props.get(n.id)!.rotation,
-      moved: false,
-    };
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch {
-      /* a pointer the browser no longer knows */
-    }
-  };
-  const onTurnMove = (e: PointerEvent<HTMLButtonElement>, n: AssetNode) => {
-    const t = turning.current;
-    if (!t || t.id !== n.id) return;
-    const delta = angleTo(t.cx, t.cy, e.clientX, e.clientY) - t.a0;
-    if (!t.moved) {
-      if (Math.abs(delta) < 4) return;
-      t.moved = true;
-      useScene.getState().dragStart();
-    }
-    const raw = t.r0 + delta;
-    const snapped = e.shiftKey
-      ? raw
-      : Math.round(raw / ROTATE_SNAP) * ROTATE_SNAP;
-    const turnTo = normTurn(snapped);
-    onFrame(() => useScene.getState().turnMove(n.id, turnTo));
-  };
-  const onTurnUp = (n: AssetNode) => {
-    const t = turning.current;
-    if (!t || t.id !== n.id) return;
-    turning.current = null;
-    flushFrame();
-    if (t.moved) {
-      useScene.getState().dragEnd();
-      // the click that follows is the drag's end, not a quarter turn
-      skipTurnClick.current = true;
-    }
-  };
-  const skipTurnClick = useRef(false);
   const endPress = () => {
     if (press.current !== null) window.clearTimeout(press.current);
     press.current = null;
@@ -205,6 +146,7 @@ export function StagePieces({
       endPress();
       d.moved = true;
       useScene.getState().dragStart();
+      setDragging(n.id);
     }
     const f = footprint(a.props.get(n.id)!);
     // the other pieces on the floor draw it too; a rug is walked on
@@ -229,7 +171,10 @@ export function StagePieces({
     if (!d || d.id !== n.id) return;
     drag.current = null;
     flushFrame();
-    if (d.moved) useScene.getState().dragEnd();
+    if (d.moved) {
+      useScene.getState().dragEnd();
+      setDragging(null);
+    }
   };
   const onClick = (n: AssetNode) => {
     // the click after a drag is the drag's end, not a pick
@@ -332,31 +277,6 @@ export function StagePieces({
                 {label + 1}
               </span>
             )}
-            {selected &&
-              a.tool === "select" &&
-              !a.focus &&
-              !p.locked &&
-              !compact && (
-                <button
-                  type="button"
-                  className="stage-piece-turn shell-tip"
-                  data-tooltip="Turn: click a quarter, drag freely"
-                  aria-label={`Turn ${n.name}`}
-                  onPointerDown={(e) => onTurnDown(e, n)}
-                  onPointerMove={(e) => onTurnMove(e, n)}
-                  onPointerUp={() => onTurnUp(n)}
-                  onPointerCancel={() => onTurnUp(n)}
-                  onClick={() => {
-                    if (skipTurnClick.current) {
-                      skipTurnClick.current = false;
-                      return;
-                    }
-                    a.turn(n);
-                  }}
-                >
-                  <RotateIcon size={12} />
-                </button>
-              )}
             {a.actionsFor === n.id && !compact && (
               <PieceActions
                 node={n}
@@ -369,6 +289,43 @@ export function StagePieces({
           </div>
         );
       })}
+      {!compact &&
+        !a.focus &&
+        !rendering &&
+        a.tool === "select" &&
+        (() => {
+          // the picked piece's bar, or its distance to the walls while
+          // it is dragged: over the piece, at the screen's own size
+          const n = a.shown.find((x) => x.id === (dragging ?? selectedId));
+          if (!n) return null;
+          const p = a.props.get(n.id)!;
+          if (p.locked) return null;
+          const at = a.spots.get(n.id)!;
+          const f = footprint(p);
+          return (
+            <div
+              className="stage-piece-over"
+              style={{
+                left: `${((at.x + f.w / 2) / W) * 100}%`,
+                top: `${(at.y / D) * 100}%`,
+                transform: `scale(${1 / zoom})`,
+              }}
+            >
+              {dragging === n.id ? (
+                <GapReadout {...wallGaps(at, f, a.room.outline)} />
+              ) : (
+                <PieceBar
+                  node={n}
+                  rotation={p.rotation}
+                  onTurnTo={(r) => a.turnTo(n, r)}
+                  onToWall={() => a.toWall(n)}
+                  onDuplicate={() => a.duplicate(n)}
+                  onRemove={() => a.remove(n)}
+                />
+              )}
+            </div>
+          );
+        })()}
       {a.focus && (
         <p className="stage-focus-caption">
           {a.focus.name} · {CATEGORY_NAMES[a.focus.category]}

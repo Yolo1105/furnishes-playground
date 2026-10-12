@@ -424,7 +424,11 @@ export function Plan2D({
       }
     }
     if (!canPan || e.button !== 0) return;
-    if ((e.target as HTMLElement).closest(".stage-piece, button, a, input"))
+    if (
+      (e.target as HTMLElement).closest(
+        ".stage-piece, .piece-bar, button, a, input",
+      )
+    )
       return;
     pan.current = { x: e.clientX, y: e.clientY };
   };

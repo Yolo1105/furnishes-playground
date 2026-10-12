@@ -4,10 +4,22 @@ import { useEffect, useMemo, useState } from "react";
 import type { AssetGroup, AssetNode } from "./assets-data";
 import { products } from "./catalogue";
 import { describeItem } from "./generation-store";
-import { footprint, LABEL_MAX, turned, type PieceProps } from "./piece-detail";
+import {
+  footprint,
+  LABEL_MAX,
+  turnAbout,
+  turned,
+  type PieceProps,
+} from "./piece-detail";
 import { explainPlan, travel } from "./plan-explain";
 import { healthOf, type Issue, type Room } from "./room-health";
-import { gapOf, layoutPlans, layoutRoom, type Placed } from "./room-layout";
+import {
+  againstWall,
+  gapOf,
+  layoutPlans,
+  layoutRoom,
+  type Placed,
+} from "./room-layout";
 import { MUST_HAVE_CHOICES } from "./room-data";
 import {
   footprintOf,
@@ -291,9 +303,31 @@ export function usePieceActions(roomId?: string) {
   const labelsFull = (n: AssetNode) =>
     !labels.includes(n.id) && labels.length >= LABEL_MAX;
 
+  /** a turn to `rotation`, about the piece's middle: its box on the
+      plan changes with the turn, its middle stays */
+  const turnTo = (n: AssetNode, rotation: number) =>
+    setProps(n.id, turnAbout(spots.get(n.id)!, props.get(n.id)!, rotation));
   /** a quarter turn, in place */
-  const turn = (n: AssetNode) =>
-    setProps(n.id, { rotation: turned(props.get(n.id)!.rotation) });
+  const turn = (n: AssetNode) => turnTo(n, turned(props.get(n.id)!.rotation));
+  /** the piece's back to the wall nearest it, flush to that wall */
+  const toWall = (n: AssetNode) => {
+    const to = againstWall(spots.get(n.id)!, props.get(n.id)!, room.outline);
+    if (to) setProps(n.id, to);
+  };
+  /** a second of the piece beside it: to its east when the room has
+      the space, else to its south, else over it a little */
+  const duplicate = (n: AssetNode) => {
+    const at = spots.get(n.id)!;
+    const f = footprint(props.get(n.id)!);
+    const gap = 100;
+    const to =
+      at.x + 2 * f.w + gap <= room.W
+        ? { x: at.x + f.w + gap, y: at.y }
+        : at.y + 2 * f.d + gap <= room.D
+          ? { x: at.x, y: at.y + f.d + gap }
+          : { x: at.x + gap * 2, y: at.y + gap * 2 };
+    useScene.getState().duplicate(n.id, to);
+  };
 
   /** what the room is missing goes in: the catalogue piece that is it,
       or a room item of that name */
@@ -355,6 +389,10 @@ export function usePieceActions(roomId?: string) {
     roomId: spec.id,
     tool,
     turn,
+    turnTo,
+    toWall,
+    duplicate,
+    remove: (n: AssetNode) => useScene.getState().removeNode(n.id),
     actionsFor,
     onPick,
     hold,
