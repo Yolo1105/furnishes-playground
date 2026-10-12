@@ -203,11 +203,15 @@ const makeRenderer = async (
       lost(info);
       startOverOnWebGL("lost");
     };
-    // a device that does not answer: the canvas has no WebGPU context
-    // until it does, so the WebGL backend takes the same canvas
+    // a device that does not answer, or refuses: the canvas has no
+    // WebGPU context until it answers, so the WebGL backend takes the
+    // same canvas
     if (
       !(await within(
-        renderer.init().then(() => true),
+        renderer.init().then(
+          () => true,
+          () => false,
+        ),
         INIT_WAIT_MS,
         false,
       ))

@@ -133,7 +133,10 @@ test("the room in the evening, with its shadows", async ({ page }) => {
 });
 
 test("the front elevation", async ({ page }) => {
-  await page.getByRole("radio", { name: "Front" }).click();
+  // the cube turns with the camera: from the opening's view down onto
+  // the room its front face is behind its top, as on a real cube, and
+  // is picked by its own click event
+  await page.getByRole("radio", { name: "Front" }).dispatchEvent("click");
   await page.waitForTimeout(SETTLE);
   await picture(page, "elevation-front.png");
 });
