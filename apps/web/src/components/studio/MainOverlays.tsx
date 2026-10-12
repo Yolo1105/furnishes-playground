@@ -313,7 +313,74 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
                       aria-label="View settings"
                       style={looking.style}
                     >
-                      <p className="main-prefs-title">View settings</p>
+                      {/* the light first, what is changed most; then what
+                          the view shows; then the picture's quality and a
+                          photo's size. A choice of one is a row of buttons,
+                          a switch is a row with a check */}
+                      <p className="main-prefs-title">Light</p>
+                      <div
+                        className="main-prefs-seg"
+                        role="group"
+                        aria-label="Time of day"
+                      >
+                        {(
+                          [
+                            ["day", "Daylight"],
+                            ["evening", "Evening"],
+                          ] as const
+                        ).map(([id, label]) => (
+                          <button
+                            key={id}
+                            type="button"
+                            role="menuitemradio"
+                            aria-checked={scene.light === id}
+                            className="main-prefs-seg-btn"
+                            onClick={() => setScene({ light: id })}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="main-prefs-label">Outside the windows</p>
+                      <div
+                        className="main-prefs-seg main-prefs-seg-wrap"
+                        role="group"
+                        aria-label="Surroundings"
+                      >
+                        {SKIES.map((sky) => (
+                          <button
+                            key={sky.id}
+                            type="button"
+                            role="menuitemradio"
+                            aria-checked={scene.sky === sky.id}
+                            className="main-prefs-seg-btn"
+                            onClick={() => setScene({ sky: sky.id })}
+                          >
+                            {sky.label}
+                          </button>
+                        ))}
+                      </div>
+                      <label className="shell-menu-row main-prefs-range">
+                        <span>Brightness</span>
+                        <input
+                          type="range"
+                          className="room-range"
+                          min={EXPOSURE.min}
+                          max={EXPOSURE.max}
+                          step={EXPOSURE.step}
+                          value={scene.exposure}
+                          aria-label="Exposure"
+                          aria-valuetext={`${scene.exposure.toFixed(2)}`}
+                          onChange={(e) =>
+                            setScene({ exposure: Number(e.target.value) })
+                          }
+                        />
+                        <span className="main-prefs-sub f-num">
+                          {scene.exposure.toFixed(2)}
+                        </span>
+                      </label>
+                      <div className="shell-menu-sep" role="separator" />
+                      <p className="main-prefs-title">Show</p>
                       {(
                         [
                           ["edges", "Edges on every piece"],
@@ -339,18 +406,6 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
                       <button
                         type="button"
                         role="menuitemcheckbox"
-                        aria-checked={cutsOn}
-                        className="shell-menu-row"
-                        onClick={() =>
-                          setScene({ cuts: cutsOn ? "off" : "on" })
-                        }
-                      >
-                        <span className="main-prefs-check" aria-hidden="true" />
-                        Show machining as cut
-                      </button>
-                      <button
-                        type="button"
-                        role="menuitemcheckbox"
                         aria-checked={scene.shadows !== "off"}
                         className="shell-menu-row"
                         onClick={() =>
@@ -365,25 +420,41 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
                           {scene.shadows === "auto" ? "auto" : scene.shadows}
                         </span>
                       </button>
+                      <button
+                        type="button"
+                        role="menuitemcheckbox"
+                        aria-checked={cutsOn}
+                        className="shell-menu-row"
+                        onClick={() =>
+                          setScene({ cuts: cutsOn ? "off" : "on" })
+                        }
+                      >
+                        <span className="main-prefs-check" aria-hidden="true" />
+                        Show machining as cut
+                      </button>
                       <div className="shell-menu-sep" role="separator" />
-                      <p className="main-prefs-title">Picture</p>
-                      {QUALITIES.map((q) => (
-                        <button
-                          key={q.id}
-                          type="button"
-                          role="menuitemradio"
-                          aria-checked={scene.quality === q.id}
-                          className="shell-menu-row"
-                          onClick={() => setScene({ quality: q.id })}
-                        >
-                          <span
-                            className="main-prefs-check"
-                            aria-hidden="true"
-                          />
-                          {q.label}
-                          <span className="main-prefs-sub">{q.sub}</span>
-                        </button>
-                      ))}
+                      <p className="main-prefs-title">Picture quality</p>
+                      <div
+                        className="main-prefs-seg"
+                        role="group"
+                        aria-label="Picture quality"
+                      >
+                        {QUALITIES.map((q) => (
+                          <button
+                            key={q.id}
+                            type="button"
+                            role="menuitemradio"
+                            aria-checked={scene.quality === q.id}
+                            className="main-prefs-seg-btn"
+                            onClick={() => setScene({ quality: q.id })}
+                          >
+                            {q.label}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="main-prefs-note">
+                        {QUALITIES.find((q) => q.id === scene.quality)?.sub}
+                      </p>
                       {tier === "desktop" &&
                         (
                           [
@@ -409,93 +480,35 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
                       {backend === "webgpu" && (
                         <>
                           <div className="shell-menu-sep" role="separator" />
-                          <p className="main-prefs-title">Photo</p>
-                          {PHOTO_SIZES.map((p) => (
-                            <button
-                              key={p.id}
-                              type="button"
-                              role="menuitemradio"
-                              aria-checked={scene.photoSize === p.id}
-                              className="shell-menu-row"
-                              // a size the device cannot hold in one
-                              // texture is not offered
-                              disabled={p.tall > photoMax}
-                              onClick={() => setScene({ photoSize: p.id })}
-                            >
-                              <span
-                                className="main-prefs-check"
-                                aria-hidden="true"
-                              />
-                              {p.name}
-                              <span className="main-prefs-sub">
-                                {p.tall === 0
-                                  ? "the stage as it is"
-                                  : `${p.tall} px tall, the stage's shape`}
-                              </span>
-                            </button>
-                          ))}
+                          <p className="main-prefs-title">Photo size</p>
+                          <div
+                            className="main-prefs-seg"
+                            role="group"
+                            aria-label="Photo size"
+                          >
+                            {PHOTO_SIZES.map((p) => (
+                              <button
+                                key={p.id}
+                                type="button"
+                                role="menuitemradio"
+                                aria-checked={scene.photoSize === p.id}
+                                className="main-prefs-seg-btn"
+                                title={
+                                  p.tall === 0
+                                    ? "the stage as it is"
+                                    : `${p.tall} px tall, the stage's shape`
+                                }
+                                // a size the device cannot hold in one
+                                // texture is not offered
+                                disabled={p.tall > photoMax}
+                                onClick={() => setScene({ photoSize: p.id })}
+                              >
+                                {p.name}
+                              </button>
+                            ))}
+                          </div>
                         </>
                       )}
-                      <div className="shell-menu-sep" role="separator" />
-                      {(
-                        [
-                          ["day", "Daylight"],
-                          ["evening", "Evening"],
-                        ] as const
-                      ).map(([id, label]) => (
-                        <button
-                          key={id}
-                          type="button"
-                          role="menuitemradio"
-                          aria-checked={scene.light === id}
-                          className="shell-menu-row"
-                          onClick={() => setScene({ light: id })}
-                        >
-                          <span
-                            className="main-prefs-check"
-                            aria-hidden="true"
-                          />
-                          {label}
-                        </button>
-                      ))}
-                      <div className="shell-menu-sep" role="separator" />
-                      <p className="main-prefs-title">Surroundings</p>
-                      {SKIES.map((sky) => (
-                        <button
-                          key={sky.id}
-                          type="button"
-                          role="menuitemradio"
-                          aria-checked={scene.sky === sky.id}
-                          className="shell-menu-row"
-                          onClick={() => setScene({ sky: sky.id })}
-                        >
-                          <span
-                            className="main-prefs-check"
-                            aria-hidden="true"
-                          />
-                          {sky.label}
-                        </button>
-                      ))}
-                      <div className="shell-menu-sep" role="separator" />
-                      <label className="shell-menu-row main-prefs-range">
-                        <span>Exposure</span>
-                        <input
-                          type="range"
-                          className="room-range"
-                          min={EXPOSURE.min}
-                          max={EXPOSURE.max}
-                          step={EXPOSURE.step}
-                          value={scene.exposure}
-                          aria-label="Exposure"
-                          aria-valuetext={`${scene.exposure.toFixed(2)}`}
-                          onChange={(e) =>
-                            setScene({ exposure: Number(e.target.value) })
-                          }
-                        />
-                        <span className="main-prefs-sub f-num">
-                          {scene.exposure.toFixed(2)}
-                        </span>
-                      </label>
                     </div>
                   </Floating>
                 )}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, type PointerEvent as ReactPointerEvent } from "react";
-import { WalkIcon } from "./icons";
+import { MoonIcon, SunIcon, WalkIcon } from "./icons";
 import { DRAG_FROM } from "./input";
 import { ANGLES, useStudio, type Angle } from "./studio-store";
 
@@ -104,6 +104,8 @@ export function ViewCube() {
   const free = useStudio((s) => s.free);
   const setAngle = useStudio((s) => s.setAngle);
   const walk = useStudio((s) => s.walk);
+  const light = useStudio((s) => s.scene.light);
+  const setScene = useStudio((s) => s.setScene);
   const setWalk = useStudio((s) => s.setWalk);
   const { turnTo } = useStudio.getState();
   const drag = useRef<{
@@ -295,6 +297,35 @@ export function ViewCube() {
           <WalkIcon size={13} />
           {walk ? "Stop" : "Walk"}
         </button>
+      )}
+      {view === "3d" && !walk && (
+        // the light in one click: the time of day, the rest of the light
+        // in View settings
+        <div
+          className="view-cube-light"
+          role="radiogroup"
+          aria-label="Time of day"
+        >
+          {(
+            [
+              ["day", "Daylight", <SunIcon key="d" size={13} />],
+              ["evening", "Evening", <MoonIcon key="e" size={13} />],
+            ] as const
+          ).map(([id, label, icon]) => (
+            <button
+              key={id}
+              type="button"
+              role="radio"
+              aria-checked={light === id}
+              aria-label={label}
+              title={label}
+              className="view-cube-light-btn"
+              onClick={() => setScene({ light: id })}
+            >
+              {icon}
+            </button>
+          ))}
+        </div>
       )}
       {/* every angle the view has, for the record and the keyboard */}
       <span className="sr-only">{ANGLES[view].join(", ")}</span>
