@@ -49,6 +49,7 @@ import { PLACE_SNAP } from "./piece-detail";
 import {
   DRAG_FROM,
   pinchOf,
+  touchPinch,
   readWheel,
   useCoarse,
   type GestureEvent,
@@ -374,13 +375,59 @@ export function Plan2D({
       zoomPlan(g.scale / scale, about(g.clientX, g.clientY));
       scale = g.scale;
     };
+    // two fingers pinch the sheet wherever on the stage they land: on
+    // the sheet, on a piece or over its margin (the sheet's own handlers
+    // see only what lands on it). Native listeners on the stage, which
+    // run before the sheet's React ones in the bubble, so a second
+    // finger stops a pan before it starts
+    const fingersOf = fingers.current;
+    const onTouchDown = (e: globalThis.PointerEvent) => {
+      if (e.pointerType !== "touch") return;
+      fingersOf.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (fingersOf.size === 2) {
+        const [a, b] = [...fingersOf.values()];
+        pinch.current = pinchOf(a!, b!);
+        touchPinch.active = true;
+        pan.current = null;
+        setPanning(false);
+      }
+    };
+    const onTouchMove = (e: globalThis.PointerEvent) => {
+      if (!fingersOf.has(e.pointerId)) return;
+      fingersOf.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const z = pinch.current;
+      if (!z || fingersOf.size < 2) return;
+      const [a, b] = [...fingersOf.values()];
+      const now = pinchOf(a!, b!);
+      zoomPlan(now.span / z.span, about(now.mid.x, now.mid.y));
+      panPlan(now.mid.x - z.mid.x, now.mid.y - z.mid.y);
+      pinch.current = now;
+    };
+    const onTouchUp = (e: globalThis.PointerEvent) => {
+      if (!fingersOf.delete(e.pointerId)) return;
+      if (fingersOf.size < 2) {
+        pinch.current = null;
+        touchPinch.active = false;
+      }
+    };
     area.addEventListener("wheel", onWheel, { passive: false });
     area.addEventListener("gesturestart", onGestureStart);
     area.addEventListener("gesturechange", onGesture);
+    area.addEventListener("pointerdown", onTouchDown);
+    area.addEventListener("pointermove", onTouchMove);
+    area.addEventListener("pointerup", onTouchUp);
+    area.addEventListener("pointercancel", onTouchUp);
     return () => {
       area.removeEventListener("wheel", onWheel);
       area.removeEventListener("gesturestart", onGestureStart);
       area.removeEventListener("gesturechange", onGesture);
+      area.removeEventListener("pointerdown", onTouchDown);
+      area.removeEventListener("pointermove", onTouchMove);
+      area.removeEventListener("pointerup", onTouchUp);
+      area.removeEventListener("pointercancel", onTouchUp);
+      fingersOf.clear();
+      pinch.current = null;
+      touchPinch.active = false;
     };
   }, [interactive, wheelMode, zoomPlan, panPlan]);
 
@@ -429,16 +476,10 @@ export function Plan2D({
   };
   const onDown = (e: PointerEvent<HTMLDivElement>) => {
     if (!interactive) return;
-    if (e.pointerType === "touch") {
-      fingers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      if (fingers.current.size === 2) {
-        const [a, b] = [...fingers.current.values()];
-        pinch.current = pinchOf(a!, b!);
-        pan.current = null;
-        setPanning(false);
-        capture(e);
-        return;
-      }
+    // a second finger: the stage's listeners pinch (above); no pan
+    if (pinch.current) {
+      capture(e);
+      return;
     }
     if (!canPan || e.button !== 0) return;
     if (
@@ -450,21 +491,8 @@ export function Plan2D({
     pan.current = { x: e.clientX, y: e.clientY };
   };
   const onMove = (e: PointerEvent<HTMLDivElement>) => {
-    if (fingers.current.has(e.pointerId)) {
-      fingers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      const z = pinch.current;
-      if (z && fingers.current.size >= 2) {
-        const [a, b] = [...fingers.current.values()];
-        const now = pinchOf(a!, b!);
-        zoomPlan(
-          now.span / z.span,
-          aboutOf(e.currentTarget, now.mid.x, now.mid.y),
-        );
-        panPlan(now.mid.x - z.mid.x, now.mid.y - z.mid.y);
-        pinch.current = now;
-        return;
-      }
-    }
+    // the fingers' pinch is the stage's (above)
+    if (pinch.current) return;
     const p = pan.current;
     if (!p) return;
     const dx = e.clientX - p.x;
@@ -477,9 +505,7 @@ export function Plan2D({
     panPlan(dx, dy);
     pan.current = { x: e.clientX, y: e.clientY };
   };
-  const onUp = (e: PointerEvent<HTMLDivElement>) => {
-    fingers.current.delete(e.pointerId);
-    if (fingers.current.size < 2) pinch.current = null;
+  const onUp = () => {
     pan.current = null;
     setPanning(false);
   };

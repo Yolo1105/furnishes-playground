@@ -144,6 +144,9 @@ type SceneState = {
   /** the turn handle's drag, between dragStart and dragEnd */
   turnMove: (id: string, rotation: number) => void;
   dragEnd: () => void;
+  /** a drag let go of without a move: the pieces back where they stood
+      before it, nothing to undo */
+  dragCancel: () => void;
   /** a room's shape changed: every piece in it is held where it stands
       (a laid-out one is not laid out afresh) and, when the room's corner
       moved, all move by the same amount, so they keep to the walls that
@@ -629,6 +632,10 @@ export const useScene = create<SceneState>((set, get) => {
           ...remember(s),
         };
       }),
+    dragCancel: () =>
+      set((s) =>
+        s.dragFrom ? { overrides: s.dragFrom.overrides, dragFrom: null } : {},
+      ),
     dragEnd: () =>
       set((s) => {
         const from = s.dragFrom;

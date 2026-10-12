@@ -5,7 +5,7 @@ import { CATEGORY_NAMES, type AssetNode } from "./assets-data";
 import { ArrowLeftIcon, LockIcon } from "./icons";
 import { usePieceActions } from "./piece-actions";
 import { PieceActions } from "./PieceActions";
-import { DRAG_FROM, LONG_PRESS } from "./input";
+import { DRAG_FROM, LONG_PRESS, touchPinch } from "./input";
 import { footprint, isRug, isSquare } from "./piece-detail";
 import { GapReadout, PieceBar } from "./PieceBar";
 import { PlanSymbol } from "./plan-symbols";
@@ -139,6 +139,18 @@ export function StagePieces({
   const onMove = (e: PointerEvent<HTMLButtonElement>, n: AssetNode) => {
     const d = drag.current;
     if (!d || d.id !== n.id) return;
+    // a second finger down: the fingers pinch the view, and the piece
+    // goes back where it stood
+    if (touchPinch.active) {
+      drag.current = null;
+      endPress();
+      if (d.moved) {
+        cancelAnimationFrame(moveFrame.current);
+        useScene.getState().dragCancel();
+        setDragging(null);
+      }
+      return;
+    }
     const dx = (e.clientX - d.px) * d.mmPerPx;
     const dy = (e.clientY - d.py) * d.mmPerPx;
     if (!d.moved) {

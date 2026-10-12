@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 import { BufferAttribute, BufferGeometry } from "three";
 import type { CutMesh } from "./cut-solid";
 import { usePartStore } from "./part-store";
+import { WOOD_M } from "./textures";
 import type { PartAnswer, PartAsk, Solid } from "./part.worker";
 
 /**
@@ -213,7 +214,32 @@ const geometryOf = (
     for (let i = 0; i < n; i++)
       colour[i * 3] = colour[i * 3 + 1] = colour[i * 3 + 2] = s.tones[i]!;
     g.setAttribute("color", new BufferAttribute(colour, 3));
-  } else g.computeVertexNormals();
+  } else {
+    g.computeVertexNormals();
+    // a solid that came without its own: its texture laid on it from
+    // the side each face mostly looks to, in wood tiles as a slab's, and
+    // its tone plain, so a material with a grain or a band draws it
+    const nrm = g.getAttribute("normal");
+    const uv = new Float32Array(n * 2);
+    for (let i = 0; i < n; i++) {
+      const ax = Math.abs(nrm.getX(i));
+      const ay = Math.abs(nrm.getY(i));
+      const az = Math.abs(nrm.getZ(i));
+      const [u, v] =
+        ax >= ay && ax >= az
+          ? [positions[i * 3 + 2]!, positions[i * 3 + 1]!]
+          : ay >= az
+            ? [positions[i * 3]!, positions[i * 3 + 2]!]
+            : [positions[i * 3]!, positions[i * 3 + 1]!];
+      uv[i * 2] = u / WOOD_M;
+      uv[i * 2 + 1] = v / WOOD_M;
+    }
+    g.setAttribute("uv", new BufferAttribute(uv, 2));
+    g.setAttribute(
+      "color",
+      new BufferAttribute(new Float32Array(n * 3).fill(1), 3),
+    );
+  }
   return g;
 };
 

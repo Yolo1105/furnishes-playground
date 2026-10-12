@@ -122,6 +122,10 @@ export type GestureEvent = Event & {
   clientY: number;
 };
 
+/** whether two fingers are pinching the plan: a piece a finger began
+    to carry then lets go of it, as the fingers are the view's now */
+export const touchPinch = { active: false };
+
 /** two pointers on one surface: the pinch between them and their middle */
 export const pinchOf = (
   a: { x: number; y: number },

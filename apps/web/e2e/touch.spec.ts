@@ -130,8 +130,11 @@ test("two fingers pinch the plan; a tile is carried after a hold", async ({
 }) => {
   await toPlan(page);
   const sheet = page.locator(".shell-stage .plan");
-  const svg = page.locator(".shell-stage .plan-svg");
-  const r = (await svg.boundingBox())!;
+  // the middle of the plan's stage: the sheet itself may be panned so
+  // its own middle lies under a rail; a pinch anywhere on the stage, on
+  // the sheet, a piece or its margin, zooms the sheet
+  const stage = page.locator(".shell-stage .stage-room-box");
+  const r = (await stage.boundingBox())!;
   const c = { x: r.x + r.width / 2, y: r.y + r.height / 2 };
   // two fingers 100 px apart, spread to 200: the sheet is twice as big
   await touch(page, "pointerdown", { x: c.x - 50, y: c.y }, 1);

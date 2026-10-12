@@ -1682,6 +1682,8 @@ test("the desktop extras: Reflections and Bounce light stand behind View setting
 test("the sketcher: an L-shaped shelf with a 20 mm round hole, fully held; one dimension changed moves the solid, the DXF and the STEP", async ({
   page,
 }) => {
+  // the kernel's first load, and the solids made again, take their time
+  test.slow();
   await page.goto("/rounded");
   const bookwall = top.find((a) => a.children?.length)!;
   await page
@@ -1698,7 +1700,10 @@ test("the sketcher: an L-shaped shelf with a 20 mm round hole, fully held; one d
     .click();
   const shape = section.getByRole("radiogroup", { name: "Shape" });
   await shape.getByRole("radio", { name: "L shape" }).click();
-  await expect(section).toContainText("6 corners");
+  // the first part made in a page waits for the kernel to load in its
+  // worker ("making the part" meanwhile): on the software renderer's
+  // machine that can take longer than an expectation's few seconds
+  await expect(section).toContainText("6 corners", { timeout: 45_000 });
   // the sketcher opens on the L, held already by its presets
   await section.getByRole("button", { name: "Edit sketch" }).click();
   const dialog = page.getByRole("dialog", { name: /^Sketch of Shelf/ });
@@ -2178,10 +2183,9 @@ test("the gear opens Settings, Help and the Guide; keys drive the tools", async 
   await expect(menu.getByRole("menuitem", { name: "Sign out" })).toHaveCount(0);
   await menu.getByRole("menuitem", { name: "Settings" }).click();
   const settings = page.getByRole("dialog", { name: "Settings" });
-  await expect(settings.getByRole("link", { name: "Rounded" })).toHaveAttribute(
-    "aria-current",
-    "page",
-  );
+  // the studio is one page now: no layout to choose between
+  await expect(settings).toBeVisible();
+  await expect(settings.getByRole("link", { name: "Rounded" })).toHaveCount(0);
   // the wheel's meaning on the plan: Auto by default, Move kept
   const wheel = settings.getByRole("radiogroup", {
     name: "Scroll wheel and two fingers",
@@ -2789,7 +2793,9 @@ test("in 3D a piece is dragged over the floor, the camera glides between angles,
   // a drag on a piece moves it over the floor, snapped to 50 mm; the
   // rest are held where they stood, so no other piece shifts: every
   // piece is read back from the kept project with a place on the grid
-  // the sofa, in the middle of the room's corner shot
+  // the sofa, in the middle of the view down onto the room; a short
+  // drag keeps it in open floor, where nothing draws it flush to an
+  // edge off the grid (the magnet: a long one reaches the desk's chairs)
   const first = top.find((a) => a.name === "Sofa")!;
   // the names come on to find the piece (none show until asked)
   await expect(stage).toHaveAttribute("data-hover", "none");
@@ -2807,8 +2813,8 @@ test("in 3D a piece is dragged over the floor, the camera glides between angles,
   await page.mouse.move(t.x + t.width / 2, ty);
   await expect(stage).toHaveAttribute("data-hover", "grab");
   await page.mouse.down();
-  await page.mouse.move(t.x + t.width / 2 + 60, ty, { steps: 8 });
-  await page.mouse.move(t.x + t.width / 2 + 120, ty, { steps: 8 });
+  await page.mouse.move(t.x + t.width / 2 + 20, ty, { steps: 8 });
+  await page.mouse.move(t.x + t.width / 2 + 40, ty, { steps: 8 });
   await expect(stage).toHaveAttribute("data-dragging", "true");
   await page.mouse.up();
   await expect(stage).toHaveAttribute("data-dragging", "false");
