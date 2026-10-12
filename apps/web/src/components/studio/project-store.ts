@@ -338,18 +338,21 @@ const showcaseShown = () => {
     one; the studio opens it on arrival */
 export const importProject = (name: string, data: Snapshot) => {
   const kept = readKept();
-  const projects = kept.projects?.length ? kept.projects : [FIRST];
-  const p: Project = {
-    id: newId("p"),
-    name: `${name} (shared)`,
-    at: Date.now(),
-    data,
+  const at = Date.now();
+  // a browser the studio has not started over in yet starts over now,
+  // so the start-over on arrival does not take the shared room with
+  // what an earlier studio kept
+  const over = showcaseSeen() < SHOWCASE.version;
+  const earlier = kept.projects?.length && !over ? kept.projects : [FIRST];
+  const gone = {
+    ...(kept.gone ?? {}),
+    ...(over
+      ? Object.fromEntries((kept.projects ?? []).map((k) => [k.id, at]))
+      : {}),
   };
-  writeKept({
-    projects: [...projects, p],
-    activeId: p.id,
-    gone: kept.gone ?? {},
-  });
+  const p: Project = { id: newId("p"), name: `${name} (shared)`, at, data };
+  writeKept({ projects: [...earlier, p], activeId: p.id, gone });
+  showcaseShown();
   return p.id;
 };
 
