@@ -34,6 +34,27 @@ const nextConfig: NextConfig = {
       ],
     },
   ],
+  // the studio is the site's one page: the old addresses lead there,
+  // a shared room's, an order's and a reset mail's with what they
+  // carried (the query rides along: a reset's ?token=, an order's ?key=)
+  redirects: async () => [
+    { source: "/", destination: "/rounded", permanent: false },
+    { source: "/s/:id", destination: "/rounded?share=:id", permanent: false },
+    {
+      source: "/orders/:id",
+      destination: "/rounded?order=:id",
+      permanent: false,
+    },
+    ...[
+      "/studio",
+      "/account",
+      "/help",
+      "/ops",
+      "/privacy",
+      "/terms",
+      "/reset",
+    ].map((source) => ({ source, destination: "/rounded", permanent: false })),
+  ],
   turbopack: {
     // The pnpm workspace root, so workspace packages resolve.
     root: path.resolve(here, "../.."),

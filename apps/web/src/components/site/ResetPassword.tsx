@@ -37,7 +37,6 @@ export function ResetPassword() {
   };
   return (
     <SitePage
-      current="account"
       eye="Account"
       title={
         done
@@ -86,7 +85,7 @@ export function ResetPassword() {
         </form>
       ) : (
         <div className="home-acts">
-          <Link className="home-btn home-btn-primary" href="/account">
+          <Link className="home-btn home-btn-primary" href="/rounded">
             {done ? "Sign in" : "Back to sign in"}
             <span aria-hidden="true"> →</span>
           </Link>

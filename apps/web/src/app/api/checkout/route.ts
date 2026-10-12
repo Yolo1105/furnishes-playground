@@ -189,13 +189,13 @@ export async function POST(req: Request) {
   const open = kept?.paymentRef ? await sessionUrl(kept.paymentRef) : null;
   if (open)
     return NextResponse.json({ mode: "redirect", id: orderId, key, url: open });
-  // the way back is the order's own page on this site: on a hosted run
+  // the way back is the order's own view in the studio (?order=): on a hosted run
   // only the site's own origins are trusted to send the shopper on
   const asked = req.headers.get("origin");
   const origin =
     asked && (!HOSTED || trustedOrigins().includes(asked)) ? asked : SITE.url;
   const back = (how: string) =>
-    `${origin}/orders/${encodeURIComponent(orderId)}?key=${encodeURIComponent(key)}&checkout=${how}`;
+    `${origin}/rounded?order=${encodeURIComponent(orderId)}&key=${encodeURIComponent(key)}&checkout=${how}`;
   const session = await createSession(
     {
       orderId,

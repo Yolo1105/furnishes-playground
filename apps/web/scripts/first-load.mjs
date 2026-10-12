@@ -19,7 +19,7 @@ import path from "node:path";
 
 const root = path.resolve(new URL(".", import.meta.url).pathname, "..");
 const next = path.join(root, ".next");
-const ROUTES = ["/rounded", "/studio", "/"];
+const ROUTES = ["/rounded"];
 const BUDGET_KB = 450;
 const BUDGET_ROUTE = "/rounded";
 

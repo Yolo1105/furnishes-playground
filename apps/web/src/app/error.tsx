@@ -12,7 +12,6 @@ import { SITE } from "@/lib/site";
 export default function ErrorPage({ reset }: { reset: () => void }) {
   return (
     <SitePage
-      current={null}
       eye="Something went wrong"
       title="This page did not load."
       sub="Your work in this browser is as it was. Try the page again, or go on into the studio."

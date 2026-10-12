@@ -58,7 +58,7 @@ Notes:
   five runs against half a second; `PERF_FACTOR=2 pnpm test` doubles
   the limit for a slow CI runner alone.
 - After `pnpm build`, `node apps/web/scripts/first-load.mjs` prints the
-  first-load JavaScript of `/rounded`, `/studio` and `/` as gzipped,
+  first-load JavaScript of `/rounded` as gzipped,
   and `--check` fails when `/rounded` is over its 450 KB budget (CI
   runs it after the build). The fonts are served from
   `apps/web/src/app/fonts/`, so the build needs no network.
@@ -99,30 +99,14 @@ Chromium only, so those two engines run on your machine.
 
 ## Status
 
-A working studio on the real catalogue. The site opens on the landing
-(`/`), in the approved design: the red-orange band with the compressed
-title and its fading echoes, a cream main whose hero is a spot in a room
-as it is and with the piece we would put there (one picture, a line you
-drag; five spots captioned in the visitor's words, each with the piece's
-parts, bolts, minutes and estimated price from the catalogue and a link
-that opens the studio with that piece placed and its Detail shown,
-`/rounded?piece=<id>`), the thirteen pieces with their sizes and
-estimated prices, how a piece is built, what the studio does, the list
-for the day ordering opens (`/api/waitlist`), and the accent footer. A
-Menu opens the full-screen menu of pages and sections, a section rail
-bottom-left follows the scroll, and a one-line cookie note, dismissed
-once, says that the session is the only cookie. The inner pages share
-one design, a rail beside a cream stage set in Archivo and Space Mono:
-the account's way in (`/account`, with Sign in or Create account and a
-quiet link to look around without one; whoever is signed in, or has
-just signed in, goes straight on into the studio), help (`/help`: how a
-piece is made, delivered and built, returns, where a price comes from,
-and Ask us, which writes to the studio's help table), privacy
-(`/privacy`) and the terms with the refund policy inside them
-(`/terms`); every word of those pages is in
-`apps/web/src/components/site/copy.ts`. `/rounded` is the studio with
-floating panels and `/studio` the square-cornered one; Settings
-switches between them. Projects
+A working studio on the real catalogue, at one address: `/rounded`, the
+studio with floating panels, is the site's only page. Every other
+address leads there (`next.config.ts`): `/` and the old pages (the
+landing, `/studio`, `/account`, `/help`, `/privacy`, `/terms`, `/ops`)
+open the studio; a shared room's link opens `/rounded?share=<id>`, an
+order's `/rounded?order=<number>&key=<key>` and a reset mail's
+`/rounded?token=…` (`RoundedEntry.tsx`), each in its own view, loaded
+only when its link is followed. Projects
 (new, rename, delete, switch) each hold a flat, its pieces and Eva's
 side, autosaved in the browser.
 
@@ -268,7 +252,7 @@ user bar, Account and Sign out beside them. A new account is sent a
 link that confirms its email (signing in does not wait on it; the
 gear's Account says whether it is confirmed and sends the link again);
 a forgotten password is asked for from the sign-in form and set anew on
-the page its link opens (`/reset`); the gear's Account changes the
+the page its link opens (`/rounded?token=…`); the gear's Account changes the
 password with the current one, which signs the other devices out, and
 lists the devices signed in, each to be signed out from here. Mail goes
 through Resend (`RESEND_API_KEY`, `MAIL_FROM`); without a key a
@@ -291,7 +275,7 @@ taken with Save now, Sign out, the rooms shared by link, and the end of
 the account, which takes the mirror with it and leaves the browser's
 copy. Export has Share a link: a copy
 of the open project's room and pieces, without Eva's side, kept under a
-short id for anyone with the link (`/s/<id>`), who sees the room in 3D
+short id for anyone with the link (`/rounded?share=<id>`), who sees the room in 3D
 read-only with the pieces and their total and can take it into a studio
 of their own as a new project; the gear's Account lists what is shared
 and takes a link down. The database is Neon Postgres when `DATABASE_URL` is set and
@@ -301,7 +285,7 @@ no account anywhere; the migrations under `apps/web/drizzle` run when
 the server first touches the database (a hosted build runs `pnpm
 migrate` ahead of it), and `pnpm db:generate` (in `apps/web`) writes
 a new one from a change to the schema. An order is numbered by the
-server, has its own page (`/orders/<number>?key=<key>`, which its
+server, has its own view (`/rounded?order=<number>&key=<key>`, which its
 letters link to and the payment page comes back to), and its payment
 page is closed when it is cancelled; every route reads its body with a
 cap, counts a caller's goes, and says its failures as one JSON line
@@ -317,7 +301,7 @@ Deploying to furnish-es.com (`docs/DEPLOY.md` has the steps and the
 checks): the site's name, address and contact come from
 `apps/web/src/lib/site.ts` (furnish-es.com's unless the public variables
 in `apps/web/.env.example` say otherwise), which the titles, the sitemap,
-the auth's trusted origins, the landing, the inner pages and the gear's
+the auth's trusted origins, the order and reset views and the gear's
 Feedback all read. `GET /api/health` says which backends are up (the
 database and its migrations, mail, the model, pictures, payments and
 its webhook, Google, the operations area and the nightly sweep) and
@@ -325,12 +309,12 @@ what a hosted deployment is still missing,
 never a secret, and lists the shares in force; `.github/workflows/ci.yml`
 runs the format, lint, types, unit tests, build and the end-to-end
 suite on every push, and `pnpm smoke <https://site>` runs the checks
-after a deploy against the live site. The studio's own operations are at
-`/ops` for the accounts named in `ADMIN_EMAILS` (404 to anyone else):
-orders moved on (paid another way, delivered, cancelled, refunded) with
-a note each, words to the studio answered by mail and marked, the
-waitlist as a CSV and its one opening note sent once, and the day's and
-the month's spend against the caps. The studio writes to buyers and
+after a deploy against the live site. The studio's own operations are
+routes for the accounts named in `ADMIN_EMAILS` (404 to anyone else;
+there is no operations page): orders moved on (paid another way,
+delivered, cancelled, refunded) with a note each, words to the studio
+marked answered, the waitlist as a CSV and its one opening note sent
+once (`docs/DEPLOY.md`, section 3). The studio writes to buyers and
 senders on its own (an order placed, paid, delivered, refunded; thanks
 for a word; the waitlist's note), to the account's email or the one a
 guest gives at checkout; `GET /api/cron/retention`, run nightly by the

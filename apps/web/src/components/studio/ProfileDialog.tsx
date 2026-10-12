@@ -319,7 +319,10 @@ export function ProfileDialog({
                 <small className="account-when">shared {when(s.at)}</small>
               </span>
               <span className="shell-dialog-acts account-row-acts">
-                <Link className="main-btn" href={`/s/${s.id}`}>
+                <Link
+                  className="main-btn"
+                  href={`/rounded?share=${encodeURIComponent(s.id)}`}
+                >
                   Open
                 </Link>
                 <button
@@ -349,8 +352,7 @@ export function ProfileDialog({
       <h2 className="eva-pref-title">Deleting the account</h2>
       <p className="account-text">
         Deleting the account takes what it holds with it: the projects, orders,
-        room items and shared links. What is in this browser stays here.{" "}
-        <Link href="/privacy">What the studio keeps</Link> says the rest.
+        room items and shared links. What is in this browser stays here.
       </p>
       <div className="shell-dialog-acts">
         {ending ? (

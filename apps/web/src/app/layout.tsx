@@ -6,7 +6,6 @@ import "@/styles/main.css";
 import "@/styles/assets.css";
 import "@/styles/eva.css";
 import "@/styles/home.css";
-import "@/styles/landing.css";
 import { SITE } from "@/lib/site";
 
 /**

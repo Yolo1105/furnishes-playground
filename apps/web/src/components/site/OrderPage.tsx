@@ -64,7 +64,6 @@ export function OrderPage({ id, orderKey }: { id: string; orderKey: string }) {
   if (order === "none")
     return (
       <SitePage
-        current={null}
         eye="Order"
         title="Not here"
         sub="No order stands under this link. A link from a mail about an order carries its key; the studio's Orders lists the ones placed from this browser."
@@ -78,7 +77,6 @@ export function OrderPage({ id, orderKey }: { id: string; orderKey: string }) {
     );
   return (
     <SitePage
-      current={null}
       eye="Order"
       title={order ? order.id : "One moment"}
       sub={

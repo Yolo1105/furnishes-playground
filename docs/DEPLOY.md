@@ -69,7 +69,7 @@ and `payment_intent.succeeded` (paid), `checkout.session.expired`
 (cancelled) and `charge.refunded` (refunded). The webhook finds the
 order by the number the session carries, and says in the log what it
 applied, refused or could not match. The shopper comes back from the
-payment page to the order's own page, `/orders/<number>?key=<key>`,
+payment page to the order's own view, `/rounded?order=<number>&key=<key>`,
 which every letter about the order links to; a cancelled order's
 payment page is closed with it. Google: in the OAuth client, allow the redirect
 URI `https://<site>/api/auth/callback/google`. Resend: verify the
@@ -80,17 +80,18 @@ sending domain, and set `MAIL_FROM` to an address on it.
 Two more variables run the studio's own operations:
 
 - `ADMIN_EMAILS`: a comma-separated list of account emails. Those
-  accounts, signed in, open `/ops`: every order with the moves the
-  studio makes (paid another way when Stripe is off, delivered,
-  cancelled, refunded) and a note on each; the words people wrote to
-  the studio, with a reply by mail and a mark once answered; the
-  waitlist as a CSV and the one note it is promised, sent once to
-  everyone not yet written to; and what the providers cost today and
-  this month against the caps, with which services are on. "Refund
-  made in Stripe" records a refund and writes to the buyer; the money
-  itself goes back from Stripe's own dashboard, first. Anyone
-  else, signed in or not, gets 404; without the variable nobody is an
-  admin. Make the admin's account at `/account` as any other.
+  accounts, signed in, may call the operations routes (the studio has
+  no operations page since the site became the one studio page):
+  `PATCH /api/ops/orders/<number>` moves an order (`paid` another way
+  when Stripe is off, `fulfilled`, `cancelled`, `refunded`, each with
+  its letter to the buyer) or keeps a `note` on it;
+  `PATCH /api/ops/help/<id>` marks a word to the studio answered; `GET
+/api/ops/waitlist` is the waitlist as a CSV and `POST` sends its one
+  note to everyone not yet written to. A refund recorded this way does
+  not move money: that goes back from Stripe's own dashboard, first.
+  Anyone else, signed in or not, gets 404; without the variable nobody
+  is an admin. Make the admin's account in the studio (the gear's Sign
+  in) as any other.
 - `CRON_SECRET`: the token the host's cron sends. `apps/web/vercel.json`
   schedules `GET /api/cron/retention` nightly at 03:00 Singapore
   (19:00 UTC), and Vercel sends `Authorization: Bearer <CRON_SECRET>`
@@ -123,14 +124,14 @@ What the command checks:
 - `GET /api/health` is 200, `ok: true`, the database migrated, and on a
   hosted site `missingForHosting: []` (which covers `ADMIN_EMAILS` and
   `CRON_SECRET`); it prints which services are on.
-- The landing and the inner pages open; every response carries the
-  security headers (`X-Content-Type-Options`, `Referrer-Policy`,
-  `Permissions-Policy`, HSTS); `/robots.txt` keeps crawlers out of
-  `/api/`, `/reset`, `/ops` and `/s/`; the sitemap lists the pages.
+- The studio opens at `/rounded`, and `/` and the old pages lead there;
+  every response carries the security headers (`X-Content-Type-Options`,
+  `Referrer-Policy`, `Permissions-Policy`, HSTS); `/robots.txt` keeps
+  crawlers out of `/api/`; the sitemap lists the studio.
 - The waitlist takes an address once and refuses it twice; Eva answers
   (from the model with a key, from the rules without).
-- `/ops` and its routes are 404 to a guest; the nightly sweep refuses a
-  call without its token.
+- The operations routes are 404 to a guest; the nightly sweep refuses
+  a call without its token.
 - The money paths refuse what they should: an order that cannot be
   read, an order asked for without its key, a shared room that is not
   there, a webhook call without its signature.
@@ -140,12 +141,12 @@ What the command checks:
 
 What to try by hand after the first deploy:
 
-- `/account` makes an account; with mail on, the confirmation link
-  arrives; with Google on, the button shows.
-- Signed in as an admin, `/ops` lists the orders, the words and the
-  waitlist, and a move on an order sends its letter.
+- The gear's Sign in makes an account; with mail on, the confirmation
+  link arrives; with Google on, the button shows.
+- Signed in as an admin, a move on an order through
+  `PATCH /api/ops/orders/<number>` sends its letter.
 - With Stripe on, an order from the studio opens the hosted payment page
-  and comes back paid; the order then reads paid under `/ops` and the
+  and comes back paid; the order then reads paid in its view and the
   event is in the `payment_event` table.
 
 ## 5. Continuous integration

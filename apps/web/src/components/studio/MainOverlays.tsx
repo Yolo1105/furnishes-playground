@@ -147,7 +147,7 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
       return;
     }
     const { id } = (await r.json()) as { id: string };
-    setSharing(`${location.origin}/s/${id}`);
+    setSharing(`${location.origin}/rounded?share=${encodeURIComponent(id)}`);
   };
   // one thing under the toolbar at a time: the strip of parts and the
   // tour's bar take each other's place

@@ -78,7 +78,7 @@ export function useAccountForm(onDone?: () => void) {
     }
     setBusy(true);
     setError(null);
-    await authClient.requestPasswordReset({ email, redirectTo: "/reset" });
+    await authClient.requestPasswordReset({ email, redirectTo: "/rounded" });
     setBusy(false);
     // said the same whether or not the address has an account
     setNote(

@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { sgd } from "./assets-data";
 import { importProject, showSnapshot, type Snapshot } from "./project-store";
@@ -21,7 +19,6 @@ import { SITE } from "@/lib/site";
 type Shared = { name: string; data: Snapshot; at: number };
 
 export function SharePage({ id }: { id: string }) {
-  const router = useRouter();
   const [shared, setShared] = useState<Shared | null | "gone" | "failed">(null);
   useEffect(() => {
     useStudio.setState({ readOnly: true, tool: "inspect", view: "3d" });
@@ -71,9 +68,9 @@ export function SharePage({ id }: { id: string }) {
               : "Something in it could not be read; try again in a moment."}
           </p>
           <div className="shell-dialog-acts">
-            <Link href={SITE.studio} className="main-btn main-btn-primary">
+            <a href={SITE.studio} className="main-btn main-btn-primary">
               Open the studio
-            </Link>
+            </a>
           </div>
         </section>
       </main>
@@ -86,9 +83,9 @@ export function SharePage({ id }: { id: string }) {
           <p className="account-text">A room shared from {SITE.name}.</p>
         </div>
         <div className="shell-dialog-acts share-acts">
-          <Link href={SITE.studio} className="main-btn">
+          <a href={SITE.studio} className="main-btn">
             Make your own
-          </Link>
+          </a>
           <button
             type="button"
             className="main-btn main-btn-primary"
@@ -96,7 +93,11 @@ export function SharePage({ id }: { id: string }) {
             onClick={() => {
               if (!room) return;
               const pid = importProject(room.name, room.data);
-              router.push(`${SITE.studio}?project=${encodeURIComponent(pid)}`);
+              // a page of its own: the shared room was shown in the
+              // studio's stores, read-only, and the studio starts afresh
+              const to = new URL(SITE.studio, window.location.origin);
+              to.searchParams.set("project", pid);
+              window.location.assign(to.href);
             }}
           >
             Open in my studio

@@ -40,7 +40,7 @@ const linesOf = (o: OrderMail) =>
 const to = (o: OrderMail) => addressLine(o.address);
 /** the order's own page, where it stands and can be paid or cancelled */
 export const orderUrl = (o: Pick<OrderMail, "id" | "key">) =>
-  `${SITE.url}/orders/${encodeURIComponent(o.id)}?key=${encodeURIComponent(o.key)}`;
+  `${SITE.url}/rounded?order=${encodeURIComponent(o.id)}&key=${encodeURIComponent(o.key)}`;
 
 /** a mail that cannot go (no address, or the provider refused) is said
     in the log and never fails the order or the request it rode on */

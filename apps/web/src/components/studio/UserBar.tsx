@@ -1,11 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { WHEEL_MODES } from "./input";
 import { useStudio } from "./studio-store";
 import { useSyncState } from "./account-sync";
 import { authClient, useSession } from "@/lib/auth-client";
-import { usePathname } from "next/navigation";
 import { useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { BoardDialog } from "./BoardDialog";
@@ -201,10 +199,8 @@ export function UserBar() {
   );
 }
 
-/** the studio's settings: how the panels are cut, what the wheel does */
+/** the studio's settings: what the wheel does, the magnet */
 function SettingsDialog({ onClose }: { onClose: () => void }) {
-  const path = usePathname();
-  const rounded = path === "/rounded";
   const wheelMode = useStudio((s) => s.wheelMode);
   const magnet = useStudio((s) => s.magnet);
   const { setWheelMode, setMagnet } = useStudio.getState();
@@ -261,20 +257,6 @@ function SettingsDialog({ onClose }: { onClose: () => void }) {
               {m.label}
             </button>
           ))}
-        </span>
-      </div>
-      <div className="shell-settings-row">
-        <span className="shell-settings-label">
-          Panel corners
-          <small>How the panels and menus are cut</small>
-        </span>
-        <span className="shell-choice" role="group" aria-label="Panel corners">
-          <Link href="/studio" aria-current={rounded ? undefined : "page"}>
-            Square
-          </Link>
-          <Link href="/rounded" aria-current={rounded ? "page" : undefined}>
-            Rounded
-          </Link>
         </span>
       </div>
     </Dialog>

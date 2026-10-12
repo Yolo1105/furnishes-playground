@@ -64,12 +64,16 @@ if (up) {
     console.log(`     ${name}: ${state}`);
 }
 
-// the pages
-for (const path of ["/", "/account", "/help", "/privacy", "/terms"]) {
-  const r = await get(path);
-  say(r.status === 200, `page ${path}`, `${r.status}`);
+// the one page, and the old addresses that lead to it
+for (const path of ["/rounded", "/", "/account", "/help"]) {
+  const r = await get(path, { redirect: "follow" });
+  say(
+    r.status === 200 && new URL(r.url).pathname === "/rounded",
+    `page ${path}`,
+    `${r.status} ${new URL(r.url).pathname}`,
+  );
 }
-const page = await get("/privacy");
+const page = await get("/rounded");
 say(
   page.headers.get("x-content-type-options") === "nosniff",
   "header X-Content-Type-Options",
@@ -87,7 +91,6 @@ if (base.startsWith("https://"))
     (page.headers.get("strict-transport-security") ?? "").includes("max-age"),
     "header Strict-Transport-Security",
   );
-say((await get("/ops")).status === 404, "operations are not here for a guest");
 say(
   (await get("/api/ops/waitlist")).status === 404,
   "the ops routes are not here for a guest",
@@ -99,17 +102,9 @@ say(
   sweep === 503 ? "CRON_SECRET not set" : `${sweep}`,
 );
 const robots = await (await get("/robots.txt")).text();
-say(
-  ["/api/", "/reset", "/ops", "/s/"].every((p) =>
-    robots.includes(`Disallow: ${p}`),
-  ),
-  "robots keeps crawlers off the API, the reset, ops and shared rooms",
-);
+say(robots.includes("Disallow: /api/"), "robots keeps crawlers off the API");
 const sitemap = await (await get("/sitemap.xml")).text();
-say(
-  ["/account", "/help", "/privacy", "/terms"].every((p) => sitemap.includes(p)),
-  "sitemap lists the pages",
-);
+say(sitemap.includes("/rounded"), "sitemap lists the studio");
 
 // the waitlist, once
 const email = `smoke-${Date.now()}@example.com`;

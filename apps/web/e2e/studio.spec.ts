@@ -120,7 +120,9 @@ test.beforeEach(({ page }) => seed(page));
 
 /** The background is the studio palette: cream→peach gradient + blobs. */
 test("background paints the playground palette", async ({ page }) => {
+  // the site's address leads to the studio, its one page
   await page.goto("/");
+  await expect(page).toHaveURL(/\/rounded$/);
   await expect(page.locator(".bg-fluid .bg-blob")).toHaveCount(3);
   const image = await page.evaluate(
     () => getComputedStyle(document.body).backgroundImage,
@@ -153,10 +155,7 @@ test("background paints the playground palette", async ({ page }) => {
   expect(b!).toBeLessThan(8);
 });
 
-for (const [path, corners] of [
-  ["/studio", "square"],
-  ["/rounded", "rounded"],
-] as const) {
+for (const [path, corners] of [["/rounded", "rounded"]] as const) {
   test(`${path} lays out left | main | right (${corners})`, async ({
     page,
   }) => {
@@ -3055,15 +3054,19 @@ test("an order is placed with a delivery address, waits for payment, is listed a
     `/api/orders/${kept.id}?key=${encodeURIComponent(kept.key!)}`,
   );
   expect((await mine.json()).status).toBe("pending_payment");
-  // the order's own page, by its key: where it stands and its pieces
+  // the order's own view in the studio's address, by its key: where it
+  // stands and its pieces (the old /orders/ address still leads there)
   const own = await page.context().newPage();
-  await own.goto(`/orders/${kept.id}?key=${encodeURIComponent(kept.key!)}`);
+  await own.goto(
+    `/rounded?order=${kept.id}&key=${encodeURIComponent(kept.key!)}`,
+  );
   await expect(own.locator(".home-title")).toHaveText(kept.id);
   await expect(own.locator(".home-sub")).toContainText("Awaiting payment");
   await expect(own.getByRole("region", { name: "The order" })).toContainText(
     first.name,
   );
   await own.goto(`/orders/${kept.id}?key=wrong`);
+  await expect(own).toHaveURL(/\/rounded\?.*order=FN-/);
   await expect(own.locator(".home-title")).toHaveText("Not here");
   await own.close();
   // and wrote to the buyer that it is placed (kept on this server)
@@ -4783,119 +4786,33 @@ const account = async (
   return dialog;
 };
 
-test("the account page is the way in, and a sign-in goes straight into the studio", async ({
+test("the site's edges: the old addresses lead to the studio, the gear's Feedback, the headers, health, robots and the sitemap", async ({
   page,
 }) => {
-  // an account made, left and entered again: a long way for one test
-  test.slow();
-  await page.goto("/account?from=rounded");
-  const rail = page.getByRole("complementary", { name: "Pages", exact: true });
-  await expect(rail.getByRole("link", { name: /^Studio/ })).toHaveAttribute(
-    "href",
-    "/rounded",
-  );
-  // signed out, the stage is the way in; the studio is a link away
-  await expect(page.getByText("Sign in to keep your projects")).toBeVisible();
-  await expect(
-    page.getByRole("link", { name: /Look around without an account/ }),
-  ).toHaveAttribute("href", "/rounded");
-  await page.getByRole("tab", { name: "Create account" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Make an account." }),
-  ).toBeVisible();
-  const email = `home-${Date.now()}@example.com`;
-  await page.getByLabel("Name").fill("Mei Tan");
-  await page.getByLabel("Email").fill(email);
-  // the rules are said on the page, before anything is sent
-  await expect(page.getByText("8 characters or more")).toBeVisible();
-  await page.getByLabel("Password").fill("short");
-  await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page.locator(".home-error")).toContainText(
-    "8 characters or more",
-  );
-  await page.getByLabel("Password").fill(PASSWORD);
-  await page.getByRole("button", { name: "Create account" }).click();
-  // in: straight into the studio, signed in
-  await expect(page).toHaveURL(/\/rounded$/, { timeout: 20_000 });
-  const bar = page.locator(".user-bar");
-  await expect(bar).toContainText("Mei Tan");
-  // signed in, the account page passes straight on to the studio, and
-  // the landing's bar says Studio
-  await page.goto("/account");
-  await expect(page).toHaveURL(/\/rounded$/);
-  await page.goto("/");
-  await expect(page.locator(".ld-bar-cta")).toHaveText("Studio");
-  // the gear's Account: the email, Sign out; then the way in again
-  await page.goto("/rounded");
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await page
-    .getByRole("menu")
-    .getByRole("menuitem", { name: "Account" })
-    .click();
-  const dialog = page.getByRole("dialog", { name: "Account" });
-  await expect(dialog).toContainText(email);
-  await dialog.getByRole("button", { name: "Sign out" }).click();
-  await expect(bar).toContainText("Guest");
-  await page.goto("/account");
-  await expect(page.getByText("Sign in to keep your projects")).toBeVisible();
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill(PASSWORD);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/rounded$/);
-  await expect(bar).toContainText("Mei Tan");
-});
-
-test("the site's edges: the privacy and terms pages, the help page's Ask us, the gear's Feedback, the headers, health, robots and the sitemap", async ({
-  page,
-}) => {
-  const res = await page.goto("/privacy");
+  // the studio is the site's one page: every old address leads there,
+  // a share's and an order's with what they carried
+  for (const path of [
+    "/",
+    "/account",
+    "/help",
+    "/privacy",
+    "/terms",
+    "/ops",
+    "/studio",
+  ]) {
+    await page.goto(path);
+    await expect(page).toHaveURL(/\/rounded$/);
+  }
+  const res = await page.goto("/s/abc");
+  await expect(page).toHaveURL(/\/rounded\?share=abc$/);
   expect(res!.headers()["x-content-type-options"]).toBe("nosniff");
   expect(res!.headers()["referrer-policy"]).toBe(
     "strict-origin-when-cross-origin",
   );
   expect(res!.headers()["permissions-policy"]).toContain("microphone=(self)");
-  await expect(
-    page.getByRole("heading", { name: "What the studio keeps." }),
-  ).toBeVisible();
-  // the page is longer than the screen: its stage scrolls to the end
-  const last = page.getByRole("heading", { name: "Questions" });
-  await last.scrollIntoViewIfNeeded();
-  expect(
-    await last.evaluate(
-      (el) => el.getBoundingClientRect().bottom <= window.innerHeight,
-    ),
-  ).toBe(true);
-  await expect(page.getByText("hello@furnish-es.com")).toBeVisible();
-  // the rail: every page a link away, this one current, the brand home
-  const rail = page.getByRole("complementary", { name: "Pages" });
-  await expect(rail.getByRole("link", { name: /^Account/ })).toHaveAttribute(
-    "href",
-    "/account",
-  );
-  await expect(rail.locator('[aria-current="page"]')).toContainText("Privacy");
-  await expect(rail.getByRole("link", { name: /^FURNISHES/ })).toHaveAttribute(
-    "href",
-    "/",
-  );
-  // the terms, with the refunds inside them
-  await rail.getByRole("link", { name: /^Terms/ }).click();
-  await expect(page).toHaveURL(/\/terms$/);
-  await expect(
-    page.getByRole("heading", { name: "Cancelling, returns and refunds" }),
-  ).toBeVisible();
-  // help: the sections, and Ask us writing to the studio as a guest
-  await rail.getByRole("link", { name: /^Help/ }).click();
-  await expect(page).toHaveURL(/\/help$/);
-  await expect(
-    page.getByRole("heading", { name: "One panel, one unit, two bases" }),
-  ).toBeVisible();
-  const ask = page.getByRole("region", { name: "Ask us" });
-  await ask.getByRole("radio", { name: "An idea" }).click();
-  await expect(ask.getByRole("button", { name: "Send" })).toBeDisabled();
-  await ask.getByLabel("Your words").fill("A bench for the balcony.");
-  await ask.getByLabel("Your email").fill(`ask-${Date.now()}@example.com`);
-  await ask.getByRole("button", { name: "Send" }).click();
-  await expect(ask).toContainText("Thank you. We read every one");
+  await page.goto("/reset?token=t1");
+  await expect(page).toHaveURL(/\/rounded\?token=t1$/);
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   // the gear's Feedback writes to the site
   await page.goto("/rounded");
   await page.getByRole("button", { name: "Settings", exact: true }).click();
@@ -4925,18 +4842,14 @@ test("the site's edges: the privacy and terms pages, the help page's Ask us, the
   expect(await robots.text()).toContain("Disallow: /api/");
   const sitemap = await page.request.get("/sitemap.xml");
   const listed = await sitemap.text();
-  for (const path of ["/", "/account", "/help", "/privacy", "/terms"])
-    expect(listed).toContain(`https://furnish-es.com${path}`);
+  expect(listed).toContain("https://furnish-es.com/rounded");
+  expect(listed).not.toContain("https://furnish-es.com/account");
 });
 
-test("the studio's operations: not here for anyone else; an order moved on with a mail each; a word marked answered; the waitlist's one note; the nightly sweep", async ({
+test("the studio's operations, by their routes: not here for anyone else; an order moved on with a mail each; a word marked answered; the waitlist's one note; the nightly sweep", async ({
   page,
 }) => {
-  // nobody: the page and its routes are not here
-  expect((await page.goto("/ops"))!.status()).toBe(404);
-  await expect(
-    page.getByRole("heading", { name: "There is no page here." }),
-  ).toBeVisible();
+  // nobody: the routes are not here
   expect((await page.request.get("/api/ops/waitlist")).status()).toBe(404);
   // the sweep wants the host's secret (.env.development has the dev one)
   expect((await page.request.get("/api/cron/retention")).status()).toBe(401);
@@ -4991,40 +4904,27 @@ test("the studio's operations: not here for anyone else; an order moved on with 
     .toBe(1);
   // a word to the studio, thanked by mail; a guest on the waitlist
   const word = `Does the bookwall come in walnut? ${stamp}`;
-  await page.request.post("/api/help", {
-    data: { category: "question", message: word, context: "/help" },
+  const asked = await page.request.post("/api/help", {
+    data: { category: "question", message: word, context: "/rounded" },
   });
+  const { id: wordId } = (await asked.json()) as { id: string };
   await expect
     .poll(async () => (await mails(admin, /^We have your word/)).length)
     .toBeGreaterThan(0);
   const waiting = `wait-${stamp.toLowerCase()}@example.com`;
   await page.request.post("/api/waitlist", { data: { email: waiting } });
-  // the page: the order paid another way, then delivered, a mail each;
-  // a note kept on it
-  await page.goto("/ops");
-  await expect(
-    page.getByRole("heading", { name: "The studio, as it stands today." }),
-  ).toBeVisible();
-  await expect(
-    page
-      .getByRole("complementary", { name: "Pages" })
-      .locator('[aria-current="page"]'),
-  ).toContainText("Operations");
-  const order = page.locator(`.ops-item[data-id="${orderId}"]`);
-  await expect(order.locator(".ops-status")).toHaveText("Awaiting payment");
-  await expect(order).toContainText(first.name);
-  await expect(order).toContainText(admin);
-  await order.getByRole("button", { name: "Mark paid" }).click();
-  await expect(order.locator(".ops-status")).toHaveText("Paid");
+  // the order paid another way, then delivered, a mail each; a note
+  // kept on it
+  const move = (data: { status?: string; note?: string }) =>
+    page.request.patch(`/api/ops/orders/${orderId}`, { data });
+  expect((await move({ status: "paid" })).status()).toBe(200);
   await expect
     .poll(
       async () =>
         (await mails(admin, new RegExp(`^Order ${orderId} is paid`))).length,
     )
     .toBe(1);
-  await expect(order.getByRole("button", { name: "Cancel" })).toHaveCount(0);
-  await order.getByRole("button", { name: "Mark delivered" }).click();
-  await expect(order.locator(".ops-status")).toHaveText("Delivered");
+  expect((await move({ status: "fulfilled" })).status()).toBe(200);
   await expect
     .poll(
       async () =>
@@ -5032,137 +4932,39 @@ test("the studio's operations: not here for anyone else; an order moved on with 
           .length,
     )
     .toBe(1);
-  await order
-    .getByRole("textbox", { name: "Note" })
-    .fill("Courier booked for Friday");
-  await order.getByRole("button", { name: "Keep the note" }).click();
-  await expect(
-    order.getByRole("button", { name: "Keep the note" }),
-  ).toBeDisabled();
-  await page.reload();
-  await expect(order.getByRole("textbox", { name: "Note" })).toHaveValue(
+  const noted = await move({ note: "Courier booked for Friday" });
+  expect(((await noted.json()) as { note: string }).note).toBe(
     "Courier booked for Friday",
   );
   // a move the order's state does not allow is refused
+  expect((await move({ status: "paid" })).status()).toBe(409);
+  // the word marked answered, and open again
+  const answer = (answered: boolean) =>
+    page.request.patch(`/api/ops/help/${wordId}`, { data: { answered } });
+  const marked = (await (await answer(true)).json()) as {
+    answeredAt: number | null;
+  };
+  expect(marked.answeredAt).toEqual(expect.any(Number));
   expect(
-    (
-      await page.request.patch(`/api/ops/orders/${orderId}`, {
-        data: { status: "paid" },
-      })
-    ).status(),
-  ).toBe(409);
-  // the word: open, a reply by mail, marked answered
-  const ask = page.locator(".ops-item", { hasText: word });
-  await expect(ask.locator(".ops-status")).toHaveText("Open");
-  await expect(
-    ask.getByRole("link", { name: "Reply by mail" }),
-  ).toHaveAttribute(
-    "href",
-    /^mailto:ops@example\.com\?subject=Re%3A%20your%20question/,
-  );
-  await ask.getByRole("button", { name: "Mark answered" }).click();
-  await expect(ask.locator(".ops-status")).toHaveText(/^Answered/);
-  await expect(ask.getByRole("button", { name: "Reopen" })).toBeVisible();
+    ((await (await answer(false)).json()) as { answeredAt: null }).answeredAt,
+  ).toBeNull();
   // the waitlist: the file has the address; the note goes once, and
   // the second time nobody is due
   const csv = await (await page.request.get("/api/ops/waitlist")).text();
   expect(csv.startsWith("email,joined,notified")).toBe(true);
   expect(csv).toContain(waiting);
-  const list = page.getByRole("region", { name: "Waitlist" });
-  await list.getByRole("button", { name: "Send the opening note" }).click();
-  await list.getByRole("button", { name: /^Send to \d+ now/ }).click();
-  await expect(list.getByRole("status")).toContainText(/^Sent to \d+/);
+  const sent = (await (
+    await page.request.post("/api/ops/waitlist")
+  ).json()) as {
+    sent: number;
+  };
+  expect(sent.sent).toBeGreaterThan(0);
   await expect
     .poll(async () => (await mails(waiting, /ordering is open/)).length)
     .toBe(1);
-  await expect(
-    list.getByRole("button", { name: "Send the opening note" }),
-  ).toBeDisabled();
   expect(
     (await (await page.request.post("/api/ops/waitlist")).json()).sent,
   ).toBe(0);
-  // spend and services, as the server has them
-  const spend = page.getByRole("region", { name: "Spend and services" });
-  await expect(spend.getByRole("table")).toContainText("Eva's turns");
-  await expect(spend).toContainText("mail kept");
-  await expect(spend).toContainText("the nightly sweep on");
-});
-
-test("the landing: the band, the spot that changes under a drag, the rail and the menu, a piece into the studio, the waitlist and the cookie note", async ({
-  page,
-}) => {
-  await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveAttribute(
-    "aria-label",
-    "Rooms off-template",
-  );
-  // the spot: a drag moves the line; the dots move between spots
-  const pair = page.locator(".ld-pair");
-  await expect(pair).toHaveAttribute("data-cut", /0\.(3|4|5|6)/);
-  const box = (await pair.boundingBox())!;
-  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
-  await page.mouse.down();
-  await page.mouse.move(box.x + box.width * 0.8, box.y + box.height * 0.5, {
-    steps: 4,
-  });
-  await page.mouse.up();
-  await expect(pair).toHaveAttribute("data-cut", "0.80");
-  await expect(page.locator(".ld-say")).toHaveText(
-    "Coats pile up on the chair by the door",
-  );
-  await page.getByRole("button", { name: "Next spot" }).click();
-  await expect(page.locator(".ld-say")).toHaveText(
-    "Phone and book on the floor by the bed",
-  );
-  await expect(page.locator(".ld-build")).toContainText("parts");
-  await expect(
-    page.getByRole("link", { name: "See it in the studio" }),
-  ).toHaveAttribute("href", "/rounded?piece=bedside");
-  // the rail follows the scroll; the menu lists the pages and sections
-  const rail = page.getByRole("navigation", { name: "Section" });
-  await expect(rail.locator("[aria-current]")).toContainText("Home");
-  await rail.getByRole("button", { name: "Pieces" }).click();
-  await expect(rail.locator("[aria-current]")).toContainText("Pieces");
-  await expect(page.locator(".ld-bar")).toHaveClass(/is-solid/);
-  await page.getByRole("button", { name: "Menu" }).click();
-  const menu = page.getByRole("dialog", { name: "Menu" });
-  await expect(menu.getByRole("link", { name: "Help" })).toHaveAttribute(
-    "href",
-    "/help",
-  );
-  await menu.getByRole("button", { name: /Waitlist/ }).click();
-  // closed, the menu leaves the accessibility tree
-  await expect(page.locator("#ld-menu")).toHaveAttribute("aria-hidden", "true");
-  await expect(rail.locator("[aria-current]")).toContainText("Waitlist");
-  // the pieces: every recipe, priced, each a door into the studio
-  const cards = page.locator(".ld-piece");
-  await expect(cards).toHaveCount(13);
-  await expect(cards.first()).toContainText("S$");
-  // the waitlist, once; the cookie note, once
-  const email = `door-${Date.now()}@example.com`;
-  await page.getByLabel("Email address").fill(email);
-  await page.getByRole("button", { name: "Join the list" }).click();
-  await expect(
-    page.getByRole("status").filter({ hasText: "on the list" }),
-  ).toBeVisible();
-  const note = page.locator(".ld-cookie");
-  await expect(note).toHaveClass(/is-in/);
-  await note.getByRole("button", { name: "Understood" }).click();
-  await expect(note).toHaveCount(0);
-  await page.reload();
-  await expect(page.locator(".ld-cookie")).toHaveCount(0);
-  // the landing's Sign in goes to the account page; a piece link puts
-  // the piece in the room and opens its Detail
-  await expect(page.locator(".ld-bar-cta")).toHaveAttribute("href", "/account");
-  await page.goto("/rounded?piece=bedside");
-  await expect(page).toHaveURL(/\/rounded$/);
-  await expect(page.getByRole("tab", { name: "Detail" })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
-  await expect(
-    page.locator(".detail-title, .detail-name").first(),
-  ).toContainText("Bedside");
 });
 
 test("an account: created with an email and a password, signed out, signed in again; a wrong password is said", async ({
@@ -5234,27 +5036,25 @@ test("an account: created with an email and a password, signed out, signed in ag
   await expect.poll(async () => (await mails(/^Reset/)).length).toBe(1);
   const reset = (await mails(/^Reset/))[0]!.text.match(/https?:\/\/\S+/)![0];
   await page.goto(reset);
-  await expect(page).toHaveURL(/\/reset\?token=/);
+  await expect(page).toHaveURL(/\/rounded\?token=/);
   await page.getByLabel("New password").fill(`${PASSWORD}-3`);
   await page.getByRole("button", { name: "Set the password" }).click();
   await expect(
     page.getByRole("heading", { name: "Password changed." }),
   ).toBeVisible();
   await page.getByRole("link", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/account$/);
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill(`${PASSWORD}-3`);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/rounded$/, { timeout: 20_000 });
+  await expect(page).toHaveURL(/\/rounded$/);
+  await account(page, email, "in", `${PASSWORD}-3`);
+  await expect(dialog).toHaveCount(0);
   await expect(page.locator(".user-bar")).toContainText("Mei Tan");
-  // a lapsed or missing token is said on the page
-  await page.goto("/reset");
+  // a link that has lapsed is said
+  await page.goto("/rounded?error=INVALID_TOKEN");
   await expect(
     page.getByRole("heading", { name: "That link has lapsed." }),
   ).toBeVisible();
 });
 
-test("signed in, the projects follow the account to another browser; the account page lists them and opens one; deleting the account takes the mirror", async ({
+test("signed in, the projects follow the account to another browser; deleting the account takes the mirror", async ({
   browser,
 }) => {
   const email = `two-${Date.now()}@example.com`;
@@ -5331,7 +5131,7 @@ test("signed in, the projects follow the account to another browser; the account
   await ctxB.close();
 });
 
-test("a room shared by link: read-only for anyone, taken into a studio as a project, listed and taken down on the account page", async ({
+test("a room shared by link: read-only for anyone at the studio's address, taken into a studio as a project, listed and taken down in Account", async ({
   browser,
 }) => {
   const ctxA = await browser.newContext({
@@ -5357,7 +5157,7 @@ test("a room shared by link: read-only for anyone, taken into a studio as a proj
   const share = a.getByRole("dialog", { name: "Share the room" });
   await expect(share).toBeVisible();
   const url = await share.getByRole("textbox", { name: "Link" }).inputValue();
-  expect(url).toMatch(/\/s\/[A-Za-z0-9_-]{8}$/);
+  expect(url).toMatch(/\/rounded\?share=[A-Za-z0-9_-]{8}$/);
   await share.getByRole("button", { name: "Close" }).click();
   // anyone: the room, read-only, with its pieces and their total
   const ctxB = await browser.newContext({

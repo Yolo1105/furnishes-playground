@@ -43,7 +43,7 @@ export function OrderList() {
               <>
                 {" · "}
                 <a
-                  href={`/orders/${encodeURIComponent(o.id)}?key=${encodeURIComponent(o.key)}`}
+                  href={`/rounded?order=${encodeURIComponent(o.id)}&key=${encodeURIComponent(o.key)}`}
                 >
                   Its page
                 </a>
