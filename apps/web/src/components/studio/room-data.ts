@@ -13,12 +13,15 @@ export type FlatType = "3-room" | "4-room" | "5-room";
     later get ids of their own. The living room is the flat's first */
 export const SHOWCASE_ROOMS = {
   living: "room-1",
-  master: "room-2",
-  bathroom: "room-3",
-  kitchen: "room-4",
-  bedroom2: "room-5",
-  bedroom3: "room-6",
-  ensuite: "room-7",
+  kitchen: "room-2",
+  master: "room-3",
+  bedroom2: "room-4",
+  bedroom3: "room-5",
+  bathroom: "room-6",
+  bathroom2: "room-7",
+  hall: "room-8",
+  shelter: "room-9",
+  yard: "room-10",
 } as const;
 export const FLAT_TYPES: FlatType[] = ["3-room", "4-room", "5-room"];
 
@@ -31,6 +34,9 @@ export const ROOM_IDS = [
   "study",
   "bathroom",
   "ensuite",
+  "hall",
+  "shelter",
+  "yard",
 ] as const;
 export type RoomId = (typeof ROOM_IDS)[number];
 
@@ -43,6 +49,9 @@ export const ROOM_NAMES: Record<RoomId, string> = {
   study: "Study",
   bathroom: "Bathroom",
   ensuite: "Master bathroom",
+  hall: "Hall",
+  shelter: "Household shelter",
+  yard: "Service yard",
 };
 
 /** mm: width along the window wall, depth into the room */
@@ -60,6 +69,9 @@ export const PRESETS: Record<FlatType, Partial<Record<RoomId, Size>>> = {
     kitchen: r(2400, 2400),
     bathroom: r(2400, 1700),
     ensuite: r(1600, 2000),
+    hall: r(4000, 1000),
+    shelter: r(1600, 1200),
+    yard: r(1500, 1500),
   },
   "4-room": {
     living: r(6500, 4000),
@@ -70,6 +82,9 @@ export const PRESETS: Record<FlatType, Partial<Record<RoomId, Size>>> = {
     study: r(3000, 2700),
     bathroom: r(2400, 1700),
     ensuite: r(1600, 2000),
+    hall: r(5000, 1000),
+    shelter: r(1600, 1200),
+    yard: r(1600, 1700),
   },
   "5-room": {
     living: r(7000, 4500),
@@ -80,6 +95,9 @@ export const PRESETS: Record<FlatType, Partial<Record<RoomId, Size>>> = {
     study: r(3000, 3000),
     bathroom: r(2400, 1700),
     ensuite: r(1600, 2000),
+    hall: r(6000, 1100),
+    shelter: r(1600, 1200),
+    yard: r(1800, 1900),
   },
 };
 
@@ -167,6 +185,9 @@ export const FIT_FOR_ROOM: Record<RoomId, FitKey[]> = {
   study: ["common"],
   bathroom: [],
   ensuite: [],
+  hall: [],
+  shelter: [],
+  yard: [],
 };
 
 /** what every new HDB flat has in common, as the archive recorded it */
@@ -286,6 +307,8 @@ export const PRIVATE_ROOMS: readonly RoomId[] = [
   "study",
   "bathroom",
   "ensuite",
+  "shelter",
+  "yard",
 ];
 
 export const makeOpening = (
@@ -328,6 +351,16 @@ export const openingsFor = (room: RoomId, W: number, D: number): Opening[] => {
       return [
         makeOpening("door", "east", { width: 750 }),
         makeOpening("window", "west", { width: 600, sill: 1500, head: 2100 }),
+      ];
+    // the hall and the shelter are entered from their neighbours and
+    // have no window of their own (the shelter's steel door is the
+    // join's); the yard is open to the air behind a screen
+    case "hall":
+    case "shelter":
+      return [];
+    case "yard":
+      return [
+        makeOpening("window", "south", { width: Math.min(W - 600, 1500) }),
       ];
     default:
       return [
@@ -422,7 +455,7 @@ export const MUST_HAVE_CHOICES: { key: string; match: RegExp }[] = [
   {
     key: "storage",
     match:
-      /shelf|cabinet|sideboard|bookwall|organiser|drawer|trolley|cart|wardrobe/i,
+      /shelf|shelving|cabinet|sideboard|bookwall|organiser|drawer|trolley|cart|wardrobe/i,
   },
   { key: "rug", match: /rug/i },
   { key: "lamp", match: /lamp|pendant/i },
@@ -437,6 +470,9 @@ const MUST_HAVE_FOR_ROOM: Record<RoomId, string[]> = {
   study: ["desk", "storage"],
   bathroom: ["storage"],
   ensuite: ["storage"],
+  hall: [],
+  shelter: ["storage"],
+  yard: ["storage"],
 };
 export const rulesFor = (room: RoomId): Rules => ({
   walkway: WALKWAY.default,

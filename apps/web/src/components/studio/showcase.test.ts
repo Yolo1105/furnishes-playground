@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { assetGroups, showcasePlaces } from "./assets-data";
 import { healthOf, type Room } from "./room-health";
-import { footprint } from "./piece-detail";
+import { footprint, isRug, isSmall } from "./piece-detail";
 import { hdbOffset, PRIVATE_ROOMS, SHOWCASE_ROOMS } from "./room-data";
 import { footprintOf, openingsOf, roomOverlaps, useRoom } from "./room-store";
 import { inRoom, propsOf } from "./scene-store";
 
 /**
  * The flat the studio opens on, an HDB 5-room flat read as the planner
- * reads it: seven rooms that stand clear of each other, joined as the plan says, every
+ * reads it: ten rooms that stand clear of each other, joined as the plan says, every
  * piece inside its room and the rooms' rules met (no overlaps, the
  * doors' swings and the windows clear, the walkways kept, nothing a
  * room must have missing).
@@ -19,16 +19,19 @@ const items = assetGroups
   .filter((n) => n.kind !== "fixed");
 
 describe("the flat the studio opens on", () => {
-  it("is a 5-room flat: three bedrooms, two bathrooms, standing clear", () => {
+  it("is a 5-room flat: three bedrooms, two bathrooms, the hall, the shelter and the yard, standing clear", () => {
     expect(flat.flat).toBe("5-room");
     expect(flat.rooms.map((r) => r.room)).toEqual([
       "living",
-      "master",
-      "bathroom",
       "kitchen",
+      "master",
       "bedroom-1",
       "bedroom-2",
-      "ensuite",
+      "bathroom",
+      "bathroom",
+      "hall",
+      "shelter",
+      "yard",
     ]);
     expect(flat.rooms.map((r) => r.id)).toEqual(Object.values(SHOWCASE_ROOMS));
     for (const r of flat.rooms)
@@ -36,65 +39,79 @@ describe("the flat the studio opens on", () => {
     expect(flat.activeId).toBe(SHOWCASE_ROOMS.living);
   });
 
-  it("joins the rooms as a flat is joined: each neighbour on its own wall", () => {
-    const { living, master, bathroom, kitchen, bedroom2, bedroom3, ensuite } =
-      SHOWCASE_ROOMS;
+  it("joins the rooms as the plan does: the bedrooms and bathrooms off the hall", () => {
+    const {
+      living,
+      kitchen,
+      master,
+      bedroom2,
+      bedroom3,
+      bathroom,
+      bathroom2,
+      hall,
+      shelter,
+      yard,
+    } = SHOWCASE_ROOMS;
     const between = (a: string, b: string) =>
       flat.joins.find(
         (j) => (j.a === a && j.b === b) || (j.a === b && j.b === a),
       )!;
-    const toKitchen = between(living, kitchen);
-    expect(toKitchen).toMatchObject({
+    expect(between(living, kitchen)).toMatchObject({
       kind: "sliding",
       width: 1800,
       open: true,
     });
-    const toMaster = between(living, master);
-    expect(toMaster).toMatchObject({ kind: "door", into: master, open: true });
-    const toBath = between(living, bathroom);
-    expect(toBath).toMatchObject({
-      kind: "door",
-      into: bathroom,
-      width: 750,
+    // the hall opens off the living room without a leaf
+    expect(between(living, hall)).toMatchObject({
+      kind: "passage",
       open: true,
     });
-    // the two common bedrooms off the living room's south wall
-    for (const b of [bedroom2, bedroom3])
-      expect(between(living, b)).toMatchObject({
+    // every bedroom and bathroom, and the shelter, has its door from the
+    // hall, its leaf swinging into it
+    for (const [room, width] of [
+      [master, 800],
+      [bedroom2, 800],
+      [bedroom3, 800],
+      [bathroom, 750],
+      [bathroom2, 700],
+      [shelter, 800],
+    ] as const)
+      expect(between(hall, room), room).toMatchObject({
         kind: "door",
-        into: b,
-        width: 800,
+        into: room,
+        width,
         open: true,
       });
-    // the master's bathroom from the master alone, its leaf swinging in
-    expect(between(master, ensuite)).toMatchObject({
+    // the yard from the kitchen alone
+    expect(between(kitchen, yard)).toMatchObject({
       kind: "door",
-      into: ensuite,
+      into: yard,
       open: true,
     });
     // the walls rooms share without a door stand solid
-    expect(between(master, bathroom)).toMatchObject({ open: false });
+    expect(between(master, bedroom3)).toMatchObject({ open: false });
     expect(between(bedroom2, bedroom3)).toMatchObject({ open: false });
-    expect(between(bedroom2, bathroom)).toMatchObject({ open: false });
-    expect(between(ensuite, bathroom)).toMatchObject({ open: false });
-    expect(flat.joins).toHaveLength(10);
-    // the doorways from the living room: west twice (the master, the
-    // bathroom), east once (the kitchen), south twice (the bedrooms)
-    const walls = flat.joins
-      .filter((j) => j.open && (j.a === living || j.b === living))
-      .map((j) => (j.a === living ? j.wallA : j.wallB));
-    expect(walls.filter((w) => w === "west")).toHaveLength(2);
-    expect(walls.filter((w) => w === "east")).toHaveLength(1);
-    expect(walls.filter((w) => w === "south")).toHaveLength(2);
-    // the entry door keeps its place on the south wall, clear of both
+    expect(between(bathroom, bathroom2)).toMatchObject({ open: false });
+    expect(between(living, bedroom2)).toMatchObject({ open: false });
+    expect(flat.joins.filter((j) => j.open)).toHaveLength(9);
+    // nothing but the hall, the kitchen and the entry opens off the
+    // living room
+    const open = flat.joins.filter(
+      (j) => j.open && (j.a === living || j.b === living),
+    );
+    expect(open.map((j) => (j.a === living ? j.b : j.a)).sort()).toEqual(
+      [hall, kitchen].sort(),
+    );
+    // the entry door on the living room's south wall
     const entry = flat.rooms[0]!.openings.find((o) => o.kind === "door")!;
     expect(entry.wall).toBe("south");
     // the open doorways read as openings of the rooms on both sides
     for (const r of flat.rooms) {
       const doors = openingsOf(flat, r).filter((o) => o.join);
-      expect(doors.length).toBeGreaterThan(0);
+      expect(doors.length, r.id).toBeGreaterThan(0);
     }
     expect(PRIVATE_ROOMS).toContain("bathroom");
+    expect(PRIVATE_ROOMS).toContain("shelter");
   });
 
   it("stands every piece in its room, clear of the rules", () => {
@@ -110,7 +127,8 @@ describe("the flat the studio opens on", () => {
       const mine = items.filter((n) =>
         inRoom(showcasePlaces[n.id] ?? {}, r.id, flat.rooms[0]!.id),
       );
-      expect(mine.length, r.room).toBeGreaterThan(2);
+      // the hall is kept clear; every other room is furnished
+      if (r.room !== "hall") expect(mine.length, r.room).toBeGreaterThan(0);
       const boxes = mine.map((n) => {
         const p = propsOf(n, showcasePlaces);
         expect(p.x, n.name).toBeDefined();
@@ -141,16 +159,61 @@ describe("the flat the studio opens on", () => {
     }
   });
 
+  it("walks the tour clear of the furniture and through the rooms", () => {
+    // every piece one would walk round, on the sheet
+    const boxes = flat.rooms.flatMap((r) =>
+      items
+        .filter((n) =>
+          inRoom(showcasePlaces[n.id] ?? {}, r.id, flat.rooms[0]!.id),
+        )
+        .map((n) => ({ n, p: propsOf(n, showcasePlaces) }))
+        .filter(({ n, p }) => !isRug(n) && !isSmall(p))
+        .map(({ n, p }) => {
+          const f = footprint(p);
+          return {
+            name: n.name,
+            x: r.pos[0] + p.x!,
+            y: r.pos[1] + p.y!,
+            ...f,
+          };
+        }),
+    );
+    const roomAt = (x: number, y: number) =>
+      flat.rooms.find(
+        (r) =>
+          x > r.pos[0] &&
+          x < r.pos[0] + r.width &&
+          y > r.pos[1] &&
+          y < r.pos[1] + r.depth,
+      );
+    for (const [x, y] of flat.stops)
+      expect(roomAt(x, y), `${x},${y}`).toBeDefined();
+    flat.stops.slice(1).forEach(([x1, y1], i) => {
+      const [x0, y0] = flat.stops[i]!;
+      const steps = Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 25);
+      for (let k = 0; k <= steps; k++) {
+        const x = x0 + ((x1 - x0) * k) / steps;
+        const y = y0 + ((y1 - y0) * k) / steps;
+        const hit = boxes.find(
+          (b) => x > b.x && x < b.x + b.w && y > b.y && y < b.y + b.d,
+        );
+        expect(hit?.name, `leg ${i + 1} at ${x},${y}`).toBeUndefined();
+      }
+    });
+  });
+
   it("tells the pieces for sale from the room items", () => {
     const pieces = items.filter((n) => n.kind === "piece");
     const decor = items.filter((n) => n.kind === "decor");
-    expect(pieces.length).toBe(16);
+    expect(pieces.length).toBe(12);
     expect(pieces.every((n) => n.productId && n.price)).toBe(true);
     expect(decor.every((n) => !n.productId && n.price === undefined)).toBe(
       true,
     );
-    // every room has something to buy in it
-    for (const id of Object.values(SHOWCASE_ROOMS))
+    // every room but the hall has something to buy in it
+    for (const id of Object.values(SHOWCASE_ROOMS).filter(
+      (id) => id !== SHOWCASE_ROOMS.hall,
+    ))
       expect(
         pieces.some((n) =>
           inRoom(showcasePlaces[n.id] ?? {}, id, flat.rooms[0]!.id),
@@ -163,82 +226,46 @@ describe("the flat the studio opens on", () => {
     useRoom.getState().setFlat("3-room");
     const s = useRoom.getState();
     const room = (id: string) => s.rooms.find((r) => r.id === id)!;
-    // the kitchen keeps its window on the service yard's side
+    // the kitchen keeps its window over the counter, on the south wall
     expect(
       room(SHOWCASE_ROOMS.kitchen)
         .openings.filter((o) => o.kind === "window")
         .map((o) => o.wall),
-    ).toEqual(["east"]);
+    ).toEqual(["south"]);
     // the bedroom's door is its doorway: no door of its own comes back
     expect(
       room(SHOWCASE_ROOMS.master).openings.some((o) => o.kind === "door"),
     ).toBe(false);
-    // the entry door keeps its place by HDB's convention, 800 mm from
-    // the east corner of the smaller living room
+    // the rooms keep the sizes the plan gives them, and the entry door
+    // its place by HDB's convention, 800 mm from the east corner
     const living = room(SHOWCASE_ROOMS.living);
-    expect(living.width).toBe(6000);
+    expect(living.width).toBe(5700);
     const door = living.openings.find((o) => o.kind === "door")!;
     expect(hdbOffset(door, living.width, living.depth)).toBe(800);
     useRoom.setState(useRoom.getInitialState(), true);
   });
-  const between =
-    (joins: readonly { a: string; b: string }[]) => (a: string, b: string) =>
-      joins.find((j) => (j.a === a && j.b === b) || (j.a === b && j.b === a));
-  it("keeps together as a 4-room flat: every doorway, its kind kept", () => {
+  const doorways = (
+    joins: readonly { a: string; b: string; open: boolean; kind: string }[],
+  ) => joins.filter((j) => j.open).map((j) => `${j.a}-${j.b} ${j.kind}`);
+  it("keeps together as a 4-room flat: every room where it was, every doorway kept", () => {
     useRoom.getState().setFlat("4-room");
     const s = useRoom.getState();
-    const { living, master, bathroom, kitchen, bedroom2, bedroom3, ensuite } =
-      SHOWCASE_ROOMS;
-    const join = between(s.joins);
-    // no room stands into another
     for (const r of s.rooms) expect(roomOverlaps(s.rooms, r.id)).toEqual([]);
-    // every doorway is still there, as it was made
-    expect(s.joins).toHaveLength(10);
-    expect(join(living, kitchen)).toMatchObject({
-      kind: "sliding",
-      open: true,
-    });
-    expect(join(living, master)).toMatchObject({
-      kind: "door",
-      into: master,
-      open: true,
-    });
-    expect(join(living, bathroom)).toMatchObject({
-      kind: "door",
-      into: bathroom,
-      open: true,
-    });
-    expect(join(master, bathroom)).toMatchObject({ open: false });
-    for (const b of [bedroom2, bedroom3])
-      expect(join(living, b)).toMatchObject({ kind: "door", open: true });
-    // the 4-room's master (3.6 m) still reaches past the common bathroom
-    // to its own
-    expect(join(master, ensuite)).toMatchObject({
-      kind: "door",
-      into: ensuite,
-      open: true,
-    });
+    expect(s.rooms.map((r) => r.room)).toEqual(flat.rooms.map((r) => r.room));
+    expect(s.rooms.map((r) => r.pos)).toEqual(flat.rooms.map((r) => r.pos));
+    expect(doorways(s.joins)).toEqual(doorways(flat.joins));
     useRoom.setState(useRoom.getInitialState(), true);
   });
   it("keeps together as a 3-room flat, its third bedroom a living room", () => {
     useRoom.getState().setFlat("3-room");
     const s = useRoom.getState();
-    const { living, master, kitchen, bedroom2, bedroom3 } = SHOWCASE_ROOMS;
-    const join = between(s.joins);
     for (const r of s.rooms) expect(roomOverlaps(s.rooms, r.id)).toEqual([]);
     // a 3-room flat has one common bedroom: the other becomes a room of
     // the living room's kind, as any room the flat type has not
-    expect(s.rooms.find((r) => r.id === bedroom3)!.room).toBe("living");
-    expect(join(living, kitchen)).toMatchObject({
-      kind: "sliding",
-      open: true,
-    });
-    expect(join(living, master)).toMatchObject({
-      kind: "door",
-      into: master,
-      open: true,
-    });
-    expect(join(living, bedroom2)).toMatchObject({ kind: "door", open: true });
+    expect(s.rooms.find((r) => r.id === SHOWCASE_ROOMS.bedroom3)!.room).toBe(
+      "living",
+    );
+    expect(doorways(s.joins)).toEqual(doorways(flat.joins));
     useRoom.setState(useRoom.getInitialState(), true);
   });
 });

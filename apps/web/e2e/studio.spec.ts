@@ -71,8 +71,8 @@ const keptMail = async (page: Page, to: string, subject: RegExp) => {
     bathroom's west wall and the master bedroom's north wall to the
     kitchen's east wall and the bedrooms' south walls) with a margin
     round it, and the living room stands at the sheet's origin */
-const SHEET = { x: -4600, y: -1000, w: 15100, d: 8800, margin: 1100 };
-const LIVING = { w: 7000, d: 4500 };
+const SHEET = { x: -9600, y: 0, w: 15300, d: 9000, margin: 1100 };
+const LIVING = { w: 5700, d: 6300 };
 const planAt = (
   box: { x: number; y: number; width: number; height: number },
   x: number,
@@ -441,7 +441,9 @@ test("the right rail holds the other view, and the swap trades them", async ({
   await expect(small).toHaveCount(top.filter((a) => a.kind !== "fixed").length);
   // its pieces are the stage's own: a click picks one, a drag moves it
   // (the 3D room follows), with no names or handles at that size
-  const first = top.filter((a) => a.kind === "piece")[0]!;
+  // (a piece standing alone in its room: at this size a neighbour's
+  // button would stand over it)
+  const first = top.find((a) => a.id === "shelter-shelving")!;
   const piece = view
     .locator(".view-mini")
     .getByRole("button", { name: first.name, exact: true });
@@ -791,12 +793,11 @@ test("the Room tab starts from the HDB preset and takes a size of your own", asy
     "aria-checked",
     "true",
   );
+  // the living room has the plan's own size, not the type's typical one
   await expect(page.locator(".room-size")).toContainText(
-    "7.0 m × 4.5 m · 2.6 m high",
+    "5.7 m × 6.3 m · 2.6 m high",
   );
-  await expect(page.locator(".room-size")).toContainText(
-    "typical for a 5-room",
-  );
+  await expect(page.locator(".room-size")).toContainText("yours");
   // the room's kind (the Rooms list above names the flat's rooms)
   const kind = page.getByRole("radiogroup", { name: "Room", exact: true });
   await kind.getByRole("radio", { name: "Master bedroom" }).click();
@@ -2031,10 +2032,10 @@ test("the Wall tool traces a room on the plan; Clear forgets it", async ({
   // four corners on clear floor of the living room (a click on a piece
   // would pick it), the fifth click back on the first closes the room
   const corners = [
-    [1400, 600],
-    [3600, 600],
-    [3600, 4000],
-    [1400, 4000],
+    [800, 1400],
+    [2400, 1400],
+    [2400, 3800],
+    [800, 3800],
   ] as const;
   for (const [x, y] of corners) {
     const p = planAt(b, x, y);
@@ -2505,7 +2506,7 @@ test("a browser that kept projects from an earlier studio starts over: the 5-roo
   await page.getByRole("tab", { name: "Room", exact: true }).click();
   await expect(
     page.getByRole("radiogroup", { name: "Rooms" }).getByRole("radio"),
-  ).toHaveCount(7);
+  ).toHaveCount(10);
   await page.getByRole("button", { name: /^Project, / }).click();
   await expect(page.getByRole("menuitemradio")).toHaveText(["HDB 5-room flat"]);
   await page.keyboard.press("Escape");
@@ -3298,9 +3299,9 @@ test("openings are a list: the + strip adds them, the Wall tool moves and sizes 
   const groups = active.locator(".plan-opening-group");
   const ofKind = (k: string) =>
     active.locator(`.plan-opening-group[data-kind="${k}"]`);
-  // the living room starts with its door and window, and the five
-  // doorways to the rooms beside it
-  await expect(groups).toHaveCount(7);
+  // the living room starts with its door and two windows, the slider
+  // to the kitchen and the opening to the hall
+  await expect(groups).toHaveCount(5);
   // the strip's Openings row: a tile adds one into a free wall, a tile
   // dropped on the plan goes into the wall nearest the drop
   const add = page.getByRole("button", { name: "Add", exact: true });
@@ -3470,39 +3471,44 @@ test("the flat has rooms: one added stands beside the active room, a click on it
   const svg = page.locator(".shell-stage .plan-svg");
   const rooms = page.getByRole("radiogroup", { name: "Rooms" });
   await page.getByRole("tab", { name: "Room", exact: true }).click();
-  // the flat opens with its seven rooms, the living room active
+  // the flat opens with its ten rooms, the living room active
   await expect(rooms.getByRole("radio")).toHaveText([
     "Living & dining",
-    "Master bedroom",
-    "Bathroom",
     "Kitchen",
+    "Master bedroom",
     "Bedroom 2",
     "Bedroom 3",
-    "Master bathroom",
+    "Bathroom",
+    "Bathroom 2",
+    "Hall",
+    "Household shelter",
+    "Service yard",
   ]);
   await expect(
     page.getByRole("button", { name: "Remove", exact: true }),
   ).toBeVisible();
-  // an eighth room: the flat's next kind, a study, beside the living
+  // an eleventh room: the flat's next kind, a study, beside the living
   // room on the first side with nothing standing there (north: the
-  // kitchen is east, the bedrooms south, the master and the bathroom
-  // west), now active
+  // kitchen is south, the hall and the bedrooms west), now active
   await page.getByRole("button", { name: "Add a room" }).click();
   await expect(rooms.getByRole("radio")).toHaveText([
     "Living & dining",
-    "Master bedroom",
-    "Bathroom",
     "Kitchen",
+    "Master bedroom",
     "Bedroom 2",
     "Bedroom 3",
-    "Master bathroom",
+    "Bathroom",
+    "Bathroom 2",
+    "Hall",
+    "Household shelter",
+    "Service yard",
     "Study",
   ]);
   await expect(rooms.getByRole("radio", { name: "Study" })).toHaveAttribute(
     "aria-checked",
     "true",
   );
-  await expect(svg.locator(".plan-room")).toHaveCount(8);
+  await expect(svg.locator(".plan-room")).toHaveCount(11);
   await expect(svg).toHaveAttribute(
     "aria-label",
     /Plan of the Study, \d+ by \d+ millimetres/,
@@ -3566,7 +3572,7 @@ test("the flat has rooms: one added stands beside the active room, a click on it
   await page.keyboard.press("v");
   // a piece added goes into the active room's sheet
   const sheets = page.locator(".shell-stage .plan-pieces");
-  await expect(sheets).toHaveCount(8);
+  await expect(sheets).toHaveCount(11);
   await page.getByRole("button", { name: "Add", exact: true }).click();
   await page
     .getByRole("dialog", { name: "Add to the room" })
@@ -3591,11 +3597,11 @@ test("the flat has rooms: one added stands beside the active room, a click on it
     name: "Work on the Living & dining",
   });
   const fb = (await floor.boundingBox())!;
-  // clear floor between the rug and the shoe bench, 3.8 m in each way
+  // clear floor between the bookwall and the sofa
   await floor.click({
     position: {
-      x: (fb.width * 3800) / LIVING.w,
-      y: (fb.height * 3800) / LIVING.d,
+      x: (fb.width * 1500) / LIVING.w,
+      y: (fb.height * 3200) / LIVING.d,
     },
   });
   await expect(
@@ -3608,8 +3614,8 @@ test("the flat has rooms: one added stands beside the active room, a click on it
   // Remove takes the active room and what stood in it
   await rooms.getByRole("radio", { name: "Study" }).click();
   await page.getByRole("button", { name: "Remove", exact: true }).click();
-  await expect(rooms.getByRole("radio")).toHaveCount(7);
-  await expect(svg.locator(".plan-room")).toHaveCount(7);
+  await expect(rooms.getByRole("radio")).toHaveCount(10);
+  await expect(svg.locator(".plan-room")).toHaveCount(10);
   await expect(
     page.getByRole("treeitem", { name: "Shelf", exact: true }),
   ).toHaveCount(0);
@@ -3626,20 +3632,20 @@ test("a room widened into its neighbour is a finding: both rooms flush red on th
   const stage = page.locator(".stage-3d");
   const rooms = page.getByRole("radiogroup", { name: "Rooms" });
   await page.getByRole("tab", { name: "Room", exact: true }).click();
-  // bedrooms 2 and 3 stand side by side south of the living room
-  await expect(svg.locator(".plan-room")).toHaveCount(7);
-  const third = (await rooms.getByRole("radio").nth(5).textContent())!;
-  expect(third).toBe("Bedroom 3");
+  // bedrooms 3 and 2 stand side by side along the hall's north side
+  await expect(svg.locator(".plan-room")).toHaveCount(10);
+  const second = (await rooms.getByRole("radio").nth(3).textContent())!;
+  expect(second).toBe("Bedroom 2");
   // side by side, a wall apart: nothing to say
   await expect(card).toHaveCount(0);
   await expect(marked).toHaveCount(0);
   await expect(stage).toHaveAttribute("data-rooms-overlap", "0");
-  // the first bedroom again, to widen it eastwards into the third
-  const floor = svg.getByRole("button", { name: "Work on the Bedroom 2" });
+  // the third bedroom, to widen it eastwards into the second
+  const floor = svg.getByRole("button", { name: "Work on the Bedroom 3" });
   const fb = (await floor.boundingBox())!;
   await floor.click({ position: { x: 10, y: fb.height - 10 } });
   const bedroom = svg.locator('.plan-room[data-active="true"]');
-  await expect(bedroom).toHaveAttribute("transform", "translate(-1700 4800)");
+  await expect(bedroom).toHaveAttribute("transform", "translate(3300 0)");
   const width = page.getByRole("spinbutton", {
     name: "width in millimetres",
     exact: true,
@@ -3668,22 +3674,19 @@ test("a room widened into its neighbour is a finding: both rooms flush red on th
   await expect(marked).toHaveCount(2);
   await expect(card).toContainText("1 overlap");
   await expect(card.locator(".clash-card-pick")).toHaveText(
-    `The Bedroom 2 stands into the ${third}`,
+    `The Bedroom 3 stands into the ${second}`,
   );
   await expect(stage).toHaveAttribute("data-rooms-overlap", "1");
   await page.locator(".agent-plan > summary").click();
   await expect(
     page.locator(".agent").getByRole("list", { name: "Room health" }),
-  ).toContainText(`stands into the ${third}`);
+  ).toContainText(`stands into the ${second}`);
   // Settle: the bedroom goes the nearest way out that clears every
   // room; it keeps its new width
   await card.getByRole("button", { name: /^Settle:/ }).click();
   await expect(marked).toHaveCount(0);
   await expect(card).toHaveCount(0);
-  await expect(bedroom).not.toHaveAttribute(
-    "transform",
-    "translate(-1700 4800)",
-  );
+  await expect(bedroom).not.toHaveAttribute("transform", "translate(3300 0)");
   await expect(width).toHaveValue(String(w + 1000));
   await expect(stage).toHaveAttribute("data-rooms-overlap", "0");
 });
@@ -4513,16 +4516,16 @@ test("the tour: stops on the plan, Play walks the camera through them, Stop and 
   await expect(tourTool).toHaveAttribute("aria-pressed", "true");
   const strip = page.getByRole("group", { name: "Tour" });
   // the flat comes with a round of its rooms; Clear starts afresh
-  await expect(strip).toContainText("21 stops");
+  await expect(strip).toContainText("20 stops");
   await strip.getByRole("button", { name: "Clear" }).click();
   await expect(strip).toContainText("No stops yet");
   const box = (await svg.boundingBox())!;
   const at = (x: number, y: number) => planAt(box, x, y);
   const stops = svg.locator(".plan-stop");
   for (const [x, y] of [
-    [800, 800],
-    [5600, 800],
-    [5600, 3200],
+    [800, 1500],
+    [4700, 1000],
+    [5000, 5000],
   ]) {
     const p = at(x!, y!);
     await page.mouse.click(p.x, p.y);
@@ -5215,8 +5218,7 @@ test("a piece may stand past the walls; near a wall the magnet draws it flush, i
     .locator('.plan-pieces[data-active="true"]')
     .boundingBox())!;
   const ppm = sheet.width / LIVING.w; // px per mm, the room's own box
-  // the living room's east wall (7000 mm in): past it, north of the
-  // kitchen, is open ground (every other wall has a room beyond it).
+  // the living room's east wall (5700 mm in): past it is open ground.
   // The entry organiser, 400 mm across, stands flush against it; its
   // place is read in millimetres from the Detail tab
   const name = "Entry organiser";
@@ -5229,7 +5231,7 @@ test("a piece may stand past the walls; near a wall the magnet draws it flush, i
   const fromWest = page.getByRole("spinbutton", {
     name: `${name} from the west wall in millimetres`,
   });
-  await expect(fromWest).toHaveValue("6600");
+  await expect(fromWest).toHaveValue("5300");
   /** the piece dragged `mm` east (west when less than nothing) */
   const dragBy = async (mm: number) => {
     const b = (await body.boundingBox())!;
@@ -5245,14 +5247,14 @@ test("a piece may stand past the walls; near a wall the magnet draws it flush, i
   };
   // 300 mm off the wall, past the magnet's reach: it stays there
   await dragBy(-300);
-  await expect(fromWest).toHaveValue("6300");
+  await expect(fromWest).toHaveValue("5000");
   // let go 100 mm from the wall: it goes flush to it
   await dragBy(200);
-  await expect(fromWest).toHaveValue("6600");
+  await expect(fromWest).toHaveValue("5300");
   // let go outside, 400 mm past the wall: it stands outside, against
   // the wall band's far face (300 mm)
   await dragBy(800);
-  await expect(fromWest).toHaveValue("7300");
+  await expect(fromWest).toHaveValue("6000");
   // the rules read it as past the wall
   await expect(page.getByRole("list", { name: "Room health" })).toContainText(
     `${name} stands past the wall`,
@@ -5266,7 +5268,7 @@ test("a piece may stand past the walls; near a wall the magnet draws it flush, i
   await page.getByRole("radio", { name: "Off" }).click();
   await page.keyboard.press("Escape");
   await dragBy(-800);
-  await expect(fromWest).toHaveValue("6500");
+  await expect(fromWest).toHaveValue("5200");
 });
 
 test("Eva furnishes the room by the book, reviews it, applies her changes as one undo step, and explains a layout", async ({

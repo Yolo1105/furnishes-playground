@@ -38,9 +38,11 @@ const SAVE_AFTER = 600; // ms after the last change
     raised when the studio starts over, so a browser that kept projects
     from an earlier studio keeps none of them and opens the flat alone
     (the projects it had are noted gone, so an account's copies go too).
-    3: the HDB 5-room flat, and nothing kept from before it */
+    3: the HDB 5-room flat, and nothing kept from before it; 4: the
+    same flat re-laid after a family planner (the bedrooms and
+    bathrooms off a hall, the household shelter, the service yard) */
 const SHOWCASE_KEY = "furnishes.showcase";
-const SHOWCASE = { version: 3, name: "HDB 5-room flat" };
+const SHOWCASE = { version: 4, name: "HDB 5-room flat" };
 
 type RoomData = ReturnType<typeof useRoom.getState>;
 type SceneData = ReturnType<typeof useScene.getState>;

@@ -392,6 +392,7 @@ function Form(p: Props) {
   // the kitchen's and the bathroom's fittings, by what they are
   if (/counter|worktop/.test(name)) return <Counter w={w} h={h} d={d} />;
   if (/fridge|refrigerator/.test(name)) return <Fridge w={w} h={h} d={d} />;
+  if (/washing machine|washer/.test(name)) return <Washer w={w} h={h} d={d} />;
   if (/basin|vanity/.test(name))
     return <Basin id={p.node.id} w={w} h={h} d={d} f={own} />;
   if (/\bwc\b|toilet/.test(name)) return <Toilet w={w} h={h} d={d} />;
@@ -427,7 +428,10 @@ function Form(p: Props) {
       />
     );
 
+  if (/bunk/.test(name)) return <BunkBed w={w} h={h} d={d} colour={p.colour} />;
   if (/\bbed\b/.test(name)) return <Bed w={w} h={h} d={d} colour={p.colour} />;
+  if (/tv console|media console/.test(name))
+    return <MediaConsole w={w} h={h} d={d} f={own} />;
   // a wardrobe is a carcass of two tall doors
   if (/wardrobe/.test(name))
     return (
@@ -1376,6 +1380,173 @@ function Bed({
         at={[0, base + mattress + 0.045, d * 0.17]}
         dims={[w - 0.02, 0.09, d * 0.62]}
         radius={0.04}
+      />
+    </group>
+  );
+}
+
+/** a washing machine: a white box, its drum's round door in front and
+    the controls along the top */
+function Washer({ w, h, d }: { w: number; h: number; d: number }) {
+  const f: Finish = { colour: WHITE_GOODS, rough: 0.3, coat: 0.3 };
+  const r = Math.min(w, h) * 0.3;
+  return (
+    <group>
+      <Soft f={f} at={[0, h / 2, 0]} dims={[w, h, d]} radius={0.015} />
+      <Slab
+        f={{ colour: shade(WHITE_GOODS, -0.12), rough: 0.4 }}
+        at={[0, h - 0.06, d / 2 + 0.002]}
+        dims={[w - 0.04, 0.08, 0.004]}
+      />
+      <Rod
+        f={metal(STEEL, 0.25)}
+        at={[0, h * 0.45, d / 2]}
+        r={r}
+        h={0.03}
+        rotation={[Math.PI / 2, 0, 0]}
+      />
+      <Rod
+        f={{ colour: "#2c3134", rough: 0.1, coat: 0.8 }}
+        at={[0, h * 0.45, d / 2 + 0.01]}
+        r={r * 0.78}
+        h={0.025}
+        rotation={[Math.PI / 2, 0, 0]}
+      />
+    </group>
+  );
+}
+
+/** a bunk bed: two beds one over the other in a frame of posts, a
+    guard rail round the upper one and a ladder at its foot on the
+    open side */
+function BunkBed({
+  w,
+  h,
+  d,
+  colour,
+}: {
+  w: number;
+  h: number;
+  d: number;
+  colour: string;
+}) {
+  const f = wood(LIGHT_WOOD);
+  const post = 0.06;
+  const deck = 0.03;
+  const low = 0.22;
+  const high = Math.max(low + 0.7, h - 0.42);
+  const mattress = 0.16;
+  const rail = 0.3;
+  const ladder = 0.42;
+  const x = w / 2 - post / 2;
+  const z = d / 2 - post / 2;
+  const parts: Part[] = [
+    // the four posts
+    ...[-1, 1].flatMap((sx) =>
+      [-1, 1].map((sz): Part => ({
+        f,
+        at: [sx * x, h / 2, sz * z],
+        dims: [post, h, post],
+      })),
+    ),
+    // the two decks, each on its side rails
+    ...[low, high].flatMap((y): Part[] => [
+      { f, at: [0, y, 0], dims: [w - 2 * post, deck, d - 2 * post] },
+      ...[-1, 1].map((s): Part => ({
+        f,
+        at: [s * x, y - 0.06, 0],
+        dims: [post * 0.5, 0.14, d - 2 * post],
+      })),
+    ]),
+    // head and foot boards up to the upper rail
+    ...[-1, 1].map((s): Part => ({
+      f,
+      at: [0, high + rail / 2, s * z],
+      dims: [w - 2 * post, rail, 0.02],
+    })),
+    // the guard rail: full length against the wall, short of the
+    // ladder on the open side
+    { f, at: [-x, high + rail - 0.02, 0], dims: [0.03, 0.04, d - 2 * post] },
+    {
+      f,
+      at: [x, high + rail - 0.02, -ladder / 2],
+      dims: [0.03, 0.04, d - 2 * post - ladder],
+    },
+    // the ladder's two stiles and its rungs, at the foot
+    ...[0, ladder].map((dz): Part => ({
+      f,
+      at: [x + 0.03, (high + rail) / 2, z - post / 2 - dz],
+      dims: [0.03, high + rail, 0.04],
+    })),
+    ...[1, 2, 3, 4].map((i): Part => ({
+      f,
+      at: [x + 0.03, ((high + rail) * i) / 5, z - post / 2 - ladder / 2],
+      dims: [0.025, 0.025, ladder],
+    })),
+  ];
+  const linen = cloth(shade(colour, 0.06));
+  return (
+    <group>
+      <Built parts={parts} />
+      {[low, high].map((y) => (
+        <group key={y}>
+          <Soft
+            f={linen}
+            at={[0, y + deck / 2 + mattress / 2, 0]}
+            dims={[w - 2 * post - 0.02, mattress, d - 2 * post - 0.02]}
+            radius={0.04}
+          />
+          <Soft
+            f={cloth("#f1ebe2")}
+            at={[0, y + deck / 2 + mattress + 0.05, -d / 2 + 0.3]}
+            dims={[w * 0.6, 0.1, 0.4]}
+            radius={0.05}
+          />
+        </group>
+      ))}
+    </group>
+  );
+}
+
+/** a low media console: a carcass of two doors on a plinth, and the
+    television standing on it, set back on its foot */
+function MediaConsole({
+  w,
+  h,
+  d,
+  f,
+}: {
+  w: number;
+  h: number;
+  d: number;
+  f: Finish;
+}) {
+  const tvW = Math.min(1.45, w * 0.8);
+  const tvH = tvW * 0.57;
+  const parts: Part[] = [
+    {
+      f: wood(DARK_WOOD, false),
+      at: [0, PLINTH / 2, 0],
+      dims: [w - 0.06, PLINTH, d - 0.06],
+    },
+    { f, at: [0, (h + PLINTH) / 2, 0], dims: [w, h - PLINTH, d] },
+    // the two doors' meeting line
+    {
+      f: wood(DARK_WOOD, false),
+      at: [0, (h + PLINTH) / 2, d / 2 + 0.001],
+      dims: [0.004, h - PLINTH - 0.04, 0.002],
+    },
+    // the television's foot
+    { f: metal(IRON), at: [0, h + 0.01, -d * 0.1], dims: [0.36, 0.02, 0.2] },
+    { f: metal(IRON), at: [0, h + 0.05, -d * 0.12], dims: [0.06, 0.08, 0.03] },
+  ];
+  return (
+    <group>
+      <Built parts={parts} />
+      <Slab
+        f={{ colour: "#121315", rough: 0.12, coat: 0.7 }}
+        at={[0, h + 0.08 + tvH / 2, -d * 0.12]}
+        dims={[tvW, tvH, 0.03]}
       />
     </group>
   );

@@ -173,6 +173,21 @@ export const ARCHETYPES: Record<RoomId, Archetype> = {
       { what: /trolley|cart|caddy/i, name: "trolley", place: "free-wall" },
     ],
   },
+  hall: {
+    name: "The way kept clear",
+    rules: [{ what: BOOKS, name: "shelf", place: "free-wall" }],
+  },
+  shelter: {
+    name: "The shelving on the longest wall",
+    rules: [{ what: BOOKS, name: "shelving", place: "longest-wall" }],
+  },
+  yard: {
+    name: "The washer by the screen",
+    rules: [
+      { what: /washer|washing/i, name: "washer", place: "free-wall" },
+      { what: /trolley|cart/i, name: "cart", place: "free-wall" },
+    ],
+  },
 };
 
 const SAID: Record<Placement, (r: Rule) => string> = {

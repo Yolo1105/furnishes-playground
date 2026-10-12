@@ -166,11 +166,16 @@ const SIZES_BY_NAME: [RegExp, [number, number, number]][] = [
   [/shower screen/i, [50, 900, 2000]],
   [/screen/i, [1500, 300, 1700]],
   [/bedside/i, [450, 400, 550]],
+  // two beds one over the other, a ladder at the foot
+  [/bunk/i, [1000, 2000, 1600]],
   [/\bbed\b/i, [1550, 2000, 450]],
   [/wardrobe/i, [1200, 600, 2000]],
   [/\bdesk\b(?!-side| lamp)/i, [1200, 600, 750]],
   [/dining table/i, [1400, 800, 750]],
   [/coat stand/i, [400, 400, 1750]],
+  // a low console the television stands on
+  [/tv console|media console/i, [1800, 400, 500]],
+  [/washing machine|washer/i, [600, 600, 850]],
 ];
 
 /** the body a piece is drawn as: a cart on castors, a bench, a carcass

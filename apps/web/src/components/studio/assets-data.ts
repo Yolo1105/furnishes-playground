@@ -9,7 +9,7 @@
  * Groups follow how furniture relates (storage, seating, tables…), never
  * what can be edited: that is a mark on the row, not a folder.
  *
- * The studio opens on an HDB 5-room flat of seven rooms furnished as a flat is lived
+ * The studio opens on an HDB 5-room flat of ten rooms furnished as a flat is lived
  * in (room-store's showcaseFlat has the rooms). The pieces in it are
  * made from the catalogue's recipes, so their size and price are the
  * recipe's; the room items are the things a room has. Every item's
@@ -129,258 +129,230 @@ type Place = Partial<
 > & { x: number; y: number };
 
 /**
- * The flat as it opens, room by room. The living and dining room: the
- * lounge under the window faces the sideboard on the south wall (the
- * media wall, between the two bedrooms' doors), the rug and the coffee
- * table between, the armchair at the rug's east end, the bookwall on
- * the north wall east of the window, the dining table at the east end
- * beside the kitchen door with its four chairs, the shoe bench on the
- * south wall west of the entry door, the entry organiser on the east
- * wall north of the kitchen door. The kitchen: a fitted counter along
- * the north wall with its wall cabinets, the fridge at the south-east,
- * the preparation island on the south wall with two stools, the
- * trolley at the counter's end under the window. The master bedroom: a
- * queen bed with its head on the south wall, a bedside cabinet each
- * side, the storage bench at its foot, the wardrobe along the west
- * wall, the organiser by the window; its bathroom: the shower behind
- * its screen in the south-west corner, the basin cabinet on the east
- * wall with the WC beside it, the towel trolley on the west wall clear
- * of the door. The common bathroom: the shower behind its screen in
- * the north-west corner, the basin on the north wall, the WC on the
- * south, the towel trolley in the south-east corner out of the door's
- * swing. Bedroom 2: a single bed with its head on the west wall and a
- * bedside cabinet, the wardrobe and a study desk side by side on the
- * south wall, the organiser on the east wall. Bedroom 3: the
- * workstation on the east wall with its chair and the work cart, a
- * daybed along the west wall, a plant. Every gap is a walkway (600 mm
- * or more) and every door's swing is clear (showcase.test.ts).
+ * The flat as it opens, room by room, furnished as a family with
+ * children lives in it (after the family apartment planner it follows).
+ * The living and dining room: a homework desk for three under the north
+ * window with its chairs, the bookwall on the west wall beside it; the
+ * sofa facing the media wall on the east wall, the rug and the coffee
+ * table between, the armchair at the rug's south end; the dining table
+ * by the kitchen's slider with four chairs; the sideboard on the south
+ * wall between the slider and the entrance, the entry organiser for
+ * shoes on the east wall by the door. The kitchen: the counter with its
+ * wall cabinets along the south wall, the fridge and the trolley on the
+ * north wall clear of the slider. The parents' room: a queen bed with
+ * its head on the north wall and a bedside cabinet each side, the
+ * wardrobe on the south wall clear of the door. The children's rooms:
+ * a bunk bed for two on the west wall with a bedside cabinet and a
+ * wardrobe across the room; a single bed, a desk with its chair, a
+ * wardrobe and a bedside cabinet for the one alone. The bathrooms: a
+ * shower behind its screen, the basin, the WC and a towel trolley; the
+ * shelter's shelving on its back wall; the yard's washer and work cart.
+ * Every gap is a walkway (600 mm or more) and every door's swing is
+ * clear (showcase.test.ts).
  */
+const R = SHOWCASE_ROOMS;
 const SHOWCASE: [AssetNode, Place][] = [
   // the living and dining room
-  // the media wall between the two bedrooms' doors
-  [piece("sideboard"), { x: 1150, y: 4100, rotation: 180 }],
   [
     piece("bookwall", "bookwall", ["Segment A", "Segment B"]),
-    { x: 5200, y: 0 },
+    { x: 0, y: 1300, rotation: 270 },
   ],
-  [piece("bench"), { x: 4000, y: 4100, rotation: 180 }],
-  [piece("entry"), { x: 6600, y: 1000, rotation: 90 }],
-  [decor("sofa", "Sofa", "seating"), { x: 1000, y: 1300, width: 2400 }],
+  [piece("sideboard"), { x: 2200, y: 5900, rotation: 180 }],
+  [piece("entry"), { x: 5300, y: 4700, rotation: 90 }],
+  [
+    decor("homework-desk", "Homework desk", "tables"),
+    { x: 300, y: 0, width: 2200, depth: 600 },
+  ],
+  [
+    decor("desk-chair", "Desk chair", "seating"),
+    { x: 450, y: 650, rotation: 180 },
+  ],
+  [
+    decor("desk-chair-2", "Desk chair 2", "seating"),
+    { x: 1150, y: 650, rotation: 180 },
+  ],
+  [
+    decor("desk-chair-3", "Desk chair 3", "seating"),
+    { x: 1850, y: 650, rotation: 180 },
+  ],
+  [
+    decor("tv-console", "TV console", "tables"),
+    { x: 5300, y: 2300, rotation: 90 },
+  ],
+  [
+    decor("sofa", "Sofa", "seating"),
+    { x: 2500, y: 2000, rotation: 270, width: 2400 },
+  ],
   [
     decor("rug", "Rug", "decor"),
-    { x: 1000, y: 2300, width: 2400, depth: 1600 },
+    { x: 3400, y: 2000, rotation: 90, width: 2400, depth: 1600 },
   ],
-  [decor("coffee-table", "Coffee table", "tables"), { x: 1700, y: 2800 }],
+  [
+    decor("coffee-table", "Coffee table", "tables"),
+    { x: 4000, y: 2700, rotation: 90 },
+  ],
   [
     decor("armchair", "Armchair", "seating"),
-    { x: 3500, y: 2600, rotation: 90 },
+    { x: 3900, y: 4400, rotation: 180 },
   ],
-  [decor("floor-lamp", "Floor lamp", "lighting"), { x: 3450, y: 1400 }],
-  [decor("plant", "Potted plant", "decor"), { x: 200, y: 200 }],
-  [decor("plant-2", "Potted plant 2", "decor"), { x: 6500, y: 200 }],
-  [decor("dining-table", "Dining table", "tables"), { x: 4700, y: 1600 }],
-  [decor("chair-1", "Dining chair", "seating"), { x: 4950, y: 1100 }],
-  [decor("chair-2", "Dining chair 2", "seating"), { x: 5650, y: 1100 }],
+  [decor("floor-lamp", "Floor lamp", "lighting"), { x: 2550, y: 1500 }],
+  [decor("plant", "Potted plant", "decor"), { x: 5200, y: 1700 }],
+  [
+    decor("dining-table", "Dining table", "tables"),
+    { x: 1100, y: 4400, rotation: 90, width: 1200 },
+  ],
+  [
+    decor("chair-1", "Dining chair", "seating"),
+    { x: 600, y: 4600, rotation: 270 },
+  ],
+  [
+    decor("chair-2", "Dining chair 2", "seating"),
+    { x: 600, y: 5100, rotation: 270 },
+  ],
   [
     decor("chair-3", "Dining chair 3", "seating"),
-    { x: 4950, y: 2400, rotation: 180 },
+    { x: 1950, y: 4600, rotation: 90 },
   ],
   [
     decor("chair-4", "Dining chair 4", "seating"),
-    { x: 5650, y: 2400, rotation: 180 },
+    { x: 1950, y: 5100, rotation: 90 },
   ],
-  // the kitchen
-  [
-    piece("island"),
-    { roomId: SHOWCASE_ROOMS.kitchen, x: 600, y: 2300, rotation: 180 },
-  ],
-  [
-    piece("kitchen", "trolley-kitchen"),
-    { roomId: SHOWCASE_ROOMS.kitchen, x: 2800, y: 1200, rotation: 90 },
-  ],
+  // the kitchen, a galley
   [
     decor("counter", "Kitchen counter", "fittings"),
-    { roomId: SHOWCASE_ROOMS.kitchen, x: 0, y: 0 },
+    { roomId: R.kitchen, x: 400, y: 1800, rotation: 180 },
   ],
-  [
-    decor("fridge", "Fridge", "fittings"),
-    { roomId: SHOWCASE_ROOMS.kitchen, x: 1800, y: 2050, rotation: 180 },
-  ],
-  [
-    decor("stool-1", "Stool", "seating"),
-    { roomId: SHOWCASE_ROOMS.kitchen, x: 800, y: 1900 },
-  ],
-  [
-    decor("stool-2", "Stool 2", "seating"),
-    { roomId: SHOWCASE_ROOMS.kitchen, x: 1300, y: 1900 },
-  ],
-  [
-    decor("basket", "Wicker basket", "decor"),
-    { roomId: SHOWCASE_ROOMS.kitchen, x: 2800, y: 2350 },
-  ],
-  // the master bedroom
+  [decor("fridge", "Fridge", "fittings"), { roomId: R.kitchen, x: 0, y: 0 }],
+  [piece("kitchen", "trolley-kitchen"), { roomId: R.kitchen, x: 1400, y: 0 }],
+  // the parents' room
   [
     decor("bed", "Queen bed", "beds"),
-    {
-      roomId: SHOWCASE_ROOMS.master,
-      x: 1400,
-      y: 1400,
-      rotation: 180,
-      width: 1600,
-      depth: 2100,
-    },
+    { roomId: R.master, x: 700, y: 0, width: 1600, depth: 2100 },
   ],
-  [
-    piece("bedside", "bedside-west"),
-    { roomId: SHOWCASE_ROOMS.master, x: 800, y: 3100, rotation: 180 },
-  ],
+  [piece("bedside", "bedside-west"), { roomId: R.master, x: 100, y: 0 }],
   [
     piece("bedside", "bedside-east", undefined, "Bedside cabinet 2"),
-    { roomId: SHOWCASE_ROOMS.master, x: 3000, y: 3100, rotation: 180 },
-  ],
-  [
-    piece("bench", "bench-master", undefined, "Storage bench 2"),
-    { roomId: SHOWCASE_ROOMS.master, x: 1600, y: 1000 },
-  ],
-  [
-    piece("desk"),
-    { roomId: SHOWCASE_ROOMS.master, x: 3600, y: 200, rotation: 90 },
+    { roomId: R.master, x: 2300, y: 0 },
   ],
   [
     decor("wardrobe", "Wardrobe", "storage"),
     {
-      roomId: SHOWCASE_ROOMS.master,
+      roomId: R.master,
       x: 0,
-      y: 200,
-      rotation: 270,
+      y: 3200,
+      rotation: 180,
       width: 2000,
       height: 2200,
     },
   ],
   [
-    decor("plant-3", "Potted plant 3", "decor"),
-    { roomId: SHOWCASE_ROOMS.master, x: 700, y: 150 },
+    decor("plant-2", "Potted plant 2", "decor"),
+    { roomId: R.master, x: 2500, y: 2300 },
   ],
-  // the bathroom
-  [
-    decor("shower-screen", "Shower screen", "fittings"),
-    { roomId: SHOWCASE_ROOMS.bathroom, x: 900, y: 0 },
-  ],
-  [
-    decor("basin", "Basin cabinet", "fittings"),
-    { roomId: SHOWCASE_ROOMS.bathroom, x: 950, y: 0 },
-  ],
-  [
-    decor("wc", "WC", "fittings"),
-    { roomId: SHOWCASE_ROOMS.bathroom, x: 1000, y: 1050, rotation: 180 },
-  ],
-  [
-    decor("bath-mat", "Bath mat", "decor"),
-    { roomId: SHOWCASE_ROOMS.bathroom, x: 950, y: 500 },
-  ],
-  [
-    piece("kitchen", "trolley-bath", undefined, "Kitchen trolley 2"),
-    { roomId: SHOWCASE_ROOMS.bathroom, x: 2000, y: 1100, rotation: 90 },
-  ],
-  [
-    decor("basket-2", "Wicker basket 2", "decor"),
-    { roomId: SHOWCASE_ROOMS.bathroom, x: 1500, y: 1350 },
-  ],
-  // bedroom 2, a child's room
+  // bedroom 2, one child's room
   [
     decor("bed-2", "Single bed", "beds"),
-    {
-      roomId: SHOWCASE_ROOMS.bedroom2,
-      x: 0,
-      y: 750,
-      rotation: 270,
-      width: 1000,
-      depth: 1900,
-    },
+    { roomId: R.bedroom2, x: 1700, y: 0, width: 1000, depth: 1900 },
   ],
   [
     piece("bedside", "bedside-bedroom2", undefined, "Bedside cabinet 3"),
-    { roomId: SHOWCASE_ROOMS.bedroom2, x: 0, y: 150, rotation: 270 },
-  ],
-  [
-    decor("wardrobe-2", "Wardrobe 2", "storage"),
-    {
-      roomId: SHOWCASE_ROOMS.bedroom2,
-      x: 1700,
-      y: 2400,
-      rotation: 180,
-      width: 1300,
-      height: 2100,
-    },
+    { roomId: R.bedroom2, x: 1100, y: 0 },
   ],
   [
     decor("study-desk", "Study desk", "tables"),
     {
-      roomId: SHOWCASE_ROOMS.bedroom2,
-      x: 500,
-      y: 2400,
-      rotation: 180,
+      roomId: R.bedroom2,
+      x: 0,
+      y: 1000,
+      rotation: 270,
       width: 1200,
       depth: 600,
     },
   ],
   [
-    decor("desk-chair", "Desk chair", "seating"),
-    { roomId: SHOWCASE_ROOMS.bedroom2, x: 900, y: 1900, rotation: 180 },
+    decor("desk-chair-4", "Desk chair 4", "seating"),
+    { roomId: R.bedroom2, x: 600, y: 1350, rotation: 90 },
   ],
   [
-    piece("desk", "desk-bedroom2", undefined, "Desk-side organiser 2"),
-    { roomId: SHOWCASE_ROOMS.bedroom2, x: 2600, y: 900, rotation: 90 },
-  ],
-  // bedroom 3, a study and guest room
-  [
-    piece("workstation"),
-    { roomId: SHOWCASE_ROOMS.bedroom3, x: 2000, y: 1000, rotation: 90 },
-  ],
-  [
-    decor("desk-chair-2", "Desk chair 2", "seating"),
-    { roomId: SHOWCASE_ROOMS.bedroom3, x: 1450, y: 1400, rotation: 270 },
-  ],
-  [
-    decor("day-bed", "Day bed", "beds"),
+    decor("wardrobe-2", "Wardrobe 2", "storage"),
     {
-      roomId: SHOWCASE_ROOMS.bedroom3,
+      roomId: R.bedroom2,
       x: 0,
-      y: 1000,
-      rotation: 270,
-      width: 1900,
-      depth: 900,
+      y: 2800,
+      rotation: 180,
+      width: 900,
+      height: 2100,
+    },
+  ],
+  // bedroom 3, two children's room
+  [
+    decor("bunk-bed", "Bunk bed", "beds"),
+    { roomId: R.bedroom3, x: 0, y: 400, width: 1000, depth: 2000 },
+  ],
+  [
+    piece("bedside", "bedside-bedroom3", undefined, "Bedside cabinet 4"),
+    { roomId: R.bedroom3, x: 1000, y: 400 },
+  ],
+  [
+    decor("wardrobe-3", "Wardrobe 3", "storage"),
+    {
+      roomId: R.bedroom3,
+      x: 2400,
+      y: 400,
+      rotation: 90,
+      width: 1200,
+      height: 2100,
     },
   ],
   [
-    piece("work-cart"),
-    { roomId: SHOWCASE_ROOMS.bedroom3, x: 2350, y: 2200, rotation: 180 },
+    decor("rug-2", "Rug 2", "decor"),
+    { roomId: R.bedroom3, x: 1200, y: 1300, width: 1100, depth: 900 },
+  ],
+  // the first bathroom
+  [
+    decor("shower-screen", "Shower screen", "fittings"),
+    { roomId: R.bathroom, x: 1400, y: 800, rotation: 90 },
   ],
   [
-    decor("plant-4", "Potted plant 4", "decor"),
-    { roomId: SHOWCASE_ROOMS.bedroom3, x: 2500, y: 200 },
-  ],
-  // the master's bathroom
-  [
-    piece("kitchen", "trolley-ensuite", undefined, "Kitchen trolley 3"),
-    { roomId: SHOWCASE_ROOMS.ensuite, x: 0, y: 300, rotation: 90 },
+    decor("basin", "Basin cabinet", "fittings"),
+    { roomId: R.bathroom, x: 0, y: 750, rotation: 270 },
   ],
   [
-    decor("shower-screen-2", "Shower screen 2", "fittings"),
-    { roomId: SHOWCASE_ROOMS.ensuite, x: 900, y: 1100 },
+    decor("wc", "WC", "fittings"),
+    { roomId: R.bathroom, x: 450, y: 1050, rotation: 180 },
   ],
+  [
+    decor("bath-mat", "Bath mat", "decor"),
+    { roomId: R.bathroom, x: 600, y: 400 },
+  ],
+  [
+    piece("kitchen", "trolley-bath", undefined, "Kitchen trolley 2"),
+    { roomId: R.bathroom, x: 1900, y: 200, rotation: 90 },
+  ],
+  // the second bathroom
   [
     decor("basin-2", "Basin cabinet 2", "fittings"),
-    { roomId: SHOWCASE_ROOMS.ensuite, x: 1150, y: 500, rotation: 90 },
+    { roomId: R.bathroom2, x: 0, y: 750, rotation: 270 },
   ],
   [
     decor("wc-2", "WC 2", "fittings"),
-    { roomId: SHOWCASE_ROOMS.ensuite, x: 950, y: 1100, rotation: 90 },
+    { roomId: R.bathroom2, x: 450, y: 1050, rotation: 180 },
   ],
   [
-    decor("bath-mat-2", "Bath mat 2", "decor"),
-    { roomId: SHOWCASE_ROOMS.ensuite, x: 500, y: 500 },
+    piece("kitchen", "trolley-bath-2", undefined, "Kitchen trolley 3"),
+    { roomId: R.bathroom2, x: 1100, y: 0, rotation: 90 },
   ],
+  // the household shelter
+  [
+    piece("bookwall", "shelter-shelving", undefined, "Shelter shelving"),
+    { roomId: R.shelter, x: 200, y: 800, rotation: 180 },
+  ],
+  // the service yard
+  [
+    decor("washer", "Washing machine", "fittings"),
+    { roomId: R.yard, x: 0, y: 0 },
+  ],
+  [piece("work-cart"), { roomId: R.yard, x: 0, y: 1500, rotation: 180 }],
 ];
 
 /** where everything in the flat stands as it opens, as the scene's

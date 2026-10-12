@@ -114,7 +114,17 @@ export function PlanSymbol({
     circle(w / 2, d * 0.25 + (d * 0.75) / 2, r);
   } else if (/shower screen/.test(name)) {
     line(w / 2, 0, w / 2, d);
+  } else if (/washing machine|washer/.test(name)) {
+    // the drum's door in the white box
+    rect(30, 30, w - 60, d - 60);
+    circle(w / 2, d / 2, Math.min(w, d) * 0.3);
+  } else if (/tv console|media console/.test(name)) {
+    // the console's doors, the television standing on it
+    bays(2);
+    rect(w * 0.12, d * 0.3, w * 0.76, 50);
   } else if (/\bbed\b/.test(name)) {
+    // a bunk bed reads as a bed with its upper bed's cross
+    if (/bunk/.test(name)) cross();
     rect(40, 40, w - 80, d - 80);
     const pw = (w - 200) / 2;
     rect(70, 90, pw, 260);

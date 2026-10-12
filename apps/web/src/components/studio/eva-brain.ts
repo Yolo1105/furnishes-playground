@@ -108,6 +108,9 @@ const CORE: Record<RoomId, AssetCategory[]> = {
   study: ["tables", "storage", "lighting"],
   bathroom: ["storage"],
   ensuite: ["storage"],
+  hall: [],
+  shelter: ["storage"],
+  yard: ["storage"],
 };
 const SECONDARY: AssetCategory[] = ["lighting", "decor"];
 
@@ -163,6 +166,9 @@ const BANDS: Record<RoomId, Band[]> = {
     { category: "storage", label: "Storage", lo: 0.15, hi: 0.25 },
     { category: "decor", label: "Textiles and décor", lo: 0.08, hi: 0.12 },
   ],
+  hall: [{ category: "decor", label: "Décor", lo: 0.05, hi: 0.1 }],
+  shelter: [{ category: "storage", label: "Shelving", lo: 0.6, hi: 0.8 }],
+  yard: [{ category: "storage", label: "Storage", lo: 0.3, hi: 0.5 }],
 };
 
 /** the fit guidance lines for this room of this flat */

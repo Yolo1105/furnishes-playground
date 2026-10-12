@@ -549,3 +549,107 @@ room from its corner"). The tour adds the two bedrooms and
 the master's bathroom to its round (21 stops). Saved projects keep their rooms; only a new project opens on
 this flat. The cost to draw grows with the rooms: the bench's opening
 lines and the probes above say what it costs on a given device.
+
+## Re-laid after a family apartment planner (2026-10-12)
+
+A family apartment planner (an interactive Three.js page of a Singapore
+5-room flat for two parents and three children) was read for its plan
+and its furniture, and the showcase flat re-laid after it. The page
+was read as data: its room rectangles, its furniture lists and its
+three layouts for the children's rooms.
+
+What the planner does that the earlier flat did not:
+
+- **The bedrooms and bathrooms open off a hall, not off the living
+  room.** A 0.7 m bedroom hall runs west from the living room; the
+  three bedrooms stand along its north side, the two bathrooms and the
+  household shelter along its south side. The living room keeps its
+  walls for the sofa, the television and the dining table.
+- **The kitchen runs across the south of the flat** behind the living
+  room, reached through a wide opening, with the service yard at its
+  west end and the entrance in the south-east corner of the living room.
+- **The rooms an HDB flat has that a plan of the main rooms leaves
+  out:** the household shelter (the bomb shelter every HDB flat has,
+  used as a store) and the service yard (the washer and the drying
+  rack).
+- **The living room is a family room:** a sofa facing a media console
+  on the east wall, a coffee table on a rug, a lounge chair, a four-
+  seat dining table by the kitchen with a sideboard, a shoe cabinet by
+  the door, and a three-seat homework desk under the window, the
+  "shared study" the planner puts in the living room so the children
+  work where they are seen.
+- **The children's rooms:** two children share a room with a bunk bed,
+  wardrobes and a rug; the third has a single bed, a desk and a
+  wardrobe. The parents' room has a queen bed between two bedside
+  cabinets and a wardrobe.
+
+The studio's flat now has ten rooms. Rooms are rectangles with 300 mm
+walls, so the planner's 0.7 m hall becomes 1.1 m (the least a door
+off it opens into comfortably) and the sizes are rounded to the
+planner's 50 mm grid. Positions are each room's north-west corner on
+the sheet, mm.
+
+| Room              | Kind      | Size (W × D) | Position     | Doorway                       |
+| ----------------- | --------- | ------------ | ------------ | ----------------------------- |
+| Living & dining   | living    | 5700 × 6300  | (9600, 0)    | entry door, south wall        |
+| Kitchen           | kitchen   | 5000 × 2400  | (7700, 6600) | 1.8 m slider from the living  |
+| Master bedroom    | master    | 3000 × 3800  | (0, 900)     | door from the hall's west end |
+| Bedroom 2         | bedroom-1 | 2700 × 3400  | (6600, 0)    | door from the hall            |
+| Bedroom 3         | bedroom-2 | 3000 × 3400  | (3300, 0)    | door from the hall            |
+| Bathroom          | bathroom  | 2300 × 1700  | (3300, 5100) | 750 door from the hall        |
+| Bathroom 2        | bathroom  | 1500 × 1700  | (5900, 5100) | 700 door from the hall        |
+| Hall              | hall      | 6000 × 1100  | (3300, 3700) | 1.0 m opening from the living |
+| Household shelter | shelter   | 1600 × 1200  | (7700, 5100) | door from the hall            |
+| Service yard      | yard      | 1500 × 1900  | (5900, 7100) | door from the kitchen         |
+
+Every other shared wall stands closed, so each bedroom and bathroom is
+reached only by its own door from the hall. Hall, shelter and yard are
+new room kinds in room-data.ts (sizes for the 3-, 4- and 5-room
+types, no windows for the hall and the shelter, a screened opening for
+the yard), with an archetype each and Eva's bands for what they hold.
+
+What stands in each room (★ Furnishes pieces; the rest are room
+items). Every room passes the planner's rules as it opens
+(showcase.test.ts): nothing over another, the doors' swings and the
+windows clear, 600 mm walkways, what the room must have.
+
+- **Living & dining:** ★ bookwall on the west wall, ★ sideboard on the
+  south wall by the dining table, ★ entry organiser by the door; the
+  sofa (2.4 m) facing east to a TV console with its television, a rug
+  under the coffee table, an armchair, a floor lamp and a plant; a 2.2
+  m homework desk under the north window with three chairs; a dining
+  table for four.
+- **Kitchen:** the counter with its wall cabinets along the south wall,
+  the fridge and a ★ kitchen trolley on the north
+  wall clear of the slider.
+- **Master bedroom:** a queen bed with its head on the north wall
+  between ★ two bedside cabinets, a 2 m wardrobe on the south wall, a
+  plant.
+- **Bedroom 2 (one child):** a single bed against the east wall with a
+  ★ bedside cabinet, a study desk on the west wall with its chair, a
+  wardrobe on the south wall clear of the door.
+- **Bedroom 3 (two children):** a bunk bed on the west wall with a ★
+  bedside cabinet, a wardrobe across the room, a rug.
+- **Bathroom:** a shower behind its screen in the south-east corner
+  under the window, the basin cabinet on the west wall with the WC
+  beside it, a ★ towel trolley, a bath mat.
+- **Bathroom 2:** the basin cabinet and the WC, a ★ towel trolley.
+- **Household shelter:** ★ shelving on its back wall.
+- **Service yard:** a washing machine and a ★ work cart.
+- **Hall:** kept clear.
+
+New forms: a bunk bed (posts, two decks and mattresses, a guard rail
+round the upper deck and a ladder at its foot), a TV console (a two-
+door carcass on a plinth with a television standing on it) and a
+washing machine (a white box with its drum's door and a control strip),
+in Furniture3D.tsx and as plan symbols; sizes by name in
+piece-detail.ts.
+
+Changing the flat type no longer resizes the showcase's rooms: their
+sizes are set from the plan, as a visitor's typed sizes are, so a 3-
+or 4-room type changes the rooms' kinds (bedroom 3 becomes a living
+room in a 3-room flat) and keeps every room where it stands and every
+doorway. Before, the rooms followed the type's sizes and were stood
+back together, which a ten-room plan packed wall to wall does not
+survive. The start-over version is 4, so a browser that kept the
+earlier flat opens on this one.
