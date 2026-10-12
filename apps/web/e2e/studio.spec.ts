@@ -1528,6 +1528,10 @@ test("machining cut for real: shelf pins, a groove and a cup show as holes in th
       });
       return n;
     });
+  // the scene is at hand once the 3D view has mounted
+  await page.waitForFunction(
+    () => !!(window as unknown as { __scene?: unknown }).__scene,
+  );
   await expect(stage3d).toHaveAttribute("data-cuts", "off");
   expect(await cutMeshes()).toBe(0);
   await page.getByRole("button", { name: "View settings" }).click();
