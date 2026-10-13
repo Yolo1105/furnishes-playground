@@ -5,8 +5,8 @@
  *   pnpm smoke https://furnish-es.com
  *
  * Reads /api/health (the database reached and migrated, nothing a
- * hosted deployment still lacks), opens the landing and the inner
- * pages, reads the security headers, robots and the sitemap, joins the
+ * hosted deployment still lacks), opens the studio, the old addresses
+ * and the readings, reads the security headers, robots and the sitemap, joins the
  * waitlist once (and sees the same address refused the second time),
  * and asks Eva one thing to see which brain answers; sees the
  * operations area kept from a guest and the nightly sweep kept from a
@@ -64,13 +64,25 @@ if (up) {
     console.log(`     ${name}: ${state}`);
 }
 
-// the one page, and the old addresses that lead to it
-for (const path of ["/rounded", "/", "/account", "/help"]) {
+// the one page, the old addresses that lead to it, and the readings
+// it opens (help, the terms, the privacy note)
+for (const path of [
+  "/rounded",
+  "/",
+  "/account",
+  "/help",
+  "/terms",
+  "/privacy",
+]) {
   const r = await get(path, { redirect: "follow" });
+  const at = new URL(r.url);
+  const reading = ["/help", "/terms", "/privacy"].includes(path);
   say(
-    r.status === 200 && new URL(r.url).pathname === "/rounded",
+    r.status === 200 &&
+      at.pathname === "/rounded" &&
+      (!reading || at.searchParams.get("read") === path.slice(1)),
     `page ${path}`,
-    `${r.status} ${new URL(r.url).pathname}`,
+    `${r.status} ${at.pathname}${at.search}`,
   );
 }
 const page = await get("/rounded");

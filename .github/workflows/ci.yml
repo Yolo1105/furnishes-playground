@@ -1,11 +1,16 @@
 name: CI
 
 # Every push and pull request: the format, the lint, the types and the
-# unit tests of the whole workspace (the root scripts), the production
-# build, and the studio's own end-to-end suite in Chromium against a
-# development server (the database is PGlite, so no account or key is
-# needed anywhere). Node is the version .nvmrc names; pnpm the one
-# package.json names.
+# unit tests of the whole workspace (the root scripts); the production
+# build, its first-load budget, and the after-deploy smoke checks run
+# against that build served locally; and the studio's end-to-end suite
+# in Chromium against a development server (the database is PGlite, so
+# no account or key is needed anywhere), the desktop suite split in
+# three, the touch suite on its own. The six kept pictures run nightly
+# (visual.yml), where a runner's software GPU drifting a pixel blocks
+# nobody's push. Node is the version .nvmrc names; pnpm the one
+# package.json names; the runner's system is pinned, so its fonts and
+# its software GPU do not move under the suite.
 on:
   push:
   pull_request:
@@ -16,8 +21,8 @@ concurrency:
 
 jobs:
   checks:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -37,10 +42,25 @@ jobs:
       # gzip for /rounded): a static import that drags the part editor,
       # the bench or a kernel into the first load fails here
       - run: node apps/web/scripts/first-load.mjs --check
+      # the production build, served, passes the checks a deploy gets
+      - name: Smoke the production build
+        env:
+          BETTER_AUTH_SECRET: ci-only-not-a-real-secret-0000000000
+        run: |
+          pnpm start > start.log 2>&1 &
+          for i in $(seq 60); do
+            curl -sf http://localhost:3000/api/health > /dev/null && break
+            sleep 1
+          done
+          node apps/web/scripts/smoke.mjs http://localhost:3000 || { cat start.log; exit 1; }
 
-  studio:
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
+  desktop:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -50,10 +70,30 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter ./apps/web exec playwright install --with-deps chromium
-      - run: pnpm e2e -- --reporter=line
+      - run: pnpm e2e -- --project=desktop --shard=${{ matrix.shard }}/3 --reporter=line
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: playwright-results
+          name: playwright-desktop-${{ matrix.shard }}
+          path: apps/web/test-results
+          retention-days: 7
+
+  touch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter ./apps/web exec playwright install --with-deps chromium
+      - run: pnpm e2e -- --project=tablet --project=phone --reporter=line
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-touch
           path: apps/web/test-results
           retention-days: 7
