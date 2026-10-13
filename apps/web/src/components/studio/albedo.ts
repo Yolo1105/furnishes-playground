@@ -93,6 +93,16 @@ export const toneOf = (at: readonly number[]) => {
   return 1 + TONE_SPREAD * (u * 2 - 1);
 };
 
+/** where in the grain a board is cut from, in wood tiles: its place
+    hashed into [0, 1) along and across */
+export const grainShiftOf = (at: readonly number[]): [number, number] => {
+  let n = 0x2545f491;
+  for (const v of at) n = (n * 33 + Math.round(v * 1000)) | 0;
+  const a = (Math.imul(n ^ (n >>> 15), 0x2c1b3c6d) >>> 0) / 0xffffffff;
+  const b = (Math.imul(n ^ (n >>> 12), 0x297a2d39) >>> 0) / 0xffffffff;
+  return [a, b];
+};
+
 /** a colour with its channels scaled by a factor */
 export const toned = (colour: string, k: number) => {
   if (!/^#[0-9a-f]{6}$/i.test(colour) || k === 1) return colour;

@@ -1364,3 +1364,36 @@ by two different amounts:
 Since then, in this sandbox (software WebGL2): the visual project
 passed 6 of 6, and the sunset view passed 10 of 10 (`-g sunset
 --repeat-each=5`, twice).
+
+**Wood that reads as wood (2026-10-13).** Reported: everything wooden
+looked fake, like an illustration. Four causes, each a decision taken
+earlier and now reversed on purpose:
+
+- The furniture's grain map had been turned to light grain values
+  (Prompt 1) so a piece's colour carries the hue. It went too far: a
+  spread of ±6 % (sd 0.065, mean 0.91), so oak times it was a flat tan
+  sheet with faint stripes. The map now spans its 2nd to 99.5th
+  percentile mapped to 0.50–0.97 (sd 0.137, mean 0.80, still over the
+  0.75 the loader asks for), the darker latewood a shade warmer, so
+  the colour still carries the hue and the grain reads through it
+  (public/materials/LICENSES.md says what was changed).
+- The satin lacquer (roughness 0.45, clear coat 0.25) of the regrown
+  wood was kept for the photographed set, whose roughness map halves
+  it (mean 0.5): about 0.23 under a coat, varnished plastic under the
+  room's reflection. Wood is now oiled timber: 1.1 (about 0.55) under a
+  0.06 coat, a matt board that sheens only at a grazing angle.
+- Every board was outlined: its band at 0.86, its eased edge at 0.72
+  and a joint line round all twelve edges at 0.55 opacity, which reads
+  as an illustration's ink. The band is 0.93, the edge 0.88 and the
+  line 0.15. Each board is also cut from its own place in the grain
+  (`grainShiftOf`), so two of a size no longer show the same patch,
+  and a rod's grain runs along it at the wood's scale.
+- The parquet (WoodFloor050) is a strip floor whose strips alternate
+  light and dark sharply, at 2 m a tile strips 6 cm wide: a cartoon
+  floor. Each strip's tone is pulled 80 % of the way to the floor's
+  (the grain inside it kept), the tile is 3.2 m (strips about 10 cm),
+  and the lacquer is matt: 1.1, about 0.36 with its map, where 0.42
+  gave about 0.14, a polished sheet.
+
+Not verified here: how the oiled wood and the matt floor take a real
+GPU's reflections and the desktop tier's SSR.

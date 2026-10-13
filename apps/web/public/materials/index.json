@@ -7,7 +7,7 @@
       "roughness": "roughness.jpg"
     },
     "parquet": {
-      "tile": 2.0,
+      "tile": 3.2,
       "color": "color.jpg",
       "normal": "normal.jpg",
       "roughness": "roughness.jpg"

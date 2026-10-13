@@ -339,8 +339,10 @@ const glassOf = (room: Node) => {
 const ROUGHNESS: Record<Floor, number> = {
   Vinyl: 0.7,
   Tiles: 0.35,
-  // a satin lacquer: the window reflects in it as a soft streak
-  Parquet: 0.42,
+  // a matt lacquer: the roughness map takes this to about 0.36, so
+  // the window lies in it as a broad soft streak (at 0.42, about 0.14,
+  // the floor read as a polished sheet)
+  Parquet: 1.1,
   Concrete: 0.9,
 };
 

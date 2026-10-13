@@ -40,7 +40,7 @@ Two tint paths, which decide how a set's colour map must be made:
   so a wall colour still reads.
 
 What is in: `wood` (ambientCG Wood049, 1 m a tile), `parquet`
-(ambientCG WoodFloor050, 2 m), `plaster` (ambientCG PaintedPlaster017,
+(ambientCG WoodFloor050, 3.2 m: strips about 10 cm wide), `plaster` (ambientCG PaintedPlaster017,
 2 m) and `cloth` (the SheenChair fabric from KhronosGroup/glTF-Sample-
 Assets, 0.3 m), all CC0, resized to 1K; the ambientCG sets came by way
 of Open3D's GitHub data release, since the studio's build sandbox

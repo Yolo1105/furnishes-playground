@@ -17,7 +17,7 @@ import {
   mergeGeometries,
   toCreasedNormals,
 } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { toneOf } from "./albedo";
+import { grainShiftOf, toneOf } from "./albedo";
 import type { Finish } from "./finish";
 import { WOOD_M } from "./textures";
 
@@ -33,11 +33,13 @@ import { WOOD_M } from "./textures";
     where one board ends and the next begins is read at a glance */
 const EDGE = 0.0025;
 /** how much darker a panel's edge band stands than its face: the
-    four narrow faces of a board are banded, and read as its outline */
-const BAND = 0.86;
+    four narrow faces of a board are a shade under its face, as end
+    grain is (darker than this, every board read as drawn round, an
+    illustration's outline) */
+const BAND = 0.93;
 /** how dark the eased edge itself stands: the seam between two boards
-    is drawn as the line a joint shows, so every board is outlined */
-const SEAM = 0.72;
+    catches a little shadow, no more */
+const SEAM = 0.88;
 /** a slab's geometry: a box with its edges eased, its texture laid in
     metres with the grain along the panel's longer side (a top's along
     its length, a side's up its height, a door's up its height), so no
@@ -109,7 +111,7 @@ const JOINT_OUT = 0.0004;
 /** how far below the board's colour its joint lines stand, and how
     much they cover */
 export const JOINT_SHADE = -0.3;
-export const JOINT_OPACITY = 0.55;
+export const JOINT_OPACITY = 0.15;
 export const jointGeometry = (dims: Vector3Tuple) => {
   const key = dims.join(",");
   const had = joints.get(key);
@@ -181,6 +183,14 @@ const placed = (parts: Part[], shape: (p: Part) => BufferGeometry) => {
       for (let v = 0; v < tone.count; v++)
         tone.setXYZ(v, tone.getX(v) * k, tone.getY(v) * k, tone.getZ(v) * k);
     }
+    // and cut from its own place in the log: two boards of a size no
+    // longer show the same patch of grain side by side
+    const uv = g.getAttribute("uv");
+    if (uv) {
+      const [du, dv] = grainShiftOf(p.at);
+      for (let v = 0; v < uv.count; v++)
+        uv.setXY(v, uv.getX(v) + du, uv.getY(v) + dv);
+    }
     return g.applyMatrix4(m);
   });
   const merged = mergeGeometries(each);
@@ -232,6 +242,13 @@ export const rodGeometry = ([r, h, top]: [
   const had = rods.get(key);
   if (had) return had;
   const g = white(new CylinderGeometry(top ?? r, r, h, ROUND));
+  // the grain along the rod, at the wood's own scale: the cylinder's
+  // own 0–1 wrapped a whole tile round a leg a few centimetres across
+  const uv = g.getAttribute("uv");
+  const round = 2 * Math.PI * Math.max(r, top ?? r);
+  for (let i = 0; i < uv.count; i++)
+    uv.setXY(i, (uv.getY(i) * h) / WOOD_M, (uv.getX(i) * round) / WOOD_M);
+  uv.needsUpdate = true;
   if (rods.size >= SLABS_KEPT) {
     const oldest = rods.keys().next().value!;
     rods.get(oldest)!.dispose();

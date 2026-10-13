@@ -40,7 +40,7 @@ export const roughnessOf = (texture: string) =>
     : texture === "Linen"
       ? 0.95
       : texture === "Wood grain"
-        ? 0.55
+        ? WOOD_ROUGH
         : 0.85;
 
 /** a surface's grain: the material (materials.ts) it is drawn with */
@@ -68,12 +68,18 @@ export const cloth = (colour: string): Finish => ({
   sheen: 0.5,
   grain: clothGrain(),
 });
-/** wood under a satin lacquer: the grain's relief under a soft gloss
-    that catches the window as a sheen across the panel */
+/** wood as oiled timber: the roughness map halves what is set here
+    (its mean is 0.5), so 1.1 reads as about 0.55, a matt board that
+    sheens only at a grazing angle, under a coat thin enough to catch
+    the window and no more. Under the satin lacquer it had (0.45 and a
+    0.25 coat, so about 0.23 under the coat) every board read as
+    varnished plastic */
+const WOOD_ROUGH = 1.1;
+const WOOD_COAT = 0.06;
 export const wood = (colour: string, grain = true): Finish => ({
   colour,
-  rough: 0.45,
-  coat: 0.25,
+  rough: WOOD_ROUGH,
+  coat: WOOD_COAT,
   grain: grain ? woodGrain() : undefined,
 });
 export const metal = (colour: string, rough = 0.35): Finish => ({
@@ -86,7 +92,7 @@ export const finishOf = (colour: string, texture: string): Finish => ({
   colour,
   rough: roughnessOf(texture),
   ...(texture === "Wood grain"
-    ? { grain: woodGrain(), coat: 0.25 }
+    ? { grain: woodGrain(), coat: WOOD_COAT }
     : texture === "Linen"
       ? { grain: clothGrain(), sheen: 0.4 }
       : texture === "Satin"
