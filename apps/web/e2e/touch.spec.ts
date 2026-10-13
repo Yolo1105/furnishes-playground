@@ -136,6 +136,15 @@ test("two fingers pinch the plan; a tile is carried after a hold", async ({
   const stage = page.locator(".shell-stage .stage-room-box");
   const r = (await stage.boundingBox())!;
   const c = { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+  // the plan opens framed on its room, at whatever zoom fits the room
+  // between the panels (1 or a little more); the pinch is measured from it
+  const scaleOf = async () =>
+    Number(
+      /^matrix\(([^,]+),/.exec(
+        await sheet.evaluate((e) => getComputedStyle(e).transform),
+      )?.[1] ?? 1,
+    );
+  const before = await scaleOf();
   // two fingers 100 px apart, spread to 200: the sheet is twice as big
   await touch(page, "pointerdown", { x: c.x - 50, y: c.y }, 1);
   await touch(page, "pointerdown", { x: c.x + 50, y: c.y }, 2);
@@ -145,7 +154,7 @@ test("two fingers pinch the plan; a tile is carried after a hold", async ({
   }
   await touch(page, "pointerup", { x: c.x - 100, y: c.y }, 1);
   await touch(page, "pointerup", { x: c.x + 100, y: c.y }, 2);
-  await expect(sheet).toHaveCSS("transform", /matrix\(2, 0, 0, 2/);
+  await expect.poll(scaleOf).toBeCloseTo(before * 2, 3);
   await page.keyboard.press("0");
   // a tile held, then carried onto the room
   const saved = page.locator(".main-shelf").getByRole("tab", { name: /Saved/ });
