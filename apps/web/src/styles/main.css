@@ -2397,11 +2397,13 @@
   box-shadow: none;
 }
 
-/* the view arrives: the scene and the plan fade up once mounted */
+/* the view arrives: the scene and the plan fade in once mounted. A fade
+   alone: the 3D view measures its canvas with the box it is drawn in,
+   scale and all, and a canvas measured mid-scale kept a buffer 1.5 %
+   small for good (a scale fires no resize), drawn soft and closer */
 @keyframes stage-in {
   from {
     opacity: 0;
-    scale: 0.985;
   }
 }
 @media (prefers-reduced-motion: reduce) {
