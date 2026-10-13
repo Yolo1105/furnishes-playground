@@ -165,6 +165,8 @@ export const orders = pgTable(
   (t) => [
     index("orders_user_id_idx").on(t.userId),
     index("orders_payment_ref_idx").on(t.paymentRef),
+    // a refund's event names the intent, not the session
+    index("orders_payment_intent_ref_idx").on(t.paymentIntentRef),
   ],
 );
 
@@ -241,5 +243,9 @@ export const costLog = pgTable(
     usd: doublePrecision().notNull(),
     at: bigint({ mode: "number" }).notNull(),
   },
-  (t) => [index("cost_log_at_idx").on(t.at)],
+  (t) => [
+    index("cost_log_at_idx").on(t.at),
+    // a caller's day, read before every model call
+    index("cost_log_caller_at_idx").on(t.caller, t.at),
+  ],
 );
