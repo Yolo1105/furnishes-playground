@@ -9,7 +9,7 @@ import { SITE } from "@/lib/site";
  * to try again and a way into the studio. The browser's copy of the
  * work is untouched by a failure here.
  */
-export default function ErrorPage({ reset }: { reset: () => void }) {
+export default function ErrorPage({ retry }: { retry: () => void }) {
   return (
     <SitePage
       eye="Something went wrong"
@@ -20,7 +20,7 @@ export default function ErrorPage({ reset }: { reset: () => void }) {
         <button
           type="button"
           className="home-btn home-btn-primary"
-          onClick={reset}
+          onClick={() => retry()}
         >
           Try again
           <span aria-hidden="true"> →</span>
