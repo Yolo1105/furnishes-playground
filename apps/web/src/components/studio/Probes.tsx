@@ -1,6 +1,6 @@
 "use client";
 
-import { useFrame, useThree } from "@react-three/fiber";
+import { type RootState, useFrame, useThree } from "@react-three/fiber";
 import {
   type RefObject,
   useEffect,
@@ -99,15 +99,11 @@ const keptGrid = (key: string, w: number, h: number, d: number): Kept => {
     probesAlong(d),
   );
   grid.position.set(0, h / 2, 0);
-  // the grid's picture made now, empty (a texture starts at zero) until
-  // the first bake fills it: a material's shader samples the grid only
-  // if the grid had a picture when the shader was built
-  // (LightProbeGridNode.setup), and the light's cache key does not
-  // change when one comes, so a shader built first never samples it;
-  // the room then drew without its bounce light (grey) on any load
-  // whose bake started late. `_ensureTextures` is the grid's own
-  // (three 0.186.1, pinned): check it on an upgrade
-  (grid as unknown as { _ensureTextures: () => void })._ensureTextures();
+  // out of the lights until it has its first picture (the probes' first
+  // frame takes one): a shader built while the grid has none never
+  // samples it (LightProbeGridNode.setup), and the lights' key does not
+  // change when one comes, so the room drew without its bounce
+  grid.visible = false;
   const made = { grid, baked: null };
   kept.set(key, made);
   for (const [k, old] of kept) {
@@ -126,6 +122,13 @@ const bakedFor = (key: string, bake: string) => kept.get(key)?.baked === bake;
 const noteBake = (key: string, bake: string | null) => {
   const k = kept.get(key);
   if (k) k.baked = bake;
+};
+
+/** a grid's first picture taken (`bake`), and the grid let into the
+    lights with it */
+const firstPicture = (grid: LightProbeGrid, bake: () => void) => {
+  bake();
+  grid.visible = true;
 };
 
 /** how many probes a span takes, two at least */
@@ -227,7 +230,36 @@ export function Probes({
     onState("pending");
     invalidate();
   }, [grid, key, stamp, get, invalidate, onState]);
+  /** probes `start` to `start + count` of a pass baked, with every wall
+      standing and, on the first pass, without the pieces */
+  const bakeSlice = (
+    state: RootState,
+    start: number,
+    count: number,
+    pass: number,
+  ) =>
+    stillOf(state.scene, pass === 0 ? [pieces.current] : [], () =>
+      withWallsStanding(() =>
+        grid.bake(state.gl as unknown as WebGPURenderer, state.scene, {
+          cubemapSize: FAST
+            ? CUBEMAP.fast
+            : fine
+              ? CUBEMAP.fine
+              : CUBEMAP.plain,
+          start,
+          count,
+          pass,
+        }),
+      ),
+    );
+  // the probes' frame comes before the chain's (Post draws after)
   useFrame((state) => {
+    // a grid without its picture takes one at once, of its first probe
+    // alone (a moment's work), and joins the lights: the shaders the
+    // chain builds next are built with it, once. Built before it had one
+    // they would never sample it, and built again after it would cost
+    // the whole room's shaders a second time
+    if (!grid.texture) firstPicture(grid, () => bakeSlice(state, 0, 1, 0));
     // the room's shaders being built hold the renderer's outputs: the
     // bake goes on once they are; it looks again shortly, so it never
     // waits on a frame nothing asks for
@@ -261,20 +293,7 @@ export function Probes({
     const t0 = performance.now();
     do {
       const count = Math.min(PER_CALL, total - j.at);
-      stillOf(state.scene, j.pass === 0 ? [pieces.current] : [], () =>
-        withWallsStanding(() =>
-          grid.bake(state.gl as unknown as WebGPURenderer, state.scene, {
-            cubemapSize: FAST
-              ? CUBEMAP.fast
-              : fine
-                ? CUBEMAP.fine
-                : CUBEMAP.plain,
-            start: j.at,
-            count,
-            pass: j.pass,
-          }),
-        ),
-      );
+      bakeSlice(state, j.at, count, j.pass);
       j.at += count;
     } while (j.at < total && performance.now() - t0 < BAKE_MS);
     const passes = bounce && !FAST ? BOUNCES + 1 : 1;

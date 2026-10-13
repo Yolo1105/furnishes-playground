@@ -1017,9 +1017,9 @@ const LAMP_LIGHT = {
   desk: { evening: 4, reach: 2.5 },
   /** the shade's own glow, lit and unlit */
   glow: { evening: 0.9, day: 0 },
-  /** the floor lamp's shadow: a small map (the pool is soft), its bias,
-      and how near the bulb it starts, m */
-  shadow: { map: 256, bias: -0.002, near: 0.05 },
+  /** the floor lamp's shadow (the pieces' round it): a small map, soft
+      at its edge, its bias, and how near the bulb it starts, m */
+  shadow: { map: 256, radius: 6, bias: -0.002, near: 0.05 },
 } as const;
 
 function Lamp({
@@ -1053,7 +1053,10 @@ function Lamp({
         r={desk ? 0.008 : 0.012}
         h={stemH}
       />
-      <mesh position={[0, h - shadeH / 2, 0]} castShadow>
+      {/* the shade is fabric: its bulb's light comes through it, so it
+          casts no shadow of its own (an opaque one cut the light to a
+          hard disc on the floor, a stage's spotlight) */}
+      <mesh position={[0, h - shadeH / 2, 0]}>
         <cylinderGeometry args={[r * 0.62, r, shadeH, 32, 1, true]} />
         <meshStandardMaterial
           color={SHADE_HEX}
@@ -1074,6 +1077,7 @@ function Lamp({
         distance={bulb.reach}
         castShadow={shadowed}
         shadow-mapSize={[LAMP_LIGHT.shadow.map, LAMP_LIGHT.shadow.map]}
+        shadow-radius={LAMP_LIGHT.shadow.radius}
         shadow-bias={LAMP_LIGHT.shadow.bias}
         shadow-camera-near={LAMP_LIGHT.shadow.near}
       />

@@ -10,6 +10,8 @@ import {
 } from "./studio-store";
 
 export const LOOK_STORAGE_KEY = "furnishes.view";
+/** the default exposures a kept exposure was chosen against */
+const EXPOSURE_DEFAULTS = JSON.stringify(SCENE_DEFAULT.exposure);
 const TAB_KEY = "furnishes.view.tab";
 
 /**
@@ -30,6 +32,7 @@ export function useArrival() {
           wheelMode?: WheelMode;
           magnet?: boolean;
           scene?: Partial<SceneLook>;
+          exposureDefaults?: string;
         };
         const kept = JSON.parse(tab ?? "{}") as {
           view?: View;
@@ -57,8 +60,11 @@ export function useArrival() {
         // own, is dropped by the filter above (not the default's kind);
         // one kept without a number for each light is dropped here: a
         // visit after the change opens on the new exposures
+        // one chosen against other defaults is dropped too, so a change
+        // to the defaults reaches everyone once
         const exposure = scene.exposure as Record<string, unknown> | null;
         if (
+          saved.exposureDefaults !== EXPOSURE_DEFAULTS ||
           !exposure ||
           !Object.keys(SCENE_DEFAULT.exposure).every(
             (k) => typeof exposure[k] === "number",
@@ -99,6 +105,7 @@ export function useArrival() {
             wheelMode: s.wheelMode,
             magnet: s.magnet,
             scene: s.scene,
+            exposureDefaults: EXPOSURE_DEFAULTS,
           }),
         );
       } catch {

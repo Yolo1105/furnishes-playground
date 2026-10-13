@@ -4687,12 +4687,12 @@ test("View settings: edges, names, a floor grid, shadows and the light, kept for
   // the exposure: a camera's, from dim to bright, one for each light:
   // the evening is exposed for its lamps, the day for its walls
   await expect(stage).toHaveAttribute("data-exposure", "1.3");
-  await menu.getByRole("slider", { name: "Exposure" }).fill("1.4");
-  await expect(stage).toHaveAttribute("data-exposure", "1.4");
+  await menu.getByRole("slider", { name: "Exposure" }).fill("1.6");
+  await expect(stage).toHaveAttribute("data-exposure", "1.6");
   await menu.getByRole("menuitemradio", { name: "Daylight" }).click();
-  await expect(stage).toHaveAttribute("data-exposure", "2.5");
-  await menu.getByRole("menuitemradio", { name: "Evening" }).click();
   await expect(stage).toHaveAttribute("data-exposure", "1.4");
+  await menu.getByRole("menuitemradio", { name: "Evening" }).click();
+  await expect(stage).toHaveAttribute("data-exposure", "1.6");
   // none of it shows on the plan, all of it comes back next time
   await page.keyboard.press("Escape");
   await page.keyboard.press("2");
@@ -4704,7 +4704,7 @@ test("View settings: edges, names, a floor grid, shadows and the light, kept for
   await expect(stage).toHaveAttribute("data-light", "evening");
   await expect(stage).toHaveAttribute("data-grid", "true");
   await expect(stage).toHaveAttribute("data-labels", "true");
-  await expect(stage).toHaveAttribute("data-exposure", "1.4");
+  await expect(stage).toHaveAttribute("data-exposure", "1.6");
   await expect(stage).toHaveAttribute("data-post", "off");
 });
 
