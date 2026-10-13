@@ -814,6 +814,12 @@ body > .shell-menu {
   :is(.shell-rail, .shell-main, .shell-tabs, .shell-scrim) {
   display: none;
 }
+/* and the room takes the whole window: the stage no longer keeps
+   between the rails that are gone */
+.shell[data-ui="hidden"] .shell-stage {
+  --stage-l: 0px;
+  --stage-r: 0px;
+}
 .shell-peek {
   position: fixed;
   top: 12px;

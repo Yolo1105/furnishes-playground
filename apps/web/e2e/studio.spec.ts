@@ -276,6 +276,10 @@ test("rails collapse into the toolbar and come back", async ({ page }) => {
   await expect(shell).toHaveAttribute("data-ui", "hidden");
   await expect(page.locator(".shell-rail-left")).toBeHidden();
   await expect(page.locator(".main-top")).toBeHidden();
+  // the room takes the whole window, not the space the rails left
+  await expect
+    .poll(async () => (await page.locator(".stage-3d").boundingBox())!.width)
+    .toBe(page.viewportSize()!.width);
   // the eye stays where it stood, now the way back
   const peek = page.getByRole("toolbar", { name: "Looking" });
   const back = (await peek
