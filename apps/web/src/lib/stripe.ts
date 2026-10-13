@@ -197,6 +197,9 @@ export type Event = {
   intentRef: string | null;
   /** Stripe's own paid or unpaid for a session */
   paymentStatus: string | null;
+  /** for a charge: whether all of it went back (a partial refund leaves
+      the order paid; the studio notes it by hand) */
+  fullyRefunded: boolean | null;
 };
 
 /** the fields of a webhook payload the order's state needs */
@@ -217,6 +220,7 @@ export function parseEvent(rawBody: string): Event | null {
         payment_status?: unknown;
         client_reference_id?: unknown;
         metadata?: { order_id?: unknown };
+        refunded?: unknown;
       };
     };
   };
@@ -248,6 +252,10 @@ export function parseEvent(rawBody: string): Event | null {
       session && typeof o?.payment_status === "string"
         ? o.payment_status
         : null,
+    fullyRefunded:
+      kind.startsWith("charge.") && typeof o?.refunded === "boolean"
+        ? o.refunded
+        : null,
   };
 }
 
@@ -265,7 +273,8 @@ export const outcomeOf = (
     case "checkout.session.expired":
       return "cancelled";
     case "charge.refunded":
-      return "refunded";
+      // part of the money back is not the order refunded
+      return e.fullyRefunded === false ? null : "refunded";
     default:
       return null;
   }

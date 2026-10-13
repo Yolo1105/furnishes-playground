@@ -60,6 +60,8 @@ export async function POST(req: Request) {
       log.info("stripe.webhook.ignored", {
         eventId: event.id,
         kind: event.kind,
+        // a partial refund: the order stays paid, noted by hand
+        ...(event.fullyRefunded === false ? { partialRefund: true } : {}),
       });
       await done();
       return NextResponse.json({ received: true, applied: false });

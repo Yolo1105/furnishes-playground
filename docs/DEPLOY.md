@@ -73,7 +73,8 @@ is reported missing by `/api/health`: without the webhook a paid order
 would never read as paid. A cancel closes the payment page before the
 order reads as cancelled; a payment that lands on a cancelled order
 anyway is logged as an error and mailed to `ADMIN_EMAILS`, to refund
-by hand. The shopper comes back from the
+by hand. A partial refund leaves the order paid (the log says
+`partialRefund`); note it on the order from the operations routes. The shopper comes back from the
 payment page to the order's own view, `/rounded?order=<number>&key=<key>`,
 which every letter about the order links to; a cancelled order's
 payment page is closed with it. Google: in the OAuth client, allow the redirect

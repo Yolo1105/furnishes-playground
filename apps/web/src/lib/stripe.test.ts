@@ -87,6 +87,18 @@ describe("an event", () => {
     )!;
     expect(charge.ref).toBe("pi_1");
     expect(outcomeOf(charge)).toBe("refunded");
+    // part of it back leaves the order as it is
+    const partial = parseEvent(
+      JSON.stringify({
+        id: "evt_p",
+        type: "charge.refunded",
+        data: {
+          object: { id: "ch_2", payment_intent: "pi_2", refunded: false },
+        },
+      }),
+    )!;
+    expect(partial.fullyRefunded).toBe(false);
+    expect(outcomeOf(partial)).toBe(null);
   });
   it("does nothing for an unpaid completion or an unknown kind", () => {
     const unpaid = parseEvent(
