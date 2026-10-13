@@ -57,7 +57,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
           : "moved";
     if (refused)
       return NextResponse.json(
-        { error: `the order is not ${status}: ${NOT_MOVED[refused]}` },
+        { error: `The order is not ${status}: ${NOT_MOVED[refused]}.` },
         { status: 409 },
       );
   } else

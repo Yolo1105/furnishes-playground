@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { syncNow, useSyncState } from "./account-sync";
 import { Dialog } from "./Dialog";
+import { ReadingLink } from "./ReadingLink";
 import { PASSWORD_MIN } from "@/lib/account-rules";
 import { authClient, useSession } from "@/lib/auth-client";
 
@@ -342,7 +343,10 @@ export function ProfileDialog({
       <p className="account-text">
         Everything the account holds, as one file: the mirror of this browser,
         the rooms shared by link, the orders placed and what you wrote to the
-        studio.
+        studio. The <ReadingLink reading="privacy">privacy note</ReadingLink>{" "}
+        says what is kept and who sees it; the{" "}
+        <ReadingLink reading="terms">terms</ReadingLink> say how orders and
+        refunds work.
       </p>
       <div className="shell-dialog-acts">
         <a className="main-btn" href="/api/account/export" download>

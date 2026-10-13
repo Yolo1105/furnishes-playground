@@ -20,7 +20,7 @@ export function ShareDialog({
       <p className="account-text">
         Anyone with this link can look round the room and its pieces, and take a
         copy into a studio of their own. Eva&apos;s conversations stay with you.
-        The account page lists what you share and takes a link down.
+        Account, under the gear, lists what you share and takes a link down.
       </p>
       <label className="order-field">
         <span className="room-dim-label">Link</span>

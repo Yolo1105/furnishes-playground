@@ -5,7 +5,7 @@ import { log, reasonOf } from "./log";
 import { type Mail, sendMail } from "./mail";
 import { sgd } from "./money";
 import type { OrderStatus, Priced } from "./orders";
-import { SITE } from "./site";
+import { readingUrl, SITE } from "./site";
 
 /**
  * The studio's mails to a buyer or a sender, each a short plain-text
@@ -37,6 +37,8 @@ export const orderMailOf = (o: typeof orders.$inferSelect): OrderMail => ({
 });
 
 const sign = `\n\n${SITE.name}\n${SITE.url}`;
+/** how it works, at its full address, for a mail to link */
+const helpUrl = `${SITE.url}${readingUrl("help")}`;
 const linesOf = (o: OrderMail) =>
   o.lines.map((l) => `  ${l.name} · ${sgd(l.sgd)}`).join("\n");
 const to = (o: OrderMail) => addressLine(o.address);
@@ -90,7 +92,7 @@ export const orderDeliveredMail = (o: OrderMail) =>
           to: o.email,
           key: `${o.id}-delivered`,
           subject: `Order ${o.id} is delivered`,
-          text: `Hello ${o.address.recipient},\n\nOrder ${o.id} is delivered to ${to(o)}. One key does every bolt, and the parts are numbered; the help page says how it goes together. If a part came damaged, write to ${SITE.contact} with the part's number and it is replaced on its own.${sign}`,
+          text: `Hello ${o.address.recipient},\n\nOrder ${o.id} is delivered to ${to(o)}. One key does every bolt, and the parts are numbered; how it goes together is at ${helpUrl}. If a part came damaged, write to ${SITE.contact} with the part's number and it is replaced on its own.${sign}`,
         }
       : null,
   );
@@ -119,7 +121,7 @@ export const waitlistNoteMail = (email: string) =>
     to: email,
     key: `waitlist-${email}`,
     subject: `${SITE.name}: ordering is open`,
-    text: `You asked for one note the day ordering opens at ${SITE.name}. This is it.\n\nThe studio is at ${SITE.url}: plan the room at your measurements, see the pieces in it, and order the ones you want. Every price is counted from the parts, and the help page says how a piece arrives and goes together.\n\nThis is the only mail the list sends.${sign}`,
+    text: `You asked for one note the day ordering opens at ${SITE.name}. This is it.\n\nThe studio is at ${SITE.url}: plan the room at your measurements, see the pieces in it, and order the ones you want. Every price is counted from the parts, and how a piece arrives and goes together is at ${helpUrl}.\n\nThis is the only mail the list sends.${sign}`,
   });
 
 /** a word to each of the studio's admins (ADMIN_EMAILS) about what a

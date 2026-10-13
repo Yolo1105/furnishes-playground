@@ -1,8 +1,9 @@
 import { SITE } from "@/lib/site";
 
 /**
- * The public site's words, in one place: what the help page says, what
- * the terms say, what the privacy page says, and the landing's lines.
+ * The site's words, in one place: the three readings the studio opens
+ * at ?read= (how it works, the terms, the privacy note) and the words
+ * every form shares.
  * Every fact here is one the studio can keep: the panel, the unit and
  * the bases are the catalogue's; the prices are said to be estimates
  * because they are; delivery areas, lead times and hours are not stated,
@@ -12,8 +13,7 @@ import { SITE } from "@/lib/site";
 export type Section = { id: string; head: string; body: string[] };
 
 /** how it works: the pieces, delivery and building, returns, prices,
-    planning with the studio; the landing's "How it is built" takes the
-    first three */
+    planning with the studio */
 export const HELP: Section[] = [
   {
     id: "how",
@@ -129,7 +129,7 @@ export const PRIVACY: Section[] = [
     id: "cookies",
     head: "Cookies",
     body: [
-      "One cookie, the session, which says who is signed in. There is no analytics cookie and no advertising. The notice about it on the landing page is remembered in your browser's own storage once you have read it.",
+      "One cookie, the session, which says who is signed in. There is no analytics cookie and no advertising.",
     ],
   },
   {
@@ -143,7 +143,7 @@ export const PRIVACY: Section[] = [
     id: "words",
     head: "A word to the studio",
     body: [
-      "Feedback from the gear and Ask us on the help page are kept in the studio's own table with your email, the page they were written from and the project open at the time, so that an answer can reach you and be about the right room. They are read by the studio and nobody else.",
+      "Feedback, from the studio's gear, is kept in the studio's own table with your email, the page they were written from and the project open at the time, so that an answer can reach you and be about the right room. It is read by the studio and nobody else.",
     ],
   },
   {
@@ -161,53 +161,6 @@ export const PRIVACY: Section[] = [
     ],
   },
 ];
-
-/** the landing's own lines */
-export const LANDING = {
-  /** the band's title: the big word and the word that echoes under it */
-  title: { big: "Rooms", echo: "off-template" },
-  /** beside the title, two lines */
-  blurb: [
-    "Plywood pieces from one panel system,",
-    "planned in your room, built by you.",
-  ],
-  /** under the hero */
-  tag: "Plan your own spot in the studio",
-  pieces: {
-    /** the count is the catalogue's */
-    head: (n: number) => `${n} pieces, one panel, one key.`,
-    lede: "Every piece is 18 mm birch plywood on a 60 by 40 by 40 cm unit, built by you with the key that ships in the base. Prices are estimates from the parts until ordering opens; the studio's Detail shows every line.",
-    open: "Open in the studio",
-  },
-  how: {
-    head: "Flat, in boxes, built where it stands.",
-    more: "The help page has the rest",
-  },
-  eva: {
-    head: "Plan it with Eva, at your measurements.",
-    lede: "The studio draws the room at your size, puts the pieces in to scale in 2D and 3D, and Eva, the studio's planner, answers from the catalogue: what fits, where it goes, what it costs. A guest can look around; an account keeps the room on every device.",
-    studio: "Open the studio",
-    account: "Make an account",
-  },
-  waitlist: {
-    tag: "When ordering opens",
-    head: ["Be", "first", "through the door."],
-    lede: "The studio is open now. Ordering opens when the first prices are final; one note that day, nothing more.",
-    placeholder: "you@example.com",
-    note: "One mail, then nothing.",
-    on: ["You're on the list,", "see you at the door."],
-    already: ["You're already on the list,", "see you at the door."],
-  },
-  cookie: {
-    text: "One cookie, the session, when you sign in. Nothing here tracks you.",
-    ok: "Understood",
-  },
-  foot: {
-    cta: ["Have a spot that bothers you?", "Ask us"],
-    blurb:
-      "A design-to-buy studio for modular panel furniture: plan the room, see the pieces in it, build them yourself.",
-  },
-} as const;
 
 /** the words every form shares */
 export const ONE_MOMENT = "One moment";

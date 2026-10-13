@@ -6,6 +6,7 @@ import { useSession } from "@/lib/auth-client";
 import { EMAIL } from "@/lib/email";
 import { sgd, type AssetNode } from "./assets-data";
 import { Dialog } from "./Dialog";
+import { ReadingLink } from "./ReadingLink";
 import { CheckIcon, ExportIcon } from "./icons";
 import { STATUS_NAMES, useOrders, type Order } from "./order-store";
 import { useScene } from "./scene-store";
@@ -220,7 +221,9 @@ export function CheckoutDialog({
             {account
               ? `Word of it goes to ${account}.`
               : "Word of it goes to the email above."}{" "}
-            Prices are estimates until the first run is costed.
+            Prices are estimates until the first run is costed. An order is
+            placed on the{" "}
+            <ReadingLink reading="terms">terms and refunds</ReadingLink>.
           </p>
           <div className="shell-dialog-acts">
             <button

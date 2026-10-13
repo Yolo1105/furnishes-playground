@@ -71,7 +71,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
   const refused = await cancelOrder(row);
   if (refused)
     return NextResponse.json(
-      { error: `the order is not cancelled: ${NOT_MOVED[refused]}` },
+      { error: `The order is not cancelled: ${NOT_MOVED[refused]}.` },
       { status: 409 },
     );
   log.info("order.cancelled", { orderId: id, by: "shopper" });

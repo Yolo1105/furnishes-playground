@@ -102,11 +102,13 @@ Chromium only, so those two engines run on your machine.
 A working studio on the real catalogue, at one address: `/rounded`, the
 studio with floating panels, is the site's only page. Every other
 address leads there (`next.config.ts`): `/` and the old pages (the
-landing, `/studio`, `/account`, `/help`, `/privacy`, `/terms`, `/ops`)
-open the studio; a shared room's link opens `/rounded?share=<id>`, an
-order's `/rounded?order=<number>&key=<key>` and a reset mail's
-`/rounded?token=…` (`RoundedEntry.tsx`), each in its own view, loaded
-only when its link is followed. Projects
+landing, `/studio`, `/account`, `/ops`) open the studio; `/help`,
+`/terms` and `/privacy` open their reading at `/rounded?read=<name>`
+(the words in `components/site/copy.ts`, linked from sign-up, checkout,
+Account and the mails); a shared room's link opens
+`/rounded?share=<id>`, an order's `/rounded?order=<number>&key=<key>`
+and a reset mail's `/rounded?token=…` (`RoundedEntry.tsx`), each in its
+own view, loaded only when its link is followed. Projects
 (new, rename, delete, switch) each hold a flat, its pieces and Eva's
 side, autosaved in the browser.
 

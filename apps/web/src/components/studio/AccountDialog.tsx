@@ -3,6 +3,7 @@
 import { ACCOUNT_MODES, GOOGLE_SIGN_IN, useAccountForm } from "./account-form";
 import { PASSWORD_MIN } from "@/lib/account-rules";
 import { Dialog } from "./Dialog";
+import { ReadingLink } from "./ReadingLink";
 
 /**
  * The studio's way in to an account, from the gear: Sign in and Create
@@ -83,6 +84,14 @@ export function AccountDialog({
             onChange={(e) => f.setPassword(e.target.value)}
           />
         </label>
+        {f.mode === "up" && (
+          <p className="account-text">
+            An account is made on the{" "}
+            <ReadingLink reading="terms">terms</ReadingLink>; the{" "}
+            <ReadingLink reading="privacy">privacy note</ReadingLink> says what
+            it keeps.
+          </p>
+        )}
         {f.error && (
           <p className="account-error" role="alert">
             {f.error}

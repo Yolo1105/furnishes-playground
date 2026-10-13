@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { TRY_AGAIN } from "./copy";
 import { SitePage } from "./SitePage";
 import type { Address } from "@/lib/address";
 import { sgd } from "@/lib/money";
@@ -37,6 +38,8 @@ const WORD: Record<OrderStatus, string> = {
 export function OrderPage({ id, orderKey }: { id: string; orderKey: string }) {
   const [order, setOrder] = useState<Shown | null | "none">(null);
   const [busy, setBusy] = useState(false);
+  /** why a cancel did not go through, as the server says it */
+  const [refused, setRefused] = useState<string | null>(null);
   const url = `/api/orders/${encodeURIComponent(id)}?key=${encodeURIComponent(orderKey)}`;
   useEffect(() => {
     let live = true;
@@ -58,8 +61,14 @@ export function OrderPage({ id, orderKey }: { id: string; orderKey: string }) {
       body: JSON.stringify({ status: "cancelled" }),
     }).catch(() => null);
     setBusy(false);
-    if (r?.ok && order && order !== "none")
+    if (r?.ok && order && order !== "none") {
+      setRefused(null);
       setOrder({ ...order, status: "cancelled" });
+    } else
+      setRefused(
+        ((await r?.json().catch(() => null)) as { error?: string } | null)
+          ?.error ?? TRY_AGAIN,
+      );
   };
   if (order === "none")
     return (
@@ -112,6 +121,11 @@ export function OrderPage({ id, orderKey }: { id: string; orderKey: string }) {
             })}
             .
           </p>
+          {refused && (
+            <p className="account-error" role="alert">
+              {refused}
+            </p>
+          )}
           <div className="shell-dialog-acts">
             {order.status === "pending_payment" && order.payUrl && (
               <a className="main-btn main-btn-primary" href={order.payUrl}>

@@ -4803,23 +4803,32 @@ const account = async (
   return dialog;
 };
 
-test("the site's edges: the old addresses lead to the studio, the gear's Feedback, the headers, health, robots and the sitemap", async ({
+test("the site's edges: the old addresses lead to the studio, the readings, the gear's Feedback, the headers, health, robots and the sitemap", async ({
   page,
 }) => {
   // the studio is the site's one page: every old address leads there,
   // a share's and an order's with what they carried
-  for (const path of [
-    "/",
-    "/account",
-    "/help",
-    "/privacy",
-    "/terms",
-    "/ops",
-    "/studio",
-  ]) {
+  for (const path of ["/", "/account", "/ops", "/studio"]) {
     await page.goto(path);
     await expect(page).toHaveURL(/\/rounded$/);
   }
+  // help, the terms and the privacy note are read at the studio's
+  // address, each section by its anchor, each leading to the others
+  for (const [reading, title, section] of [
+    ["help", "How it works.", "returns"],
+    ["terms", "On what terms.", "refunds"],
+    ["privacy", "What the studio keeps.", "cookies"],
+  ] as const) {
+    await page.goto(`/${reading}`);
+    await expect(page).toHaveURL(new RegExp(`/rounded\\?read=${reading}$`));
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
+    await expect(page.locator(`section#${section} h2`)).toBeVisible();
+  }
+  await page
+    .getByRole("navigation", { name: "More to read" })
+    .getByRole("link", { name: "Terms & refunds" })
+    .click();
+  await expect(page).toHaveURL(/\/rounded\?read=terms$/);
   const res = await page.goto("/s/abc");
   await expect(page).toHaveURL(/\/rounded\?share=abc$/);
   expect(res!.headers()["x-content-type-options"]).toBe("nosniff");
@@ -4860,6 +4869,7 @@ test("the site's edges: the old addresses lead to the studio, the gear's Feedbac
   const sitemap = await page.request.get("/sitemap.xml");
   const listed = await sitemap.text();
   expect(listed).toContain("https://furnish-es.com/rounded");
+  expect(listed).toContain("https://furnish-es.com/rounded?read=privacy");
   expect(listed).not.toContain("https://furnish-es.com/account");
 });
 

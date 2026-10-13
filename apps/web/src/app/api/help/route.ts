@@ -12,9 +12,9 @@ import { BAD_REQUEST, EmailField, readJson } from "@/lib/schemas";
 
 /**
  * A word to the studio: a problem, an idea or a question, from the
- * gear's Feedback or the help page's Ask us (lib/help-client). Kept as
- * a row with who sent it (the account, or the email given) and where
- * they were, and answered with a mail that says so. A caller gets
+ * gear's Feedback (lib/help-client). Kept as a row with who sent it
+ * (the account, or the email given) and where they were, and answered
+ * with a mail that says so. A caller gets
  * LIMITS.helpPerDay a day.
  */
 export const runtime = "nodejs";

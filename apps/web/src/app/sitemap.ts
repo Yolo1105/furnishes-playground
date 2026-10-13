@@ -1,7 +1,9 @@
 import type { MetadataRoute } from "next";
-import { SITE } from "@/lib/site";
+import { READINGS, readingUrl, SITE } from "@/lib/site";
 
-/** the one page there is: the studio */
+/** the one page there is, the studio, and the readings it opens */
 export default function sitemap(): MetadataRoute.Sitemap {
-  return [{ url: `${SITE.url}${SITE.studio}` }];
+  return [SITE.studio, ...READINGS.map(readingUrl)].map((path) => ({
+    url: `${SITE.url}${path}`,
+  }));
 }

@@ -21,6 +21,12 @@ export const SITE = {
   studio: "/rounded",
 };
 
+/** the studio's three readings, each at the studio's own address (the
+    site has the one page): how it works, the terms, the privacy note */
+export const READINGS = ["help", "terms", "privacy"] as const;
+export type Reading = (typeof READINGS)[number];
+export const readingUrl = (r: Reading) => `${SITE.studio}?read=${r}`;
+
 /** the site's origins a sign-in may come from: its own address, with
     and without www, and this deployment's own Vercel addresses (the
     host names Vercel in VERCEL_URL and VERCEL_BRANCH_URL), never every
