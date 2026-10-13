@@ -1339,3 +1339,25 @@ of its own bulb, and the lamp's shadow of the pieces round it is soft
 Four fresh loads in a row now differ by under 0.7 % of the pixels
 (the antialiasing's last frames at the stage's right edge), inside
 the visual tests' 0.5 %-of-the-frame threshold for their crops.
+
+**Two more causes, and the count (2026-10-13).** With the lighting the
+same on every load, the visual runs still failed one picture in a few,
+by two different amounts:
+
+- 19 to 34 % of the pixels: the canvas was a little small. R3F
+  measures the canvas with `getBoundingClientRect`, which includes CSS
+  transforms, and a transform fires no ResizeObserver event. The
+  arrival's `.shell-stage { scale: 0.985 }` and the `stage-in`
+  keyframe's scale were still running when the canvas was first
+  measured, so the buffer stayed 835 × 886 instead of 848 × 900 and
+  the whole picture was resampled. Both scales are gone (the stage now
+  fades in on opacity alone; shell.css says why), and four baselines
+  taken at the small size were retaken at the full one.
+- 1 to 2 % at the edges: TRAA's jitter. The settle counted frames, not
+  where TRAA was in its 32-step Halton cycle, so the last frame landed
+  on a different sub-pixel offset each run. The settle now ends only
+  when the jitter index is back at 0 (Post.tsx, `phase()`).
+
+Since then, in this sandbox (software WebGL2): the visual project
+passed 6 of 6, and the sunset view passed 10 of 10 (`-g sunset
+--repeat-each=5`, twice).
