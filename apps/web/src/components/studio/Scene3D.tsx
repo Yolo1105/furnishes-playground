@@ -1788,6 +1788,17 @@ const aroundPiece =
     return [x, y];
   };
 
+/** the scene answers the pointer only once its picture is shown: behind
+    the loading line the pieces are there but not seen, and a hover must
+    not name them nor a click pick them */
+function PointerWhen({ on }: { on: boolean }) {
+  const setEvents = useThree((s) => s.setEvents);
+  useEffect(() => {
+    setEvents({ enabled: on });
+  }, [on, setEvents]);
+  return null;
+}
+
 /** drawn, never picked: a halo under the pointer leaves the pick to
     the piece */
 const unpickable = () => null;
@@ -2534,6 +2545,7 @@ export default function Scene3D() {
         // a click that did not travel
         onPointerMissed={putDown}
       >
+        <PointerWhen on={shown} />
         {walk ? (
           <Walker
             w={w}
