@@ -48,7 +48,7 @@ const SAVE_AFTER = 600; // ms after the last change
     planner; 5: the planner's three arrangements, a project each; 6:
     lived-in rooms; 7: the parents' bathroom at the head of their room */
 const SHOWCASE_KEY = "furnishes.showcase";
-const SHOWCASE = { version: 7, name: "HDB 5-room" };
+const SHOWCASE = { version: 8, name: "HDB 5-room" };
 
 type RoomData = ReturnType<typeof useRoom.getState>;
 type SceneData = ReturnType<typeof useScene.getState>;
@@ -414,34 +414,78 @@ const givenOf = (ps: readonly Project[]): ShowcaseGiven["given"] => {
     ps.map((p, i) => [p.id, { arrangement: order[i]!, at: p.at }]),
   );
 };
+/** the deleted ids with these added, now: a mirror does not bring them
+    back */
+const goneWith = (
+  gone: Record<string, number> | undefined,
+  ids: readonly string[],
+) => ({
+  ...gone,
+  ...Object.fromEntries(ids.map((id) => [id, Date.now()])),
+});
+/** each showcase project's name, and the arrangement it is made from */
+const showcaseNames = () =>
+  new Map<string, Arrangement>(
+    ARRANGEMENTS.map((a) => [`${SHOWCASE.name} · ${a.name}`, a.id]),
+  );
 /**
  * The kept projects brought to the current flat without losing work:
  * each showcase project given earlier and untouched since is made over
  * in place (its id kept, so an account's copy is updated, not
  * duplicated); one the visitor changed, and every project they made,
  * stays as it is. A browser with no record of what it was given (an
- * earlier studio) keeps all it had and is given the flat beside it.
+ * earlier studio, which made the flat over wholesale on every change)
+ * has its showcase projects told by their names and made over in place;
+ * one the visitor renamed is theirs and stays. A copy an earlier studio
+ * left beside a recorded showcase project of the same name goes (the
+ * flat twice in the project menu), and is said in `dropped`, so a
+ * mirror does not bring it back. With nothing to make over, the flat is
+ * given beside what was kept.
  */
 export const refreshShowcase = (
   kept: readonly Project[],
   was: ShowcaseGiven,
-): { projects: Project[]; given: ShowcaseGiven["given"] } => {
+): {
+  projects: Project[];
+  given: ShowcaseGiven["given"];
+  dropped: string[];
+} => {
   const at = Date.now();
+  const names = showcaseNames();
+  const recorded = Object.keys(was.given).length > 0;
+  const known: ShowcaseGiven["given"] = recorded
+    ? was.given
+    : Object.fromEntries(
+        kept.flatMap((p) => {
+          const arrangement = names.get(p.name);
+          return arrangement ? [[p.id, { arrangement, at: p.at }]] : [];
+        }),
+      );
+  const recordedNames = new Set(
+    kept.filter((p) => recorded && was.given[p.id]).map((p) => p.name),
+  );
+  const dropped = kept
+    .filter(
+      (p) => !known[p.id] && names.has(p.name) && recordedNames.has(p.name),
+    )
+    .map((p) => p.id);
   const given: ShowcaseGiven["given"] = {};
   let refreshed = 0;
-  const projects = kept.map((p) => {
-    const g = was.given[p.id];
-    if (!g || g.at !== p.at) return p;
-    refreshed += 1;
-    const made = { ...p, at, data: arranged(g.arrangement) };
-    given[p.id] = { arrangement: g.arrangement, at };
-    return made;
-  });
-  if (refreshed > 0) return { projects, given };
+  const projects = kept
+    .filter((p) => !dropped.includes(p.id))
+    .map((p) => {
+      const g = known[p.id];
+      if (!g || g.at !== p.at) return p;
+      refreshed += 1;
+      given[p.id] = { arrangement: g.arrangement, at };
+      return { ...p, at, data: arranged(g.arrangement) };
+    });
+  if (refreshed > 0) return { projects, given, dropped };
   const fresh = showcaseProjects();
   return {
     projects: [...fresh, ...projects],
     given: { ...given, ...givenOf(fresh) },
+    dropped,
   };
 };
 
@@ -453,19 +497,23 @@ export const importProject = (name: string, data: Snapshot) => {
   // the flat brought up to date first, as arrival would, so arrival
   // finds nothing left to do and the shared room stays the open one
   const was = showcaseGiven();
-  const { projects: earlier, given } = !kept.projects?.length
+  const {
+    projects: earlier,
+    given,
+    dropped,
+  } = !kept.projects?.length
     ? (() => {
         const ps = showcaseProjects();
-        return { projects: ps, given: givenOf(ps) };
+        return { projects: ps, given: givenOf(ps), dropped: [] };
       })()
     : was.v < SHOWCASE.version
       ? refreshShowcase(kept.projects, was)
-      : { projects: kept.projects, given: was.given };
+      : { projects: kept.projects, given: was.given, dropped: [] };
   const p: Project = { id: newId("p"), name: `${name} (shared)`, at, data };
   writeKept({
     projects: [...earlier, p],
     activeId: p.id,
-    gone: kept.gone ?? {},
+    gone: goneWith(kept.gone, dropped),
   });
   showcaseShown(given);
   return p.id;
@@ -566,8 +614,12 @@ export function useProjectSync(wanted: string | null = null) {
       showcaseShown(givenOf(ps));
     } else if (was.v < SHOWCASE.version) {
       // the flat changed since: brought over without losing a thing
-      const { projects: ps, given } = refreshShowcase(kept.projects, was);
-      const gone = kept.gone ?? {};
+      const {
+        projects: ps,
+        given,
+        dropped,
+      } = refreshShowcase(kept.projects, was);
+      const gone = goneWith(kept.gone, dropped);
       const activeId = ps.some((p) => p.id === kept.activeId)
         ? kept.activeId!
         : ps[0]!.id;

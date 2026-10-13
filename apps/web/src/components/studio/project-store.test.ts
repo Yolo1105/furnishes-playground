@@ -114,4 +114,38 @@ describe("refreshShowcase", () => {
     expect(projects.length).toBeGreaterThan(1);
     expect(Object.keys(given)).toHaveLength(projects.length - 1);
   });
+  const named = (id: string, name: string, at: number): Project => ({
+    ...project(id, at),
+    name,
+  });
+  it("tells an earlier studio's showcase projects by name and makes them over in place", () => {
+    const kept = [
+      named("old-b", "HDB 5-room · Balanced", 10),
+      named("old-s", "HDB 5-room · Study-focused", 9),
+      named("renamed", "Our flat", 8),
+    ];
+    const { projects, given, dropped } = refreshShowcase(kept, {
+      v: 6,
+      given: {},
+    });
+    // no second flat beside the first
+    expect(projects.map((p) => p.id)).toEqual(["old-b", "old-s", "renamed"]);
+    expect(Object.keys(given).sort()).toEqual(["old-b", "old-s"]);
+    expect(projects[0]!.data).not.toBe(kept[0]!.data);
+    expect(projects[2]).toBe(kept[2]);
+    expect(dropped).toEqual([]);
+  });
+  it("lets go of an earlier copy left beside a recorded showcase project", () => {
+    const kept = [
+      named("new-b", "HDB 5-room · Balanced", 100),
+      named("old-b", "HDB 5-room · Balanced", 10),
+      named("mine", "Mine", 5),
+    ];
+    const { projects, dropped } = refreshShowcase(kept, {
+      v: 7,
+      given: { "new-b": { arrangement: "balanced", at: 100 } },
+    });
+    expect(dropped).toEqual(["old-b"]);
+    expect(projects.map((p) => p.id)).toEqual(["new-b", "mine"]);
+  });
 });
