@@ -656,7 +656,10 @@ const showcaseFlat = (): Pick<
     2300,
     1700,
   );
+  // the family's bathroom: white tiles and white walls, a basin and a
+  // screened shower; the parents' reads apart from it at a glance
   bathroom.floor = "Tiles";
+  bathroom.wallTone = "white";
   bathroom.openings = [
     makeOpening("window", "south", {
       at: 1850,
@@ -674,7 +677,10 @@ const showcaseFlat = (): Pick<
     2100,
     1700,
   );
-  bathroom2.floor = "Tiles";
+  // a grey micro-cement floor, warm sand walls and a timber vanity:
+  // the suite's own finish, not the family bathroom's white tiles
+  bathroom2.floor = "Concrete";
+  bathroom2.wallTone = "sand";
   bathroom2.openings = [
     makeOpening("window", "west", {
       at: 450,

@@ -155,12 +155,15 @@ type Place = Partial<
  * a bunk bed for two on the west wall with a bedside cabinet and a
  * wardrobe across the room; a single bed, a desk with its chair, a
  * wardrobe and a bedside cabinet for the one alone. The bathrooms: a
- * shower behind its screen, the basin, the WC and a towel trolley; the
+ * shower behind its screen, the basin (an oak vanity in the parents'),
+ * the WC and a bath mat; the
  * shelter's shelving on its back wall; the yard's washer and work cart.
  * Every gap is a walkway (600 mm or more) and every door's swing is
  * clear (showcase.test.ts).
  */
 const R = SHOWCASE_ROOMS;
+/** the parents' bathroom's vanity, a warm oak */
+const VANITY_OAK = "#a07a52";
 const SHOWCASE: [AssetNode, Place][] = [
   // the living and dining room
   [
@@ -342,8 +345,16 @@ const SHOWCASE: [AssetNode, Place][] = [
   ],
   // the second bathroom
   [
-    decor("basin-2", "Basin cabinet 2", "fittings"),
-    { roomId: R.bathroom2, x: 0, y: 300, rotation: 270, depth: 400 },
+    decor("basin-2", "Vanity cabinet", "fittings"),
+    // in oak, the suite's own
+    {
+      roomId: R.bathroom2,
+      x: 0,
+      y: 300,
+      rotation: 270,
+      depth: 400,
+      colour: VANITY_OAK,
+    },
   ],
   [
     decor("wc-2", "WC 2", "fittings"),
