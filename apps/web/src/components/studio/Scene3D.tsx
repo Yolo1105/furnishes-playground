@@ -1798,15 +1798,19 @@ const HALO_OUT = 0.12;
 const HALO_PX = 256;
 const halos = new Map<string, CanvasTexture>();
 /** a rounded rectangle in the colour, stroked and faintly filled, as
-    the picture a halo lies on the floor as; kept by its size */
+    the picture a halo lies on the floor as; kept by its proportion to
+    a hundredth (the picture is stretched over the footprint, so two
+    sizes of one shape share it), which keeps the set small however
+    many sizes a piece is given */
 const haloTexture = (w: number, d: number, colour: string) => {
-  const key = `${w.toFixed(3)},${d.toFixed(3)},${colour}`;
+  const aspect = Math.round((d / w) * 100) / 100;
+  const key = `${aspect},${colour}`;
   const had = halos.get(key);
   if (had) return had;
   const c = document.createElement("canvas");
   const px = HALO_PX;
   c.width = px;
-  c.height = Math.max(8, Math.round((px * d) / w));
+  c.height = Math.max(8, Math.round(px * aspect));
   const ctx = c.getContext("2d")!;
   const inset = px * 0.03;
   const r = px * 0.05;

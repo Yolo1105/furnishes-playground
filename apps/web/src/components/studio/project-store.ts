@@ -354,14 +354,25 @@ const readKept = () => {
     return {};
   }
 };
+/** whether the last save to this browser failed (its storage full, or
+    blocked): the studio says so where the account's own state is said,
+    so work is never lost without a word */
+export const useKeptFailed = create<{ failed: boolean }>(() => ({
+  failed: false,
+}));
+
 const writeKept = (
   kept: Pick<ProjectState, "projects" | "activeId" | "gone">,
 ) => {
+  let failed = false;
   try {
     localStorage.setItem(KEY, JSON.stringify(kept));
   } catch {
-    /* the projects last the session */
+    // the projects last the session
+    failed = true;
   }
+  if (useKeptFailed.getState().failed !== failed)
+    useKeptFailed.setState({ failed });
 };
 
 /** which of the studio's flats this browser has been given, and the

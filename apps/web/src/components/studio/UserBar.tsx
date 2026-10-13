@@ -23,6 +23,7 @@ import {
 import { OrdersDialog } from "./OrdersDialog";
 import { ProfileDialog } from "./ProfileDialog";
 import { useDismiss } from "./useDismiss";
+import { useKeptFailed } from "./project-store";
 
 /**
  * The foot of the project rail: who is in the studio (the account's
@@ -52,11 +53,14 @@ export function UserBar() {
   const note = useSyncState((s) => s.note);
   const failed = useSyncState((s) => s.state === "failed");
   const name = session?.user.name ?? "Guest";
+  const unkept = useKeptFailed((s) => s.failed);
   const line =
     note ??
-    (failed && session
-      ? "Not saved to your account: the last save did not go through"
-      : (session?.user.email ?? "Not signed in"));
+    (unkept
+      ? "Not kept here: this browser's storage is full. Delete a project, or sign in"
+      : failed && session
+        ? "Not saved to your account: the last save did not go through"
+        : (session?.user.email ?? "Not signed in"));
   const [open, setOpen] = useState(false);
   const [sheet, setSheet] = useState<Sheet>(null);
   const wrap = useRef<HTMLDivElement>(null);
@@ -81,7 +85,13 @@ export function UserBar() {
       </span>
       <span className="user-text">
         <span className="user-name">{name}</span>
-        <span className="user-line">{line}</span>
+        <span
+          className="user-line"
+          data-unkept={unkept || undefined}
+          role={unkept ? "alert" : undefined}
+        >
+          {line}
+        </span>
       </span>
       <button
         type="button"

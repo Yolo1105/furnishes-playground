@@ -56,7 +56,9 @@ const open = (): { db: Db; ready: Promise<void> } => {
     const db = neonDrizzle({ connection: url, schema, casing: "snake_case" });
     const ready = (async () => {
       const have = await migrationCount(db).catch(() => -1);
-      if (have === journalCount()) return;
+      // a database already as far as the journal, or past it (a deploy
+      // rolled back to an older build), has nothing to take
+      if (have >= journalCount()) return;
       await migrateNeon(db, { migrationsFolder: MIGRATIONS });
     })();
     // a failed migration is reported by the route that awaits it, not
