@@ -1230,7 +1230,8 @@ about each:
    flicker in and out. `?noskyshadow` went with the light.
 
 2. **The exposure made up for the fills, not for the window.** It is
-   now kept per light: day 2.5 (the walls white, the windows let go),
+   now kept per light: day 2.5 (the walls white, the windows let go;
+   1.4 since 2026-10-13, see below),
    evening 1.3; the slider moves the light on show's. `EXPOSURE.max`
    is 3. A saved single number is dropped once on the next visit (its
    type no longer matches the default's), so everyone sees the new
@@ -1304,6 +1305,36 @@ failed by chance. Three races, each fixed at its cause:
   picture is taken first, the probes wait for it (`hold`), and the
   floor's is taken again once with the probes lit; the stage reads
   ready only when its picture is of the current stamp.
+- The one that made the two looks (2026-10-13): a shader built before
+  the probe grid had its picture never samples it
+  (`LightProbeGridNode.setup` returns nothing for a grid without a
+  texture, and the lights' cache key, the light's id and whether it
+  casts a shadow, does not change when one comes). The chain waited
+  1.5 s for the grid's first picture and then built every shader
+  without it; the bake, behind its settle and the floor's picture,
+  often started later, so most software loads drew with no bounce at
+  all, and the baselines were of that. Making the grid's texture ahead
+  of any bake fixed the look but held the desktop look's first picture
+  for a minute in this sandbox (every shader built at once beside the
+  bake). Now the grid is out of the lights until its first frame, which
+  bakes its first probe alone and lets it in: the room's shaders are
+  built once, with the grid, and the full bake fills the picture in.
+
+**The day exposure, again (2026-10-13).** 2.5 was set while most loads
+drew without the probes' bounce (above). With the bounce in every load,
+and the bounce pass on every hardware backend, the morning blew out on
+a real GPU (reported with a screenshot: the flat near white, no
+contrast). The day is now 1.4; the evening stays 1.3. A kept exposure
+remembers the defaults it was chosen against (`exposureDefaults`), and
+one chosen against others is dropped once, so the change reaches every
+visitor rather than only new ones.
+
+**The evening lamp (2026-10-13).** The floor lamp's shade was drawn
+opaque and cast its own bulb's shadow, so the light left only through
+its open bottom as a hard-edged disc on the floor, a stage spotlight
+(reported with a screenshot). A shade is fabric: it now casts no shadow
+of its own bulb, and the lamp's shadow of the pieces round it is soft
+(`LAMP_LIGHT.shadow.radius`).
 
 Four fresh loads in a row now differ by under 0.7 % of the pixels
 (the antialiasing's last frames at the stage's right edge), inside
