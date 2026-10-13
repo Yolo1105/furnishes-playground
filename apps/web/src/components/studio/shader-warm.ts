@@ -57,34 +57,19 @@ export const shaderKey = (m: Material) => {
 
 type Drawn = Object3D & { material?: Material | Material[] };
 
-type Grid = Light & { isLightProbeGrid?: boolean; texture?: unknown };
-
 /** what every shader in the scene depends on beside its material: the
-    lights (each kind, whether it casts a shadow, and for a probe grid
-    whether it has been baked), the environment and the fog. A light
-    added or a shadow turned on changes them all */
+    lights (each kind, and whether it casts a shadow), the environment
+    and the fog. A light added or a shadow turned on changes them all
+    (a probe grid has its picture from the start, Probes.tsx, so its
+    bake changes none) */
 export const lightingKey = (scene: Scene) => {
   const lights: string[] = [];
   scene.traverseVisible((o) => {
-    const light = o as Grid;
+    const light = o as Light;
     if (light.isLight)
-      lights.push(
-        `${light.type}${light.castShadow ? "s" : ""}${light.isLightProbeGrid && light.texture ? "t" : ""}`,
-      );
+      lights.push(`${light.type}${light.castShadow ? "s" : ""}`);
   });
   return `${lights.sort().join(",")}|${scene.environment?.uuid ?? ""}|${scene.fog ? 1 : 0}`;
-};
-
-/** whether a probe grid in the scene has yet to be baked: a material
-    built before the grid has its picture never samples it (Probes.tsx),
-    so nothing is built until it has */
-export const probesPending = (scene: Scene) => {
-  let pending = false;
-  scene.traverseVisible((o) => {
-    const grid = o as Grid;
-    if (grid.isLightProbeGrid && !grid.texture) pending = true;
-  });
-  return pending;
 };
 
 /** the parts shown whose materials' shaders have not been built (by

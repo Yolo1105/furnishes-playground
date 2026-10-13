@@ -99,6 +99,14 @@ const keptGrid = (key: string, w: number, h: number, d: number): Kept => {
     probesAlong(d),
   );
   grid.position.set(0, h / 2, 0);
+  // the grid's picture made now, empty (a texture starts at zero) until
+  // the first bake fills it: a material's shader samples the grid only
+  // if the grid had a picture when the shader was built
+  // (LightProbeGridNode.setup), and the light's cache key does not
+  // change when one comes, so a shader built first never samples it;
+  // the room then drew without its bounce light (grey) on any load
+  // whose bake started late
+  (grid as unknown as { _ensureTextures: () => void })._ensureTextures();
   const made = { grid, baked: null };
   kept.set(key, made);
   for (const [k, old] of kept) {
@@ -187,9 +195,7 @@ export function Probes({
     held.current = hold;
     if (!hold) invalidate();
   }, [hold, invalidate]);
-  // a new grid is baked from its first frame on, before anything is
-  // drawn with it in the room: a material built while the grid has no
-  // texture would never sample it
+  // a new grid is baked from its first frame on
   useLayoutEffect(() => {
     register(get().gl as unknown as WebGPURenderer);
     due.current = 0;

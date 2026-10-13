@@ -45,8 +45,7 @@ import {
   velocity,
 } from "three/tsl";
 import { RenderPipeline, type WebGPURenderer } from "three/webgpu";
-import { wakeAt } from "./capture";
-import { lightingKey, probesPending, unwarmed, warmParts } from "./shader-warm";
+import { lightingKey, unwarmed, warmParts } from "./shader-warm";
 import type { Backend, Quality } from "./studio-store";
 
 /**
@@ -65,10 +64,6 @@ export type Tier = "desktop" | "laptop" | "phone";
     first picture, behind the loading line, and a change to a room on
     show; past it the rest are built as they are drawn */
 const OPEN_BUDGET_MS = 6_000;
-/** how long the first picture waits on the probes' first bake, ms; past
-    it the room is drawn without them, and built again when they come
-    (the lighting key notes the grid's picture) */
-const PROBE_WAIT_MS = 1_500;
 const CHANGE_BUDGET_MS = 3_000;
 /** the scene's shaders: being built ahead of the first frame, or ready */
 export type ShaderState = "building" | "ready";
@@ -521,16 +516,6 @@ export function Post({
   const warming = useRef(false);
   // whether the chain has drawn a picture yet
   const drawnOnce = useRef(false);
-  // when the chain began to wait on the probes' first bake
-  const probeWait = useRef(0);
-  const probeWake = useRef(0);
-  useEffect(
-    () => () => {
-      window.clearTimeout(probeWake.current);
-      probeWake.current = 0;
-    },
-    [],
-  );
   // the lighting the built shaders were built for
   const lit = useRef("");
   useEffect(() => {
@@ -565,18 +550,6 @@ export function Post({
         warmed.current = new WeakMap();
         if (devFlag("nowarm")) onShaders?.("ready");
       }
-      // the probes' first picture comes before any shader is built, for
-      // a few seconds at most: a first visit is never left without a room
-      if (!devFlag("nowarm") && probesPending(state.scene)) {
-        const now = performance.now();
-        if (!probeWait.current) probeWait.current = now;
-        if (now - probeWait.current < PROBE_WAIT_MS) {
-          if (!warming.current) onShaders?.("building");
-          // asked again, so the wait ends even if nothing else draws
-          wakeAt(probeWake, now + 500, state.invalidate);
-          return;
-        }
-      } else probeWait.current = 0;
       // a change of lighting changes every shader: all are built again
       const lighting = lightingKey(state.scene);
       if (!warming.current && lighting !== lit.current) {
