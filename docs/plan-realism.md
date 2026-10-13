@@ -1107,7 +1107,8 @@ On a real GPU the first picture could wait twice before anything
 showed: up to 6 s on the light probes' first bake, then up to 15 s while
 every material's shaders were built ahead, behind an empty stage. The
 probe wait is now 1.5 s (past it the room is drawn without them and
-built again when they come) and the open budget 6 s (past it the rest
+built again when they come; 2026-10-13: it was not, see "The same
+picture on every load", and the wait is gone) and the open budget 6 s (past it the rest
 are built as they are drawn, a frame or two slower, never blank). Until
 the first picture the stage shows what it is getting ready: starting
 the 3D view, loading the materials (n of m), preparing the light,

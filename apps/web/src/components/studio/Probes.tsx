@@ -105,7 +105,8 @@ const keptGrid = (key: string, w: number, h: number, d: number): Kept => {
   // (LightProbeGridNode.setup), and the light's cache key does not
   // change when one comes, so a shader built first never samples it;
   // the room then drew without its bounce light (grey) on any load
-  // whose bake started late
+  // whose bake started late. `_ensureTextures` is the grid's own
+  // (three 0.186.1, pinned): check it on an upgrade
   (grid as unknown as { _ensureTextures: () => void })._ensureTextures();
   const made = { grid, baked: null };
   kept.set(key, made);

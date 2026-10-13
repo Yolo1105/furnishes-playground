@@ -141,10 +141,23 @@ const useStipple = (on: boolean): Stipple | null => {
   return s;
 };
 
+/** the roughness under which a finish shows what stands round it */
+const GLOSSY_BELOW = 0.5;
 /** a finish that shows what stands round it: a clear coat, or smooth
     enough to (a lacquer, a satin wood, a screen's glass) */
-export const glossy = (f: Finish) =>
-  !f.metal && !f.mirror && ((f.coat ?? 0) > 0 || f.rough < 0.5);
+const glossy = (f: Finish) =>
+  !f.metal && !f.mirror && ((f.coat ?? 0) > 0 || f.rough < GLOSSY_BELOW);
+/** a coated or sheened finish's layers: the cloth's sheen soft and a
+    shade under its colour, the coat a little rough */
+const LAYERS = { sheenRoughness: 0.8, sheenShade: 0.1, coatRoughness: 0.3 };
+/** the faces stand a hair behind their own joint lines: a line on its
+    face fought it for depth and flickered in and out as the camera
+    moved, the furniture seeming to blink (the walls' cure) */
+const BEHIND = {
+  polygonOffset: true,
+  polygonOffsetFactor: 1,
+  polygonOffsetUnits: 1,
+} as const;
 
 type MatProps = {
   colour: string;
@@ -158,6 +171,9 @@ type MatProps = {
     room's reflection; made again when the room's picture is */
 const glossies = new Map<string, MeshPhysicalNodeMaterial>();
 let glossiesOf: Node | null = null;
+/** how many looks are kept; past it the oldest is let go (not disposed:
+    a part may still be drawn with it, and the next picture of the room
+    disposes them all) */
 const GLOSSIES_KEPT = 400;
 const glossyMaterial = (env: Node, p: MatProps) => {
   if (glossiesOf !== env) {
@@ -187,14 +203,12 @@ const glossyMaterial = (env: Node, p: MatProps) => {
     normalScale: p.normalScale,
     roughnessMap: p.maps.roughnessMap ?? null,
     vertexColors: p.banded,
-    polygonOffset: true,
-    polygonOffsetFactor: 1,
-    polygonOffsetUnits: 1,
+    ...BEHIND,
     sheen: p.f.sheen ?? 0,
-    sheenColor: new Color(shade(p.colour, 0.1)),
-    sheenRoughness: 0.8,
+    sheenColor: new Color(shade(p.colour, LAYERS.sheenShade)),
+    sheenRoughness: LAYERS.sheenRoughness,
     clearcoat: p.f.coat ?? 0,
-    clearcoatRoughness: 0.3,
+    clearcoatRoughness: LAYERS.coatRoughness,
   });
   m.envNode = env;
   if (glossies.size >= GLOSSIES_KEPT)
@@ -224,12 +238,7 @@ export function Mat({
   // a glossy finish reflects the room, where the room has its picture
   const room = useRoomReflection((s) => s.node);
   const grained = {
-    // the faces stand a hair behind their own joint lines: a line on
-    // its face fought it for depth and flickered in and out as the
-    // camera moved, the furniture seeming to blink (the walls' cure)
-    polygonOffset: true,
-    polygonOffsetFactor: 1,
-    polygonOffsetUnits: 1,
+    ...BEHIND,
     map: maps?.map ?? null,
     normalMap: maps?.normalMap ?? stipple?.normalMap ?? null,
     normalScale: maps ? RELIEF_SCALE : STIPPLE_SCALE,
@@ -261,10 +270,10 @@ export function Mat({
         roughness={f.rough}
         {...grained}
         sheen={f.sheen ?? 0}
-        sheenColor={shade(c, 0.1)}
-        sheenRoughness={0.8}
+        sheenColor={shade(c, LAYERS.sheenShade)}
+        sheenRoughness={LAYERS.sheenRoughness}
         clearcoat={f.coat ?? 0}
-        clearcoatRoughness={0.3}
+        clearcoatRoughness={LAYERS.coatRoughness}
       />
     );
   return (

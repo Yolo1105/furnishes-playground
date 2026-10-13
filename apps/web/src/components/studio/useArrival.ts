@@ -43,9 +43,6 @@ export function useArrival() {
         const wheelMode = WHEEL_MODES.some((m) => m.id === saved.wheelMode)
           ? saved.wheelMode!
           : "auto";
-        // an exposure kept as one number, from before each light had its
-        // own, is not the same kind as the default's and is dropped
-        // below: a visit after the change opens on the new exposures
         const scene: SceneLook = {
           ...SCENE_DEFAULT,
           ...Object.fromEntries(
@@ -56,11 +53,15 @@ export function useArrival() {
             ),
           ),
         };
+        // an exposure kept as one number, from before each light had its
+        // own, is dropped by the filter above (not the default's kind);
+        // one kept without a number for each light is dropped here: a
+        // visit after the change opens on the new exposures
+        const exposure = scene.exposure as Record<string, unknown> | null;
         if (
-          !["day", "evening"].every(
-            (k) =>
-              typeof (scene.exposure as Record<string, unknown>)[k] ===
-              "number",
+          !exposure ||
+          !Object.keys(SCENE_DEFAULT.exposure).every(
+            (k) => typeof exposure[k] === "number",
           )
         )
           scene.exposure = SCENE_DEFAULT.exposure;

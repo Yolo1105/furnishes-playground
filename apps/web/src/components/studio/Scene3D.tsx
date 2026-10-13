@@ -97,7 +97,8 @@ import {
 import { Probes } from "./Probes";
 import { type StillState, wakeAt } from "./capture";
 import { loadMaterials, useMaterials } from "./materials";
-import { RoomLight, RoomShell, SHADOW_LAYER, windowSun } from "./Room3D";
+import { ceilingAt, RoomLight, RoomShell, windowSun } from "./Room3D";
+import { SHADOW_LAYER } from "./walls-standing";
 import { usePartStore } from "./part-client";
 import {
   type Box,
@@ -112,9 +113,6 @@ import {
   walkStart,
   windowSide,
 } from "./camera-bookmarks";
-
-/** the stage's shape the corner shot's corner is chosen for */
-const SHOT_ASPECT = 1;
 import { setLive } from "./scene-handle";
 import { recordFrame, recorder } from "./bench";
 import { devFlag, devParam } from "./dev-flags";
@@ -128,6 +126,12 @@ import {
   type Angle,
   type WorkStep,
 } from "./studio-store";
+
+/** the frame's shape the Corner view's foreground is checked over,
+    across ÷ high: its middle, square, where a piece cut by the frame
+    reads worst (the stage's own shape is the canvas's, not known here;
+    a piece at a wide frame's side is cut by its edge, as in a photo) */
+const SHOT_ASPECT = 1;
 
 /**
  * The room in 3D: the floor and the walls from the Room tab's outline and
@@ -268,6 +272,7 @@ function LiveHandle({
   spanD,
   centre,
   corner,
+  shot,
   sun,
 }: {
   w: number;
@@ -278,6 +283,7 @@ function LiveHandle({
   spanD: number;
   centre: readonly [number, number];
   corner: Corner;
+  shot: Corner;
   sun: { position: Vector3Tuple; colour: string; intensity: number };
 }) {
   const scene = useThree((s) => s.scene);
@@ -292,6 +298,7 @@ function LiveHandle({
       span: { w: spanW, d: spanD },
       centre,
       corner,
+      shot,
       sun,
     });
     // in development the scene and its camera are at hand in the
@@ -300,7 +307,7 @@ function LiveHandle({
     if (process.env.NODE_ENV !== "production")
       Object.assign(window, { __scene: scene, __camera: camera });
     return () => setLive(null);
-  }, [scene, camera, w, d, h, spanW, spanD, centre, corner, sun]);
+  }, [scene, camera, w, d, h, spanW, spanD, centre, corner, shot, sun]);
   return null;
 }
 
@@ -460,8 +467,9 @@ const failPost = (set: (failed: boolean) => void) => (error: unknown) => {
     the floor, and the room is bright by the window and darker away
     from it; the probes carry that patch's bounce to the ceiling and the
     far side (Probes.tsx), and the exposure is set for the walls with
-    the windows let go white (studio-store's EXPOSURE). A room without a
-    window takes the sun from above the open ceiling (`from`) */
+    the windows let go white (studio-store's `SCENE_DEFAULT.exposure`,
+    one for each light). A room without a window takes the sun from
+    above the open ceiling (`from`) */
 const LIGHTS = {
   day: {
     sun: 11,
@@ -534,7 +542,6 @@ function CeilingLight({
       intensity={lit ? CEILING_LIGHT.evening : 0}
       angle={CEILING_LIGHT.angle}
       penumbra={CEILING_LIGHT.penumbra}
-      decay={2}
     />
   );
 }
@@ -2270,11 +2277,15 @@ export default function Scene3D() {
     toMetres(room.depth),
     boxes,
     corner,
-    // the stage stands about square: the frame across is the lens's
     SHOT_ASPECT,
     windowSide(openings),
   );
-  const shot = useMemo((): Corner => [shotX, shotZ], [shotX, shotZ]);
+  // the corner holds while a piece is dragged: a piece brought near the
+  // camera would otherwise send it gliding to another corner mid-drag;
+  // it is chosen afresh once the piece is let go of
+  const [shot, setShot] = useState<Corner>([shotX, shotZ]);
+  if (!dragging && !panelDrag && (shot[0] !== shotX || shot[1] !== shotZ))
+    setShot([shotX, shotZ]);
   const backend = useStudio((s) => s.backend);
   // the picture's finish follows the device once the backend is known; a
   // render has it whatever the View settings; a stage that fails on this
@@ -2406,11 +2417,12 @@ export default function Scene3D() {
     setShaders(s);
     if (s === "ready") setWarmed(true);
   });
-  // the ceiling light in the middle of the room's box, under the
-  // ceiling (as Room3D's diffuser stands)
-  const midOf = (v: number[]) => (Math.min(...v) + Math.max(...v)) / 2;
-  const ceilingX = toMetres(midOf(outline.map(([x]) => x)) - room.width / 2);
-  const ceilingZ = toMetres(midOf(outline.map(([, y]) => y)) - room.depth / 2);
+  // the ceiling light under Room3D's diffuser
+  const [ceilingX, ceilingZ] = ceilingAt(
+    outline,
+    toMetres(room.width),
+    toMetres(room.depth),
+  );
   const liveSun = useMemo(
     () => ({ position: sunFrom, colour: light.colour, intensity: light.sun }),
     [sunFrom, light.colour, light.sun],
@@ -2559,6 +2571,7 @@ export default function Scene3D() {
           spanD={toMetres(box.h)}
           centre={centre}
           corner={corner}
+          shot={shot}
           sun={liveSun}
         />
         {tier && <Photo tier={tier} stamp={reflectStamp} />}

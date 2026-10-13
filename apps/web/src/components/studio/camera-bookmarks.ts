@@ -1,5 +1,5 @@
 import type { Vector3Tuple } from "three";
-import type { Opening } from "./room-data";
+import { type Opening, widestWindow } from "./room-data";
 import type { Angle } from "./studio-store";
 
 /**
@@ -24,6 +24,9 @@ export const FOV = { overview: 42, room: 58, widest: 78 } as const;
 /** the stage camera's near and far clip, m, which a glTF's cameras
     carry too */
 export const CLIP = { near: 0.05, far: 100 } as const;
+/** the frame a camera is set for where the stage's own is not at hand
+    (an export's cameras, a pose asked for without one), across ÷ high */
+export const FRAME_ASPECT = 16 / 10;
 /** the least the room spans across the picture, degrees */
 const ROOM_ACROSS = 66;
 /** the room from above its corner: how high the camera looks down,
@@ -33,7 +36,8 @@ const ROOM_VIEW = { elevation: 38, skew: 0.7, margin: 1.12 };
 
 /** a pose: where the camera stands, what it looks at, its lens, and
     how far its frame is shifted down, a share of the frame's height
-    (a shift lens, `camera.setViewOffset`): 0 for none */
+    (a shift lens, made in the projection matrix: Scene3D's `setShift`):
+    0 for none */
 export type Pose = {
   pos: Vector3Tuple;
   at: Vector3Tuple;
@@ -61,7 +65,7 @@ export const cornerShot = (
   w: number,
   d: number,
   [sx, sz]: Corner,
-  aspect = 16 / 10,
+  aspect = FRAME_ASPECT,
 ): Pose => {
   const x = sx * (w / 2 - SHOT.inset);
   const z = sz * (d / 2 - SHOT.inset);
@@ -80,7 +84,7 @@ export const nearestInShot = (
   d: number,
   corner: Corner,
   boxes: readonly Box[],
-  aspect = 16 / 10,
+  aspect = FRAME_ASPECT,
 ) => {
   const { pos, at, fov } = cornerShot(w, d, corner, aspect);
   const [px, , pz] = pos;
@@ -114,7 +118,7 @@ export const shotCorner = (
   d: number,
   boxes: readonly Box[],
   photo: Corner,
-  aspect = 16 / 10,
+  aspect = FRAME_ASPECT,
   /** which of the corner's two signs faces the window: z for a window
       on a north or south wall, x for one on an east or west wall */
   facing: "x" | "z" = "z",
@@ -146,9 +150,7 @@ const DOORS = new Set(["door", "double", "sliding"]);
 export const windowSide = (
   openings: readonly Pick<Opening, "kind" | "wall" | "width">[],
 ): "x" | "z" => {
-  const window = openings
-    .filter((o) => o.kind === "window")
-    .sort((a, b) => b.width - a.width)[0];
+  const window = widestWindow(openings);
   return window && (window.wall === "east" || window.wall === "west")
     ? "x"
     : "z";
@@ -166,9 +168,7 @@ export const cornerOf = (
   W: number,
   D: number,
 ): Corner => {
-  const window = openings
-    .filter((o) => o.kind === "window")
-    .sort((a, b) => b.width - a.width)[0];
+  const window = widestWindow(openings);
   if (!window) return [1, 1];
   const across = window.wall === "north" || window.wall === "south";
   // the side facing the window
@@ -261,11 +261,12 @@ export const cameraFor = (
       corner its picture is taken from */
   room: { w: number; d: number; corner?: Corner } = { w, d },
   /** the picture's width over its height */
-  aspect = 16 / 10,
+  aspect = FRAME_ASPECT,
 ): Pose => {
   const r = Math.max(w, d);
   const [cx, cz] = centre;
   const [sx, sz] = room.corner ?? [1, 1];
+  if (angle === "Corner") return cornerShot(room.w, room.d, [sx, sz], aspect);
   // the four sides look in over the near wall, which is open to the
   // camera, from above the walls: the floor, the pieces and the far wall
   // all in view, as a section through the room is drawn
@@ -284,8 +285,6 @@ export const cameraFor = (
       tall / Math.tan(half),
       reach / (Math.tan(half) * Math.max(0.5, aspect)),
     );
-  if (angle === "Corner")
-    return cornerShot(room.w, room.d, room.corner ?? [1, 1], aspect);
   const look = h / 4;
   const at: Record<string, Vector3Tuple> = {
     Perspective: [0, look, 0],
@@ -324,26 +323,23 @@ export const BOOKMARKS = [
   "Right",
   "Top",
 ] as const;
+/** how far in from the walls the walk starts, m */
+const WALK_IN = 0.6;
 export const walkStart = (
   w: number,
   d: number,
-  aspect = 16 / 10,
+  aspect = FRAME_ASPECT,
   corner: Corner = [1, 1],
 ): Pose => {
   const [sx, sz] = corner;
-  const x = sx * (w / 2 - 0.6);
-  const z = sz * (d / 2 - 0.6);
+  const x = sx * (w / 2 - WALK_IN);
+  const z = sz * (d / 2 - WALK_IN);
   // looking to the far corner (from the south-east, π/4: north-west),
   // level, so the walls' verticals stand vertical
   const yaw = Math.atan2(sx, sz);
-  const pitch = 0;
   return {
     pos: [x, EYE, z],
     fov: roomFov(aspect),
-    at: [
-      x - Math.sin(yaw) * Math.cos(pitch),
-      EYE + Math.sin(pitch),
-      z - Math.cos(yaw) * Math.cos(pitch),
-    ],
+    at: [x - Math.sin(yaw), EYE, z - Math.cos(yaw)],
   };
 };

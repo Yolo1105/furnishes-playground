@@ -115,6 +115,10 @@ Two findings shaped the work:
    the grid has its first picture (`probesPending`), and a grid baked is
    part of the lighting the shaders are built for; the same wall reads
    170.7, the probes' bounce from the floor and the window.
+   (2026-10-13: the grid now has its picture, empty, from the moment it
+   is made (Probes.tsx), so no shader can be built without it whatever
+   the order; `probesPending` and the wait went. See plan-realism.md,
+   "The same picture on every load".)
 
    The five visual pictures were taken again for it, on purpose: the day
    and walking views show the walls lighter and flatter, the probes'

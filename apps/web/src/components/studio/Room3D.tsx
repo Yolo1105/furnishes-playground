@@ -1,6 +1,7 @@
 "use client";
 
 import { devFlag } from "./dev-flags";
+import { seedOf } from "./seed";
 import { toMetres } from "@furnishes/scene";
 import { HDRLoader } from "three/examples/jsm/loaders/HDRLoader.js";
 import {
@@ -51,6 +52,7 @@ import {
 import {
   type Floor,
   isWindow,
+  widestWindow,
   type Opening,
   OPENINGS,
   type Wall,
@@ -129,7 +131,6 @@ const CAP_HEX = "#d6cfc6";
 /** the line round a wall's cut: a shade under the cut's own tone, so
     the cut reads as a section drawn in pencil, not boxed in black */
 const CAP_LINE_HEX = "#b3a89b";
-export { SHADOW_LAYER } from "./walls-standing";
 /** the plaster's sheen: eggshell, so a window's light sweeps across a
     wall as a soft gloss (the roughness map lays its grain over it) */
 const PLASTER_ROUGH = 0.72;
@@ -152,6 +153,20 @@ const CEILING_DROP = 0.002;
     (a bare ceiling read as a set's) */
 const LAMP = { radius: 0.2, drop: 0.025, day: 0.35, evening: 2.2 };
 const LAMP_HEX = "#fbf6ec";
+/** where the ceiling light hangs: the middle of the room's box, m about
+    the room's middle, for an outline in mm and the box `w` × `d` in m
+    (Scene3D's light shines from there, under this diffuser) */
+export const ceilingAt = (
+  outline: readonly (readonly [number, number])[],
+  w: number,
+  d: number,
+): [number, number] => {
+  const mid = (v: number[]) => toMetres((Math.min(...v) + Math.max(...v)) / 2);
+  return [
+    mid(outline.map(([x]) => x)) - w / 2,
+    mid(outline.map(([, y]) => y)) - d / 2,
+  ];
+};
 /** the export's tags and names: a copy of the scene keeps what stands
     under the room's tag and names each part (scene-copy.ts) */
 const ROOM_TAG = { export: "room" } as const;
@@ -297,25 +312,24 @@ function Outside({
     </mesh>
   );
 }
-/** how much of the room a pane gives back */
-const GLASS_OPACITY = 0.18;
-/** the glass's own cast, the faint green of float glass */
-const GLASS_HEX = "#eaf1ee";
+/** a pane: the faint green of float glass, how much of the room it
+    gives back, near smooth, seen from both sides, hiding nothing behind */
+const GLASS = {
+  color: "#eaf1ee",
+  transparent: true,
+  opacity: 0.18,
+  roughness: 0.03,
+  metalness: 0,
+  depthWrite: false,
+  side: DoubleSide,
+} as const;
 /** the panes' glass reflecting the room, where the room has its
     picture (Reflection.tsx): one material for every pane */
 let glass: { of: Node; m: MeshPhysicalNodeMaterial } | null = null;
 const glassOf = (room: Node) => {
   if (glass?.of !== room) {
     glass?.m.dispose();
-    const m = new MeshPhysicalNodeMaterial({
-      color: GLASS_HEX,
-      transparent: true,
-      opacity: GLASS_OPACITY,
-      roughness: 0.03,
-      metalness: 0,
-      depthWrite: false,
-      side: DoubleSide,
-    });
+    const m = new MeshPhysicalNodeMaterial(GLASS);
     m.envNode = room;
     glass = { of: room, m };
   }
@@ -505,12 +519,18 @@ const floorShape = (
 /** never under the pointer */
 const noPick = () => null;
 
+/** how far a room's floor may start into its tile, across and along,
+    m: a few metres, past a board's length and a tile's run */
+const TILE_SPREAD = [7.3, 5.9] as const;
 /** where in its tile a room's floor starts, m: read from its id, the
-    same every time, up to a few metres either way */
+    same every time */
 const tileOffset = (id: string): [number, number] => {
-  let n = 0;
-  for (const c of id) n = (Math.imul(n, 31) + c.charCodeAt(0)) | 0;
-  return [(((n >>> 0) % 997) / 997) * 7.3, (((n >>> 10) % 991) / 991) * 5.9];
+  const n = seedOf(id);
+  // two near-independent fractions of the seed (two primes' remainders)
+  return [
+    ((n % 997) / 997) * TILE_SPREAD[0],
+    (((n >>> 10) % 991) / 991) * TILE_SPREAD[1],
+  ];
 };
 
 /** a wall's turn so its face points into the room */
@@ -555,7 +575,7 @@ export const windowSun = (
   back: number,
   aside: number,
 ): Vector3Tuple | null => {
-  const window = openings.filter(isWindow).sort((a, b) => b.width - a.width)[0];
+  const window = widestWindow(openings);
   if (!window) return null;
   const [x, z] = placeOf(r, window);
   const [nx, nz] = inward(window.wall);
@@ -1169,15 +1189,7 @@ function Window({ r, o }: { r: RoomShape; o: Opening }) {
               dispose={null}
             />
           ) : (
-            <meshPhysicalMaterial
-              color={GLASS_HEX}
-              transparent
-              opacity={GLASS_OPACITY}
-              roughness={0.03}
-              metalness={0}
-              depthWrite={false}
-              side={DoubleSide}
-            />
+            <meshPhysicalMaterial {...GLASS} />
           )}
         </mesh>
         {/* the architrave round the opening on the inside */}
@@ -1529,14 +1541,7 @@ export function RoomShell({
   });
   const { material, target } = useFloorMaterial(w, h, d, reflection !== null);
   const shape = useMemo(() => floorShape(r.outline, w, d), [r.outline, w, d]);
-  // the middle of the room's box, m about the room's middle
-  const lampAt = useMemo(() => {
-    const xs = r.outline.map(([x]) => x);
-    const ys = r.outline.map(([, y]) => y);
-    const mid = (v: number[]) =>
-      toMetres((Math.min(...v) + Math.max(...v)) / 2);
-    return [mid(xs) - w / 2, mid(ys) - d / 2] as const;
-  }, [r.outline, w, d]);
+  const lampAt = useMemo(() => ceilingAt(r.outline, w, d), [r.outline, w, d]);
   // the floor's material: a photographed set in its own colour with
   // the tone laid lightly over it, else the grown floor in the tone
   const floorMat = useMaterial(FLOOR_MATERIAL[r.floor], r.floorHex);
@@ -1741,6 +1746,12 @@ const surround = (
     if (scene.environment === map) scene.environment = null;
   };
 };
+/** how much the surroundings light the room, day and evening: the
+    drawn panels' studio sky, and a photographed sky's map */
+const SURROUND = {
+  panels: { day: 0.12, evening: 0.05 },
+  map: { day: 0.15, evening: 0.05 },
+} as const;
 export function RoomLight({ evening, sky }: { evening: boolean; sky: Sky }) {
   const file = sky === "panels" ? (evening ? "panels-evening" : "panels") : sky;
   const map = useLoader(HDRLoader, `/sky/${file}.hdr`);
@@ -1749,7 +1760,7 @@ export function RoomLight({ evening, sky }: { evening: boolean; sky: Sky }) {
   // them, and they light the room's walls only faintly, as the sky
   // through a window does; the window's sun carries the room
   const intensity =
-    sky === "panels" ? (evening ? 0.05 : 0.12) : evening ? 0.05 : 0.15;
+    SURROUND[sky === "panels" ? "panels" : "map"][evening ? "evening" : "day"];
   useEffect(() => {
     const { scene, invalidate } = get();
     return surround(scene, map, intensity, invalidate);

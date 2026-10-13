@@ -27,6 +27,7 @@ import {
   type Vector3Tuple,
 } from "three";
 import type { AssetNode } from "./assets-data";
+import { seedOf } from "./seed";
 import { recipeOf } from "./catalogue";
 import { useEvent } from "./use-event";
 import { propFor } from "./generation-store";
@@ -141,13 +142,6 @@ type Props = {
   /** the piece is in hand: its panels can be picked and moved */
   editable: boolean;
   onPick: () => void;
-};
-
-/** a small whole number from a name, the same every time */
-const seedOf = (s: string) => {
-  let n = 0;
-  for (let i = 0; i < s.length; i++) n = (n * 31 + s.charCodeAt(i)) >>> 0;
-  return n;
 };
 
 /** where the Draco decoder is served from: the studio's own copy, so a
@@ -1023,6 +1017,9 @@ const LAMP_LIGHT = {
   desk: { evening: 4, reach: 2.5 },
   /** the shade's own glow, lit and unlit */
   glow: { evening: 0.9, day: 0 },
+  /** the floor lamp's shadow: a small map (the pool is soft), its bias,
+      and how near the bulb it starts, m */
+  shadow: { map: 256, bias: -0.002, near: 0.05 },
 } as const;
 
 function Lamp({
@@ -1075,11 +1072,10 @@ function Lamp({
         color={LAMP_LIGHT.colour}
         intensity={lit ? bulb.evening : 0}
         distance={bulb.reach}
-        decay={2}
         castShadow={shadowed}
-        shadow-mapSize={[256, 256]}
-        shadow-bias={-0.002}
-        shadow-camera-near={0.05}
+        shadow-mapSize={[LAMP_LIGHT.shadow.map, LAMP_LIGHT.shadow.map]}
+        shadow-bias={LAMP_LIGHT.shadow.bias}
+        shadow-camera-near={LAMP_LIGHT.shadow.near}
       />
     </group>
   );
@@ -1683,14 +1679,15 @@ function BunkBed({
   );
 }
 
-/** a low media console: a carcass of two doors on a plinth, and the
-    television standing on it, set back on its foot */
-/** the television: its body's satin metal, its screen's black glass,
-    and the rim of body round the screen, m */
+/** the television: its body's satin metal, its screen's black glass;
+    the rim of body round the screen, the body's and the glass's depth,
+    and how high the body stands over its foot's base, m */
 const TV_BEZEL = "#3a3b3f";
 const TV_GLASS = "#0d0e10";
-const TV_RIM = 0.009;
+const TV = { rim: 0.009, depth: 0.03, glass: 0.002, lift: 0.08 };
 
+/** a low media console: a carcass of two doors on a plinth, and the
+    television standing on it, set back on its foot */
 function MediaConsole({
   w,
   h,
@@ -1729,13 +1726,14 @@ function MediaConsole({
           finish.tsx) */}
       <Slab
         f={metal(TV_BEZEL, 0.38)}
-        at={[0, h + 0.08 + tvH / 2, -d * 0.12]}
-        dims={[tvW, tvH, 0.03]}
+        at={[0, h + TV.lift + tvH / 2, -d * 0.12]}
+        dims={[tvW, tvH, TV.depth]}
       />
+      {/* the glass laid on the body's front, a hair proud of it */}
       <Slab
         f={{ colour: TV_GLASS, rough: 0.05, coat: 1 }}
-        at={[0, h + 0.08 + tvH / 2, -d * 0.12 + 0.0155]}
-        dims={[tvW - 2 * TV_RIM, tvH - 2 * TV_RIM, 0.002]}
+        at={[0, h + TV.lift + tvH / 2, -d * 0.12 + (TV.depth + TV.glass) / 2]}
+        dims={[tvW - 2 * TV.rim, tvH - 2 * TV.rim, TV.glass]}
       />
     </group>
   );

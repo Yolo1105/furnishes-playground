@@ -70,9 +70,10 @@ const room = () => {
   const grid = new Mesh(new PlaneGeometry(9, 9), new MeshBasicMaterial());
   const sun = new DirectionalLight("#fff3e2", 7);
   sun.position.set(3, 6, 4);
-  const skyShadow = new DirectionalLight("#e0e7ee", 1);
-  skyShadow.userData.export = "helper";
-  scene.add(shell, pieces, grid, sun, skyShadow);
+  // a light the live view alone draws with (a fill), tagged a helper
+  const fill = new DirectionalLight("#e0e7ee", 1);
+  fill.userData.export = "helper";
+  scene.add(shell, pieces, grid, sun, fill);
   return scene;
 };
 
@@ -135,7 +136,7 @@ describe("the copy for export", () => {
     expect(sun.isDirectionalLight).toBe(true);
     expect(sun.intensity).toBe(7);
   });
-  it("keeps the scene's sun in a tracing copy, not the sky's shadow, and leaves the cameras out", () => {
+  it("keeps the scene's sun in a tracing copy, not a helper's light, and leaves the cameras out", () => {
     const { root } = copyForExport(room(), { purpose: "trace" });
     const lights = root.getObjectByName("Lights")!;
     expect(lights.children).toHaveLength(1);

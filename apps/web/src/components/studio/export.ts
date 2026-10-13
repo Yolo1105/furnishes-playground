@@ -11,7 +11,12 @@ import {
 import { ROOM_NAMES } from "./room-data";
 import { sgd } from "./assets-data";
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
-import { BOOKMARKS, cameraFor, walkStart } from "./camera-bookmarks";
+import {
+  BOOKMARKS,
+  cameraFor,
+  FRAME_ASPECT,
+  walkStart,
+} from "./camera-bookmarks";
 import { copyForExport } from "./scene-copy";
 import { liveScene } from "./scene-handle";
 
@@ -88,12 +93,23 @@ export const exportRoomGlb = async () => {
         live.span.d,
         live.h,
         live.centre,
-        { w: live.w, d: live.d, corner: live.corner },
+        // the Corner view from the corner the stage takes it from; a
+        // glTF camera has no shift lens, so it comes level, unshifted
+        {
+          w: live.w,
+          d: live.d,
+          corner: name === "Corner" ? live.shot : live.corner,
+        },
       );
       return { name, position: pos, at, fov };
     }),
     (() => {
-      const { pos, at, fov } = walkStart(live.w, live.d, 16 / 10, live.corner);
+      const { pos, at, fov } = walkStart(
+        live.w,
+        live.d,
+        FRAME_ASPECT,
+        live.corner,
+      );
       return { name: "Walk", position: pos, at, fov };
     })(),
   ];

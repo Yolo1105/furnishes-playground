@@ -22,6 +22,9 @@ export type Live = {
   centre: readonly [number, number];
   /** the corner the room's picture is taken from */
   corner: Corner;
+  /** the corner the Corner view stands in (the photographed one unless
+      a piece stands in its foreground) */
+  shot: Corner;
   sun: Sun;
 };
 

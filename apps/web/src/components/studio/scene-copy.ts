@@ -22,7 +22,7 @@ import {
   Vector3,
   type Vector3Tuple,
 } from "three";
-import { CLIP } from "./camera-bookmarks";
+import { CLIP, FRAME_ASPECT } from "./camera-bookmarks";
 
 /**
  * A copy of the room for handing over: to the glTF exporter, or to the
@@ -295,8 +295,11 @@ const classicOf = (m: Material, own: Owned): Classic => {
   // sheen; the room's reflection it carried is the tracer's own work
   if (any.isMeshPhysicalNodeMaterial) {
     const phys = new MeshPhysicalMaterial();
-    // the standard half copied as a standard material copies itself
+    // the standard half copied as a standard material copies itself;
+    // that copy sets the standard's defines, so the physical one's go
+    // back (a raster of the copy would leave out the coat and the sheen)
     MeshStandardMaterial.prototype.copy.call(phys, out);
+    phys.defines = { STANDARD: "", PHYSICAL: "" };
     phys.clearcoat = any.clearcoat ?? 0;
     phys.clearcoatRoughness = any.clearcoatRoughness ?? 0;
     phys.sheen = any.sheen ?? 0;
@@ -447,7 +450,12 @@ export const copyForExport = (
       cameras.name = "Cameras";
       for (const b of options.cameras) {
         // the camera the bookmarks are drawn with: the stage's
-        const cam = new PerspectiveCamera(b.fov, 16 / 10, CLIP.near, CLIP.far);
+        const cam = new PerspectiveCamera(
+          b.fov,
+          FRAME_ASPECT,
+          CLIP.near,
+          CLIP.far,
+        );
         cam.name = b.name;
         cam.position.set(...b.position);
         cam.lookAt(new Vector3(...b.at));

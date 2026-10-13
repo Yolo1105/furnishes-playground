@@ -15,6 +15,7 @@ import {
 } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { Opening } from "./room-data";
+import { seedOf } from "./seed";
 import { inward, sideOf, yawOf } from "./Room3D";
 import type { Point } from "./room-templates";
 import {
@@ -350,10 +351,7 @@ export function WallItems3D({
   const w = toMetres(r.W);
   const d = toMetres(r.D);
   // a print per room, the same each time
-  const seed = useMemo(
-    () => [...r.id].reduce((n, ch) => n + ch.charCodeAt(0), 0),
-    [r.id],
-  );
+  const seed = useMemo(() => seedOf(r.id), [r.id]);
   return (
     <group userData={ITEM_NAME}>
       {items.map((it) => {

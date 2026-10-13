@@ -256,6 +256,17 @@ export const openingLabel = (kind: OpeningKind) =>
 const kindWidth = (kind: OpeningKind) =>
   OPENING_KINDS.find((k) => k.id === kind)!.width;
 export const isWindow = (o: Pick<Opening, "kind">) => o.kind === "window";
+/** a room's widest window, the one its light and its photograph are
+    taken from; undefined for a room without one */
+export const widestWindow = <O extends Pick<Opening, "kind" | "width">>(
+  openings: readonly O[],
+): O | undefined =>
+  openings
+    .filter(isWindow)
+    .reduce<O | undefined>(
+      (best, o) => (best && best.width >= o.width ? best : o),
+      undefined,
+    );
 /** a leaf that swings into the room, and so needs its floor clear */
 export const swings = (o: Pick<Opening, "kind">) =>
   o.kind === "door" || o.kind === "double";

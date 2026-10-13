@@ -47,13 +47,6 @@ export const CHECKS: readonly Check[] = [
     reads: ["reflection"],
   },
   {
-    id: "sky-shadow",
-    title: "The sky's shadow",
-    look: "With shadows on, the floor under a sideboard is softly darker than the open floor beside it; nothing banded or speckled on the walls.",
-    reads: ["shadows"],
-    set: () => st().setScene({ shadows: "on" }),
-  },
-  {
     id: "ssr",
     title: "Screen-space reflections",
     look: "On the Full picture with Reflections on: the floor shows the sideboard and the window reflected sharply where they stand on the screen, and panning shows no seam where the floor's own picture takes over at the edges. The bench's post-processing line stays under 6 ms at 1440p.",

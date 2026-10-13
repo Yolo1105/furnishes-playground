@@ -11,6 +11,7 @@ import {
   type Mesh,
   type Scene,
   type Texture,
+  Vector3,
 } from "three";
 import {
   float,
@@ -31,7 +32,6 @@ import {
   TempNode,
   type WebGPURenderer,
 } from "three/webgpu";
-import { Vector3 } from "three";
 import { create } from "zustand";
 import { type StillState, stillOf, wakeAt } from "./capture";
 import { warming } from "./shader-warm";
@@ -67,6 +67,9 @@ export const floorCube: { current: CubeRenderTarget | null } = {
 
 /** the room's box the glossy things' reflection is projected on, m:
     its size and its middle, uniforms so a new size moves no shader */
+/** the level a material asks an environment at for the light it
+    gathers from all round (three's irradiance lookup), not a reflection */
+const IRRADIANCE_LEVEL = 1;
 const ROOM_BOX = uniform(new Vector3(1, 1, 1));
 const ROOM_MID = uniform(new Vector3(0, 0.5, 0));
 
@@ -91,7 +94,8 @@ class RoomReflectionNode extends TempNode {
     };
     const level = context.getTextureLevel?.(this) as
       (Node & { isConstNode?: boolean; value?: number }) | undefined;
-    if (level?.isConstNode && level.value === 1) return vec3(0, 0, 0);
+    if (level?.isConstNode && level.value === IRRADIANCE_LEVEL)
+      return vec3(0, 0, 0);
     const direction = context.getUV?.(this, builder) ?? reflectVector;
     const uv = getParallaxCorrectNormal(direction, ROOM_BOX, ROOM_MID);
     return level
@@ -149,18 +153,16 @@ export const useFloorMaterial = (
         ),
       ),
     );
+    // the room's box as the uniforms hold it (set above), so a change
+    // of the room's size builds no shader
     if (target) {
       m.envNode = pmremTexture(
         target.texture,
-        getParallaxCorrectNormal(
-          reflectVector,
-          vec3(w, h, d),
-          vec3(0, h / 2, 0),
-        ),
+        getParallaxCorrectNormal(reflectVector, ROOM_BOX, ROOM_MID),
       );
     }
     return m;
-  }, [target, w, h, d]);
+  }, [target]);
   useEffect(() => () => material.dispose(), [material]);
   return { material, target };
 };

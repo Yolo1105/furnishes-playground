@@ -79,13 +79,15 @@ export function StagePieces({
   // pointer reports more often than the screen draws
   const nextMove = useRef<(() => void) | null>(null);
   const moveFrame = useRef(0);
-  const flushFrame = () => {
+  /** the move waiting for its frame, taken back: returned, not run */
+  const takeFrame = () => {
     cancelAnimationFrame(moveFrame.current);
     moveFrame.current = 0;
     const f = nextMove.current;
     nextMove.current = null;
-    f?.();
+    return f;
   };
+  const flushFrame = () => takeFrame()?.();
   const onFrame = (f: () => void) => {
     nextMove.current = f;
     if (!moveFrame.current)
@@ -145,7 +147,9 @@ export function StagePieces({
       drag.current = null;
       endPress();
       if (d.moved) {
-        cancelAnimationFrame(moveFrame.current);
+        // the move waiting for its frame goes with the drag: a frame
+        // left asked for would keep the next drag's from being asked
+        takeFrame();
         useScene.getState().dragCancel();
         setDragging(null);
       }
