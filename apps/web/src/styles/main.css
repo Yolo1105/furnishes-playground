@@ -905,6 +905,13 @@
   border-radius: 10px;
   background: rgb(from var(--color-ink) r g b / 0.06);
 }
+.dev-panel-heat {
+  flex: 1 1 0;
+  min-width: 0;
+  width: 50%;
+  border-radius: 6px;
+  background: #000;
+}
 .dev-panel-report {
   width: 100%;
   min-height: 160px;
@@ -1099,6 +1106,41 @@
   color: rgb(from var(--color-ink) r g b / 0.55);
   opacity: 0;
   transition: opacity 0.2s ease;
+}
+.preview-actions {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  translate: -50% 0;
+  z-index: 3;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--r-panel);
+  pointer-events: auto;
+}
+.preview-action {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: var(--r-control);
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+.preview-action:hover {
+  background: rgb(from var(--color-accent) r g b / 0.12);
+  color: var(--color-accent);
+}
+.preview-action:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
 }
 .preview-tag-after {
   right: auto;
@@ -2265,6 +2307,17 @@
 }
 .plan-north path {
   fill: var(--plan-ink);
+}
+.plan-north-turn {
+  cursor: grab;
+  outline: none;
+}
+.plan-north-turn:active {
+  cursor: grabbing;
+}
+.plan-north-turn:focus-visible circle {
+  stroke: var(--color-accent);
+  stroke-width: 24;
 }
 .plan-title rect {
   fill: none;

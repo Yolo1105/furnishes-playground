@@ -90,6 +90,8 @@ export type Join = {
   /** the room a swinging leaf opens into */
   into: string;
   open: boolean;
+  /** how far its leaf stands ajar at rest, degrees */
+  ajar?: number;
 };
 
 export type RoomConfig = {
@@ -102,6 +104,9 @@ export type RoomConfig = {
   activeId: string;
   /** the tour's stops on the sheet, mm, in the order they are walked */
   stops: Point[];
+  /** where north points on the plan, degrees clockwise from up (the
+      drawings' north arrow): the sun is placed by it */
+  north: number;
   /** the corners traced so far on the plan, mm, until the room closes */
   drawing: Point[];
 };
@@ -111,6 +116,8 @@ type ActiveRoom = RoomSpec & Pick<RoomConfig, "flat">;
 
 type RoomState = RoomConfig & {
   setFlat: (flat: FlatType) => void;
+  /** turn the plan's north arrow, degrees clockwise from up */
+  setNorth: (deg: number) => void;
   setRoom: (room: RoomId) => void;
   /** the active room resized; with `magnet`, a width or depth that
       brings its east or south wall within reach of a neighbour's lands
@@ -380,6 +387,7 @@ export const openingsOf = (
         wall,
         at: j.at - (horizontal ? r.pos[0] : r.pos[1]),
         width: j.width,
+        ...(j.ajar ? { ajar: j.ajar } : {}),
       };
     }),
 ];
@@ -733,9 +741,13 @@ const showcaseFlat = (): Pick<
     [shelter, hall, { kind: "door", width: 800, at: 8500, into: shelter.id }],
     [yard, kitchen, { kind: "door", width: 800, at: 8000, into: yard.id }],
   ];
-  const joins = settled({ rooms, joins: [] }).joins.map((j) => {
+  // its doors stand a little ajar, each its own way, as a lived-in
+  // flat's do, so their leaves' thickness and the room beyond read
+  const joins = settled({ rooms, joins: [] }).joins.map((j, k) => {
     const d = doorways.find(([a, b]) => between(a.id, b.id)(j));
-    return d ? { ...j, ...d[2], open: true } : { ...j, open: false };
+    return d
+      ? { ...j, ...d[2], open: true, ajar: AJAR.from + ((k * 7) % AJAR.spread) }
+      : { ...j, open: false };
   });
   // the tour's round of the flat: in at the entrance, up the east side
   // past the television, back down between the sofa and the coffee
@@ -769,6 +781,10 @@ const showcaseFlat = (): Pick<
   return { flat, rooms, joins, stops };
 };
 
+/** how far the showcase's doors stand ajar, degrees: from, and the
+    spread of a seeded few more */
+const AJAR = { from: 12, spread: 14 };
+
 /** The rooms of the flat, one of them active. */
 export const useRoom = create<RoomState>((set, get) => {
   /** the active room changed */
@@ -788,6 +804,8 @@ export const useRoom = create<RoomState>((set, get) => {
     ...home,
     activeId: home.rooms[0]!.id,
     drawing: [],
+    north: 0,
+    setNorth: (deg) => set({ north: ((Math.round(deg) % 360) + 360) % 360 }),
     setFlat: (flat) => {
       const before = get();
       set((s) => ({

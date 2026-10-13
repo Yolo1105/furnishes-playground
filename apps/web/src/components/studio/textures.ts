@@ -6,6 +6,7 @@ import {
   SRGBColorSpace,
   UnsignedByteType,
 } from "three";
+import { devFlag } from "./dev-flags";
 import { type SurfaceMaps, type SurfaceSpec } from "./surface-paint";
 import type { SurfaceAnswer, SurfaceRequest } from "./surface.worker";
 
@@ -61,13 +62,19 @@ const textureOf = (
 /** the painted maps as a surface; light values alone are not a colour,
     so an untinted map is read as it is and the material's colour is
     multiplied by it */
+/** a normal map facing straight out, for `?flatnormals` (dev-flags.ts) */
+export const flatNormal = () =>
+  textureOf(new Uint8ClampedArray([128, 128, 255, 255]), 1, NoColorSpace);
+
 export const surfaceOf = (maps: SurfaceMaps, tinted: boolean): Surface => ({
   map: textureOf(
     maps.colour,
     maps.size,
     tinted ? SRGBColorSpace : NoColorSpace,
   ),
-  normalMap: textureOf(maps.normal, maps.size, NoColorSpace),
+  normalMap: devFlag("flatnormals")
+    ? flatNormal()
+    : textureOf(maps.normal, maps.size, NoColorSpace),
   roughnessMap: textureOf(maps.rough, maps.size, NoColorSpace),
 });
 

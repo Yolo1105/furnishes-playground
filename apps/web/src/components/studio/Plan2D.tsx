@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   type ComponentProps,
+  type KeyboardEvent as KeyEvent,
   type MouseEvent,
   type PointerEvent,
 } from "react";
@@ -162,6 +163,9 @@ const aboutOf = (sheet: Element, x: number, y: number) => {
   };
 };
 
+/** the north arrow turns in these steps, degrees (Shift: one) */
+const NORTH_STEP = 15;
+
 export function Plan2D({
   interactive = true,
 }: {
@@ -169,6 +173,30 @@ export function Plan2D({
   interactive?: boolean;
 }) {
   const st = useRoom();
+  /** a drag on the north arrow: its angle from the arrow's middle,
+      snapped to NORTH_STEP (Shift: whole degrees) */
+  const turnNorth = (e: PointerEvent<SVGGElement>) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const el = e.currentTarget;
+    const box = el.getBoundingClientRect();
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    el.setPointerCapture(e.pointerId);
+    const move = (m: globalThis.PointerEvent) => {
+      const deg = (Math.atan2(m.clientX - cx, cy - m.clientY) * 180) / Math.PI;
+      const step = m.shiftKey ? 1 : NORTH_STEP;
+      useRoom.getState().setNorth(Math.round(deg / step) * step);
+    };
+    const up = () => {
+      el.removeEventListener("pointermove", move);
+      el.removeEventListener("pointerup", up);
+      el.removeEventListener("pointercancel", up);
+    };
+    el.addEventListener("pointermove", move);
+    el.addEventListener("pointerup", up);
+    el.addEventListener("pointercancel", up);
+  };
   const rooms = st.rooms;
   const active = activeOf(st);
   /** the active room's fields with the actions, as one */
@@ -1064,13 +1092,43 @@ export function Plan2D({
           {dim([0, 0], [W, 0], `${W}`, [0, -1])}
           {dim([0, D], [0, 0], `${D}`, [-1, 0])}
 
-          {/* the north arrow, top right of the sheet */}
+          {/* the north arrow, top right of the sheet: it turns (drag it,
+              or the arrow keys), and the sun in 3D turns with it */}
           <g
             className="plan-north"
             transform={`translate(${box.x + box.w - pos[0] + MARGIN * 0.55} ${box.y - pos[1] - MARGIN * 0.6})`}
           >
-            <circle r={180} />
-            <path d="M0 -150 L75 70 L0 25 L-75 70 Z" />
+            <g
+              transform={`rotate(${st.north})`}
+              {...(interactive
+                ? {
+                    role: "slider",
+                    tabIndex: 0,
+                    "aria-label": "North",
+                    "aria-valuemin": 0,
+                    "aria-valuemax": 359,
+                    "aria-valuenow": st.north,
+                    "aria-valuetext": `North ${st.north}° clockwise from up`,
+                    "data-north": st.north,
+                    className: "plan-north-turn",
+                    onPointerDown: turnNorth,
+                    onKeyDown: (e: KeyEvent) => {
+                      const by = e.shiftKey ? 1 : NORTH_STEP;
+                      if (e.key === "ArrowRight" || e.key === "ArrowUp")
+                        st.setNorth(st.north + by);
+                      else if (e.key === "ArrowLeft" || e.key === "ArrowDown")
+                        st.setNorth(st.north - by);
+                      else return;
+                      e.preventDefault();
+                      e.stopPropagation();
+                    },
+                  }
+                : {})}
+            >
+              <title>North: drag or use the arrow keys to turn</title>
+              <circle r={180} />
+              <path d="M0 -150 L75 70 L0 25 L-75 70 Z" />
+            </g>
             <text y={300}>N</text>
           </g>
 

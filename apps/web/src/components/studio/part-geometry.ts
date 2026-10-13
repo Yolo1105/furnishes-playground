@@ -28,25 +28,28 @@ import { WOOD_M } from "./textures";
  * piece's parts merged into a few batches, one a finish.
  */
 
-/** the eased edge of a panel, m: two panels meeting leave a seam a
-    few millimetres wide that catches a line of light or shadow, so
-    where one board ends and the next begins is read at a glance */
-const EDGE = 0.0025;
+/** the rounded edge of a board, m: a real round in the geometry, so
+    each edge catches a thin highlight as a sanded board's does, and two
+    boards meeting leave a hairline seam between their rounds */
+const EDGE = 0.0013;
+/** a board counts as plywood (its edges show the plies, ply.ts) from
+    this thick to this thick, m: a plinth or a worktop is not */
+export const PLY_MIN = 0.012;
+export const PLY_MAX = 0.03;
 /** how much darker a panel's edge band stands than its face: the
     four narrow faces of a board are a shade under its face, as end
     grain is (darker than this, every board read as drawn round, an
     illustration's outline) */
 const BAND = 0.93;
-/** how dark the eased edge itself stands: the seam between two boards
-    catches a little shadow, no more */
-const SEAM = 0.88;
 /** a slab's geometry: a box with its edges eased, its texture laid in
     metres with the grain along the panel's longer side (a top's along
     its length, a side's up its height, a door's up its height), so no
     two parts of a piece carry the grain the same way and each face
     takes the tile at one size; the four narrow faces carry the band's
-    tone as a vertex colour. Kept by size, since a piece's panels
-    repeat */
+    tone as a vertex colour, and on a board of plywood's thickness where
+    a point stands across the plies (the `ply` attribute: across the
+    thickness 0–1, along the edge in m, 1 on an edge face; ply.ts draws
+    the plies from it). Kept by size, since a piece's panels repeat */
 const slabs = new Map<string, BufferGeometry>();
 const SLABS_KEPT = 512;
 export const slabGeometry = (dims: Vector3Tuple) => {
@@ -60,9 +63,12 @@ export const slabGeometry = (dims: Vector3Tuple) => {
   const nor = g.getAttribute("normal");
   const uv = g.getAttribute("uv");
   const tone = new Float32Array(pos.count * 3);
+  const ply = new Float32Array(pos.count * 3);
   // the board's thickness runs along its shortest side: the two faces
   // across it are the board's faces, the other four its edge band
   const thin = Math.min(w, h, d);
+  const thinAxis = thin === w ? 0 : thin === h ? 1 : 2;
+  const plywood = thin >= PLY_MIN && thin <= PLY_MAX;
   for (let i = 0; i < pos.count; i++) {
     const nx = Math.abs(nor.getX(i));
     const ny = Math.abs(nor.getY(i));
@@ -74,26 +80,34 @@ export const slabGeometry = (dims: Vector3Tuple) => {
     let a: number;
     let b: number;
     let across: number;
+    let facing: number;
     if (nx >= ny && nx >= nz) {
       [a, b] = h >= d ? [y, z] : [z, y];
       across = w;
+      facing = 0;
     } else if (ny >= nz) {
       [a, b] = w >= d ? [x, z] : [z, x];
       across = h;
+      facing = 1;
     } else {
       [a, b] = w >= h ? [x, y] : [y, x];
       across = d;
+      facing = 2;
     }
     uv.setXY(i, a / WOOD_M, b / WOOD_M);
-    // a vertex on the eased edge faces no one axis
-    const eased = Math.max(nx, ny, nz) < 0.98;
-    const t = eased ? SEAM : across === thin ? 1 : BAND;
+    const t = across === thin ? 1 : BAND;
     tone[i * 3] = t;
     tone[i * 3 + 1] = t;
     tone[i * 3 + 2] = t;
+    // across the plies, and along the edge: on an edge face of plywood
+    const at = [x, y, z][thinAxis]!;
+    ply[i * 3] = (at + thin / 2) / thin;
+    ply[i * 3 + 1] = a;
+    ply[i * 3 + 2] = plywood && facing !== thinAxis ? 1 : 0;
   }
   uv.needsUpdate = true;
   g.setAttribute("color", new Float32BufferAttribute(tone, 3));
+  g.setAttribute("ply", new Float32BufferAttribute(ply, 3));
   if (slabs.size >= SLABS_KEPT) {
     const oldest = slabs.keys().next().value!;
     slabs.get(oldest)!.dispose();
@@ -153,6 +167,7 @@ const batchOf = (p: Part) => {
     f.sheen ?? "",
     f.coat ?? "",
     f.metal ?? "",
+    f.ply ? "ply" : "",
   ].join("|");
 };
 
@@ -183,13 +198,15 @@ const placed = (parts: Part[], shape: (p: Part) => BufferGeometry) => {
       for (let v = 0; v < tone.count; v++)
         tone.setXYZ(v, tone.getX(v) * k, tone.getY(v) * k, tone.getZ(v) * k);
     }
-    // and cut from its own place in the log: two boards of a size no
-    // longer show the same patch of grain side by side
+    // and cut from its own place in the sheet, half of them turned end
+    // for end: two boards of a size never show the same patch of the
+    // figure side by side
     const uv = g.getAttribute("uv");
     if (uv) {
       const [du, dv] = grainShiftOf(p.at);
+      const turn = (du * 7919) % 1 < 0.5 ? 1 : -1;
       for (let v = 0; v < uv.count; v++)
-        uv.setXY(v, uv.getX(v) + du, uv.getY(v) + dv);
+        uv.setXY(v, turn * uv.getX(v) + du, turn * uv.getY(v) + dv);
     }
     return g.applyMatrix4(m);
   });
@@ -258,12 +275,15 @@ export const rodGeometry = ([r, h, top]: [
   return g;
 };
 
-/** a geometry's vertex colours all white: the tone a part with no band
-    carries, so it shares its finish's shader with the banded slabs */
+/** a geometry's vertex colours all white and no plies: the tone a part
+    with no band carries, so it shares its finish's shader with the
+    banded slabs (and a batch of both merges) */
 const white = (g: BufferGeometry) => {
-  const tone = new Float32Array(g.getAttribute("position").count * 3);
+  const n = g.getAttribute("position").count;
+  const tone = new Float32Array(n * 3);
   tone.fill(1);
   g.setAttribute("color", new Float32BufferAttribute(tone, 3));
+  g.setAttribute("ply", new Float32BufferAttribute(new Float32Array(n * 3), 3));
   return g;
 };
 

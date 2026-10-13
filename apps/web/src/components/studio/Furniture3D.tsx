@@ -1,7 +1,7 @@
 "use client";
 
+import { edgeLine } from "./edge-line";
 import { useGLTF } from "@react-three/drei";
-import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { ThreeEvent } from "@react-three/fiber";
 import {
   Component,
@@ -15,10 +15,8 @@ import type { Panel } from "@furnishes/domain";
 import {
   Box3,
   BoxGeometry,
-  Color,
   DoubleSide,
   EdgesGeometry,
-  Float32BufferAttribute,
   type Mesh,
   MeshPhysicalMaterial,
   type MeshStandardMaterial,
@@ -28,6 +26,7 @@ import {
 } from "three";
 import type { AssetNode } from "./assets-data";
 import { seedOf } from "./seed";
+import { tileMaps, WALL_TILE } from "./tile-maps";
 import { recipeOf } from "./catalogue";
 import { useEvent } from "./use-event";
 import { propFor } from "./generation-store";
@@ -42,6 +41,8 @@ import {
   LIGHT_WOOD_HEX,
   ROOM_ITEM_HEX,
 } from "./piece-detail";
+import { spineAtlas } from "./book-spines";
+import { bookLayout, booksGeometry } from "./books";
 import { shade } from "./textures";
 import { type FormPart, furnishesForm, type Role } from "./furnishes-forms";
 import {
@@ -60,8 +61,17 @@ import {
   Built,
 } from "./finish";
 import { Panels3D } from "./Panels3D";
+import {
+  BedTouches,
+  chairPose,
+  LampCord,
+  SeatTouches,
+  TableTouches,
+} from "./LivedIn";
 import { budgetModel } from "./model-budget";
 import { useStudio } from "./studio-store";
+import { useMaterial } from "./materials";
+import { LAMP_BULB } from "./white-balance";
 
 /** the mirror's reflector and a part's body come when the room first
     has one, not with the studio (React's own lazy: next/dynamic's
@@ -108,16 +118,6 @@ const CERAMIC = "#ebe4d8";
 const TERRACOTTA = "#b97a5b";
 const SOIL = "#4a3b31";
 /** the spines of a shelf of books */
-const BOOKS = [
-  "#9a6b4f",
-  "#6f7f6a",
-  "#b9a27a",
-  "#5b6b7f",
-  "#a65b4b",
-  "#d8c7a5",
-  "#7a6a8e",
-  "#c58f61",
-];
 
 type Props = {
   node: AssetNode;
@@ -321,16 +321,18 @@ function Outline({
     [w, h, d],
   );
   useEffect(() => () => geometry.dispose(), [geometry]);
+  // faded with distance, so a far line does not crawl (edge-line.ts)
+  const material = useMemo(() => edgeLine(colour), [colour]);
+  useEffect(() => () => material.dispose(), [material]);
   // the lines are drawn, never picked: a line is hit within a metre of
   // the pointer, which would take the pick from a panel or a neighbour
   return (
     <lineSegments
       geometry={geometry}
+      material={material}
       position={[0, h / 2, 0]}
       raycast={unpickable}
-    >
-      <lineBasicMaterial color={colour} />
-    </lineSegments>
+    />
   );
 }
 
@@ -340,6 +342,7 @@ function Form(p: Props) {
   const cat = p.node.category;
   const own = finishOf(p.colour, p.texture);
   const seed = seedOf(p.node.id);
+  const lived = useStudio((s) => s.scene.livedIn);
 
   // a part modelled in the studio: the body the part worker built
   if (p.node.part)
@@ -449,7 +452,10 @@ function Form(p: Props) {
     );
 
   if (/bunk/.test(name)) return <BunkBed w={w} h={h} d={d} colour={p.colour} />;
-  if (/\bbed\b/.test(name)) return <Bed w={w} h={h} d={d} colour={p.colour} />;
+  if (/\bbed\b/.test(name))
+    return (
+      <Bed w={w} h={h} d={d} colour={p.colour} seed={lived ? seed : null} />
+    );
   if (/tv console|media console/.test(name))
     return <MediaConsole w={w} h={h} d={d} f={own} />;
   // a wardrobe is a carcass of two tall doors
@@ -495,8 +501,17 @@ function Form(p: Props) {
   switch (cat) {
     case "seating":
       if (/stool/.test(name)) return <Stool w={w} h={h} d={d} />;
-      if (/\bchair\b/.test(name))
-        return <Chair w={w} h={h} d={d} colour={p.colour} />;
+      if (/\bchair\b/.test(name)) {
+        const chair = <Chair w={w} h={h} d={d} colour={p.colour} />;
+        if (!lived || !/dining/.test(name)) return chair;
+        // a dining chair left pulled out and turned a little
+        const pose = chairPose(seed);
+        return (
+          <group position={[0, 0, -pose.back]} rotation={[0, pose.rotation, 0]}>
+            {chair}
+          </group>
+        );
+      }
       return (
         <Seat
           w={w}
@@ -511,12 +526,31 @@ function Form(p: Props) {
                   Math.round((w - 2 * Math.min(0.18, w * 0.12)) / CUSHION),
                 )
           }
+          seed={lived ? seed : null}
         />
       );
     case "tables":
-      return <Table w={w} h={h} d={d} />;
+      return (
+        <group>
+          <Table w={w} h={h} d={d} />
+          {lived && /coffee|dining/.test(name) && (
+            <TableTouches
+              w={w}
+              h={h}
+              d={d}
+              coffee={/coffee/.test(name)}
+              seed={seed}
+            />
+          )}
+        </group>
+      );
     case "lighting":
-      return <Lamp w={w} h={h} d={d} desk={/desk|table/.test(name)} />;
+      return (
+        <group>
+          <Lamp w={w} h={h} d={d} desk={/desk|table/.test(name)} />
+          {lived && !/desk|table/.test(name) && <LampCord seed={seed} />}
+        </group>
+      );
     default: {
       if (isRug({ name })) return <Rug w={w} d={d} colour={p.colour} />;
       if (/vase|jug|bottle/.test(name)) return <Vase w={w} h={h} d={d} />;
@@ -735,11 +769,16 @@ function FurnishesPiece({
     [recipe, key],
   );
   // the parts with their finishes, built again only when the form or
-  // the finish changes, not on every draw of the piece (a drag)
+  // the finish changes, not on every draw of the piece (a drag); the
+  // small hardware (shelf pins, cam caps) on the desktop tier alone
   const finish = JSON.stringify(f);
+  const detailed = useStudio((s) => s.tier === "desktop");
   const parts = useMemo(
-    () => form.parts.map((p) => partOf(p, JSON.parse(finish) as Finish)),
-    [form, finish],
+    () =>
+      form.parts
+        .filter((p) => detailed || !p.detail)
+        .map((p) => partOf(p, JSON.parse(finish) as Finish)),
+    [form, finish, detailed],
   );
   return (
     <group>
@@ -757,29 +796,14 @@ function FurnishesPiece({
   );
 }
 
-/** a shelf's books: spines of different widths, heights and colours,
-    the same run every time for the same shelf */
-const bookRun = (bayW: number, room: number, seed: number) => {
-  let n = seed;
-  const next = () => {
-    n = (n * 1664525 + 1013904223) >>> 0;
-    return n / 4294967296;
-  };
-  const run: { x: number; bw: number; bh: number; colour: string }[] = [];
-  const until = bayW * (0.55 + next() * 0.3);
-  let x = 0.02;
-  while (x < until) {
-    const bw = 0.018 + next() * 0.03;
-    const bh = Math.min(room - 0.02, 0.17 + next() * 0.11);
-    run.push({ x, bw, bh, colour: BOOKS[Math.floor(next() * BOOKS.length)]! });
-    x += bw + 0.002;
-  }
-  return run;
-};
+/** a shelf's books as one mesh (books.ts lays them out as a stylist
+    leaves them, their spines, covers and page edges cut from one
+    painted picture, book-spines.ts), so a shelf costs one draw and not
+    two a book (a bookwall's books were a third of a furnished flat's
+    draws) */
+/** cloth and paper bindings, matt */
+const BOOK_ROUGH = 0.8;
 
-/** a shelf's books as one mesh: a box a book, each in its own colour
-    (a vertex colour), merged so a shelf costs one draw and not two a
-    book (a bookwall's books were a third of a furnished flat's draws) */
 function Books({
   x0,
   y,
@@ -801,28 +825,15 @@ function Books({
   room: number;
   seed: number;
 }) {
-  const geometry = useMemo(() => {
-    if (room < 0.16 || bayW < 0.2) return null;
-    const colour = new Color();
-    const parts = bookRun(bayW, room, seed).map((b) => {
-      const g = new BoxGeometry(b.bw, b.bh, deep);
-      g.translate(x0 + b.x + b.bw / 2, y + b.bh / 2, z);
-      colour.set(b.colour);
-      const n = g.getAttribute("position").count;
-      const tone = new Float32Array(n * 3);
-      for (let i = 0; i < n; i++) colour.toArray(tone, i * 3);
-      g.setAttribute("color", new Float32BufferAttribute(tone, 3));
-      return g;
-    });
-    const merged = parts.length ? mergeGeometries(parts) : null;
-    for (const g of parts) g.dispose();
-    return merged;
-  }, [x0, y, bayW, z, deep, room, seed]);
+  const geometry = useMemo(
+    () => booksGeometry(bookLayout({ x0, y, bayW, z, deep, room, seed })),
+    [x0, y, bayW, z, deep, room, seed],
+  );
   useEffect(() => () => geometry?.dispose(), [geometry]);
   if (!geometry) return null;
   return (
     <mesh geometry={geometry} castShadow receiveShadow>
-      <meshStandardMaterial vertexColors roughness={0.85} />
+      <meshStandardMaterial map={spineAtlas()} roughness={BOOK_ROUGH} />
     </mesh>
   );
 }
@@ -904,12 +915,15 @@ function Seat({
   d,
   colour,
   seats,
+  seed,
 }: {
   w: number;
   h: number;
   d: number;
   colour: string;
   seats: number;
+  /** the lived-in touches' seed, or null for none */
+  seed: number | null;
 }) {
   const arm = Math.min(0.18, w * 0.12);
   const back = 0.2;
@@ -975,6 +989,17 @@ function Seat({
           </group>
         );
       })}
+      {seed !== null && (
+        <SeatTouches
+          w={w}
+          d={d}
+          seatTop={LEG + baseH + 0.14}
+          arm={arm}
+          back={back + 0.16}
+          seats={seats}
+          seed={seed}
+        />
+      )}
     </group>
   );
 }
@@ -1012,11 +1037,14 @@ function Table({ w, h, d }: { w: number; h: number; d: number }) {
     floor lamp's casts a shadow on the desktop tier, its shade and stem
     shaping the pool (drawn again only on a change, ShadowsOnChange) */
 const LAMP_LIGHT = {
-  colour: "#ffb877",
+  colour: LAMP_BULB,
   floor: { evening: 14, reach: 5 },
   desk: { evening: 4, reach: 2.5 },
-  /** the shade's own glow, lit and unlit */
-  glow: { evening: 0.9, day: 0 },
+  /** how much of the bulb's candela comes through the shade as its own
+      glow (a linen shade passes a fraction and glows with it, brighter
+      than the wall behind it), and the shade's weave: a tile, m, and
+      the seam's and the rims' sizes, m */
+  shade: { glow: 0.6, weave: 0.12, seam: 0.012, rim: 0.0032 },
   /** the floor lamp's shadow (the pieces' round it): a small map, soft
       at its edge, its bias, and how near the bulb it starts, m */
   shadow: { map: 256, radius: 6, bias: -0.002, near: 0.05 },
@@ -1039,6 +1067,20 @@ function Lamp({
   const lit = useStudio((s) => s.scene.light === "evening");
   const shadowed = useStudio((s) => s.tier === "desktop") && !desk;
   const bulb = desk ? LAMP_LIGHT.desk : LAMP_LIGHT.floor;
+  // the shade's linen: the cloth set's weave round the cone, the light
+  // through it showing the weave
+  const linen = useMaterial("cloth").surface.map;
+  const round = 2 * Math.PI * r * 0.81;
+  const weave = useMemo(() => {
+    const t = linen.clone();
+    t.repeat.set(
+      round / LAMP_LIGHT.shade.weave,
+      shadeH / LAMP_LIGHT.shade.weave,
+    );
+    t.needsUpdate = true;
+    return t;
+  }, [linen, round, shadeH]);
+  useEffect(() => () => weave.dispose(), [weave]);
   return (
     <group>
       <Rod
@@ -1057,17 +1099,54 @@ function Lamp({
           casts no shadow of its own (an opaque one cut the light to a
           hard disc on the floor, a stage's spotlight) */}
       <mesh position={[0, h - shadeH / 2, 0]}>
-        <cylinderGeometry args={[r * 0.62, r, shadeH, 32, 1, true]} />
+        <cylinderGeometry args={[r * 0.62, r, shadeH, 48, 1, true]} />
         <meshStandardMaterial
           color={SHADE_HEX}
+          map={weave}
+          emissive={LAMP_GLOW}
+          emissiveMap={weave}
+          emissiveIntensity={lit ? bulb.evening * LAMP_LIGHT.shade.glow : 0}
+          roughness={0.9}
+          side={DoubleSide}
+        />
+      </mesh>
+      {/* the seam down the back, where the linen is joined: a sliver of
+          the cone a shade proud, darker as the doubled cloth is */}
+      <mesh position={[0, h - shadeH / 2, 0]}>
+        <cylinderGeometry
+          args={[
+            r * 0.62 + 0.0008,
+            r + 0.0008,
+            shadeH,
+            1,
+            1,
+            true,
+            Math.PI - LAMP_LIGHT.shade.seam / 2 / r,
+            LAMP_LIGHT.shade.seam / r,
+          ]}
+        />
+        <meshStandardMaterial
+          color={shade(SHADE_HEX, -0.12)}
           emissive={LAMP_GLOW}
           emissiveIntensity={
-            lit ? LAMP_LIGHT.glow.evening : LAMP_LIGHT.glow.day
+            lit ? bulb.evening * LAMP_LIGHT.shade.glow * 0.5 : 0
           }
           roughness={0.9}
           side={DoubleSide}
         />
       </mesh>
+      {/* the rolled rims at the top and the foot */}
+      {(
+        [
+          [h - LAMP_LIGHT.shade.rim, r * 0.62],
+          [h - shadeH + LAMP_LIGHT.shade.rim, r],
+        ] as const
+      ).map(([y, rr]) => (
+        <mesh key={y} position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[rr, LAMP_LIGHT.shade.rim, 8, 48]} />
+          <meshStandardMaterial color={SHADE_HEX} roughness={0.85} />
+        </mesh>
+      ))}
       {/* always there, at nothing by day: a light come and gone would
           build every shader in the room again */}
       <pointLight
@@ -1204,14 +1283,82 @@ const WORKTOP = 0.04; // m, a stone worktop
 const COUNTER_H = 0.9; // m, a kitchen counter's height
 const CABINET_FROM = 1.5; // m, the wall cabinets' underside
 const STONE = "#d9d4cb";
+/** a kitchen's fittings, m: the hob's zones (across and in as a share
+    of the hob, and their radius), the tap's spout, the hood under the
+    wall cabinets */
+const KITCHEN = {
+  zones: [
+    [-0.25, -0.2, 0.09],
+    [0.25, -0.2, 0.07],
+    [-0.25, 0.22, 0.07],
+    [0.25, 0.22, 0.09],
+  ] as const,
+  spout: 0.18,
+  hood: { wide: 0.6, tall: 0.04 },
+};
+
+/** the things that stand on a kitchen's worktop: a kettle beside the
+    hob, a chopping board leaning on the splashback, three jars in a
+    row; each where there is room for it and nowhere else */
+const worktopThings = (
+  w: number,
+  d: number,
+  hobX: number,
+  sinkX: number,
+): Part[] => {
+  const top = COUNTER_H;
+  const back = -d / 2;
+  const free = (x: number, half: number) =>
+    Math.abs(x) + half < w / 2 - 0.05 &&
+    Math.abs(x - hobX) > 0.32 + half &&
+    Math.abs(x - sinkX) > 0.3 + half;
+  const out: Part[] = [];
+  const kettle = hobX + 0.48;
+  if (free(kettle, 0.09))
+    out.push(
+      {
+        f: { colour: "#eceae5", rough: 0.25, coat: 0.4 },
+        at: [kettle, top + 0.012, back + 0.2],
+        rod: [0.075, 0.024],
+      },
+      {
+        f: { colour: "#f2f0eb", rough: 0.3, coat: 0.3 },
+        at: [kettle, top + 0.024 + 0.1, back + 0.2],
+        rod: [0.072, 0.2, 0.06],
+      },
+      {
+        f: { colour: "#3c3a37", rough: 0.5 },
+        at: [kettle - 0.08, top + 0.15, back + 0.2],
+        dims: [0.02, 0.14, 0.024],
+      },
+    );
+  const board = sinkX - 0.42;
+  if (free(board, 0.2))
+    out.push({
+      f: { colour: "#b98f5e", rough: 0.6 },
+      at: [board, top + 0.15, back + 0.03],
+      dims: [0.38, 0.28, 0.018],
+      rotation: [-0.12, 0, 0],
+    });
+  const jars = (hobX + sinkX) / 2;
+  if (free(jars, 0.16))
+    [-0.1, 0, 0.1].forEach((dx, i) =>
+      out.push({
+        f: {
+          colour: ["#d9cfbf", "#cfd6d2", "#e6dccb"][i]!,
+          rough: 0.35,
+          coat: 0.3,
+        },
+        at: [jars + dx, top + 0.07 + i * 0.01, back + 0.08],
+        rod: [0.042, 0.14 + i * 0.02],
+      }),
+    );
+  return out;
+};
 const STEEL = "#b8b6b2";
 const WHITE_GOODS = "#e9e7e2";
 const PORCELAIN = "#f4f2ee";
 const GLASS_HEX = "#dfe9ea";
-/** a bathroom mirror's pane: pale glass under a clear coat, which reads
-    as a mirror from across the room without a room to reflect (a metal
-    pane with nothing to reflect draws black) */
-const MIRROR_PANE = "#dde4e5";
 
 /** a fitted kitchen counter along a wall: base cabinets under a stone
     worktop with a sink and a hob set into it, and the wall cabinets
@@ -1277,6 +1424,55 @@ function Counter({ w, h, d }: { w: number; h: number; d: number }) {
             at: [hobX, COUNTER_H + 0.004, -0.02],
             dims: [Math.min(0.58, w * 0.22), 0.008, Math.min(0.5, d * 0.8)],
           },
+          // the induction hob's four zones, printed rings on its glass
+          ...KITCHEN.zones.map(([dx, dz, r]): Part => ({
+            f: { colour: "#3b3a39", rough: 0.3 },
+            at: [
+              hobX + dx * Math.min(0.58, w * 0.22),
+              COUNTER_H + 0.0085,
+              -0.02 + dz * Math.min(0.5, d * 0.8),
+            ],
+            rod: [r, 0.001],
+          })),
+          // the sink's bowl, its floor a shade darker inside the rim
+          {
+            f: metal("#8f8d89", 0.35),
+            at: [sinkX, COUNTER_H + 0.0045, -0.02],
+            dims: [
+              Math.min(0.5, w * 0.2) - 0.04,
+              0.002,
+              Math.min(0.4, d * 0.65) - 0.04,
+            ],
+          },
+          // the tap's spout, over the bowl
+          {
+            f: steel,
+            at: [sinkX, COUNTER_H + 0.27, -d / 2 + 0.08 + KITCHEN.spout / 2],
+            rod: [0.008, KITCHEN.spout],
+            rotation: [Math.PI / 2, 0, 0],
+          },
+          // the slim hood under the wall cabinets, over the hob
+          {
+            f: steel,
+            at: [
+              hobX,
+              CABINET_FROM - KITCHEN.hood.tall / 2,
+              -d / 2 + (upperD + 0.03) / 2,
+            ],
+            dims: [KITCHEN.hood.wide, KITCHEN.hood.tall, upperD + 0.03],
+          },
+          {
+            f: { colour: "#2a2928", rough: 0.6 },
+            at: [
+              hobX,
+              CABINET_FROM - KITCHEN.hood.tall - 0.001,
+              -d / 2 + (upperD + 0.03) / 2 - 0.02,
+            ],
+            dims: [KITCHEN.hood.wide - 0.06, 0.002, upperD - 0.06],
+          },
+          // what stands on the worktop: a kettle by the hob, a board
+          // leaning on the splashback, three jars in a row
+          ...worktopThings(w, d, hobX, sinkX),
           // the wall cabinets and their handles
           {
             f,
@@ -1291,13 +1487,49 @@ function Counter({ w, h, d }: { w: number; h: number; d: number }) {
           })),
         ]}
       />
+      {/* the worktop stands 20 mm past the doors, as a stone one is
+          cut, its back against the wall */}
       <Soft
         f={{ colour: STONE, rough: 0.35, coat: 0.2 }}
-        at={[0, COUNTER_H - WORKTOP / 2, 0]}
+        at={[0, COUNTER_H - WORKTOP / 2, 0.01]}
         dims={[w + 0.02, WORKTOP, d + 0.02]}
         radius={0.004}
       />
+      <Splashback w={w} h={CABINET_FROM - COUNTER_H} z={-d / 2 + 0.003} />
     </group>
+  );
+}
+
+/** the tiled splashback between the worktop and the wall cabinets:
+    300 × 600 mm wall tiles in recessed grout (tile-maps.ts), their
+    repeat set to the counter's own width so a tile is its true size */
+function Splashback({ w, h, z }: { w: number; h: number; z: number }) {
+  const maps = useMemo(() => {
+    const m = tileMaps(WALL_TILE);
+    const own = {
+      map: m.map.clone(),
+      normalMap: m.normalMap.clone(),
+      roughnessMap: m.roughnessMap.clone(),
+    };
+    for (const t of Object.values(own))
+      t.repeat.set(w / m.size[0], h / m.size[1]);
+    return own;
+  }, [w, h]);
+  useEffect(
+    () => () => {
+      for (const t of Object.values(maps)) t.dispose();
+    },
+    [maps],
+  );
+  return (
+    <mesh
+      position={[0, COUNTER_H + h / 2, z]}
+      receiveShadow
+      raycast={unpickable}
+    >
+      <planeGeometry args={[w, h]} />
+      <meshStandardMaterial {...maps} roughness={1} />
+    </mesh>
   );
 }
 
@@ -1369,19 +1601,9 @@ function Basin({
         r={0.012}
         h={0.16}
       />
-      {/* the mirror over it: a still polished pane, not the live
-          reflector, which is one to a scene and kept for the mirror
-          finish a visitor puts on a door */}
-      <mesh position={[0, top + 0.75, -d / 2 + 0.008]} receiveShadow>
-        <boxGeometry args={[w, 0.8, 0.006]} />
-        <meshPhysicalMaterial
-          color={MIRROR_PANE}
-          metalness={0}
-          roughness={0.12}
-          clearcoat={1}
-          clearcoatRoughness={0.04}
-        />
-      </mesh>
+      {/* no mirror of its own: the bathroom's mirror cabinet is a wall
+          item over it (wall-items.ts), and the two stood one over the
+          other, a pane behind a pane */}
     </group>
   );
 }
@@ -1510,11 +1732,14 @@ function Bed({
   h,
   d,
   colour,
+  seed,
 }: {
   w: number;
   h: number;
   d: number;
   colour: string;
+  /** the lived-in touches' seed, or null for none */
+  seed: number | null;
 }) {
   const base = Math.min(0.26, h * 0.55);
   const mattress = Math.min(0.22, h - base);
@@ -1556,6 +1781,9 @@ function Bed({
         dims={[w - 0.02, 0.09, d * 0.62]}
         radius={0.04}
       />
+      {seed !== null && (
+        <BedTouches w={w} d={d} top={base + mattress + 0.09} seed={seed} />
+      )}
     </group>
   );
 }

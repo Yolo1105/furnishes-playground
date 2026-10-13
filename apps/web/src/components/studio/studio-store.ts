@@ -1,3 +1,4 @@
+import type { SunTime } from "./sun-position";
 import type { PhotoSize } from "./photo-size";
 import { create } from "zustand";
 import type { Carried } from "./dnd";
@@ -39,6 +40,9 @@ export type SceneLook = {
   labels: boolean;
   grid: boolean;
   light: "day" | "evening";
+  /** where the sun stands by day (sun-position.ts): a low morning sun,
+      the high midday one, or a low afternoon one */
+  sunTime: SunTime;
   sky: Sky;
   /** how bright the picture is, as a camera's exposure, one for each
       light: a day exposed for its walls with the windows let go white,
@@ -49,6 +53,9 @@ export type SceneLook = {
   quality: Quality;
   /** the size a photo is traced at (photo-size.ts) */
   photoSize: PhotoSize;
+  /** the touches of a room in use (LivedIn.tsx): cushions, a throw, a
+      mug and a book, chairs left pulled out; off is the showroom's tidy */
+  livedIn: boolean;
   /** a panel's machining cut for real in 3D (cut-solid.ts): auto is on
       for the desktop tier, where the cuts cost nothing to notice */
   cuts: "auto" | "on" | "off";
@@ -97,18 +104,36 @@ export const EXPOSURE = { min: 0.6, max: 3, step: 0.05 };
 /** the exposure of the look's own light */
 export const exposureOf = (s: Pick<SceneLook, "exposure" | "light">) =>
   s.exposure[s.light];
+/** where the immersive view (the panels hidden) is kept for the tab's
+    session */
+export const IMMERSIVE_KEY = "furnishes.immersive";
+/** whether this tab's session last had the panels hidden */
+export const immersiveAtStart = () => {
+  try {
+    return sessionStorage.getItem(IMMERSIVE_KEY) === "1";
+  } catch {
+    return false;
+  }
+};
+
 export const SCENE_DEFAULT: SceneLook = {
   edges: false,
   shadows: "auto",
   labels: false,
   grid: false,
   light: "day",
+  // the morning: low, and in by the east windows (the first project's
+  // living room has one)
+  sunTime: "morning",
   sky: "panels",
-  exposure: { day: 1, evening: 1.3 },
+  exposure: { day: 1, evening: 1 },
   quality: "auto",
-  photoSize: "screen",
+  // a photo is 1080 px tall unless asked otherwise: the screen's own
+  // size varies with the window, and a photo to keep should not
+  photoSize: "1080p",
   cuts: "auto",
-  reflections: true,
+  livedIn: true,
+  reflections: false,
   bounce: false,
 };
 /** how far the plan can be zoomed, and by how much a step zooms */
@@ -430,7 +455,12 @@ export const useStudio = create<StudioState>((set, get) => ({
       free: true,
     })),
   setWalk: (walk) => set(walk ? { walk } : { walk, touring: false }),
-  setUiHidden: (uiHidden, at) =>
+  setUiHidden: (uiHidden, at) => {
+    try {
+      sessionStorage.setItem(IMMERSIVE_KEY, uiHidden ? "1" : "0");
+    } catch {
+      // a private window: kept for the page only
+    }
     set((s) => ({
       uiHidden,
       peekAt: uiHidden ? (at ?? null) : null,
@@ -439,7 +469,8 @@ export const useStudio = create<StudioState>((set, get) => ({
       ...(!uiHidden && s.preview === "compare"
         ? { preview: "done" as const, split: 100 }
         : {}),
-    })),
+    }));
+  },
   setBackend: (backend, photoMax, bytesPerSample) =>
     set((s) => ({
       backend,

@@ -1622,8 +1622,10 @@ test("the desktop extras: Reflections and Bounce light stand behind View setting
   await expect(
     menu.getByRole("menuitemcheckbox", { name: "Reflections" }),
   ).toHaveCount(0);
-  // the Full picture is the desktop's: the reflections are on by
-  // default and drawn, the bounce light off until asked
+  // the Full picture is the desktop's: the screen-space reflections and
+  // the bounce light are both off until asked (a ray leaving the screen
+  // as the camera turns made reflections come and go at the frame's
+  // edges), then drawn
   await menu.getByRole("menuitemradio", { name: "Full" }).click();
   await expect(stage3d).toHaveAttribute("data-post", "desktop");
   const reflections = menu.getByRole("menuitemcheckbox", {
@@ -1632,8 +1634,10 @@ test("the desktop extras: Reflections and Bounce light stand behind View setting
   const bounce = menu.getByRole("menuitemcheckbox", {
     name: "Bounce light (experimental)",
   });
-  await expect(reflections).toHaveAttribute("aria-checked", "true");
+  await expect(reflections).toHaveAttribute("aria-checked", "false");
   await expect(bounce).toHaveAttribute("aria-checked", "false");
+  await expect(stage3d).toHaveAttribute("data-ssr", "off");
+  await reflections.click();
   await expect(stage3d).toHaveAttribute("data-ssr", "on", { timeout: 90_000 });
   await expect(stage3d).toHaveAttribute("data-ssgi", "off");
   await bounce.click();

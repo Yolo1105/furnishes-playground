@@ -1,5 +1,5 @@
 import type { Camera, Scene } from "three";
-import type { Corner } from "./camera-bookmarks";
+import type { Corner, Shot } from "./camera-bookmarks";
 import type { Sun } from "./scene-copy";
 
 /**
@@ -22,9 +22,9 @@ export type Live = {
   centre: readonly [number, number];
   /** the corner the room's picture is taken from */
   corner: Corner;
-  /** the corner the Corner view stands in (the photographed one unless
-      a piece stands in its foreground) */
-  shot: Corner;
+  /** where the Corner view stands: a corner facing the window, stepped
+      along its wall or its lens narrowed past a piece in its foreground */
+  shot: Shot;
   sun: Sun;
 };
 

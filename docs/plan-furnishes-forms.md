@@ -127,3 +127,40 @@ The armchair, the plant, the vase and the desk lamp keep their stock
 meshes: they sit with the rest. The wardrobe, the media console and
 the kitchen and bathroom fittings keep their quiet laminate and white,
 so the pieces for sale stand out against them.
+
+## Birch plywood, and the boxes made properly (2026-10-13)
+
+The pieces now read as the material they are cut from (furnishes-forms.ts,
+part-geometry.ts, ply.ts, finish.tsx):
+
+- every exposed edge shows the 13 plies of an 18 mm birch sheet, glue
+  lines between them, each ply a shade off the next, swaying a little
+  along the edge; the faces are rotary-cut birch, each board cut from
+  its own place in the figure and mirrored or not by its hash, ±4 % in
+  tone; the edges eased 1.3 mm;
+- doors and drawer fronts stand 2 mm apart; the back is set 6 mm into
+  the sides, and a shelf stops at the back's face (it ran 6 mm into it);
+  the bottom is shortened to meet it;
+- the hardware a flat-pack piece shows: cam-lock caps on the tops and
+  shelf pins under the shelves (desktop only: at a phone's size they are
+  a pixel);
+- the key tray's lips stand on its base (they stood through it, and
+  their faces fought its own, z-fight.test.ts).
+
+**A reversal, on purpose.** "Wood that reads as wood" (plan-realism.md,
+2026-10-13) made the furniture's wood oiled timber (1.1 under a 0.06
+coat). That stays for the room's own wood, but the pieces for sale are
+lacquered birch ply: satin, about 0.45 with the map (0.9 under a 0.08
+coat), with the faint orange-peel a sprayed lacquer has. Oiled, the ply
+read as raw board.
+
+**The sofa and the coffee table stay built forms for now.** The brief
+asked for real models, with the code forms as stand-ins; the models are
+to come from Poly Haven, which this sandbox cannot reach.
+`public/props/README.md` lists them, and the forms above ("The room
+items, after") are the stand-ins until they are installed.
+
+The kitchen counter (Furniture3D.tsx) has its tiled splashback, a
+worktop 20 mm proud, an induction hob's zones, a slim hood, a sink's
+bowl and a tap's spout, and a kettle, a board and jars where there is
+room; the boxy room items keep their 70 mm toe-kick and 3 mm door gaps.

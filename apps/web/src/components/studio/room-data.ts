@@ -238,6 +238,11 @@ export type Opening = {
   head?: number;
   /** placed by the flat's convention, so the panel can say so */
   hdb?: boolean;
+  /** a door at rest: how far its leaf stands ajar, degrees (0, shut, by
+      default); a click opens it fully and another brings it back */
+  ajar?: number;
+  /** a door's leaf: painted flush (the default), or a wood laminate */
+  leaf?: "paint" | "laminate";
 };
 export const OPENING_KINDS: {
   id: OpeningKind;

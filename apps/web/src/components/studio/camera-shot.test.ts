@@ -37,11 +37,41 @@ describe("the room as a photograph takes it", () => {
     const chair: Box = { x: -W / 2 + 0.8, z: D / 2 - 0.8, w: 0.6, d: 0.6 };
     // the photographed corner (south-west) is blocked: its neighbour on
     // the same side (south-east) comes next, not the north
-    expect(shotCorner(W, D, [chair], [-1, 1], 1, "z")).toEqual([1, 1]);
+    expect(shotCorner(W, D, [chair], [-1, 1], 1, "z").corner).toEqual([1, 1]);
     // a window on an east or west wall keeps to that side along x
-    expect(shotCorner(W, D, [chair], [-1, 1], 1, "x")).toEqual([-1, -1]);
-    // nothing in the way: the photographed corner
-    expect(shotCorner(W, D, [], [-1, 1], 1)).toEqual([-1, 1]);
+    expect(shotCorner(W, D, [chair], [-1, 1], 1, "x").corner).toEqual([-1, -1]);
+    // nothing in the way: the photographed corner, square
+    expect(shotCorner(W, D, [], [-1, 1], 1)).toEqual({
+      corner: [-1, 1],
+      framing: { slide: 0, lens: 1, along: "x" },
+    });
+  });
+  it("steps along its wall rather than turning from the window", () => {
+    // the living room as the first project furnishes it: dining chairs
+    // by the south-west corner and a plant by the south-east, a window
+    // on the north wall (the Corner view turned its back on the window)
+    const boxes: Box[] = [
+      { x: 0.25, z: 2.95, w: 1.8, d: 0.4 },
+      { x: 2.65, z: 1.85, w: 0.4, d: 0.6 },
+      { x: 0.1, z: 0.05, w: 0.9, d: 2.4 },
+      { x: 1.45, z: 1.675, w: 0.8, d: 0.85 },
+      { x: -2.01, z: 1.675, w: 0.48, d: 0.45 },
+      { x: -2.01, z: 2.175, w: 0.48, d: 0.45 },
+      { x: -0.66, z: 1.675, w: 0.48, d: 0.45 },
+      { x: -0.66, z: 2.175, w: 0.48, d: 0.45 },
+      { x: -1.35, z: 1.85, w: 0.8, d: 1.2 },
+    ];
+    expect(nearestInShot(W, D, [-1, 1], boxes, 1)).toBeLessThan(SHOT.clear);
+    expect(nearestInShot(W, D, [1, 1], boxes, 1)).toBeLessThan(SHOT.clear);
+    const s = shotCorner(W, D, boxes, [-1, 1], 1, "z");
+    // still facing the window (south side, looking north)
+    expect(s.corner[1]).toBe(1);
+    expect(s.framing.slide > 0 || s.framing.lens < 1).toBe(true);
+    // a room without a window may turn to a clear corner across
+    const across = shotCorner(W, D, boxes, [-1, 1], 1, "z", false);
+    expect(
+      nearestInShot(W, D, across.corner, boxes, 1, across.framing),
+    ).toBeGreaterThanOrEqual(SHOT.clear);
   });
   it("walks in level", () => {
     const s = walkStart(W, D, 1.6, [1, 1]);

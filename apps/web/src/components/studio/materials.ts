@@ -10,7 +10,14 @@ import {
 } from "three";
 import { create } from "zustand";
 import { SPEC, TILE_OF } from "./surface-paint";
-import { flatSurface, paintedMaps, type Surface, surfaceOf } from "./textures";
+import { devFlag } from "./dev-flags";
+import {
+  flatNormal,
+  flatSurface,
+  paintedMaps,
+  type Surface,
+  surfaceOf,
+} from "./textures";
 import type { Floor } from "./room-data";
 
 /**
@@ -142,7 +149,11 @@ export const loadMaterials = () => {
         ])
           .then(([map, normalMap, roughnessMap]) => {
             warnIfDark(name, map);
-            const surface = { map, normalMap, roughnessMap };
+            const surface = {
+              map,
+              normalMap: devFlag("flatnormals") ? flatNormal() : normalMap,
+              roughnessMap,
+            };
             useMaterials.setState((s) => ({
               loaded: {
                 ...s.loaded,

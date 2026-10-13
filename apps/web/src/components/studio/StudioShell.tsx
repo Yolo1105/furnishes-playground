@@ -16,7 +16,7 @@ import { PartBuilder } from "./PartBuilder";
 import { PreviewStage } from "./PreviewStage";
 import { Tour } from "./Tour";
 import { ViewCube } from "./ViewCube";
-import { other, useStudio } from "./studio-store";
+import { immersiveAtStart, other, useStudio } from "./studio-store";
 import { toast, useAccountSync } from "./account-sync";
 import { useGenerationsSync } from "./generation-store";
 import { useBoardSync } from "./board-store";
@@ -63,6 +63,10 @@ const CheckPanel = dynamic(
   () => import("./CheckPanel").then((m) => m.CheckPanel),
   { ssr: false },
 );
+const StabilityPanel = dynamic(
+  () => import("./StabilityPanel").then((m) => m.StabilityPanel),
+  { ssr: false },
+);
 
 export function StudioShell({
   corners,
@@ -89,6 +93,10 @@ export function StudioShell({
   useEffect(() => {
     const root = shell.current;
     return root ? guardPageZoom(root) : undefined;
+  }, []);
+  // the immersive view comes back as this tab's session last had it
+  useEffect(() => {
+    if (immersiveAtStart()) useStudio.getState().setUiHidden(true);
   }, []);
   useEffect(() => {
     if (wanted) router.replace(pathname);
@@ -214,6 +222,7 @@ export function StudioShell({
       {keys && <HelpDialog tab="keyboard" onClose={() => setKeys(false)} />}
       {devParam("bench") === "walk" && <BenchPanel />}
       {devParam("check") === "webgpu" && <CheckPanel />}
+      {devParam("check") === "stability" && <StabilityPanel />}
 
       {/* ---- left: the project ---- */}
       <aside className="shell-rail shell-rail-left" aria-label="Project">

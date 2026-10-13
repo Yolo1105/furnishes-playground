@@ -1397,3 +1397,392 @@ earlier and now reversed on purpose:
 
 Not verified here: how the oiled wood and the matt floor take a real
 GPU's reflections and the desktop tier's SSR.
+
+## The last visual tells and realistic objects (2026-10-13)
+
+Each defect was traced to its cause before anything was changed; the
+dev flags that did the tracing (`dev-flags.ts`: `?noao`, `?noprobes`,
+`?nouneven`, `?nocornice`, `?nobloom`, `?nosun`, `?nosoft`, and for the
+stability page `?nossr`, `?nossgi`, `?notraa`, `?noshadows`,
+`?flatnormals`) stay, development only.
+
+**A1, the floor's boards.** The first project's living room is Vinyl,
+grown in the shader: its planks were 185 mm wide with growth rings
+17 mm apart and a figure laid at the map's tile scale, so the boards
+showed tight swirling arcs, a printed pattern. The rings are now
+spread to a real board's (`PLANK` in surface-paint.ts: 260 rings a
+metre of figure, drift and unevenness lowered, contrast 6 %) and the
+vinyl's strips are 140 mm. The photographed parquet (WoodFloor050)
+has 64 strips across a tile: at the 3.2 m it was given they were
+50 mm (the note above saying "about 10 cm" was wrong), a fine stripe;
+at 6 m they are 94 mm, a strip floor's. The furniture's wood tile is
+1.2 m, so its figure is a birch face's, not a pinstripe. The ±7 %
+unevenness added last round was checked with `?nouneven`: it moves
+1 % of the floor's pixels by more than 8/255 and adds no blotch (the
+blotches were the contact shadows' grain, A3).
+
+**A2, the glowing strip where the walls meet the ceiling.** The sun's
+shadow camera was three's default, an orthographic box 10 m across
+and 500 m deep, and its bias of −0.0003 is in that depth range's
+units: 15 cm of depth. Light leaked under the cornice and along the
+wall's head as a bright band, dotted where the cornice's own edge
+broke it. The shadow camera is now fitted to the flat (`SUN` in
+Scene3D.tsx: the flat's half diagonal plus a metre, near and far
+round the sun's 30 m distance) and the bias is metric (3 mm over that
+depth). With `?nocornice` the band went; with the fitted camera it is
+gone with the cornice in.
+
+**A3, grainy contact shadows.** Two sources, found by flag. With
+`?noao` the sand under the sofa and the table legs went: GTAO's few
+samples a pixel turn with the frame for TRAA to average, but the
+settle frames did not average them all away. With `?nosun` a finer
+grain stayed in the sun's penumbrae: three's PCF filter turns its
+five taps by a noise fixed to the screen, the same every frame, so
+nothing averages. The occlusion is now denoised (three's DenoiseNode,
+edge-stopping on depth, normal and tone: `AO_DENOISE` in Post.tsx) and
+the sun's shadow uses its own filter (shadow-filter.ts: eight Vogel
+taps whose disc turns by the golden ratio each frame), so the settle
+frames average the penumbra into a gradient.
+
+**A4, the evening's reflection that never settled.** In this sandbox
+it does settle: a day → evening → day run logged every take of the
+floor's picture. What it showed is a wasted, wrong picture on every
+change of look: the light's change changed the probe stamp a render
+before the probes said "pending", so in that render their "ready" was
+the old look's and the floor's picture was taken of the new look lit
+by the old probes; then again unlit, then again lit, three pictures a
+change, the first always wrong (on a fast GPU that is a visible pop).
+The floor now counts the probes lit only for the stamp they said ready
+for (`probesFor` in Scene3D.tsx). Timeline (software WebGL, full
+probes): evening asked at 372 s, the picture taken unlit at 386 s,
+the probes ready at 561 s, the lit picture at 567 s, settled at 660 s.
+No loop was found; a stamp change restarts the take → probes → take
+cycle once, and the second take waits only on the probes' bake. A
+visual test now changes day → evening → day → evening → day and waits
+for the reflection each time. Not verified: a real GPU's evening,
+where the report came from.
+
+**A5, the evening's white balance.** The lamps' 2700 K (`LAMP_BULB`,
+#ffb877) lit everything orange because the picture was balanced for
+daylight. A camera's white balance pulls that back: a gain on each
+channel before the tone mapping (`WHITE_BALANCE` in Post.tsx,
+`balanceGain` in white-balance.ts). Balanced for the bulb alone, the
+first try turned the room blue: most of it is lit by the dusk through
+the windows and the bounce as well, and the bulb's gain (blue × 2.3,
+red × 0.5) pushed all of that past neutral. The gain is now set for the
+light a white wall actually gets in the evening (`EVENING_LIGHT`,
+measured off the evening's Corner view before any gain: red to green
+1.58, blue to green 0.64), so a wall comes out #f3ebe0, a warm white,
+and the lamps' own pools stay warmer than the walls, as they read in a
+photograph. What fills a lamp-lit room at night is the lamps' light
+come back off its walls, so the evening's fill is the bulb's colour
+(it was a cool blue), and the ceiling light glows the bulb's warm white.
+The fills are darker (sky fill 0.06, surroundings 0.03) and the
+exposure 1.0, so the room falls dark away from the lamps. The floor lamp's shade is linen: its
+weave as the shade's emissive map, a seam, rolled rims at its top and
+foot, glowing from the bulb inside.
+
+**A6, the Corner view.** The bookmark turned from the window because
+the piece in its foreground pushed it to the next corner, which faced
+away. It now keeps to the corners on the window's side and, when a
+piece is in the way, steps along its own wall (up to a quarter of the
+wall, then along the corner's other wall) or narrows the lens, before
+it ever turns (`shotCorner` in camera-bookmarks.ts; tested in
+camera-shot.test.ts).
+
+**E1, the windows as the light.** Each window has a rectangle light
+in its opening, facing in (WindowLights.tsx; three's
+`RectAreaLightNode` with its LTC tables), six at most, the active
+room's own only (an area light casts no shadow: a next room's window
+lit the hall through its wall, a speckle of highlights on the floor's
+grain); the sky's hemisphere fill fell from 0.6 to 0.2 by day,
+so the room is bright by the window and darker away from it, and the
+probes bake with the windows' light in.
+
+The visual project measures it on the Corner view, and the brief's
+own number for it, the wall by the window twice as bright as the same
+wall about 4 m away, does not hold in this room; what it measures
+instead, and why:
+
+- The first version of the test read the wrong thing: its point 1 m
+  from the window wall, 1.5 m up, fell on the bookwall (which stands
+  against the west wall from 0.9 to 2.6 m), its books at 0.03 and its
+  oak side at 0.10 against the bare wall's 0.26 farther in, a ratio of
+  0.41. The points are now 1.9 m up, over the bookwall and under the
+  air-con, and each 9 × 9 patch must be even in tone (bare wall), so a
+  piece put in front of one fails as that, not as a ratio.
+- On bare wall the ratio is 1.27 (0.324 at 1 m, 0.256 at 3.5 m; 4 m is
+  the passage to the hall). The window's own light cannot give much
+  more: a 3 m window, 1.35 m short of the west wall, reaches the wall
+  at 1 m at a slant, and its form factor there is 0.066 against 0.032
+  at 3.5 m, 2.05 times. Any light that does not come from the window
+  lowers that, and a real room's bounce is such light (here mostly the
+  morning sun's patch on the floor, which lies mid-room).
+- Measured with one term at a time put out (the probes baked again
+  each time): with the sky map's light off, 1.34; with the sky map and
+  the hemisphere fill off, 1.39; with the east window's light off,
+  1.32; with both windows' lights off, 1.08. Morning and midday read
+  the same to 2 %: the sun does not reach that wall.
+- The test holds the wall at 1.2 or more, between the 1.08 of a room
+  whose windows do not light it and the 1.27 as drawn, and adds the
+  brief's second check, missing until now: the sofa's end seat by the
+  window brighter than its far one (0.250 against 0.204 as drawn; with
+  the windows' lights off the far one is the brighter, 0.136 against
+  0.117).
+
+Getting nearer 2 would mean taking out the sky map's light indoors and
+most of the fill (1.39 at best, the room darker away from the windows
+and the exposure raised to match); that is a change to how the room
+looks, left for the owner to decide.
+
+**E2, one sun for the flat.** The plan's north arrow turns (drag it,
+or the arrow keys; Shift for single degrees), and the sun is placed
+by it and by the time of day: Singapore, 1.35° N, the sun's position
+from the solar declination and the equation of time
+(sun-position.ts), at 09:30, 13:00 or 16:00 (View settings → Sun:
+Morning, Midday, Afternoon; morning by default). One directional sun
+lights the whole flat from that direction; the outlook's sun and the
+photo's sun are the same one. The stage says `data-sun-time` and
+`data-north`.
+
+**E3, the windows read as the source.** The glass has two faces and a
+Fresnel reflection (faint head-on, strong at a grazing angle), its
+green only at the edges; the outlook is far brighter than the room and
+glows (bloom); the sheers glow with the daylight behind them; the
+reveals are lit by the rectangle lights.
+
+**B1, real models: blocked.** polyhaven.com, api.polyhaven.com,
+dl.polyhaven.org and ambientcg.com answer 403 from this sandbox (its
+network policy). `public/props/README.md` lists the models to fetch
+(the hero pieces at 2K, the small ones at 1K), how to optimise them,
+the ±10 % fitting rule and the slugs `public/props/index.json` waits
+for; `prop-variants.ts` holds the fitting, variant and LOD rules
+(tested). **The 2026-10-12 decision to draw the sofa and the coffee
+table as built forms instead of stock models stands until the models
+arrive**: the brief asks for real models with the forms as stand-ins,
+and the forms are the stand-ins.
+
+**B2, the Furnishes pieces as birch plywood.** Every exposed edge
+shows the plies: 13 across the 18 mm, a darker glue line between,
+each ply a shade off the next and swaying a little along the edge
+(ply.ts, from the slab's `ply` attribute; replaced by the owner's
+`birch-edge` photograph when it arrives). The faces are cut from
+their own place in the rotary-cut figure, each board mirrored or not
+by its hash with ±4 % of tone; edges eased 1.3 mm; door gaps 2 mm;
+cam-lock caps on the tops and shelf pins under the shelves (desktop
+only); the back set 6 mm in. **A reversal, on purpose:** the pieces
+for sale are satin lacquered (0.9 under a 0.08 coat, about 0.45 with
+the map), not the oiled timber of "Wood that reads as wood" above:
+that note was right for the room's own wood, but a Furnishes piece is
+lacquered birch ply, and the oiled look read as raw board.
+
+**B3, books.** One atlas (book-spines.ts) of 48 spines in muted cloth
+and paper colours with title bars, lettering strokes and worn edges,
+and four page edges; a shelf's run (books.ts) has heights 170–300 mm
+in sets, thicknesses from pamphlet to tome, a quarter of the runs a
+flat stack, and the last book leaning 3–8° on its neighbour, its
+spine rounded. Tested in books.test.ts.
+
+**B4, baked occlusion: tried, left out.** Occlusion baked into a
+piece's vertices against itself (three-mesh-bvh, 24 rays a vertex) was
+written and tested, then dropped: the pieces are built of slab boxes
+with four vertices a face, so a corner's darkness spread across a
+whole shelf, and the stock GLBs carry no occlusion map to read. GTAO,
+now denoised, does the bays' corners; a lightmap bake per piece would
+be the real answer (a second UV set on every slab), noted for later.
+The owner's photograph tasks are in `public/materials/README.md`.
+
+**C, the photo.** 1080p by default, 512 samples on a desktop, the
+denoiser guided by albedo and normal (it was already the
+`rt_hdr_alb_nrm` weights), the indirect clamp kept at the library's
+10 and named (`CLAMP` in Photo.tsx). Not verified: any of it, which
+needs WebGPU.
+
+**D, asked, not changed.** Two questions for the owner are in the
+report: whether the site is one page with no landing, waitlist or
+admin (and so whether `public/swaps/*.webp`, about 324 KB unused,
+goes), and whether an optional fal.ai finish pass is wanted for the
+photo, and on what terms.
+
+## Windows, doors and a stable picture (2026-10-13)
+
+**Windows in layers (W1).** A window is built as an aluminium one is:
+a frame 55 mm on its face and 70 mm deep lining the opening; two
+casement sashes 45 mm on their face stepped 12 mm in from it, their
+corners butt-jointed; a 4 mm black gasket where the glass meets the
+sash; a hinge side and a lever handle on its plate; all in satin
+aluminium (roughness 0.35). Inside, a stone sill 25 mm thick standing
+25 mm past the wall with a rounded nose; the plaster reveals keep a
+small rounded bead at the wall's edge. The glass is two faces 6 mm
+apart with a Fresnel reflection of the room (5 % head-on, 80 % at a
+grazing angle) and its green only along its cut edges (`GLASS_EDGE`).
+Grilles were not added: the default flat has none, and the toggle the
+brief offered is left for the owner to ask for. The photographed
+backplate (≥ 4K, near and far layers) is listed in
+`public/sky/README.md` for the owner to fetch: the sandbox could not
+reach Poly Haven. Curtains hang in pinch-pleat waves (`CURTAIN` in
+curtain.ts: folds at a 100 mm pitch, 40–60 mm deep, each depth seeded
+so no two windows match, gathered tighter at the top, flaring and
+thicker at the hem), on a rod with ball end caps; the linen has its
+sheen and its inner folds fall darker; the sheer between them lets the
+daylight through and glows with it (its emissive is the window light,
+0.55 by day, 0.04 at night).
+
+**Doors (W2).** Leaves 40 mm, the main door's 50 mm. A painted leaf
+is flush, semi-gloss (0.35, where the walls are about 0.85), with a
+faint orange-peel; the main door's is a wood laminate. Three 100 mm
+butt hinges in satin steel with their knuckles; a lever on a round
+rose with a separate key escutcheon 75 mm below; a floor stop where
+the leaf comes to rest; a peephole at 1.5 m on the main door. The
+architrave is one moulded profile (architrave.ts: a bead at the
+opening, the face rising outwards, a rounded outer edge; 68 mm wide,
+15 mm thick) swept up the sides and across the head and mitred at the
+corners, so the joint shows as a faint line, on each face the doorway
+has. The gap round a leaf is 2.5 mm, its shadow line drawn. The
+showcase's doors stand ajar, 12–26° by a seed each (`AJAR`), and a
+door's own setting can open it further; the planner's walkway and
+clash checks already read the swing. The kitchen's slider is an
+aluminium frame and glass on a top track and a floor channel. All the
+joinery is the same semi-gloss white; the hardware satin steel.
+
+**A stable picture (W3).** `/rounded?check=stability` (development):
+the still test (30 frames with the camera at rest, no pixel may move
+past 1/255, a heat map of where any did) and the motion test (a 10 s
+orbit of 40° and 6 s of the walk, a frame each draw, the smooth motion
+taken out so what is left is shimmer, its heat map). "Classify with
+each flag" reloads the page once per flag (`?noao`, `?noprobes`,
+`?nossr`, `?nossgi`, `?nobloom`, `?notraa`, `?noshadows`,
+`?flatnormals`) and keeps every run for the session, so a hot region
+is laid at the layer whose flag cools it; the report copies as
+markdown. The fixes made at the causes:
+
+- z-fighting: a geometric test (z-fight.ts, z-fight.test.ts) reads
+  every recipe's parts for two faces facing the same way within a
+  millimetre of each other. It found two: the key tray's lips stood
+  through its base, their ends and fronts flush with its own; and
+  with the back set 6 mm in, every shelf ran 6 mm into the back. Both
+  fixed; the test keeps it so.
+- The sun's shadow: its camera is fitted to the flat and does not
+  follow the view, so its texels never swim as the camera moves; its
+  penumbra's taps turn per frame for the settle to average (A3).
+- Specular shimmer: a glossy finish's and the floor's roughness widen
+  where the normal (with its map) changes faster than a pixel
+  (spec-aa.ts, the screen-space form of Toksvig's filtering), on top of
+  three's own for the geometry's normal; every map is mip-mapped with
+  anisotropy 8.
+- Edge lines fade from 5 m to 12 m from the camera (edge-line.ts), so
+  a far one-pixel line does not crawl.
+- The glow takes at most 8 × white from any pixel (`GLOW_CLAMP`), so
+  a lacquer's or a tap's single hot pixel does not bloom into a blob
+  that comes and goes with TRAA's jitter.
+- The occlusion is denoised (A3).
+- The screen-space reflections are off by default (a ray that leaves
+  the screen as the camera turns made reflections come and go at the
+  frame's edges; the floor's own picture stays); the setting turns
+  them on. The bounce light stays off by default, as it was.
+- The tracer's indirect clamp is named and kept at 10; its denoiser
+  is guided by albedo and normal.
+
+Not done, and why: a crossfade of 0.4 s when the floor's picture or
+the probes are taken again (it needs a second cube target and a second
+probe texture held for the fade, double the memory, for a pop that A4
+now makes once per change instead of three times); and LOD hysteresis
+dither, since no stock model has a second level yet (B1; the rule is
+in prop-variants.ts for when they arrive). The still test also runs in
+the visual project: after each picture, two screenshots a second apart
+may differ in at most 0.05 % of their pixels.
+
+## A lived-in HDB flat (2026-10-13)
+
+Everything here is seeded (the same flat looks the same on every
+load), drawn from the finishes the room already has (no new shader for
+most of it), and inside the draw budget: the touches add one batch a
+piece at most.
+
+**HDB essentials (§1).** The wall split air-con at 2.25 m (900 × 290 ×
+220 mm) has a front panel standing a shade proud with its edges set in,
+its louvre flap at the foot with the dark slot behind it, its status
+lights, and the white 60 × 40 mm trunking off along the wall at its top.
+The ceiling light is a fitting: a white ring housing 25 mm proud and a
+domed opal diffuser swelling 12 mm. Switch plates stand at 1.2 m by
+each door's handle (already there); sockets at 300 mm, over the worktop
+in the kitchen. Not done: a ceiling fan (optional in the brief; the
+default flat has air-con in every room), a TV point, the main door's
+gate grille, a shoe rack and a key hook (the Entry organiser already
+carries the shoes, the hooks and the key tray in the default flat).
+
+**Kitchen and bathroom (§2).** The tiles are drawn, not photographed
+(tile-maps.ts): 300 × 600 mm on the walls laid long side level, 600 ×
+600 on the floor, a 2 mm joint set back from the glaze (the normal map
+rolls each tile's edge down into it, the grout matt, the glaze 0.12–0.18
+rough), each tile ±2.5 % in tone. The counter now has its tiled
+splashback between the worktop and the wall cabinets, a worktop 20 mm
+proud of the doors, an induction hob with its four zones, a slim steel
+hood under the wall cabinets, a sink with its bowl and a tap with its
+spout, and on the worktop a kettle, a chopping board leaning on the
+splashback and three jars, each only where there is room for it. The
+fridge, the basin cabinet with its tap and mirror, the toilet and the
+shower screen were already built forms; real models wait on B1 (the
+README lists them). Chrome takes the room's reflection where the room
+has its picture (finish.tsx's glossy path). The basin drew its own
+mirror pane under the bathroom's mirror cabinet, a pane behind a pane:
+it is gone, and a mirror's glass is clear-coated pale glass (half metal,
+it took the ceiling light's glow and stood as a white sheet). Not done:
+bathroom wall tiles across the whole wall (a wall shared with the hall
+is one solid, both faces one material), the floor trap.
+
+**Lived-in (§3).** View settings → Show → Tidy | Lived-in (lived-in by
+default; `data-lived-in` on the stage). Lived-in, each piece carries
+its own touches, so nothing stands on a walkway or in front of another
+product: two cushions in a sofa's back corners leaning on the back and
+the arm (one on an armchair), a throw over one of the sofa's arms; a
+mug, two books and the remote on a coffee table; a bowl on a dining
+table; a throw folded at a bed's foot; a floor lamp's cord running off
+behind it; and each dining chair left pulled out 40–90 mm and turned
+5–10°, by its seed (LivedIn.tsx). The first project's living room gets
+five (the sofa's, the armchair's, the coffee table's, the dining
+table's and the lamp's cord) and its chairs left out; a bedroom one or
+two. Not done: a TV's cable, clothes on a chair, a
+plant added where there is none.
+
+**Imperfection (§4).** Hand marks: a faint, uneven grey of fingertips
+round each switch plate, densest at the plate and fading over a hand's
+span (wear.ts, a shared alpha map on a decal 1.5 mm off the wall). The
+thresholds were there. Not done, and why: wall undulation and a
+roller's texture on the ceiling (both want a change to the plaster's
+shader that every wall shares; left for a pass judged on a real GPU,
+since in this sandbox's software renderer they could not be told from
+the plaster's own relief), rounded plaster corners (the wall solids are
+mitred boxes; rounding them is a geometry change to wall-solid.ts),
+walkway wear on the floor.
+
+**Wall art and textiles (§5).** A picture is framed as a framer makes
+one: a 25 mm moulding 20 mm deep (black, oak or white lacquer, one per
+room), a white mount set back behind a glass that catches the room
+faintly (8 % opacity, roughness 0.05), the print in the mount's window,
+the frame's shadow on the wall. The images are the studio's own
+abstract prints; a CC0 set would want the network the sandbox does not
+have. The curtains' linen has its sheen; the sheer's weave is its
+transparency.
+
+**Design rules (§6).** design-rules.ts reads a room as a designer
+does: the coffee table 400–450 mm from the sofa and about two thirds
+its length; a rug that the seats' front legs stand on with 200–450 mm
+of floor round it; the TV's middle at 1.0–1.1 m; a floor lamp within
+600 mm of a seat; a bedside's top within 50 mm of the mattress's; a
+picture's middle at 1.45–1.55 m, or its foot 200–250 mm over the piece
+under it at about two thirds of its width. The room's health shows them
+as advice beside the findings (a ring, not a dot; no Fix, no count in
+the summary), and By the book now stands the coffee table 425 mm from
+the sofa. Walkways keep their 900 mm (the existing rule). Tested in
+design-rules.test.ts and room-layout.test.ts.
+
+**Presentation (§7).** The page round the stage is a neutral warm grey
+(it was a peach wash, against which every white in the room read
+blue-grey), and the glass panels a near white. The immersive view (H,
+or the eye on the toolbar) is kept for the tab's session
+(`data-immersive`). A traced photo, once taken, can go full screen and
+be saved as a PNG. Not done: the mild Panini lens: the picking, the
+name tags and the handles all assume a pinhole camera, and a lens
+remap in the post chain would put them up to several pixels off at the
+frame's edges; it belongs in the photo, not the live view.

@@ -59,20 +59,41 @@ export const SHOT = { height: 1.15, shift: 0.15, inset: 0.15, clear: 1.2 };
     z south) */
 export type Box = { x: number; z: number; w: number; d: number };
 
+/** how the corner shot is framed past its corner: how far, m, the
+    camera steps along its own wall towards the wall's middle (along x
+    when the window faces it across z, along z otherwise), and its lens
+    as a share of the room's (under 1 narrower) */
+export type Framing = { slide: number; lens: number; along: "x" | "z" };
+export const SQUARE: Framing = { slide: 0, lens: 1, along: "x" };
+/** the steps a shot may take to clear a piece in its foreground, m, and
+    the lenses it may narrow to, in the order they are tried: a step
+    first (the view keeps its width), the lens after */
+const SLIDES = [0, 0.3, 0.6, 0.9, 1.2, 1.5];
+const LENSES = [1, 0.92, 0.85];
+
 /** the corner shot from a corner of a room `w` × `d`, m: in the corner,
-    level, looking to the opposite one */
+    level, looking to the opposite one; stepped along its wall and its
+    lens narrowed as `framing` says */
 export const cornerShot = (
   w: number,
   d: number,
   [sx, sz]: Corner,
   aspect = FRAME_ASPECT,
+  framing: Framing = SQUARE,
 ): Pose => {
   const x = sx * (w / 2 - SHOT.inset);
   const z = sz * (d / 2 - SHOT.inset);
+  // stepped in along the camera's own wall, at most to a quarter of it
+  const reach = (framing.along === "x" ? w : d) / 4;
+  const step = Math.min(framing.slide, reach);
+  const px = framing.along === "x" ? x - sx * step : x;
+  const pz = framing.along === "z" ? z - sz * step : z;
   return {
-    pos: [x, SHOT.height, z],
+    pos: [px, SHOT.height, pz],
+    // still to the far corner, so the far walls and the window frame
+    // the picture as before
     at: [-x, SHOT.height, -z],
-    fov: roomFov(aspect),
+    fov: roomFov(aspect) * framing.lens,
     shift: SHOT.shift,
   };
 };
@@ -85,8 +106,9 @@ export const nearestInShot = (
   corner: Corner,
   boxes: readonly Box[],
   aspect = FRAME_ASPECT,
+  framing: Framing = SQUARE,
 ) => {
-  const { pos, at, fov } = cornerShot(w, d, corner, aspect);
+  const { pos, at, fov } = cornerShot(w, d, corner, aspect, framing);
   const [px, , pz] = pos;
   const look = Math.atan2(at[0] - px, at[2] - pz);
   const half = Math.atan(Math.tan((fov * Math.PI) / 360) * aspect);
@@ -109,10 +131,16 @@ export const nearestInShot = (
   return nearest;
 };
 
-/** the corner the shot is taken from: the photographed corner (facing
-    the window) when its foreground is clear, else the other corner on
-    the window's side, so the window and its light stay in the picture,
-    else a clear one across, else the clearest */
+/** the shot of a room: its corner and how it is framed from there */
+export type Shot = { corner: Corner; framing: Framing };
+
+/** the shot a room is taken from, as an interiors photographer keeps a
+    window in it, with its light coming in from the side: one of the two
+    corners facing the window (the photographed one first), and when a
+    piece stands too near in the foreground, the camera steps along its
+    wall and then narrows its lens a little to clear it, rather than
+    turning its back on the window. Only a room without a window (`window`
+    false) turns to the other corners, the clearest first */
 export const shotCorner = (
   w: number,
   d: number,
@@ -122,22 +150,36 @@ export const shotCorner = (
   /** which of the corner's two signs faces the window: z for a window
       on a north or south wall, x for one on an east or west wall */
   facing: "x" | "z" = "z",
-): Corner => {
-  // the photographed corner's neighbour on the window's side comes
-  // second: the other sign flips
+  window = true,
+): Shot => {
   const [px, pz] = photo;
   const flipX: Corner = [-px as -1 | 1, pz];
   const flipZ: Corner = [px, -pz as -1 | 1];
-  const corners: Corner[] = [
-    photo,
-    facing === "z" ? flipX : flipZ,
-    facing === "z" ? flipZ : flipX,
-    [-px as -1 | 1, -pz as -1 | 1],
-  ];
-  const near = corners.map((c) => nearestInShot(w, d, c, boxes, aspect));
-  const clear = corners.findIndex((_, i) => near[i]! >= SHOT.clear);
-  if (clear >= 0) return corners[clear]!;
-  return corners[near.indexOf(Math.max(...near))]!;
+  // the photographed corner's neighbour on the window's side: along the
+  // wall facing the window, so the other sign flips
+  const sideways = facing === "z" ? flipX : flipZ;
+  // the camera steps along its own wall (the one facing the window)
+  // first, then along the corner's other wall towards the window
+  const own = facing === "z" ? "x" : "z";
+  const ways: Framing["along"][] = [own, own === "x" ? "z" : "x"];
+  const corners: Corner[] = window
+    ? [photo, sideways]
+    : [photo, sideways, facing === "z" ? flipZ : flipX, [-px, -pz] as Corner];
+  let best: Shot & { near: number } = {
+    corner: photo,
+    framing: { ...SQUARE, along: own },
+    near: -1,
+  };
+  for (const lens of LENSES)
+    for (const slide of SLIDES)
+      for (const along of ways)
+        for (const corner of corners) {
+          const framing: Framing = { slide, lens, along };
+          const near = nearestInShot(w, d, corner, boxes, aspect, framing);
+          if (near >= SHOT.clear) return { corner, framing };
+          if (near > best.near + 1e-6) best = { corner, framing, near };
+        }
+  return { corner: best.corner, framing: best.framing };
 };
 
 /** a corner of a room: which way along x (east +1) and along z (south
@@ -259,14 +301,18 @@ export const cameraFor = (
   centre: readonly [number, number],
   /** the room being worked on, m: it stands at the origin; and the
       corner its picture is taken from */
-  room: { w: number; d: number; corner?: Corner } = { w, d },
+  room: { w: number; d: number; corner?: Corner; framing?: Framing } = {
+    w,
+    d,
+  },
   /** the picture's width over its height */
   aspect = FRAME_ASPECT,
 ): Pose => {
   const r = Math.max(w, d);
   const [cx, cz] = centre;
   const [sx, sz] = room.corner ?? [1, 1];
-  if (angle === "Corner") return cornerShot(room.w, room.d, [sx, sz], aspect);
+  if (angle === "Corner")
+    return cornerShot(room.w, room.d, [sx, sz], aspect, room.framing);
   // the four sides look in over the near wall, which is open to the
   // camera, from above the walls: the floor, the pieces and the far wall
   // all in view, as a section through the room is drawn

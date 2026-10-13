@@ -1,5 +1,6 @@
 "use client";
 
+import { filteredRoughness } from "./spec-aa";
 import { useFrame, useThree } from "@react-three/fiber";
 import { type RefObject, useEffect, useMemo, useRef } from "react";
 import {
@@ -34,6 +35,7 @@ import {
 } from "three/webgpu";
 import { create } from "zustand";
 import { type StillState, stillOf, wakeAt } from "./capture";
+import { devFlag } from "./dev-flags";
 import { useScene } from "./scene-store";
 import { warming } from "./shader-warm";
 import { withWallsStanding } from "./walls-standing";
@@ -145,15 +147,20 @@ export const useFloorMaterial = (
   }, [w, h, d]);
   const material = useMemo(() => {
     const m = new MeshStandardNodeMaterial();
+    // the boards' sheen held still far off, where the grain's bumps are
+    // finer than a pixel (spec-aa.ts)
+    m.roughnessNode = filteredRoughness;
     // a slow, faint unevenness across the floor (boards from different
     // trees, a little wear), so its tile never reads as a repeat
-    m.colorNode = materialColor.mul(
-      float(1).add(
-        mx_noise_float(positionWorld.xz.mul(FLOOR_VARIATION.scale)).mul(
-          FLOOR_VARIATION.depth,
+    // (off for diagnosis with `?nouneven`, dev-flags.ts)
+    if (!devFlag("nouneven"))
+      m.colorNode = materialColor.mul(
+        float(1).add(
+          mx_noise_float(positionWorld.xz.mul(FLOOR_VARIATION.scale)).mul(
+            FLOOR_VARIATION.depth,
+          ),
         ),
-      ),
-    );
+      );
     // the room's box as the uniforms hold it (set above), so a change
     // of the room's size builds no shader
     if (target) {

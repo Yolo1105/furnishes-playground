@@ -1,6 +1,7 @@
 "use client";
 
 import { devFlag } from "./dev-flags";
+import { inward, WINDOW_LIGHT } from "./window-light";
 import { seedOf } from "./seed";
 import { toMetres } from "@furnishes/scene";
 import { HDRLoader } from "three/examples/jsm/loaders/HDRLoader.js";
@@ -9,7 +10,10 @@ import {
   float,
   mix,
   mx_fractal_noise_float,
+  normalView,
+  positionViewDirection,
   positionWorld,
+  pow,
   smoothstep,
   uniform,
   vec2,
@@ -28,8 +32,11 @@ import {
 } from "@react-three/fiber";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useEvent } from "./use-event";
+import { ARCHITRAVE, architraveFor } from "./architrave";
+import { HAND_MARKS, handMarks } from "./wear";
+import { LAMP_BULB } from "./white-balance";
 import { CURTAIN, curtainGeometry } from "./curtain";
-import { cloth, Mat } from "./finish";
+import { cloth, type Finish, Mat, Rod, Soft, wood } from "./finish";
 import { useRoom } from "./room-store";
 import {
   BufferAttribute,
@@ -52,7 +59,6 @@ import {
 import {
   type Floor,
   isWindow,
-  widestWindow,
   type Opening,
   OPENINGS,
   type Wall,
@@ -99,24 +105,45 @@ const SKIRTING = 0.1;
     skirting is, so the wall ends in a line */
 const CORNICE = 0.06;
 const FRAME_HEX = "#f7f3ec";
+/** the joinery's paint (skirting, cornice, linings, architraves, doors):
+    semi-gloss, plainly glossier than the walls' matt, the sheen a real
+    room's woodwork shows against its walls */
+const JOINERY_ROUGH = 0.35;
 /** a door's leaf: painted, as an HDB flat's are, a shade off its frame
     so the leaf reads against the architrave (the wood set's grain,
     stretched once over a two-metre leaf, read as a large wavy figure) */
 const DOOR_HEX = "#ebe5da";
-const DOOR_ROUGH = 0.42;
+/** a laminate leaf's wood (the entrance's, by default) */
+const LAMINATE_HEX = "#b48a62";
 /** a door's parts, m: the leaf's thickness, the lining boards in the
     reveal, the architrave's width and how far it stands proud, the
     gap round the leaf, the threshold's height, and the lever */
 const DOOR = {
   leaf: 0.04,
+  /** the main door's leaf, thicker */
+  entrance: 0.05,
   lining: 0.028,
-  architrave: 0.07,
-  proud: 0.015,
-  gap: 0.004,
+  architrave: ARCHITRAVE.width,
+  proud: ARCHITRAVE.thick,
+  /** the gap round the leaf, its shadow line */
+  gap: 0.0025,
   threshold: 0.012,
-  lever: 0.12,
+  /** the lever: its rose, its neck out from the leaf, its grip */
+  rose: 0.025,
+  neck: 0.05,
+  grip: 0.12,
+  /** the key's escutcheon below the lever, and the peephole's height */
+  escutcheon: 0.016,
+  keyBelow: 0.075,
+  peephole: 1.5,
+  /** the butt hinges: three, 100 mm, their knuckle's radius */
+  hinge: 0.1,
+  knuckle: 0.007,
+  /** the floor stop where the leaf comes to rest open */
+  stop: 0.014,
 };
-const METAL_HEX = "#9a948b";
+/** satin steel: the hinges, the lever, the escutcheon, the stop */
+const STEEL: Finish = { colour: "#c4c2bd", rough: 0.3, metal: 0.85 };
 const THRESHOLD_HEX = "#b9b2a7";
 /** how far the cornice's top stands under the wall's cut, m */
 const CORNICE_DROP = 0.003;
@@ -151,8 +178,19 @@ const CEILING_DROP = 0.002;
 /** the room's ceiling light: a flush round diffuser in the middle of
     the room's box, m, glowing a little by day and lit in the evening
     (a bare ceiling read as a set's) */
-const LAMP = { radius: 0.2, drop: 0.025, day: 0.35, evening: 2.2 };
+const LAMP = {
+  radius: 0.2,
+  drop: 0.025,
+  day: 0.35,
+  evening: 2.2,
+  /** the housing's ring outside the diffuser */
+  rim: 0.012,
+  /** the diffuser's dome: a cap of a sphere this big, this wide an
+      angle, so its edge is the diffuser's and it swells about 12 mm */
+  dome: { r: 1.67, cap: Math.asin(0.2 / 1.67) },
+};
 const LAMP_HEX = "#fbf6ec";
+const LAMP_RIM_HEX = "#f2f0eb";
 /** where the ceiling light hangs: the middle of the room's box, m about
     the room's middle, for an outline in mm and the box `w` × `d` in m
     (Scene3D's light shines from there, under this diffuser) */
@@ -323,14 +361,25 @@ const GLASS = {
   depthWrite: false,
   side: DoubleSide,
 } as const;
-/** the panes' glass reflecting the room, where the room has its
-    picture (Reflection.tsx): one material for every pane */
-let glass: { of: Node; m: MeshPhysicalNodeMaterial } | null = null;
-const glassOf = (room: Node) => {
-  if (glass?.of !== room) {
+/** how much of the glass shows, by the angle it is seen at: almost
+    clear looking straight through, more of a mirror at a grazing angle,
+    as Fresnel has it for glass */
+const GLASS_FRESNEL = { head: 0.05, grazing: 0.8, power: 5 };
+/** the panes' glass, one material for every pane: its show by the angle
+    it is seen at, reflecting the room where the room has its picture
+    (Reflection.tsx), the surroundings elsewhere */
+let glass: { of: Node | null; m: MeshPhysicalNodeMaterial } | null = null;
+const glassOf = (room: Node | null) => {
+  if (!glass || glass.of !== room) {
     glass?.m.dispose();
     const m = new MeshPhysicalNodeMaterial(GLASS);
-    m.envNode = room;
+    const facing = normalView.dot(positionViewDirection).abs();
+    m.opacityNode = mix(
+      float(GLASS_FRESNEL.head),
+      float(GLASS_FRESNEL.grazing),
+      pow(float(1).sub(facing), GLASS_FRESNEL.power),
+    );
+    if (room) m.envNode = room;
     glass = { of: room, m };
   }
   return glass.m;
@@ -554,16 +603,6 @@ export const yawOf = (wall: Wall) =>
         ? Math.PI / 2
         : -Math.PI / 2;
 
-/** the inward normal of a wall, in the scene's x and z */
-export const inward = (wall: Wall): [number, number] =>
-  wall === "north"
-    ? [0, 1]
-    : wall === "south"
-      ? [0, -1]
-      : wall === "west"
-        ? [1, 0]
-        : [-1, 0];
-
 /** an opening's middle on its wall, in metres about the room's middle */
 const placeOf = (
   r: Pick<RoomShape, "W" | "D" | "outline">,
@@ -574,23 +613,6 @@ const placeOf = (
   const x = horizontal ? toMetres(centre) : toMetres(at);
   const z = horizontal ? toMetres(at) : toMetres(centre);
   return [x - toMetres(r.W) / 2, z - toMetres(r.D) / 2];
-};
-/** where the sun stands to come in through the room's widest window:
-    beyond that wall, `back` metres out and `height` up, shifted `aside`
-    along the wall so its patch falls into the room at a slant; null
-    for a room without a window */
-export const windowSun = (
-  r: Pick<RoomShape, "W" | "D" | "outline">,
-  openings: readonly Opening[],
-  height: number,
-  back: number,
-  aside: number,
-): Vector3Tuple | null => {
-  const window = widestWindow(openings);
-  if (!window) return null;
-  const [x, z] = placeOf(r, window);
-  const [nx, nz] = inward(window.wall);
-  return [x - nx * back + nz * aside, height, z - nz * back - nx * aside];
 };
 /** the holes an edge's wall has: each opening on this edge, as a box
     along the wall (metres from the edge's middle) and up it */
@@ -955,18 +977,20 @@ function WallRun({
           userData={SKIRTING_NAME}
         >
           <boxGeometry args={[len, SKIRTING, 0.016]} />
-          <meshStandardMaterial color={FRAME_HEX} roughness={0.5} />
+          <meshStandardMaterial color={FRAME_HEX} roughness={JOINERY_ROUGH} />
         </mesh>
-        <mesh
-          // its top a few mm under the wall's cut: flush with it, the
-          // cut's line along the inner edge flickered into dashes
-          position={[0, h - CORNICE / 2 - CORNICE_DROP, 0.006]}
-          receiveShadow
-          userData={CORNICE_NAME}
-        >
-          <boxGeometry args={[len, CORNICE, 0.012]} />
-          <meshStandardMaterial color={FRAME_HEX} roughness={0.5} />
-        </mesh>
+        {!devFlag("nocornice") && (
+          <mesh
+            // its top a few mm under the wall's cut: flush with it, the
+            // cut's line along the inner edge flickered into dashes
+            position={[0, h - CORNICE / 2 - CORNICE_DROP, 0.006]}
+            receiveShadow
+            userData={CORNICE_NAME}
+          >
+            <boxGeometry args={[len, CORNICE, 0.012]} />
+            <meshStandardMaterial color={FRAME_HEX} roughness={JOINERY_ROUGH} />
+          </mesh>
+        )}
       </group>
       <group ref={stubRef} visible={false} userData={STUB_NAME}>
         <mesh
@@ -985,20 +1009,21 @@ function WallRun({
   );
 }
 
-/** a painted member of a window: a jamb, a rail, a mullion, a sill */
-function Bar({
+/** a member of a window in its finish: the aluminium, the gasket, the
+    hardware */
+function Member({
   at,
   size,
-  rough = 0.4,
+  f,
 }: {
   at: [number, number, number];
   size: [number, number, number];
-  rough?: number;
+  f: Finish;
 }) {
   return (
     <mesh position={at} castShadow receiveShadow>
       <boxGeometry args={size} />
-      <meshStandardMaterial color={FRAME_HEX} roughness={rough} />
+      <Mat f={f} />
     </mesh>
   );
 }
@@ -1007,14 +1032,37 @@ function Bar({
     the sash within it, the bars that divide the panes, how deep the
     frame stands, and the sill board inside */
 const WINDOW = {
-  frame: 0.06,
+  /** the outer frame's face and depth; the sash's face, depth and how
+      far it steps in from the frame towards the room */
+  frame: 0.055,
+  depth: 0.07,
   sash: 0.045,
-  bar: 0.035,
-  depth: 0.09,
-  sillBoard: 0.035,
-  sillOut: 0.06,
-  architrave: 0.06,
+  sashDepth: 0.05,
+  step: 0.012,
+  /** the meeting stiles' bar between the two casements */
+  bar: 0.04,
+  /** the rubber gasket round the glass, its face and depth */
+  gasket: 0.004,
+  /** the glass's thickness: its two faces each reflect */
+  glass: 0.006,
+  /** the green of the glass at its edges, and how wide it shows */
+  edge: 0.006,
+  /** the inside sill: its thickness, how far it overhangs the wall, and
+      the round of its front edge */
+  sill: 0.025,
+  overhang: 0.025,
+  sillRound: 0.007,
+  /** the plaster's round where the reveal meets the wall's face */
+  bead: 0.006,
 };
+/** the frame and sash: powder-coated aluminium, satin, never a mirror
+    (a plain finish takes the plaster's faint stipple, finish.tsx); the
+    gasket's black rubber; the hardware's satin steel; the sill's stone */
+const ALU: Finish = { colour: "#eeede9", rough: 0.35 };
+const GASKET: Finish = { colour: "#2b2b2a", rough: 0.75 };
+const HARDWARE: Finish = { colour: "#c9c7c2", rough: 0.3, metal: 0.85 };
+const SILL_STONE: Finish = { colour: "#e7e2d8", rough: 0.45, coat: 0.2 };
+const GLASS_EDGE = "#4f6f62";
 
 /** a window with its joinery, in the opening the wall leaves: a frame
     lining the reveal towards the outer face, a sash within it divided
@@ -1057,17 +1105,25 @@ const PANEL = {
     ceiling, and off the wall; its section; how far it runs past the
     window each side, m */
 const RAIL = { over: 0.15, under: 0.06, off: 0.07, size: 0.022, past: 0.08 };
+/** how much of the window's light comes through the sheer as its own
+    glow, by day and in the evening (the voile lit from behind) */
+const SHEER_GLOW = { day: 0.55, evening: 0.04 };
 function Curtains({
   width,
   sill,
   head,
   height,
+  seed,
+  evening,
 }: {
   width: number;
   sill: number;
   head: number;
   /** the room's height, m */
   height: number;
+  /** each window's panels hang their own way */
+  seed: number;
+  evening: boolean;
 }) {
   const rail = Math.min(head + RAIL.over, height - RAIL.under);
   const drop = rail - Math.max(PANEL.floor, sill - PANEL.below);
@@ -1077,19 +1133,29 @@ function Curtains({
   );
   const geometry = useMemo(
     () => ({
-      panel: curtainGeometry(panel, drop),
+      left: curtainGeometry(panel, drop, CURTAIN.fold, CURTAIN.pitch, seed),
+      right: curtainGeometry(
+        panel,
+        drop,
+        CURTAIN.fold,
+        CURTAIN.pitch,
+        seed + 7,
+      ),
       sheer: curtainGeometry(
         width,
         drop,
         CURTAIN.sheerFold,
         CURTAIN.sheerPitch,
+        seed + 13,
+        1,
       ),
     }),
-    [panel, width, drop],
+    [panel, width, drop, seed],
   );
   useEffect(
     () => () => {
-      geometry.panel.dispose();
+      geometry.left.dispose();
+      geometry.right.dispose();
       geometry.sheer.dispose();
     },
     [geometry],
@@ -1101,19 +1167,24 @@ function Curtains({
         position={[0, 0, -PANEL.sheer]}
         raycast={noPick}
       >
+        {/* the voile: the outside through it softly, and glowing with
+            the window's light behind it, never a grey stripe */}
         <meshStandardMaterial
           color={SHEER_HEX}
+          emissive={WINDOW_LIGHT.day.colour}
+          emissiveIntensity={evening ? SHEER_GLOW.evening : SHEER_GLOW.day}
           roughness={0.9}
           transparent
           opacity={SHEER_OPACITY}
           depthWrite={false}
+          side={DoubleSide}
           vertexColors
         />
       </mesh>
       {[-1, 1].map((s) => (
         <mesh
           key={s}
-          geometry={geometry.panel}
+          geometry={s < 0 ? geometry.left : geometry.right}
           position={[s * (width / 2 - panel / 2 + PANEL.over), 0, 0]}
           castShadow
           receiveShadow
@@ -1122,11 +1193,20 @@ function Curtains({
           <Mat f={cloth(CURTAIN_HEX)} banded />
         </mesh>
       ))}
-      <Bar
+      {/* the rod and its end caps */}
+      <Rod
+        f={HARDWARE}
         at={[0, RAIL.size, 0]}
-        size={[width + 2 * RAIL.past, RAIL.size, RAIL.size]}
-        rough={0.3}
+        r={RAIL.size / 2}
+        h={width + 2 * RAIL.past}
+        rotation={[0, 0, Math.PI / 2]}
       />
+      {[-1, 1].map((s) => (
+        <mesh key={s} position={[s * (width / 2 + RAIL.past), RAIL.size, 0]}>
+          <sphereGeometry args={[RAIL.size * 0.9, 16, 12]} />
+          <Mat f={HARDWARE} />
+        </mesh>
+      ))}
     </group>
   );
 }
@@ -1147,12 +1227,17 @@ function Window({ r, o }: { r: RoomShape; o: Opening }) {
   const t = toMetres(r.thickness);
   // the frame's plane stands in the outer half of the wall
   const zf = -Math.max(t * 0.6, WINDOW.depth / 2 + 0.01);
-  const { frame, sash, bar, depth, sillBoard, sillOut, architrave } = WINDOW;
+  const { frame, depth, sash, sashDepth, step, gasket, edge } = WINDOW;
   const iw = width - 2 * frame; // inside the frame
   const ih = tall - 2 * frame;
-  const gw = iw - 2 * sash; // the glass
+  // two casements meeting in the middle, each hung on its outer side
+  const cw = iw / 2;
+  const gw = cw - 2 * sash; // a casement's glass
   const gh = ih - 2 * sash;
-  const sashDepth = depth * 0.6;
+  // the sash's plane: stepped in behind the frame's room-side face
+  const zs = zf + depth / 2 - step - sashDepth / 2;
+  const glassAt = zs;
+  const plaster: Finish = { colour: r.wallHex, rough: 0.85 };
   return (
     <Inside
       normal={inward(o.wall)}
@@ -1167,54 +1252,151 @@ function Window({ r, o }: { r: RoomShape; o: Opening }) {
           tall={tall}
           at={[0, mid, -t + OUTSIDE_IN]}
         />
-        {/* the frame: two jambs, a head and a bottom rail */}
+        {/* the frame: two jambs, a head and a bottom rail, mitred at
+            the corners as the profile is (the rails run between the
+            jambs) */}
         {[-1, 1].map((s) => (
-          <Bar
+          <Member
             key={`j${s}`}
             at={[s * (width / 2 - frame / 2), mid, zf]}
             size={[frame, tall, depth]}
+            f={ALU}
           />
         ))}
         {[sill + frame / 2, head - frame / 2].map((y) => (
-          <Bar key={`r${y}`} at={[0, y, zf]} size={[iw, frame, depth]} />
-        ))}
-        {/* the sash within the frame, and the bars dividing its panes */}
-        {[-1, 1].map((s) => (
-          <Bar
-            key={`s${s}`}
-            at={[s * (iw / 2 - sash / 2), mid, zf]}
-            size={[sash, ih, sashDepth]}
+          <Member
+            key={`r${y}`}
+            at={[0, y, zf]}
+            size={[iw, frame, depth]}
+            f={ALU}
           />
         ))}
-        {[sill + frame + sash / 2, head - frame - sash / 2].map((y) => (
-          <Bar key={`t${y}`} at={[0, y, zf]} size={[gw, sash, sashDepth]} />
-        ))}
-        <Bar at={[0, mid, zf]} size={[bar, gh, sashDepth]} />
-        <Bar at={[0, mid, zf]} size={[gw, bar, sashDepth]} />
-        {/* the glass, set in the sash */}
-        <mesh position={[0, mid, zf]}>
-          <planeGeometry args={[gw, gh]} />
-          {room ? (
-            <primitive
-              object={glassOf(room)}
-              attach="material"
-              dispose={null}
-            />
-          ) : (
-            <meshPhysicalMaterial {...GLASS} />
-          )}
-        </mesh>
-        {/* the architrave round the opening on the inside */}
+        {[-1, 1].map((s) => {
+          const cx = (s * iw) / 4;
+          return (
+            <group key={`c${s}`}>
+              {/* the casement's sash: its outer stile (the hinge side),
+                  its meeting stile, its rails */}
+              {[-1, 1].map((e) => (
+                <Member
+                  key={`st${e}`}
+                  at={[cx + e * (cw / 2 - sash / 2), mid, zs]}
+                  size={[sash, ih, sashDepth]}
+                  f={ALU}
+                />
+              ))}
+              {[sill + frame + sash / 2, head - frame - sash / 2].map((y) => (
+                <Member
+                  key={`sr${y}`}
+                  at={[cx, y, zs]}
+                  size={[gw, sash, sashDepth]}
+                  f={ALU}
+                />
+              ))}
+              {/* the glass's two faces: each reflects, so the room's
+                  reflection doubles faintly */}
+              {[-1, 1].map((g) => (
+                <mesh
+                  key={`g${g}`}
+                  position={[cx, mid, glassAt + (g * WINDOW.glass) / 2]}
+                >
+                  <planeGeometry args={[gw, gh]} />
+                  <primitive
+                    object={glassOf(room)}
+                    attach="material"
+                    dispose={null}
+                  />
+                </mesh>
+              ))}
+              {/* the glass's green at its edges, where its body is seen
+                  edge-on through the gasket */}
+              {[
+                [cx, mid + gh / 2 - edge / 2, gw, edge],
+                [cx, mid - gh / 2 + edge / 2, gw, edge],
+                [cx - gw / 2 + edge / 2, mid, edge, gh],
+                [cx + gw / 2 - edge / 2, mid, edge, gh],
+              ].map(([ex, ey, ew, eh], k) => (
+                <mesh
+                  key={`e${k}`}
+                  position={[ex!, ey!, glassAt]}
+                  raycast={noPick}
+                >
+                  <planeGeometry args={[ew!, eh!]} />
+                  <meshStandardMaterial
+                    color={GLASS_EDGE}
+                    transparent
+                    opacity={0.45}
+                    roughness={0.1}
+                    depthWrite={false}
+                    side={DoubleSide}
+                  />
+                </mesh>
+              ))}
+              {/* the gasket: a thin black line where the glass meets
+                  the sash, on the room's side */}
+              {[
+                [cx, mid + gh / 2, gw, gasket],
+                [cx, mid - gh / 2, gw, gasket],
+                [cx - gw / 2, mid, gasket, gh],
+                [cx + gw / 2, mid, gasket, gh],
+              ].map(([gx, gy, ww, hh], k) => (
+                <Member
+                  key={`k${k}`}
+                  at={[gx!, gy!, glassAt + WINDOW.glass / 2 + gasket / 2]}
+                  size={[ww!, hh!, gasket]}
+                  f={GASKET}
+                />
+              ))}
+              {/* the hinges on the outer stile, the hinge side read */}
+              {[sill + frame + 0.14, head - frame - 0.14].map((y) => (
+                <Rod
+                  key={`h${y}`}
+                  f={HARDWARE}
+                  at={[cx + s * (cw / 2), y, zs + sashDepth / 2 + 0.004]}
+                  r={0.006}
+                  h={0.05}
+                />
+              ))}
+              {/* the casement handle on the meeting stile: a plate and
+                  its lever hanging down, closed */}
+              <Member
+                at={[
+                  cx - s * (cw / 2 - sash / 2),
+                  mid,
+                  zs + sashDepth / 2 + 0.003,
+                ]}
+                size={[0.026, 0.07, 0.006]}
+                f={HARDWARE}
+              />
+              <Rod
+                f={HARDWARE}
+                at={[
+                  cx - s * (cw / 2 - sash / 2),
+                  mid - 0.05,
+                  zs + sashDepth / 2 + 0.02,
+                ]}
+                r={0.006}
+                h={0.1}
+              />
+            </group>
+          );
+        })}
+        {/* the plaster's round where the reveal turns onto the wall */}
         {[-1, 1].map((s) => (
-          <Bar
-            key={`a${s}`}
-            at={[s * (width / 2 + architrave / 2), mid + architrave / 2, 0.008]}
-            size={[architrave, tall + architrave, 0.016]}
+          <Rod
+            key={`b${s}`}
+            f={plaster}
+            at={[s * (width / 2), mid, 0]}
+            r={WINDOW.bead}
+            h={tall}
           />
         ))}
-        <Bar
-          at={[0, head + architrave / 2, 0.008]}
-          size={[width + 2 * architrave, architrave, 0.016]}
+        <Rod
+          f={plaster}
+          at={[0, head, 0]}
+          r={WINDOW.bead}
+          h={width}
+          rotation={[0, 0, Math.PI / 2]}
         />
         {r.floor !== "Tiles" && (
           <Curtains
@@ -1222,13 +1404,21 @@ function Window({ r, o }: { r: RoomShape; o: Opening }) {
             sill={sill}
             head={head}
             height={toMetres(r.height)}
+            seed={seedOf(o.id)}
+            evening={r.evening}
           />
         )}
-        {/* the sill board, from the frame into the room */}
-        <Bar
-          at={[0, sill - sillBoard / 2, (zf + sillOut) / 2]}
-          size={[width + 2 * architrave + 0.04, sillBoard, sillOut - zf]}
-          rough={0.5}
+        {/* the sill: stone, from the frame out past the wall's face,
+            its front edge rounded, a little wider than the opening */}
+        <Soft
+          f={SILL_STONE}
+          at={[
+            0,
+            sill - WINDOW.sill / 2,
+            (WINDOW.overhang + zf + depth / 2) / 2,
+          ]}
+          dims={[width + 0.05, WINDOW.sill, WINDOW.overhang - zf - depth / 2]}
+          radius={WINDOW.sillRound}
         />
       </group>
     </Inside>
@@ -1255,7 +1445,7 @@ function Door({ r, o }: { r: RoomShape; o: Opening }) {
   const [x, z] = placeOf(r, o);
   const yaw = yawOf(o.wall);
   const t = toMetres(r.thickness);
-  const { lining, architrave, proud, threshold } = DOOR;
+  const { lining, architrave, threshold } = DOOR;
   const sliding = o.kind === "sliding";
   const leaves =
     o.kind === "door"
@@ -1285,6 +1475,16 @@ function Door({ r, o }: { r: RoomShape; o: Opening }) {
   const open = useStudio((s) => !!s.doorsOpen[key]);
   const toggleDoor = useStudio((s) => s.toggleDoor);
   const toggle = useEvent(() => toggleDoor(key));
+  // shared by every doorway of the size (architrave.ts keeps them)
+  const moulding = architraveFor(width, tall);
+  // the way in: a door of the flat's own, not between two of its rooms,
+  // with its thicker leaf, its peephole and a laminate face
+  const entrance = o.join === undefined;
+  const leafFinish: Finish =
+    (o.leaf ?? (entrance ? "laminate" : "paint")) === "laminate"
+      ? wood(LAMINATE_HEX)
+      : { colour: DOOR_HEX, rough: JOINERY_ROUGH };
+  const ajar = Math.min(1, ((o.ajar ?? 0) * Math.PI) / 180 / SWING);
   return (
     <Inside
       normal={inward(o.wall)}
@@ -1302,6 +1502,10 @@ function Door({ r, o }: { r: RoomShape; o: Opening }) {
             leafZ={leafZ}
             travel={width / 2}
             open={open}
+            ajar={ajar}
+            thick={entrance && !sliding ? DOOR.entrance : DOOR.leaf}
+            f={leafFinish}
+            peephole={entrance && !sliding}
             onToggle={toggle}
           />
         ))}
@@ -1313,51 +1517,48 @@ function Door({ r, o }: { r: RoomShape; o: Opening }) {
             receiveShadow
           >
             <boxGeometry args={[lining, tall, t]} />
-            <meshStandardMaterial color={FRAME_HEX} roughness={0.5} />
+            <meshStandardMaterial color={FRAME_HEX} roughness={JOINERY_ROUGH} />
           </mesh>
         ))}
         <mesh position={[0, tall - lining / 2, -t / 2]} receiveShadow>
           <boxGeometry args={[width, lining, t]} />
-          <meshStandardMaterial color={FRAME_HEX} roughness={0.5} />
+          <meshStandardMaterial color={FRAME_HEX} roughness={JOINERY_ROUGH} />
         </mesh>
         {/* the threshold across the opening */}
         <mesh position={[0, threshold / 2, -t / 2]} receiveShadow>
           <boxGeometry args={[width, threshold, t + 0.02]} />
           <meshStandardMaterial color={THRESHOLD_HEX} roughness={0.6} />
         </mesh>
-        {/* the architrave round the opening, standing proud of the face */}
-        {faces.map((f) => {
-          const zf = f > 0 ? proud / 2 : -t - proud / 2;
-          return (
-            <group key={f}>
-              {[-1, 1].map((s) => (
-                <mesh
-                  key={`a${s}`}
-                  position={[
-                    s * (width / 2 + architrave / 2),
-                    (tall + architrave) / 2,
-                    zf,
-                  ]}
-                  castShadow
-                  receiveShadow
-                >
-                  <boxGeometry args={[architrave, tall + architrave, proud]} />
-                  <meshStandardMaterial color={FRAME_HEX} roughness={0.5} />
-                </mesh>
-              ))}
-              <mesh
-                position={[0, tall + architrave / 2, zf]}
-                castShadow
-                receiveShadow
-              >
-                <boxGeometry
-                  args={[width + 2 * architrave, architrave, proud]}
-                />
-                <meshStandardMaterial color={FRAME_HEX} roughness={0.5} />
-              </mesh>
-            </group>
-          );
-        })}
+        {/* the architrave round the opening: one moulding swept up the
+            sides and across the head, mitred at the corners (architrave.ts),
+            on each face the doorway has */}
+        {faces.map((f) => (
+          <mesh
+            key={f}
+            geometry={moulding}
+            position={[0, 0, f > 0 ? 0 : -t]}
+            rotation={[0, f > 0 ? 0 : Math.PI, 0]}
+            castShadow
+            receiveShadow
+          >
+            <meshStandardMaterial color={FRAME_HEX} roughness={JOINERY_ROUGH} />
+          </mesh>
+        ))}
+        {/* a sliding door's tracks, at its head and across the floor */}
+        {sliding && (
+          <>
+            <Member
+              at={[0, tall - lining - 0.02, -0.035]}
+              size={[width, 0.04, 0.06]}
+              f={ALU}
+            />
+            <Member
+              at={[0, 0.006, -0.035]}
+              size={[width, 0.012, 0.06]}
+              f={ALU}
+            />
+          </>
+        )}
         {/* the switch plate beside the door, on the handle's side */}
         {leaves.length > 0 && (
           <mesh
@@ -1373,11 +1574,41 @@ function Door({ r, o }: { r: RoomShape; o: Opening }) {
             <meshStandardMaterial color={FRAME_HEX} roughness={0.4} />
           </mesh>
         )}
+        {/* the marks of hands round the switch (wear.ts), a hair off the
+            wall, under the plate */}
+        {leaves.length > 0 && (
+          <mesh
+            position={[
+              handleSide * (width / 2 + architrave + 0.1),
+              1.2 - HAND_MARKS.tall * 0.08,
+              0.0015,
+            ]}
+            raycast={noPick}
+            renderOrder={1}
+          >
+            <planeGeometry args={[HAND_MARKS.wide, HAND_MARKS.tall]} />
+            <meshStandardMaterial
+              color="#5e554b"
+              alphaMap={handMarks()}
+              transparent
+              opacity={HAND_MARKS.opacity}
+              depthWrite={false}
+              polygonOffset
+              polygonOffsetFactor={-1}
+              polygonOffsetUnits={-1}
+              roughness={0.7}
+            />
+          </mesh>
+        )}
       </group>
     </Inside>
   );
 }
 
+/** a sliding door's aluminium frame round its glass, m */
+const SLIDER = { frame: 0.05 };
+/** the lever's height from the floor, m */
+const HANDLE_Y = 1.0;
 /** how far a hinged leaf swings open, radians: a little short of square
     to the wall, as a door stands on its stop */
 const SWING = 1.45;
@@ -1395,6 +1626,10 @@ function DoorLeaf({
   leafZ,
   travel,
   open,
+  ajar,
+  thick,
+  f,
+  peephole,
   onToggle,
 }: {
   l: { x: number; w: number; handle: number };
@@ -1405,10 +1640,19 @@ function DoorLeaf({
   /** how far a sliding panel runs, m */
   travel: number;
   open: boolean;
+  /** how far it stands ajar at rest, a share of its full swing */
+  ajar: number;
+  /** the leaf's thickness, m */
+  thick: number;
+  /** the leaf's face: painted or laminate */
+  f: Finish;
+  peephole: boolean;
   onToggle: () => void;
 }) {
-  const { leaf, lining, gap, lever } = DOOR;
+  const leaf = thick;
+  const { lining, gap } = DOOR;
   const pivot = useRef<Group>(null);
+  const room = useRoomReflection((s) => s.node);
   const k = useRef(open ? 1 : 0);
   const invalidate = useThree((s) => s.invalidate);
   useEffect(() => invalidate(), [open, invalidate]);
@@ -1421,9 +1665,10 @@ function DoorLeaf({
   const hz = sliding ? zl : zl + leaf / 2;
   // only the front panel of a sliding pair runs, over the one behind
   const moves = !sliding || i === 0;
+  // a hinged leaf rests ajar, and opens from there to its stop
   const pose = (g: Group, v: number) => {
     if (sliding) g.position.x = hx + v * travel;
-    else g.rotation.y = -s * SWING * v;
+    else g.rotation.y = -s * SWING * (ajar + (1 - ajar) * v);
   };
   useLayoutEffect(() => {
     if (pivot.current) pose(pivot.current, k.current);
@@ -1441,7 +1686,6 @@ function DoorLeaf({
     pose(g, v);
     invalidate();
   });
-  const front = zl + leaf / 2;
   // a leaf hidden with its wall is still in the ray's way: it takes no
   // press, and lets one through to what is behind it
   const shown = (e: ThreeEvent<Event>) => {
@@ -1475,50 +1719,148 @@ function DoorLeaf({
     const el = stageOf(e);
     if (el) delete el.dataset.overDoor;
   };
+  // where the open leaf comes to rest: its stop on the floor, under the
+  // leaf near its handle edge
+  const reach = lw - 0.06;
   return (
-    <group ref={pivot} position={[hx, 0, hz]}>
-      <group
-        position={[l.x - hx, 0, -hz]}
-        onPointerDown={onDown}
-        onClick={onClick}
-        onPointerOver={onOver}
-        onPointerOut={onOut}
-      >
-        <mesh
-          position={[0, (tall - gap) / 2, zl]}
-          castShadow
-          receiveShadow
-          userData={LEAF_NAME}
+    <>
+      {!sliding && (
+        <Rod
+          f={STEEL}
+          at={[
+            hx + s * reach * Math.cos(SWING),
+            DOOR.stop,
+            hz + reach * Math.sin(SWING),
+          ]}
+          r={DOOR.stop}
+          h={DOOR.stop * 2}
+        />
+      )}
+      <group ref={pivot} position={[hx, 0, hz]}>
+        <group
+          position={[l.x - hx, 0, -hz]}
+          onPointerDown={onDown}
+          onClick={onClick}
+          onPointerOver={onOver}
+          onPointerOut={onOut}
         >
-          <boxGeometry args={[lw, tall - gap, leaf]} />
-          <meshStandardMaterial color={DOOR_HEX} roughness={DOOR_ROUGH} />
-        </mesh>
-        {/* the lever and its rose, at hand height on the opening side,
-            standing off the leaf's face */}
-        <mesh
-          position={[l.handle, 1.0, front + 0.004]}
-          rotation={[Math.PI / 2, 0, 0]}
-        >
-          <cylinderGeometry args={[0.026, 0.026, 0.008, 24]} />
-          <meshStandardMaterial
-            color={METAL_HEX}
-            roughness={0.3}
-            metalness={0.8}
-          />
-        </mesh>
-        <mesh
-          position={[l.handle - (s * lever) / 2 + 0.01, 1.0, front + 0.04]}
-          castShadow
-        >
-          <boxGeometry args={[lever, 0.016, 0.016]} />
-          <meshStandardMaterial
-            color={METAL_HEX}
-            roughness={0.3}
-            metalness={0.8}
-          />
-        </mesh>
+          {sliding ? (
+            // a sliding panel: glass in an aluminium frame
+            <group position={[0, (tall - gap) / 2, zl]} userData={LEAF_NAME}>
+              {[-1, 1].map((e) => (
+                <Member
+                  key={`v${e}`}
+                  at={[(e * (lw - SLIDER.frame)) / 2, 0, 0]}
+                  size={[SLIDER.frame, tall - gap, leaf]}
+                  f={ALU}
+                />
+              ))}
+              {[-1, 1].map((e) => (
+                <Member
+                  key={`h${e}`}
+                  at={[0, (e * (tall - gap - SLIDER.frame)) / 2, 0]}
+                  size={[lw - 2 * SLIDER.frame, SLIDER.frame, leaf]}
+                  f={ALU}
+                />
+              ))}
+              <mesh>
+                <planeGeometry
+                  args={[lw - 2 * SLIDER.frame, tall - gap - 2 * SLIDER.frame]}
+                />
+                <primitive
+                  object={glassOf(room)}
+                  attach="material"
+                  dispose={null}
+                />
+              </mesh>
+            </group>
+          ) : (
+            <mesh
+              position={[0, (tall - gap) / 2, zl]}
+              castShadow
+              receiveShadow
+              userData={LEAF_NAME}
+            >
+              <boxGeometry args={[lw, tall - gap, leaf]} />
+              <Mat f={f} />
+            </mesh>
+          )}
+          {!sliding &&
+            [-1, 1].map((side) => {
+              // the face this side of the leaf, and which way is out of it
+              const at = zl + (side * leaf) / 2;
+              const out = (d: number) => at + side * d;
+              return (
+                <group key={side}>
+                  {/* the lever: its rose, a neck out from the leaf, and
+                    its grip turning back along the leaf, rounded at
+                    the end */}
+                  <Rod
+                    f={STEEL}
+                    at={[l.handle, HANDLE_Y, out(0.004)]}
+                    r={DOOR.rose}
+                    h={0.008}
+                    rotation={[Math.PI / 2, 0, 0]}
+                  />
+                  <Rod
+                    f={STEEL}
+                    at={[l.handle, HANDLE_Y, out(DOOR.neck / 2)]}
+                    r={0.009}
+                    h={DOOR.neck}
+                    rotation={[Math.PI / 2, 0, 0]}
+                  />
+                  <Rod
+                    f={STEEL}
+                    at={[
+                      l.handle - (s * DOOR.grip) / 2,
+                      HANDLE_Y,
+                      out(DOOR.neck),
+                    ]}
+                    r={0.01}
+                    top={0.008}
+                    h={DOOR.grip}
+                    rotation={[0, 0, (s * Math.PI) / 2]}
+                  />
+                  {/* the key's escutcheon below it, its keyhole dark */}
+                  <Rod
+                    f={STEEL}
+                    at={[l.handle, HANDLE_Y - DOOR.keyBelow, out(0.003)]}
+                    r={DOOR.escutcheon}
+                    h={0.006}
+                    rotation={[Math.PI / 2, 0, 0]}
+                  />
+                  <Member
+                    at={[l.handle, HANDLE_Y - DOOR.keyBelow, out(0.0065)]}
+                    size={[0.004, 0.012, 0.002]}
+                    f={GASKET}
+                  />
+                  {peephole && (
+                    <Rod
+                      f={STEEL}
+                      at={[l.x, DOOR.peephole, out(0.004)]}
+                      r={0.012}
+                      h={0.008}
+                      rotation={[Math.PI / 2, 0, 0]}
+                    />
+                  )}
+                </group>
+              );
+            })}
+        </group>
+        {/* the three butt hinges on the hinge side, their knuckles on the
+          leaf's edge, turning with it */}
+        {!sliding &&
+          [0.2, (tall - gap) / 2 + 0.1, tall - gap - 0.2].map((y) => (
+            <Rod
+              key={y}
+              f={STEEL}
+              at={[0, y, 0]}
+              r={DOOR.knuckle}
+              h={DOOR.hinge}
+            />
+          ))}
       </group>
-    </group>
+    </>
   );
 }
 
@@ -1718,17 +2060,53 @@ export function RoomShell({
           side={FrontSide}
         />
       </mesh>
-      {/* the ceiling light, a disc facing down as the ceiling does, so
-          an overhead view does not see it */}
+      {/* the ceiling light as a fitting: its white ring housing a little
+          proud of the ceiling, and the domed opal diffuser in it, both
+          facing down and out, so an overhead view does not see them */}
       <mesh
-        rotation={[Math.PI / 2, 0, 0]}
-        position={[lampAt[0], h - LAMP.drop, lampAt[1]]}
+        position={[lampAt[0], h - LAMP.drop / 2, lampAt[1]]}
         raycast={noPick}
       >
-        <circleGeometry args={[LAMP.radius, 40]} />
+        <cylinderGeometry
+          args={[
+            LAMP.radius + LAMP.rim,
+            LAMP.radius + LAMP.rim,
+            LAMP.drop,
+            48,
+            1,
+            true,
+          ]}
+        />
+        <meshStandardMaterial
+          color={LAMP_RIM_HEX}
+          roughness={0.5}
+          side={FrontSide}
+        />
+      </mesh>
+      <mesh
+        position={[
+          lampAt[0],
+          h - LAMP.drop + LAMP.dome.r * Math.cos(LAMP.dome.cap),
+          lampAt[1],
+        ]}
+        raycast={noPick}
+      >
+        <sphereGeometry
+          args={[
+            LAMP.dome.r,
+            48,
+            4,
+            0,
+            Math.PI * 2,
+            Math.PI - LAMP.dome.cap,
+            LAMP.dome.cap,
+          ]}
+        />
         <meshStandardMaterial
           color={LAMP_HEX}
-          emissive={LAMP_HEX}
+          // lit in the evening it glows the lamps' warm white, as the
+          // evening's white balance expects (white-balance.ts)
+          emissive={r.evening ? LAMP_BULB : LAMP_HEX}
           emissiveIntensity={r.evening ? LAMP.evening : LAMP.day}
           roughness={0.6}
           side={FrontSide}
@@ -1762,8 +2140,8 @@ const surround = (
 /** how much the surroundings light the room, day and evening: the
     drawn panels' studio sky, and a photographed sky's map */
 const SURROUND = {
-  panels: { day: 0.12, evening: 0.05 },
-  map: { day: 0.15, evening: 0.05 },
+  panels: { day: 0.12, evening: 0.03 },
+  map: { day: 0.15, evening: 0.03 },
 } as const;
 export function RoomLight({ evening, sky }: { evening: boolean; sky: Sky }) {
   const file = sky === "panels" ? (evening ? "panels-evening" : "panels") : sky;

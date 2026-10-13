@@ -47,7 +47,13 @@ import { useStudio } from "./studio-store";
  */
 
 /** samples per pixel by tier: a desktop's GPU takes more in the time */
-const SAMPLES: Record<Tier, number> = { desktop: 256, laptop: 64, phone: 64 };
+const SAMPLES: Record<Tier, number> = { desktop: 512, laptop: 64, phone: 64 };
+/** the most one bounce may bring a pixel, direct and indirect (the
+    tracer's clamps): a stray path that finds the sun through a glossy
+    bounce otherwise leaves a white speck the denoiser smears into a
+    blot. The indirect one is the library's own 10, kept by name; the
+    direct one is left open (0), so the sun's patch is not dimmed */
+const CLAMP = { direct: 0, indirect: 10 };
 /** light bounces, set before the first sample and never after */
 const BOUNCES = 8;
 /** the drawing buffer a trace needs, px a side (three-gpu-pathtracer
@@ -87,6 +93,8 @@ const tracerFor = (renderer: WebGPURenderer) => {
       tracer.fadeDuration = 0;
       tracer.minSamples = 1;
       tracer.stableNoise = true;
+      tracer.clampDirect = CLAMP.direct;
+      tracer.clampIndirect = CLAMP.indirect;
       const denoiser = new OIDNDenoiser({
         initUNetFromURL,
         auxWeightsUrl: WEIGHTS,

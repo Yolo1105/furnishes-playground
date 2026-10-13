@@ -98,7 +98,8 @@ export const exportRoomGlb = async () => {
         {
           w: live.w,
           d: live.d,
-          corner: name === "Corner" ? live.shot : live.corner,
+          corner: name === "Corner" ? live.shot.corner : live.corner,
+          ...(name === "Corner" ? { framing: live.shot.framing } : {}),
         },
       );
       return { name, position: pos, at, fov };

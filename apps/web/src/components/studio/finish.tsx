@@ -1,10 +1,12 @@
 "use client";
 
+import { filteredRoughness } from "./spec-aa";
 import { useEffect, useMemo } from "react";
 import { Color, type Texture, Vector2, type Vector3Tuple } from "three";
 import { MeshPhysicalNodeMaterial, type Node } from "three/webgpu";
 import { plausible, toned, toneOf } from "./albedo";
 import { type MaterialName, repeated, useMaterial } from "./materials";
+import { plyColour } from "./ply";
 import { useRoomReflection } from "./Reflection";
 import {
   batchesOf,
@@ -61,6 +63,8 @@ export type Finish = {
   /** the doors' faces are mirrors (Mirror.tsx); the body keeps the
       satin finish */
   mirror?: boolean;
+  /** birch plywood: its boards' edges show the plies (ply.ts) */
+  ply?: boolean;
 };
 export const cloth = (colour: string): Finish => ({
   colour,
@@ -87,12 +91,23 @@ export const metal = (colour: string, rough = 0.35): Finish => ({
   rough,
   metal: 0.85,
 });
-/** a piece's own finish, from the Detail tab's colour and texture */
+/** the Furnishes pieces' wood grain under a satin lacquer, as they are
+    finished: the roughness map halves what is set here (its mean is
+    0.5), so 0.9 reads as about 0.45, the map's grain breaking the
+    window's reflection along it, under a clear coat faint enough to
+    catch the window and no more (the 0.23 under a 0.25 coat it once
+    had read as varnished plastic) */
+const LACQUER_ROUGH = 0.9;
+const LACQUER_COAT = 0.08;
+/** a Furnishes piece's own finish, from the Detail tab's colour and
+    texture: 18 mm birch plywood, its edges showing the plies whatever
+    its faces are finished in */
 export const finishOf = (colour: string, texture: string): Finish => ({
   colour,
-  rough: roughnessOf(texture),
+  rough: texture === "Wood grain" ? LACQUER_ROUGH : roughnessOf(texture),
+  ply: true,
   ...(texture === "Wood grain"
-    ? { grain: woodGrain(), coat: WOOD_COAT }
+    ? { grain: woodGrain(), coat: LACQUER_COAT }
     : texture === "Linen"
       ? { grain: clothGrain(), sheen: 0.4 }
       : texture === "Satin"
@@ -172,22 +187,25 @@ type MatProps = {
   normalScale: Vector2;
   banded: boolean;
 };
-/** the glossy finishes' materials, one for each look (the finish, the
-    colour, the maps), shared by every part that has it, each with the
-    room's reflection; made again when the room's picture is */
+/** the node-built finishes' materials, one for each look (the finish,
+    the colour, the maps): the glossy ones with the room's reflection,
+    plywood with its plies; shared by every part that has it, and made
+    again when the room's picture is */
 const glossies = new Map<string, MeshPhysicalNodeMaterial>();
 let glossiesOf: Node | null = null;
 /** how many looks are kept; past it the oldest is let go (not disposed:
     a part may still be drawn with it, and the next picture of the room
     disposes them all) */
 const GLOSSIES_KEPT = 400;
-const glossyMaterial = (env: Node, p: MatProps) => {
-  if (glossiesOf !== env) {
+const glossyMaterial = (env: Node | null, p: MatProps) => {
+  if (env && glossiesOf !== env) {
     for (const m of glossies.values()) m.dispose();
     glossies.clear();
     glossiesOf = env;
   }
   const key = [
+    env ? "room" : "",
+    p.f.ply ? "ply" : "",
     p.colour,
     p.f.rough,
     p.f.sheen ?? "",
@@ -216,7 +234,11 @@ const glossyMaterial = (env: Node, p: MatProps) => {
     clearcoat: p.f.coat ?? 0,
     clearcoatRoughness: LAYERS.coatRoughness,
   });
-  m.envNode = env;
+  if (env) m.envNode = env;
+  // plywood: its edges the plies, its faces as the material draws them
+  if (p.f.ply) m.colorNode = plyColour;
+  // the lacquer's highlight held still far off (spec-aa.ts)
+  m.roughnessNode = filteredRoughness;
   if (glossies.size >= GLOSSIES_KEPT)
     glossies.delete(glossies.keys().next().value!);
   glossies.set(key, m);
@@ -251,10 +273,12 @@ export function Mat({
     roughnessMap: maps?.roughnessMap ?? stipple?.roughnessMap ?? null,
     vertexColors: banded,
   };
-  if (room && glossy(f))
+  // a glossy finish reflects the room where it has its picture; plywood
+  // draws its plies on its edges: both are node materials
+  if ((room && glossy(f)) || f.ply)
     return (
       <primitive
-        object={glossyMaterial(room, {
+        object={glossyMaterial(room && glossy(f) ? room : null, {
           colour: c,
           f,
           maps: {

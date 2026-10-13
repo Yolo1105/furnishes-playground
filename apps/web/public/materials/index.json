@@ -1,13 +1,13 @@
 {
   "materials": {
     "wood": {
-      "tile": 1.0,
+      "tile": 1.2,
       "color": "color.jpg",
       "normal": "normal.jpg",
       "roughness": "roughness.jpg"
     },
     "parquet": {
-      "tile": 3.2,
+      "tile": 6.0,
       "color": "color.jpg",
       "normal": "normal.jpg",
       "roughness": "roughness.jpg"

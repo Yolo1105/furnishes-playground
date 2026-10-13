@@ -1,0 +1,34 @@
+{
+  "models": [
+    {
+      "file": "sofa_02",
+      "kind": "sofa",
+      "size": [1.81, 0.71, 0.82],
+      "cloth": "."
+    },
+    {
+      "file": "modern_arm_chair_01",
+      "kind": "armchair",
+      "size": [0.82, 1.02, 0.99],
+      "cloth": "pillow"
+    },
+    {
+      "file": "modern_coffee_table_01",
+      "kind": "coffee-table",
+      "size": [0.6, 0.39, 1.2]
+    },
+    { "file": "potted_plant_04", "kind": "plant", "size": [0.17, 0.27, 0.18] },
+    { "file": "ceramic_vase_01", "kind": "vase", "size": [0.2, 0.4, 0.2] },
+    {
+      "file": "wicker_basket_01",
+      "kind": "basket",
+      "size": [0.38, 0.12, 0.29]
+    },
+    { "file": "metal_stool_01", "kind": "stool", "size": [0.35, 0.88, 0.35] },
+    {
+      "file": "desk_lamp_arm_01",
+      "kind": "desk-lamp",
+      "size": [0.2, 0.89, 0.61]
+    }
+  ]
+}

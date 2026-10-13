@@ -621,6 +621,24 @@
   border-radius: 999px;
   background: var(--color-accent);
 }
+/* the designer's advice: quieter than a finding, a ring not a dot */
+.agent-plan-advice {
+  margin: 0;
+  padding-left: 14px;
+  position: relative;
+  font-size: 11.5px;
+  color: rgb(from var(--color-ink) r g b / 0.72);
+}
+.agent-plan-advice::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1.5px rgb(from var(--color-ink) r g b / 0.45);
+}
 /* ---- chips ---- */
 .agent-chips {
   display: flex;

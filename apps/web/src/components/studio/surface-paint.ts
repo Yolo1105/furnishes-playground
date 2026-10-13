@@ -134,27 +134,41 @@ type Paint = (u: number, v: number) => Point;
 
 /** how a wood is figured: the growth rings across the tile, how far
     they drift along the grain (the cathedral of a flat-cut face), how
-    unevenly they are spaced, and how dark the latewood stands */
+    unevenly they are spaced, how dark the latewood stands, and how many
+    times over the tile its slow figure turns (a whole number, so the
+    tile still repeats: 1 for a panel's tile, more for a floor's, whose
+    tile spans many planks and whose figure is a plank's, not the room's) */
 type Figure = {
   rings: number;
   drift: number;
   uneven: number;
   contrast: number;
+  scale?: number;
 };
 /** a panel's veneer: fine rings, a wide cathedral, well spaced */
 const VENEER: Figure = { rings: 110, drift: 2.4, uneven: 0.4, contrast: 0.1 };
-/** a floorboard: narrow rings running straight along the plank */
-const PLANK: Figure = { rings: 140, drift: 0.6, uneven: 0.3, contrast: 0.06 };
+/** a floorboard: narrow rings, about 9 mm apart on a 2.4 m tile, running
+    along the plank, its figure turning over half a metre or so (on the
+    room's scale it read as large swirling arcs, the grain twice and more
+    its real size) */
+const PLANK: Figure = {
+  rings: 260,
+  drift: 0.6,
+  uneven: 0.3,
+  contrast: 0.06,
+  scale: 4,
+};
 /** wood at a point of the tile: rings whose spacing wanders, drifting
     along the grain (u) into the cathedral figure of a flat-cut face;
     each ring's latewood a narrow band with a sharp late edge, darker,
     lower, rougher and a little redder than the earlywood; fine pores
     between, a slow figure over all */
 const woodAt = (u: number, v: number, seed: number, f: Figure): Point => {
-  const drift = fbm(u, v, 2, 1, seed, 3) - 0.5;
-  const sway = fbm(u, v, 1, 3, seed + 7, 2) - 0.5;
+  const k = f.scale ?? 1;
+  const drift = fbm(u, v, 2 * k, k, seed, 3) - 0.5;
+  const sway = fbm(u, v, k, 3 * k, seed + 7, 2) - 0.5;
   // the spacing: a slow noise along the rings stretches and crowds them
-  const spacing = (fbm(u, v, 1, 5, seed + 3, 2) - 0.5) * f.uneven * f.rings;
+  const spacing = (fbm(u, v, k, 5 * k, seed + 3, 2) - 0.5) * f.uneven * f.rings;
   const phase = v * f.rings + spacing + drift * f.drift + sway * 0.3 * f.drift;
   const at = phase - Math.floor(phase);
   // earlywood for most of the ring, latewood at its end, sharp after
@@ -162,7 +176,7 @@ const woodAt = (u: number, v: number, seed: number, f: Figure): Point => {
     smooth(clamp01((at - 0.5) / 0.3)) *
     (1 - smooth(clamp01((at - 0.86) / 0.1)));
   const pores = fbm(u, v, 6, 128, seed + 11, 3) - 0.5;
-  const figure = fbm(u, v, 3, 2, seed + 23, 3) - 0.5;
+  const figure = fbm(u, v, 3 * k, 2 * k, seed + 23, 3) - 0.5;
   return {
     lum: clamp01(0.98 - f.contrast * ring - 0.07 * pores - 0.08 * figure),
     height: -0.5 * ring + 0.6 * pores + 0.15 * figure,
@@ -261,7 +275,8 @@ const concreteAt = (u: number, v: number): Point => {
 };
 
 /** the painter of a kind at a tile size; board sizes as a share of the
-    tile: parquet strips 90 mm by 600, vinyl planks 180 mm by 1.2 m */
+    tile: parquet strips 90 mm by 600, vinyl planks 140 mm by 1.2 m (at
+    180 mm they read as twice a real board's width) */
 const painterOf = (kind: SurfaceKind, size: number): Paint => {
   switch (kind) {
     case "wood":
@@ -273,7 +288,7 @@ const painterOf = (kind: SurfaceKind, size: number): Paint => {
     case "parquet":
       return (u, v) => boardsAt(u, v, size, 0.09 / TILE_M, 0.6 / TILE_M, 7);
     case "vinyl":
-      return (u, v) => boardsAt(u, v, size, 0.18 / TILE_M, 1.2 / TILE_M, 17);
+      return (u, v) => boardsAt(u, v, size, 0.14 / TILE_M, 1.2 / TILE_M, 17);
     case "tiles":
       return (u, v) => tilesAt(u, v, size);
     case "concrete":

@@ -60,6 +60,11 @@ export type FormPart = {
   at: V3;
   colour?: string | undefined;
   rotation?: V3 | undefined;
+  /** what a board is to the carcass's hardware: a shelf on pins, or a
+      bottom fixed to its sides with cam locks */
+  hw?: "shelf" | "joint" | undefined;
+  /** a small detail drawn on the desktop tier alone (a shelf pin) */
+  detail?: true | undefined;
 } & ({ dims: V3 } | { rod: [number, number, number?] });
 
 /** a shelf's run of books: from x0 along bayW, standing on y, centred
@@ -109,8 +114,16 @@ const CASTOR = 0.085;
 const INSET = 0.012;
 /** a tier of the stacked bodies, as the record has it */
 const TIER = 0.4;
-/** a door's gap to its neighbours */
-const GAP = 0.003;
+/** a door's gap to its neighbours and the carcass, a shadow line */
+const GAP = 0.002;
+/** how far the back panel stands in from the sides' back edges */
+const RECESS = 0.006;
+/** a shelf pin: its radius, how far it stands out of the side, and how
+    far in from the shelf's front and back it sits */
+const PIN = { r: 0.0025, out: 0.006, inset: 0.035 };
+/** a cam lock's cap on a fixed board's face: its radius and how far in
+    from the side and the edges it sits */
+const CAM = { r: 0.0075, h: 0.0012, inset: 0.034, colour: "#ddd6ca" };
 
 /** the things a piece holds, in a few quiet tones and the house's
     orange, so a furnished room does not turn into a shop window */
@@ -250,14 +263,16 @@ function body(
       out.push(slab("body", [x, b.y0 + hb / 2, b.z0], [T, hb, b.d], b.colour));
   }
   const inner = b.w - 2 * T;
-  out.push(
-    slab(
+  const behind = o.back === "back" ? T + RECESS : 0;
+  out.push({
+    ...slab(
       "body",
-      [b.x, b.y0 + T / 2, b.z0 + (o.back === "back" ? T / 2 : 0)],
-      [inner, T, o.back === "back" ? b.d - T : b.d],
+      [b.x, b.y0 + T / 2, b.z0 + behind / 2],
+      [inner, T, b.d - behind],
       b.colour,
     ),
-  );
+    hw: "joint",
+  });
   if (o.back === "full")
     // a screen's closed face: one board over the back, side to side
     out.push(
@@ -274,7 +289,7 @@ function body(
       out.push(
         slab(
           "body",
-          [b.x, y, o.back === "back" ? b.z0 - b.d / 2 + T / 2 : b.z0],
+          [b.x, y, o.back === "back" ? b.z0 - b.d / 2 + RECESS + T / 2 : b.z0],
           [inner, (hb - T) / o.tiers, T],
           b.colour,
         ),
@@ -286,13 +301,23 @@ function body(
 
 /** a shelf across a bay at height y (its top face), as deep as deep
     from the front, or set back to stand at z */
-const shelf = (b: Bay, y: number, deep = b.d - T, z?: number): FormPart =>
-  slab(
+/** a shelf across a bay, flush at the front and stopping at the back's
+    face (the back is set RECESS in, so a shelf as deep as the bay less
+    a board ran 6 mm into it, z-fight.test) */
+const shelf = (
+  b: Bay,
+  y: number,
+  deep = b.d - T - RECESS,
+  z?: number,
+): FormPart => ({
+  ...slab(
     "body",
     [b.x, y - T / 2, z ?? b.z0 + b.d / 2 - deep / 2],
     [b.w - 2 * T, T, deep],
     b.colour,
-  );
+  ),
+  hw: "shelf",
+});
 
 /** a door over a bay, a gap round it, with its finger pull at the top
     of the opening edge; it stands a board proud of the front */
@@ -402,7 +427,9 @@ function accessories(out: FormPart[], ids: readonly string[], s: Spots) {
         );
       }
     else if (id === "key-tray")
-      // a shallow tray on the top, at the front corner
+      // a shallow tray on the top, at the front corner: its two lips
+      // stand on its base, not through it, so no face of one lies in a
+      // face of the other (the ends and the front fought, z-fight.test)
       out.push(
         slab(
           "thing",
@@ -413,8 +440,8 @@ function accessories(out: FormPart[], ids: readonly string[], s: Spots) {
         ...[-1, 1].map((k) =>
           slab(
             "thing",
-            [b.x - b.w * 0.2 + k * 0.1, s.top + 0.015, front - 0.11],
-            [0.01, 0.03, 0.17],
+            [b.x - b.w * 0.2 + k * 0.1, s.top + 0.019, front - 0.11],
+            [0.01, 0.022, 0.17],
             THINGS.clay,
           ),
         ),
@@ -523,7 +550,54 @@ function accessories(out: FormPart[], ids: readonly string[], s: Spots) {
 
 const MOBILE = new Set(["trolley", "screen", "island"]);
 
+/** the hardware a real carcass shows: a pin under each corner of a
+    shelf, standing out of the side it rests on, and a cam lock's cap on
+    a fixed bottom's face by each side, front and back */
+const hardwareOf = (parts: readonly FormPart[]): FormPart[] =>
+  parts.flatMap((p): FormPart[] => {
+    if (!p.hw || !("dims" in p)) return [];
+    const [x, y, z] = p.at;
+    const [w, t, d] = p.dims;
+    const corners = [-1, 1].flatMap((sx) =>
+      [-1, 1].map((sz) => [sx, sz] as const),
+    );
+    if (p.hw === "shelf")
+      return corners.map(([sx, sz]) => ({
+        ...rod(
+          "metal",
+          [
+            x + sx * (w / 2 - PIN.out / 2),
+            y - t / 2 - PIN.r,
+            z + sz * (d / 2 - PIN.inset),
+          ],
+          PIN.r,
+          PIN.out,
+          [0, 0, Math.PI / 2],
+        ),
+        detail: true,
+      }));
+    return corners.map(([sx, sz]) => ({
+      ...rod(
+        "thing",
+        [
+          x + sx * (w / 2 - CAM.inset),
+          y + t / 2 + CAM.h / 2,
+          z + sz * (d / 2 - CAM.inset),
+        ],
+        CAM.r,
+        CAM.h,
+      ),
+      colour: CAM.colour,
+      detail: true,
+    }));
+  });
+
 export function furnishesForm(i: FormInput): FurnishesForm {
+  const f = formOf(i);
+  return { ...f, parts: [...f.parts, ...hardwareOf(f.parts)] };
+}
+
+function formOf(i: FormInput): FurnishesForm {
   const [w, h, d] = i.size;
   const r = i.recipe;
   const rnd = random(i.seed);

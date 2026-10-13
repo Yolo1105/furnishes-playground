@@ -1,5 +1,6 @@
 import type { RoomId } from "./room-data";
 import { mustHaveMatch } from "./room-data";
+import { DESIGN } from "./design-rules";
 
 /**
  * How a room of each kind is usually laid out: the placement rules an
@@ -122,7 +123,8 @@ export const ARCHETYPES: Record<RoomId, Archetype> = {
         name: "coffee table",
         place: "in-front",
         target: "sofa",
-        gap: 450,
+        // the middle of the designer's 400–450 mm (design-rules.ts)
+        gap: (DESIGN.tableGap[0] + DESIGN.tableGap[1]) / 2,
         item: "A coffee table",
       },
       { what: BOOKS, name: "bookwall", place: "free-wall" },

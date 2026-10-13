@@ -65,7 +65,7 @@ import {
   roomItemHex,
   type PieceProps,
 } from "./piece-detail";
-import { FLOOR_TONES, WALL_TONES, type Floor } from "./room-data";
+import { FLOOR_TONES, WALL_TONES, type Floor, widestWindow } from "./room-data";
 import { settle, wallGaps, type Rect } from "./room-layout";
 import { insideOutline, WALL_MM } from "./room-geometry";
 import type { Point } from "./room-templates";
@@ -94,11 +94,12 @@ import {
   tierBelow,
   tierOf,
   TONE_MAPPING,
+  WHITE_BALANCE,
 } from "./Post";
 import { Probes } from "./Probes";
 import { type StillState, wakeAt } from "./capture";
 import { loadMaterials, useMaterials } from "./materials";
-import { ceilingAt, RoomLight, RoomShell, windowSun } from "./Room3D";
+import { ceilingAt, RoomLight, RoomShell } from "./Room3D";
 import { SHADOW_LAYER } from "./walls-standing";
 import { usePartStore } from "./part-client";
 import {
@@ -107,9 +108,11 @@ import {
   CLIP,
   type Corner,
   cornerOf,
+  type Framing,
   openCorner,
   EYE,
   FOV,
+  type Shot,
   shotCorner,
   walkStart,
   windowSide,
@@ -118,6 +121,11 @@ import { shownNow } from "./last-frame";
 import { setLive } from "./scene-handle";
 import { recordFrame, recorder } from "./bench";
 import { devFlag, devParam } from "./dev-flags";
+import { settlingPCF } from "./shadow-filter";
+import { SUN_TIMES, sunDirection } from "./sun-position";
+import { type LitRoom, panesOf } from "./window-light";
+import { WindowLights } from "./WindowLights";
+import { balanceGain, EVENING_LIGHT, LAMP_BULB } from "./white-balance";
 import { propsOf, useScene } from "./scene-store";
 import { type GestureEvent, readWheel, useCoarse } from "./input";
 import {
@@ -285,7 +293,7 @@ function LiveHandle({
   spanD: number;
   centre: readonly [number, number];
   corner: Corner;
-  shot: Corner;
+  shot: Shot;
   sun: { position: Vector3Tuple; colour: string; intensity: number };
 }) {
   const scene = useThree((s) => s.scene);
@@ -461,27 +469,25 @@ const failPost = (set: (failed: boolean) => void) => (error: unknown) => {
   set(true);
 };
 
-/** the sun in the room, the day's or an evening's (warmer and lower),
+/** the sun over the flat, the day's or an evening's (warmer and lower),
     and a whisper of the sky's fill from above against the floor's from
-    below. A room is lit through its windows: the sun stands beyond the
-    room's widest window (windowSun: `height` up, `back` out, `aside`
-    along the wall), comes in through the glass and lays its patch on
-    the floor, and the room is bright by the window and darker away
-    from it; the probes carry that patch's bounce to the ceiling and the
-    far side (Probes.tsx), and the exposure is set for the walls with
-    the windows let go white (studio-store's `SCENE_DEFAULT.exposure`,
-    one for each light). A room without a window takes the sun from
-    above the open ceiling (`from`) */
+    below. A room is lit through its windows: the sun stands where it
+    stands over Singapore at the hour asked (sun-position.ts), one sun
+    for the whole flat, so it comes in only by the windows on its side
+    and lays its patch on their floors; every window lets in the sky's
+    soft light too (WindowLights), so a room is bright by its windows
+    and falls off away from them; the probes carry the bounce to the
+    ceiling and the far side (Probes.tsx), and the exposure is set for
+    the walls with the windows let go white (studio-store's
+    `SCENE_DEFAULT.exposure`, one for each light) */
 const LIGHTS = {
   day: {
     sun: 11,
     colour: "#fff3e2",
-    from: [3, 6, 4] as Vector3Tuple,
-    height: 4.2,
-    // the sky's fill only lifts the deepest shade a hair: lit from every
-    // side at once, a room reads flat and milky, with no fall-off from
-    // its windows
-    sky: 0.6,
+    // the sky's fill only lifts the deepest shade a hair: the windows
+    // carry the soft light now, and lit from every side at once a room
+    // reads flat and milky, with no fall-off from its windows
+    sky: 0.2,
     // the sky's fill: a little cooler than the sun, as daylight is,
     // but near neutral
     fill: "#ebe6dd",
@@ -493,18 +499,36 @@ const LIGHTS = {
   evening: {
     sun: 1.5,
     colour: "#ffc68c",
-    from: [2, 1.8, -7] as Vector3Tuple,
-    height: 1.6,
-    sky: 0.15,
-    fill: "#9aa6ba",
+    // near gone: the corners away from the lamps fall dark; and the
+    // lamps' colour, since what fills a lamp-lit room at night is the
+    // lamps' light come back off its walls (a blue fill, under the
+    // evening's white balance, turned the whole room blue)
+    sky: 0.06,
+    fill: LAMP_BULB,
   },
 } as const;
-/** how far beyond the window the sun stands, and how far along the
-    wall, m */
-const SUN = { back: 5.5, aside: -1 };
+/** how far from the flat's middle the sun's light stands, m, and the
+    evening's hour (the sun at dusk, a few degrees over the horizon) */
+const SUN = { distance: 30, dusk: 18.8, bias: 0.003 };
 /** what the floor gives back to the undersides: a light floor's tone,
     as a light floor bounces light up */
 const GROUND_HEX = "#d6cabb";
+
+/** the picture's white balance for its look: by day as it is; in the
+    evening set for the light a wall gets, the lamps' with the dusk's, as
+    a camera's white balance lands, so a white wall reads a warm white
+    and not orange, while the lamps' own pools stay warmer
+    (white-balance.ts) */
+const EVENING_BALANCE = balanceGain(EVENING_LIGHT);
+function WhiteBalance({ evening }: { evening: boolean }) {
+  const invalidate = useThree((s) => s.invalidate);
+  useEffect(() => {
+    WHITE_BALANCE.value.set(...(evening ? EVENING_BALANCE : NO_BALANCE));
+    invalidate();
+  }, [evening, invalidate]);
+  return null;
+}
+const NO_BALANCE: Vector3Tuple = [1, 1, 1];
 
 /** the room's ceiling light as a light: a spot under the flush
     diffuser (Room3D draws it), pointing down with a wide, soft edge,
@@ -796,6 +820,7 @@ function Rig({
   roomW,
   roomD,
   corner,
+  framing,
   stage,
 }: {
   angle: Angle;
@@ -809,6 +834,8 @@ function Rig({
   roomW: number;
   roomD: number;
   corner: Corner;
+  /** the Corner view's step along its wall and its lens */
+  framing?: Framing | undefined;
   stage: RefObject<HTMLDivElement | null>;
 }) {
   const camera = useThree((s) => s.camera);
@@ -894,7 +921,7 @@ function Rig({
       d,
       h,
       centre,
-      { w: roomW, d: roomD, corner },
+      { w: roomW, d: roomD, corner, ...(framing ? { framing } : {}) },
       aspect,
     );
     // a tall screen (a phone, a tablet upright) sees less across: an
@@ -973,6 +1000,7 @@ function Rig({
     roomW,
     roomD,
     corner,
+    framing,
     camera,
     controls,
     invalidate,
@@ -2026,7 +2054,7 @@ function FlatRoom({
   portal: RefObject<HTMLDivElement>;
   edges: boolean;
   rendering: boolean;
-  /** where the sun stands, for the room's windows */
+  /** the way to the sun, for the room's windows' outside */
   sun: Vector3Tuple;
 }) {
   const a = usePieceActions(rm.id);
@@ -2360,26 +2388,52 @@ export default function Scene3D() {
   // the View settings ask for them
   const coarse = useCoarse();
   const scene = useStudio((s) => s.scene);
+  const immersive = useStudio((s) => s.uiHidden);
   // a shared room is small on its page: the names would pile up
   const readOnly = useStudio((s) => s.readOnly);
   // a render has its shadows whatever the View settings, and no names,
   // grid or edges over the picture
   const shadows =
-    rendered || (scene.shadows === "auto" ? !coarse : scene.shadows === "on");
+    !devFlag("noshadows") &&
+    (rendered || (scene.shadows === "auto" ? !coarse : scene.shadows === "on"));
   const labels = scene.labels && !readOnly && !rendered;
   const grid = scene.grid && !rendered;
   const edges = scene.edges && !rendered;
   const light = LIGHTS[scene.light];
-  const sunFrom = useMemo(
+  // one sun for the flat, turned by the plan's north: it stays where it
+  // is as the active room changes
+  const north = useRoom((s) => s.north);
+  const sunDir = useMemo(
     () =>
-      windowSun(
-        { W: room.width, D: room.depth, outline },
-        openings,
-        light.height,
-        SUN.back,
-        SUN.aside,
-      ) ?? light.from,
-    [room.width, room.depth, outline, openings, light],
+      sunDirection(
+        scene.light === "evening" ? SUN.dusk : SUN_TIMES[scene.sunTime],
+        north,
+      ),
+    [scene.light, scene.sunTime, north],
+  );
+  const sunFrom = useMemo(
+    (): Vector3Tuple => [
+      centre[0] + sunDir[0] * SUN.distance,
+      sunDir[1] * SUN.distance,
+      centre[1] + sunDir[2] * SUN.distance,
+    ],
+    [centre, sunDir],
+  );
+  // the windows' soft light: the active room's first, then the nearest
+  const panes = useMemo(
+    () =>
+      panesOf(
+        rooms.map((rm): LitRoom => ({
+          id: rm.id,
+          pos: rm.pos,
+          W: rm.width,
+          D: rm.depth,
+          outline: footprintOf(rm),
+          openings: openingsOf({ joins }, rm),
+        })),
+        room.id,
+      ),
+    [rooms, joins, room.id],
   );
   // the corner the room is photographed from, and walked in from: kept
   // by its value, so a render that rebuilds the openings does not put
@@ -2411,20 +2465,32 @@ export default function Scene3D() {
         d: toMetres(f.d),
       };
     });
-  const [shotX, shotZ] = shotCorner(
+  const shotFound = shotCorner(
     toMetres(room.width),
     toMetres(room.depth),
     boxes,
     corner,
     SHOT_ASPECT,
     windowSide(openings),
+    widestWindow(openings) !== undefined,
   );
+  // (`?shot=x,z` in development: the Corner view from a given corner,
+  // to compare one view's crops before and after a change)
+  const forced = devParam("shot")?.split(",").map(Number);
+  const shotNow: Shot =
+    forced?.length === 2 && forced.every((n) => n === 1 || n === -1)
+      ? { ...shotFound, corner: [forced[0], forced[1]] as unknown as Corner }
+      : shotFound;
   // the corner holds while a piece is dragged: a piece brought near the
   // camera would otherwise send it gliding to another corner mid-drag;
   // it is chosen afresh once the piece is let go of
-  const [shot, setShot] = useState<Corner>([shotX, shotZ]);
-  if (!dragging && !panelDrag && (shot[0] !== shotX || shot[1] !== shotZ))
-    setShot([shotX, shotZ]);
+  const [shot, setShot] = useState<Shot>(shotNow);
+  if (
+    !dragging &&
+    !panelDrag &&
+    JSON.stringify(shot) !== JSON.stringify(shotNow)
+  )
+    setShot(shotNow);
   const backend = useStudio((s) => s.backend);
   // the picture's finish follows the device once the backend is known; a
   // render has it whatever the View settings; a stage that fails on this
@@ -2464,6 +2530,8 @@ export default function Scene3D() {
     floor,
     wall,
     scene.light,
+    scene.sunTime,
+    north,
     scene.sky,
     shadows,
     // the photographed sets on the walls and the floor: with the fills a
@@ -2478,9 +2546,41 @@ export default function Scene3D() {
   useLayoutEffect(() => {
     sunLight.current?.shadow.camera.layers.enable(SHADOW_LAYER);
   });
+  // the sun aims at the flat's middle, its shadow's box round the whole
+  // flat, and its shadow's edge settles smooth (shadow-filter.ts)
+  const sunReach = Math.hypot(box.w, box.h) / 2000 + 1;
+  useLayoutEffect(() => {
+    const l = sunLight.current;
+    if (!l) return;
+    l.target.position.set(centre[0], 0, centre[1]);
+    l.target.updateMatrixWorld();
+    const c = l.shadow.camera;
+    c.left = -sunReach;
+    c.right = sunReach;
+    c.top = sunReach;
+    c.bottom = -sunReach;
+    c.near = Math.max(0.5, SUN.distance - sunReach - 3);
+    c.far = SUN.distance + sunReach + 3;
+    c.updateProjectionMatrix();
+    l.shadow.bias = -SUN.bias / (c.far - c.near);
+    (l.shadow as { filterNode?: unknown }).filterNode = settlingPCF;
+    l.shadow.needsUpdate = true;
+  }, [centre, sunReach]);
   // what the floor reflects: the shell and its light, the pieces as they
   // stand and look, and the ceiling that walking puts overhead
   const [probeState, setProbeState] = useState<StillState>("pending");
+  // the probe stamp the probes last said ready for: a change of look
+  // changes the stamp a render before the probes say pending again, and
+  // in that render their "ready" is the old look's. The floor's picture
+  // was taken then, of the new look lit by the old probes, and taken
+  // twice more (unlit, then lit) once the probes caught up: three
+  // pictures for every change of look, the first always wrong (A4)
+  const [probesFor, setProbesFor] = useState("");
+  const onProbes = useEvent((state: StillState) => {
+    setProbeState(state);
+    setProbesFor(state === "ready" ? probeStamp : "");
+  });
+  const probesLit = probeState === "ready" && probesFor === probeStamp;
   // the floor's picture of the room and the probes see each other: the
   // floor reflects (and gathers light from) its picture, and the probes'
   // pictures show the floor. Taken in turn, never at once: the floor's
@@ -2488,7 +2588,7 @@ export default function Scene3D() {
   // are lit, so the room comes out the same whichever finished first
   const reflectStamp =
     probeStamp +
-    (probeState === "ready" ? "|lit" : "|unlit") +
+    (probesLit ? "|lit" : "|unlit") +
     JSON.stringify([
       walk,
       a.shown.map((n) => {
@@ -2629,6 +2729,10 @@ export default function Scene3D() {
       data-labels={labels}
       data-grid={grid}
       data-light={scene.light}
+      data-immersive={immersive ? "on" : "off"}
+      data-lived-in={scene.livedIn ? "on" : "off"}
+      data-sun-time={scene.sunTime}
+      data-north={north}
       data-sky={scene.sky}
       data-materials={photographed}
       data-materials-pending={materialsPending}
@@ -2689,11 +2793,13 @@ export default function Scene3D() {
             centre={centre}
             roomW={w}
             roomD={d}
-            corner={angle === "Corner" ? shot : viewCorner}
+            corner={angle === "Corner" ? shot.corner : viewCorner}
+            framing={angle === "Corner" ? shot.framing : undefined}
             stage={stage}
           />
         )}
         <Exposure value={exposureOf(scene)} />
+        <WhiteBalance evening={scene.light === "evening"} />
         <Backend />
         <LastFrame />
         {!backend && <HoldFrames />}
@@ -2736,15 +2842,15 @@ export default function Scene3D() {
         <directionalLight
           ref={sunLight}
           position={sunFrom}
-          intensity={light.sun}
+          intensity={devFlag("nosun") ? 0 : light.sun}
           color={light.colour}
           castShadow
           shadow-mapSize={[2048, 2048]}
-          shadow-radius={3}
-          shadow-bias={-0.0003}
+          shadow-radius={devFlag("nosoft") ? 0 : 3}
           shadow-normalBias={0.02}
         />
         <RoomLight evening={scene.light === "evening"} sky={scene.sky} />
+        <WindowLights panes={panes} evening={scene.light === "evening"} />
         <CeilingLight
           x={ceilingX}
           y={h - CEILING_LIGHT.drop}
@@ -2766,7 +2872,7 @@ export default function Scene3D() {
             fine={tier === "desktop"}
             // the floor's picture first (see reflectStamp)
             hold={reflectState !== "ready"}
-            onState={setProbeState}
+            onState={onProbes}
             onProgress={(at, of) => setProbeDone({ at, of })}
           />
         )}
@@ -2805,7 +2911,7 @@ export default function Scene3D() {
             portal={portal}
             edges={edges}
             rendering={rendering}
-            sun={sunFrom}
+            sun={sunDir}
           />
         ))}
         <OrbitControls

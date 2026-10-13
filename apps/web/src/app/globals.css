@@ -10,7 +10,7 @@
    classes, so Tailwind must emit all of them */
 @theme static {
   --color-cream: #fff4ec;
-  --color-paper: #fff4e3;
+  --color-paper: #f6f4f1;
   /* the brand orange, as the production studio sets it: a true orange,
      not the archive's red-leaning #ff5a1f */
   --color-accent: oklch(0.655 0.196 43);
@@ -21,7 +21,7 @@
   --color-line: #7c5032;
   --color-shadow: #1a120a;
   /* the glass panels' base, used through alpha */
-  --color-glass: #fffaf4;
+  --color-glass: #fcfbf9;
 }
 
 /* alpha steps of the tokens that every surface shares */
@@ -81,13 +81,15 @@ body {
 }
 
 body {
-  /* Static base layer under the animated blobs: the warm cream-to-peach
-     wash that is always present even when the blobs drift to a corner. */
+  /* Static base layer under the animated blobs: a neutral warm-grey
+     wash, always present even when the blobs drift to a corner. Neutral
+     on purpose: the 3D room is seen against it, and a peach page made
+     every white in the room read as blue-grey beside it. */
   background: linear-gradient(
     135deg,
     var(--color-paper) 0%,
-    #ffd1ad 55%,
-    #f8b78a 100%
+    #ebe8e3 55%,
+    #e0dbd5 100%
   );
   background-attachment: fixed;
   color: var(--color-ink);
@@ -122,8 +124,8 @@ body {
 .bg-fluid .bg-blob-1 {
   background: radial-gradient(
     circle,
-    rgba(255, 232, 200, 0.85) 0%,
-    rgba(255, 232, 200, 0) 60%
+    rgba(252, 249, 245, 0.85) 0%,
+    rgba(252, 249, 245, 0) 60%
   );
   top: -20%;
   left: -25%;
@@ -133,8 +135,8 @@ body {
 .bg-fluid .bg-blob-2 {
   background: radial-gradient(
     circle,
-    rgba(255, 198, 156, 0.7) 0%,
-    rgba(255, 198, 156, 0) 60%
+    rgba(232, 226, 219, 0.7) 0%,
+    rgba(232, 226, 219, 0) 60%
   );
   top: -10%;
   right: -30%;
@@ -144,8 +146,8 @@ body {
 .bg-fluid .bg-blob-3 {
   background: radial-gradient(
     circle,
-    rgba(255, 248, 235, 0.9) 0%,
-    rgba(255, 248, 235, 0) 60%
+    rgba(255, 253, 250, 0.9) 0%,
+    rgba(255, 253, 250, 0) 60%
   );
   bottom: -25%;
   left: 10%;

@@ -12,10 +12,12 @@ import {
   type Scene,
   SRGBColorSpace,
   Vector2,
+  Vector3,
   Vector4,
 } from "three";
 import type { Node, PassNode, TextureNode } from "three/webgpu";
 import { ao } from "three/examples/jsm/tsl/display/GTAONode.js";
+import { denoise } from "three/examples/jsm/tsl/display/DenoiseNode.js";
 import { smaa } from "three/examples/jsm/tsl/display/SMAANode.js";
 import { ssgi } from "three/examples/jsm/tsl/display/SSGINode.js";
 import { ssr } from "three/examples/jsm/tsl/display/SSRNode.js";
@@ -141,6 +143,13 @@ export const backendOf = (renderer: unknown): Backend => {
 
 /** the occlusion's reach, m, and how dark it goes */
 const AO = { radius: 0.6, scale: 1.4 };
+/** the occlusion's spatial denoise (DenoiseNode): how far it gathers,
+    px, and how strictly it keeps to one surface (depth and normal, read
+    back from the depth) and to one tone. GTAO's own samples a pixel are
+    few: its noise turns with each frame for TRAA to average, but the
+    frames the picture settles over did not average all of it away, and
+    contact shadows read as sand */
+const AO_DENOISE = { radius: 6, depthPhi: 6, normalPhi: 4, lumaPhi: 8 };
 /** the desktop extras: screen-space reflections and bounce light,
     each behind a View setting (Reflections, Bounce light) */
 export type Effects = { reflections: boolean; bounce: boolean };
@@ -238,8 +247,13 @@ const backdropNode = (b: Backdrop, place: Place): Node<"vec3"> => {
     threshold of 1 a room exposed for its walls hazed over: its white
     walls stand past 1 too) */
 const GLOW = { strength: 0.06, radius: 0.2, threshold: 2 };
+/** the most the glow takes from any pixel, times white (stability) */
+const GLOW_CLAMP = 8;
 /** a lens's fall-off at the frame's corners, a share of the light */
 const VIGNETTE = { depth: 0.065, from: 0.4, to: 0.72 };
+/** the picture's white balance, a gain on each channel before the tone
+    mapping (white-balance.ts): the scene sets it for its look */
+export const WHITE_BALANCE = uniform(new Vector3(1, 1, 1));
 
 /** the scene pass darkened by the occlusion where there is one,
     tone-mapped and laid over the backdrop: the frame as the page shows
@@ -264,15 +278,20 @@ const frameOf = (
   // the renderer's exposure as a float node (its reference is typed
   // apart from the float the arithmetic takes)
   const exposure = toneMappingExposure as unknown as Node<"float">;
+  // the glow's input held to GLOW_CLAMP times white: a single hot
+  // pixel (a lacquer's highlight, a chrome tap's) otherwise blooms into a
+  // blob that comes and goes as TRAA's jitter finds and loses it
   const glow = glows
     ? bloom(
-        vec4(lit.mul(exposure), 1),
+        vec4(lit.mul(exposure).min(GLOW_CLAMP), 1),
         GLOW.strength,
         GLOW.radius,
         GLOW.threshold,
       )
     : null;
-  const withGlow = glow ? lit.add(glow.rgb.div(exposure)) : lit;
+  const withGlow = (glow ? lit.add(glow.rgb.div(exposure)) : lit).mul(
+    WHITE_BALANCE,
+  );
   // the lens darkens the room's corners a little, not the page behind
   const lens = float(1).sub(
     smoothstep(VIGNETTE.from, VIGNETTE.to, screenUV.sub(0.5).length()).mul(
@@ -363,8 +382,8 @@ const build = (
   // stays within the bytes a sample may hold on any device
   const extras = tier === "desktop" && (effects.reflections || effects.bounce);
   const fits = bytesPerSample >= MRT_BYTES;
-  const wantSsr = extras && effects.reflections && fits;
-  const wantSsgi = extras && effects.bounce && fits;
+  const wantSsr = extras && effects.reflections && fits && !devFlag("nossr");
+  const wantSsgi = extras && effects.bounce && fits && !devFlag("nossgi");
   if (extras && fits)
     scenePass.setMRT(
       mrt({
@@ -437,13 +456,31 @@ const build = (
       added = added ? added.add(gi) : gi;
     }
   }
+  // the occlusion's grain smoothed within each surface on the tiers that
+  // take it at full or half size; a phone has none (the pieces' own baked
+  // occlusion carries it there)
+  const smoothed = occlusion
+    ? (() => {
+        const d = denoise(
+          occlusion.getTextureNode(),
+          depth,
+          null as unknown as Node,
+          camera,
+        );
+        d.radius.value = AO_DENOISE.radius;
+        d.depthPhi.value = AO_DENOISE.depthPhi;
+        d.normalPhi.value = AO_DENOISE.normalPhi;
+        d.lumaPhi.value = AO_DENOISE.lumaPhi;
+        return d;
+      })()
+    : null;
   const { frame, glow } = frameOf(
     scenePass,
     depth,
-    occlusion ? occlusion.getTextureNode().sample(screenUV).r : null,
+    smoothed ? (smoothed as unknown as Node<"vec4">).r : null,
     backdrop,
     added,
-    tier === "desktop",
+    tier === "desktop" && !devFlag("nobloom"),
   );
   const resolve = traa(
     frame,
@@ -452,7 +489,7 @@ const build = (
     camera,
   );
   resolve.useSubpixelCorrection = false;
-  pipeline.outputNode = resolve;
+  pipeline.outputNode = devFlag("notraa") ? frame : resolve;
   return {
     render,
     warm,
@@ -462,6 +499,7 @@ const build = (
       glow?.dispose();
       reflections?.dispose();
       bounce?.dispose();
+      smoothed?.dispose();
       occlusion?.dispose();
       scenePass.dispose();
       pipeline.dispose();

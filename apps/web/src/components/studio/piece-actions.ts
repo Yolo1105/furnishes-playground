@@ -16,6 +16,7 @@ import {
 } from "./piece-detail";
 import { explainPlan, travel } from "./plan-explain";
 import { healthOf, type Issue, type Room } from "./room-health";
+import { designOf } from "./design-rules";
 import {
   againstWall,
   gapOf,
@@ -196,6 +197,9 @@ const readRoom = (
   };
   let planning: ReturnType<typeof planAll> | undefined;
   const planned = () => (planning ??= planAll());
+  // the designer's rules, advice beside the findings: read when first
+  // asked for (the planner's panel), as the layouts are
+  let advising: ReturnType<typeof designOf> | undefined;
   return {
     pieces,
     room,
@@ -203,6 +207,9 @@ const readRoom = (
     spots,
     issues,
     clashes,
+    get advice() {
+      return (advising ??= designOf(boxes(now), spec.width, spec.depth));
+    },
     get plans() {
       return planned().plans;
     },
@@ -425,6 +432,11 @@ export function usePieceActions(
       if (i.kind === "rooms") useRoom.getState().settleRoom(spec.id);
       else if (i.add) add(i.add);
       else if (i.fix && i.pieceId) setProps(i.pieceId, i.fix);
+    },
+    /** the designer's rules the room breaks (design-rules.ts): advice,
+        not findings, so no Fix and no count in the summary */
+    get advice() {
+      return reading.advice;
     },
     /** the room laid out four ways, and which Eva would pick, worked
         out when first read */

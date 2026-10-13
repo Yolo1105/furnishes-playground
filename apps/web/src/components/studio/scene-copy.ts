@@ -1,3 +1,4 @@
+import { WINDOW_LIGHT } from "./window-light";
 import {
   CanvasTexture,
   Color,
@@ -96,10 +97,6 @@ const SKY = {
     light: 1.3,
   },
 } as const;
-/** the light an area light in a window's opening gives a tracer, by
-    day and in the evening: a starting value, to be set by eye against
-    the sun on a WebGPU machine (the plan's checklist) */
-const WINDOW_LIGHT = { day: 6, evening: 1.8 } as const;
 /** the sky picture's size: wide, half of it the ground */
 const SKY_W = 1024;
 const SKY_H = 512;
@@ -409,9 +406,12 @@ export const copyForExport = (
         // -Z, so it is turned about)
         mesh.geometry.computeBoundingBox();
         const box = mesh.geometry.boundingBox!;
+        // the live view's window light (window-light.ts), stronger for
+        // the tracer, which gathers its own bounce
+        const look = data.evening ? WINDOW_LIGHT.evening : WINDOW_LIGHT.day;
         const light = new RectAreaLight(
-          data.evening ? "#ffc9a0" : "#eef3ff",
-          data.evening ? WINDOW_LIGHT.evening : WINDOW_LIGHT.day,
+          look.colour,
+          look.intensity * WINDOW_LIGHT.traced,
           (box.max.x - box.min.x) * copy.scale.x,
           (box.max.y - box.min.y) * copy.scale.y,
         );

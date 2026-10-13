@@ -10,13 +10,15 @@ import {
   CylinderGeometry,
   Float32BufferAttribute,
   type Group,
+  MeshPhysicalMaterial,
   MeshStandardMaterial,
   Vector3,
 } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { Opening } from "./room-data";
 import { seedOf } from "./seed";
-import { inward, sideOf, yawOf } from "./Room3D";
+import { sideOf, yawOf } from "./Room3D";
+import { inward } from "./window-light";
 import type { Point } from "./room-templates";
 import {
   itemCentre,
@@ -44,6 +46,14 @@ type Part = {
 };
 
 const WHITE = "#f4f1ea";
+/** a picture's frame, m: the moulding's width on the wall, its depth
+    off it, and how far the glass and the mount sit in from its face */
+const FRAME = { wide: 0.025, deep: 0.02, lip: 0.006 };
+/** the mouldings, one a room: black, oak, a white lacquer */
+const FRAME_TONES = ["#2d2925", "#b8956a", "#efece5"];
+/** an air-con unit's trunking, m: the white PVC duct (60 × 40 mm) its
+    pipes run in, off along the wall from its far end */
+const AIRCON = { trunk: { run: 0.7, tall: 0.06, deep: 0.04 } };
 const OAK = "#c9a77c";
 const BRASS = "#b8996a";
 const CHROME = "#c9ced2";
@@ -80,23 +90,53 @@ const partsOf = (kind: WallItemKind, seed: number): Part[] => {
       ];
     case "art": {
       const [a, b, c] = PRINTS[seed % PRINTS.length]!;
+      const f = FRAME;
+      const wood = FRAME_TONES[seed % FRAME_TONES.length]!;
+      // the mount's face, set back in the moulding behind the glass
+      const mount = f.deep - f.lip - 0.004;
       return [
-        { box: [w, h, d], at: [0, 0, d / 2], colour: INK },
+        // the moulding's four sides, the long ones over the short
         {
-          box: [w - 0.05, h - 0.05, 0.004],
-          at: [0, 0, d + 0.002],
+          box: [w, f.wide, f.deep],
+          at: [0, h / 2 - f.wide / 2, f.deep / 2],
+          colour: wood,
+        },
+        {
+          box: [w, f.wide, f.deep],
+          at: [0, -h / 2 + f.wide / 2, f.deep / 2],
+          colour: wood,
+        },
+        {
+          box: [f.wide, h - 2 * f.wide, f.deep],
+          at: [-w / 2 + f.wide / 2, 0, f.deep / 2],
+          colour: wood,
+        },
+        {
+          box: [f.wide, h - 2 * f.wide, f.deep],
+          at: [w / 2 - f.wide / 2, 0, f.deep / 2],
+          colour: wood,
+        },
+        // the mount, a white card filling the frame
+        {
+          box: [w - 2 * f.wide, h - 2 * f.wide, mount],
+          at: [0, 0, mount / 2],
           colour: "#f3efe6",
         },
-        // an abstract print: a field, a band and a sun
-        { box: [w * 0.62, h * 0.56, 0.003], at: [0, 0, d + 0.005], colour: b! },
+        // an abstract print in the mount's window: a field, a band and a
+        // sun, each a hair proud of the one under it
         {
-          box: [w * 0.62, h * 0.2, 0.003],
-          at: [0, -h * 0.18, d + 0.007],
+          box: [w * 0.6, h * 0.54, 0.002],
+          at: [0, 0, mount + 0.001],
+          colour: b!,
+        },
+        {
+          box: [w * 0.6, h * 0.2, 0.002],
+          at: [0, -h * 0.17, mount + 0.0025],
           colour: a!,
         },
         {
-          disc: [h * 0.11, 0.003],
-          at: [w * 0.14, h * 0.08, d + 0.008],
+          disc: [h * 0.1, 0.002],
+          at: [w * 0.14, h * 0.08, mount + 0.0035],
           colour: c!,
         },
       ];
@@ -128,21 +168,58 @@ const partsOf = (kind: WallItemKind, seed: number): Part[] => {
           colour: "#e7dfd2",
         },
       ];
-    case "aircon":
+    case "aircon": {
+      const t = AIRCON.trunk;
       return [
-        { box: [w, h, d], at: [0, 0, d / 2], colour: "#f6f5f1" },
-        // the outlet louvre along its foot
+        // the body, its front panel a shade proud and inset at the edges
+        // so the light turns on its front as on a rounded one
         {
-          box: [w * 0.92, 0.035, 0.012],
-          at: [0, -h / 2 + 0.05, d + 0.004],
-          colour: "#cfccc4",
+          box: [w, h, d - 0.012],
+          at: [0, 0, (d - 0.012) / 2],
+          colour: "#efeee9",
         },
         {
-          box: [0.03, 0.012, 0.004],
-          at: [w * 0.38, h * 0.12, d + 0.002],
+          box: [w - 0.016, h - 0.03, 0.012],
+          at: [0, 0.012, d - 0.006],
+          colour: "#f7f6f2",
+        },
+        // the louvre flap along its foot, tipped a little open, and the
+        // dark slot behind it
+        {
+          box: [w * 0.9, 0.03, 0.02],
+          at: [0, -h / 2 + 0.012, d - 0.03],
+          colour: "#3c3a37",
+        },
+        {
+          box: [w * 0.9, 0.012, 0.05],
+          at: [0, -h / 2 + 0.004, d - 0.03],
+          colour: "#e4e2dc",
+        },
+        // the status lights
+        {
+          box: [0.03, 0.008, 0.003],
+          at: [w * 0.36, -h * 0.08, d + 0.0015],
           colour: "#7fb9d6",
         },
+        {
+          box: [0.008, 0.008, 0.003],
+          at: [w * 0.36 + 0.03, -h * 0.08, d + 0.0015],
+          colour: "#9fd28a",
+        },
+        // the trunking from its far end along the wall, at its top
+        {
+          box: [t.run, t.tall, t.deep],
+          at: [w / 2 + t.run / 2, h / 2 - t.tall / 2, t.deep / 2],
+          colour: "#f1efe9",
+        },
+        // the trunking's lid line, a hair proud
+        {
+          box: [t.run, 0.004, 0.003],
+          at: [w / 2 + t.run / 2, h / 2 - t.tall / 2, t.deep + 0.0015],
+          colour: "#dedbd3",
+        },
       ];
+    }
     case "clock":
       return [
         { disc: [w / 2, d], at: [0, 0, d / 2], colour: INK },
@@ -260,6 +337,13 @@ const glassOf = (kind: WallItemKind): Part | null => {
       at: [0, 0, d + 0.002],
       colour: "#dfe5e6",
     };
+  // a picture's glass, over the mount inside the moulding
+  if (kind === "art")
+    return {
+      box: [w - 2 * FRAME.wide, h - 2 * FRAME.wide, 0.002],
+      at: [0, 0, FRAME.deep - FRAME.lip / 2],
+      colour: "#ffffff",
+    };
   if (kind === "mirror-cabinet")
     return {
       box: [w - 0.02, h - 0.02, 0.004],
@@ -315,10 +399,25 @@ const geometryOf = (kind: WallItemKind, seed: number) => {
 /** every wall item's materials, shared: an item placed anew draws with
     a shader already built */
 const BODY = new MeshStandardMaterial({ vertexColors: true, roughness: 0.6 });
-const GLASS = new MeshStandardMaterial({
+/** a mirror's pane: pale glass under a clear coat, which reads as a
+    mirror from across the room whatever is round it (half metal, it
+    took the ceiling light's whole glow and stood as a white sheet) */
+const GLASS = new MeshPhysicalMaterial({
   vertexColors: true,
-  metalness: 0.55,
+  metalness: 0,
   roughness: 0.12,
+  clearcoat: 1,
+  clearcoatRoughness: 0.04,
+});
+/** a picture's glass: clear, a faint sheen of the room where the light
+    catches it */
+const PANE = new MeshStandardMaterial({
+  color: "#ffffff",
+  transparent: true,
+  opacity: 0.08,
+  roughness: 0.05,
+  metalness: 0,
+  depthWrite: false,
 });
 const noPick = () => null;
 const ITEM_NAME = { name: "Wall item" } as const;
@@ -428,7 +527,7 @@ function WallItem3D({
       {g.glass && (
         <mesh
           geometry={g.glass}
-          material={GLASS}
+          material={kind === "art" ? PANE : GLASS}
           raycast={noPick}
           userData={ITEM_NAME}
         />

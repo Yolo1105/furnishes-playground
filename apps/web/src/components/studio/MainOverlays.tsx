@@ -343,6 +343,35 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
                           </button>
                         ))}
                       </div>
+                      {scene.light === "day" && (
+                        <>
+                          <p className="main-prefs-label">Sun</p>
+                          <div
+                            className="main-prefs-seg"
+                            role="group"
+                            aria-label="Sun"
+                          >
+                            {(
+                              [
+                                ["morning", "Morning"],
+                                ["midday", "Midday"],
+                                ["afternoon", "Afternoon"],
+                              ] as const
+                            ).map(([id, label]) => (
+                              <button
+                                key={id}
+                                type="button"
+                                role="menuitemradio"
+                                aria-checked={scene.sunTime === id}
+                                className="main-prefs-seg-btn"
+                                onClick={() => setScene({ sunTime: id })}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
                       <p className="main-prefs-label">Outside the windows</p>
                       <div
                         className="main-prefs-seg main-prefs-seg-wrap"
@@ -389,6 +418,29 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
                       </label>
                       <div className="shell-menu-sep" role="separator" />
                       <p className="main-prefs-title">Show</p>
+                      <div
+                        className="main-prefs-seg"
+                        role="group"
+                        aria-label="The rooms"
+                      >
+                        {(
+                          [
+                            [false, "Tidy"],
+                            [true, "Lived-in"],
+                          ] as const
+                        ).map(([on, label]) => (
+                          <button
+                            key={label}
+                            type="button"
+                            role="menuitemradio"
+                            aria-checked={scene.livedIn === on}
+                            className="main-prefs-seg-btn"
+                            onClick={() => setScene({ livedIn: on })}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
                       {(
                         [
                           ["edges", "Edges on every piece"],

@@ -82,7 +82,7 @@ export const plausible = (colour: string) => {
 };
 
 /** how far a part's tone strays from its finish's, either way */
-export const TONE_SPREAD = 0.03;
+export const TONE_SPREAD = 0.04;
 /** a part's own tone as a factor on its colour, read from where it
     stands in its piece: the same part the same tone every time */
 export const toneOf = (at: readonly number[]) => {

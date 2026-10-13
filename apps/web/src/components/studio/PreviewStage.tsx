@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, type KeyboardEvent, type PointerEvent } from "react";
-import { CheckIcon, CompareIcon } from "./icons";
+import { CheckIcon, CompareIcon, ExpandIcon, ExportIcon } from "./icons";
 import { useStudio, type WorkStep } from "./studio-store";
 
 /** what each step of a render is called, and what it counts */
@@ -20,6 +20,28 @@ const NOTE: Record<"photo" | "render", string> = {
     "The light is traced through the room on this device, one sample a frame, then cleaned.",
   render:
     "The room's own light is baked in, its floor pictured and its edges resolved on this device.",
+};
+
+/** the photo on the stage's canvas saved as a PNG, named by the day */
+const savePhoto = () => {
+  const canvas = document.querySelector<HTMLCanvasElement>(
+    ".shell-stage .stage-3d canvas",
+  );
+  canvas?.toBlob((blob) => {
+    if (!blob) return;
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `furnishes-photo-${new Date().toISOString().slice(0, 10)}.png`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }, "image/png");
+};
+
+/** the photo alone on the screen: the panels away and the window full
+    screen where the browser allows it */
+const fullScreen = () => {
+  useStudio.getState().setUiHidden(true);
+  void document.documentElement.requestFullscreen?.().catch(() => undefined);
 };
 
 /** the steps a render is taking, with the one under way and how far
@@ -120,9 +142,21 @@ export function PreviewStage() {
     e.preventDefault();
   };
 
+  const traced = photo !== null && status !== "generating";
   return (
     <div className="preview" data-status={status} data-photo={photo !== null}>
       {status === "generating" && <RenderSteps />}
+      {/* a traced photo, once taken: shown on its own, and saved */}
+      {traced && (
+        <div className="glass preview-actions" role="group" aria-label="Photo">
+          <button type="button" className="preview-action" onClick={fullScreen}>
+            <ExpandIcon size={14} /> Full screen
+          </button>
+          <button type="button" className="preview-action" onClick={savePhoto}>
+            <ExportIcon size={14} /> Save photo
+          </button>
+        </div>
+      )}
       <div
         ref={stage}
         className="preview-stage"
