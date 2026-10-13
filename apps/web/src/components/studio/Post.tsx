@@ -303,6 +303,8 @@ type Chain = {
   place: Place;
   /** whether the picture is built over frames and needs them to settle */
   temporal: boolean;
+  /** where in its jitter cycle TRAA's next frame falls (0 starts one) */
+  phase: () => number;
   /** which of the desktop extras the chain draws */
   fx: EffectStates;
 };
@@ -351,6 +353,7 @@ const build = (
       },
       place,
       temporal: false,
+      phase: () => 0,
       fx: EFFECTS_OFF,
     };
   }
@@ -465,6 +468,9 @@ const build = (
     },
     place,
     temporal: true,
+    // TRAANode keeps its place in the jitter cycle to itself (three
+    // 0.186.1, pinned): check it on an upgrade
+    phase: () => (resolve as unknown as { _jitterIndex: number })._jitterIndex,
     fx: {
       ssr:
         !extras || !effects.reflections ? "off" : fits ? "on" : "unsupported",
@@ -599,6 +605,11 @@ export function Post({
     }
     if (settle.current === 0) settle.current = SETTLE_FRAMES;
     settle.current -= 1;
+    // the last settle frame is always the last of a jitter cycle: the
+    // picture at rest is then the same however many frames came before
+    // it (a still picture taken at another place in the cycle differed
+    // along every edge)
+    if (settle.current === 0 && have.chain.phase() !== 0) settle.current = 1;
     onSettle?.(settle.current);
     if (settle.current > 0) state.invalidate();
   }, 1);

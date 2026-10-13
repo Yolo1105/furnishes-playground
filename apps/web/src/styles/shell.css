@@ -982,7 +982,7 @@ body > .shell-menu {
 }
 
 /* ---- arriving: the rails slide in from their sides, the toolbar and the
-   shelf from theirs, the stage fades up; each a beat after the last ---- */
+   shelf from theirs, the stage fades in; each a beat after the last ---- */
 :root:not([data-arrived]) .shell-rail-left,
 :root:not([data-arrived]) .shell-rail-right,
 :root:not([data-arrived]) .main-top,
@@ -1003,9 +1003,9 @@ body > .shell-menu {
 :root:not([data-arrived]) .main-shelf {
   translate: 0 12px;
 }
-:root:not([data-arrived]) .shell-stage {
-  scale: 0.985;
-}
+/* the stage only fades: the 3D view measures its canvas with the box it
+   is drawn in, scale and all, and a canvas measured mid-scale kept a
+   buffer 1.5 % small (a scale fires no resize), drawn a little soft */
 .shell-rail-left,
 .shell-rail-right,
 .main-top,
