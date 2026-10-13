@@ -4,6 +4,7 @@ import { Elevation2D } from "./Elevation2D";
 import { useLastFrame } from "./last-frame";
 import { MiniIso } from "./MiniViews";
 import { Plan2D } from "./Plan2D";
+import { StageGuard } from "./StageGuard";
 import { other, useStudio, viewName, type View } from "./studio-store";
 
 /* the 3D scene needs the browser's WebGL: it is never rendered on the server */
@@ -88,7 +89,9 @@ export function MainView({ view }: { view: View }) {
         {/* the scene stays mounted while the plan shows, hidden: its
             WebGL context and its overlays survive the swap */}
         <div className="stage-3d-slot" hidden={view !== "3d"}>
-          <Scene3D />
+          <StageGuard>
+            <Scene3D />
+          </StageGuard>
         </div>
         {view === "2d" && (
           <div className="stage-room-box stage-room-pieces">

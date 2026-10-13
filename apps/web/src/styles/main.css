@@ -2955,6 +2955,11 @@ label.add-tile:focus-within .add-tile-pic {
   bottom: 10px;
   transform: none;
 }
+/* the stage when the 3D view fell (StageGuard): the same card, its
+   buttons live */
+.stage-failed {
+  pointer-events: auto;
+}
 /* the stage before the room's first picture: what is being got ready */
 .stage-preparing {
   position: absolute;
