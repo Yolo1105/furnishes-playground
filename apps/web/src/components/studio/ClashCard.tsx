@@ -18,7 +18,7 @@ import { useStudio } from "./studio-store";
  * and with a piece in focus.
  */
 export function ClashCard() {
-  const a = usePieceActions();
+  const a = usePieceActions(undefined, { settled: true });
   const readOnly = useStudio((s) => s.readOnly);
   const resting = useStudio(
     (s) =>

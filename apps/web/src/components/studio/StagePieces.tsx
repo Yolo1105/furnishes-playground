@@ -38,7 +38,11 @@ export function StagePieces({
   roomId?: string;
   compact?: boolean;
 }) {
-  const a = usePieceActions(roomId);
+  // the piece in hand on this plan, which shows its distance to the walls
+  const [dragging, setDragging] = useState<string | null>(null);
+  // the small plan follows a drag of its own, and stands as it was for
+  // one on the large plan or in 3D (its pieces drew again every frame)
+  const a = usePieceActions(roomId, { settled: compact && dragging === null });
   const selectedId = useScene((s) => s.selectedId);
   const { W, D } = a.room;
   const magnet = useStudio((s) => s.magnet);
@@ -46,8 +50,6 @@ export function StagePieces({
   const rendering = useStudio((s) => s.mode === "preview");
   // the bar keeps its own size whatever the plan's zoom
   const zoom = useStudio((s) => s.planZoom);
-  // the piece in hand, which shows its distance to the walls
-  const [dragging, setDragging] = useState<string | null>(null);
   // the layer's width in pixels, so a name is written only where its
   // whole word fits the footprint; the plan's zoom scales both alike
   const layer = useRef<HTMLDivElement>(null);

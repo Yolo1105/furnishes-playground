@@ -34,6 +34,7 @@ import {
 } from "three/webgpu";
 import { create } from "zustand";
 import { type StillState, stillOf, wakeAt } from "./capture";
+import { useScene } from "./scene-store";
 import { warming } from "./shader-warm";
 import { withWallsStanding } from "./walls-standing";
 
@@ -234,6 +235,13 @@ export function FloorReflection({
     // the room's shaders being built hold the renderer's outputs: the
     // picture is taken once they are (the post chain asks for the frame)
     if (warming()) return;
+    // a piece in hand: its six faces are not taken mid-drag (a pause in
+    // a drag stalled the hand for them); the drop is a change of its
+    // own, and the picture follows it
+    if (useScene.getState().dragFrom !== null) {
+      due.current = performance.now() + SETTLE_MS;
+      return;
+    }
     // a frame is asked for when the wait is over, not drawn each frame
     // of it: the room stood still is drawn once
     if (wakeAt(wake, due.current, state.invalidate)) return;

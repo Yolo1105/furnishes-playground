@@ -72,7 +72,7 @@ function RoomIso({
   origin: Point;
   active: boolean;
 }) {
-  const a = usePieceActions(rm.id);
+  const a = usePieceActions(rm.id, { settled: true });
   const dx = rm.pos[0] - origin[0];
   const dy = rm.pos[1] - origin[1];
   const outline = footprintOf(rm).map(([x, y]): Point => [x + dx, y + dy]);

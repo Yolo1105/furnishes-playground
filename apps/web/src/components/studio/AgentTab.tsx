@@ -90,7 +90,7 @@ export function AgentTab() {
   // the layout opened to see what it would do
   const [inspecting, setInspecting] = useState<string | null>(null);
   const { addProduct, select } = useScene.getState();
-  const stage = usePieceActions();
+  const stage = usePieceActions(undefined, { settled: true });
   const t = pieceTotals(items);
   const labelled = labels
     .map((id) => items.find((n) => n.id === id))

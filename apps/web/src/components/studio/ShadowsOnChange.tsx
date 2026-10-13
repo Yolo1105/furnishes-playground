@@ -75,8 +75,10 @@ const signatureOf = (scene: Object3D, lights: Caster[]) => {
   return sum;
 };
 
-/** under a drag, the least time between two drawings of the maps, ms */
-const DRAG_EVERY_MS = 200;
+/** under a drag, the least time between two drawings of the maps, ms:
+    each is every caster in the flat into every casting light (a lamp's
+    six faces among them), a stall the hand felt five times a second */
+const DRAG_EVERY_MS = 450;
 
 /**
  * The shadow maps drawn when what they show changes, not every frame.

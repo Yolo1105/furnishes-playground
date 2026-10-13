@@ -328,7 +328,8 @@ export function Plan2D({
   const touring = interactive && tool === "tour";
   const stops = useRoom((s) => s.stops);
   // the planner's zones show on the sheet while something stands in them
-  const { issues } = usePieceActions();
+  // the small plan's zones stand as they were through a drag elsewhere
+  const { issues } = usePieceActions(undefined, { settled: !interactive });
   const opening = shellOf(active);
   const zones = zonesOf(opening);
   const doorBlocked = issues.some((i) => i.kind === "door");

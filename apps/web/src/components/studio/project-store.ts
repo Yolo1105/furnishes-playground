@@ -645,9 +645,16 @@ export function useProjectSync(wanted: string | null = null) {
     }
     if (wanted) useProjects.getState().open(wanted);
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const now = () => {
+    const now = (leaving = false) => {
       clearTimeout(timer);
       timer = undefined;
+      // a piece in hand: kept once it is put down (a pause mid-drag
+      // wrote every project to the browser under the hand); a page
+      // closing keeps it as it stands
+      if (!leaving && useScene.getState().dragFrom !== null) {
+        timer = setTimeout(now, SAVE_AFTER);
+        return;
+      }
       useProjects.getState().save();
       const { projects, activeId, gone } = useProjects.getState();
       writeKept({ projects, activeId, gone });
@@ -658,7 +665,7 @@ export function useProjectSync(wanted: string | null = null) {
     };
     // a change still waiting its moment is saved before the page goes
     const flush = () => {
-      if (timer !== undefined) now();
+      if (timer !== undefined) now(true);
     };
     window.addEventListener("pagehide", flush);
     const unsubs = [

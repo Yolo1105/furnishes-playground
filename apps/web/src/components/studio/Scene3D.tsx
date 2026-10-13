@@ -15,6 +15,7 @@ import {
 } from "@react-three/fiber";
 import {
   type ComponentProps,
+  memo,
   type RefObject,
   useEffect,
   useLayoutEffect,
@@ -1495,29 +1496,7 @@ function Walker({
   return null;
 }
 
-function Piece({
-  portal,
-  node,
-  props,
-  at,
-  turn,
-  size,
-  colour,
-  parts,
-  rendering,
-  clash,
-  label,
-  canDrag,
-  room,
-  others,
-  actions,
-  bar,
-  onPick,
-  onDragging,
-  hoverable,
-  labels,
-  edges,
-}: {
+type PieceArgs = {
   /* every overlay goes into the scene's own layer: drei's default target,
      the canvas's parent, is not there yet for the first piece's labels */
   portal: RefObject<HTMLDivElement>;
@@ -1557,7 +1536,66 @@ function Piece({
   /** the View settings: the name under the piece, edges on it */
   labels: boolean;
   edges: boolean;
-}) {
+};
+/** the same numbers in two short lists */
+const sameNums = (a: readonly number[], b: readonly number[]) =>
+  a.length === b.length && a.every((v, i) => v === b[i]);
+/** two pieces' props the same field for field */
+const sameProps = (a: PieceProps, b: PieceProps) =>
+  a === b ||
+  (Object.keys(a) as (keyof PieceProps)[]).every((k) => a[k] === b[k]);
+/** under a drag, a piece that does not move is not drawn again: the room's
+    list hands every piece a fresh place, size, closures and bar each
+    frame, and every piece in the room, its labels and its forms were
+    rendered again each frame of the drag. Mid-drag a piece is compared
+    by what it shows (the one in hand moves, so it still renders); out
+    of a drag every change renders as ever, so nothing it holds (its
+    neighbours for the magnet, its bar) stands stale for the next one */
+const samePieceMidDrag = (a: PieceArgs, b: PieceArgs) =>
+  useScene.getState().dragFrom !== null &&
+  a.node === b.node &&
+  sameProps(a.props, b.props) &&
+  sameNums(a.at, b.at) &&
+  a.turn === b.turn &&
+  sameNums(a.size, b.size) &&
+  a.colour === b.colour &&
+  a.parts.join() === b.parts.join() &&
+  a.rendering === b.rendering &&
+  a.clash === b.clash &&
+  a.label === b.label &&
+  a.canDrag === b.canDrag &&
+  a.hoverable === b.hoverable &&
+  a.labels === b.labels &&
+  a.edges === b.edges &&
+  a.room.W === b.room.W &&
+  a.room.D === b.room.D &&
+  a.room.outline === b.room.outline &&
+  !a.actions === !b.actions;
+const Piece = memo(PieceDrawn, samePieceMidDrag);
+
+function PieceDrawn({
+  portal,
+  node,
+  props,
+  at,
+  turn,
+  size,
+  colour,
+  parts,
+  rendering,
+  clash,
+  label,
+  canDrag,
+  room,
+  others,
+  actions,
+  bar,
+  onPick,
+  onDragging,
+  hoverable,
+  labels,
+  edges,
+}: PieceArgs) {
   // a move under the pointer lands once a frame: a pointer
   // reports more often than the screen draws (a trackpad, 120 times a
   // second), and each report redrew everything that reads the scene

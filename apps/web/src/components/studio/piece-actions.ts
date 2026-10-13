@@ -38,6 +38,7 @@ import {
   noteStanding,
   ownOverrides,
   propsOf,
+  settledOverrides,
   useScene,
 } from "./scene-store";
 import { useStudio } from "./studio-store";
@@ -246,7 +247,14 @@ const readingOf = (...from: Parameters<typeof readRoom>): Reading => {
  * is picked is not read here: a pick draws again only what shows it
  * (`useScene`'s `selectedId`), not every view of every room.
  */
-export function usePieceActions(roomId?: string) {
+export function usePieceActions(
+  roomId?: string,
+  /** read the pieces as they stood before a drag under way, until it
+      ends: for what need not follow the piece in hand (a small view,
+      Eva's tab, the clash card), which then draws nothing again on a
+      drag frame */
+  opts: { settled?: boolean } = {},
+) {
   const groups = useScene((s) => s.groups);
   // the room asked for, else the active one
   const rooms = useRoom((s) => s.rooms);
@@ -256,7 +264,13 @@ export function usePieceActions(roomId?: string) {
   // by one: a piece moved in another room, as a drag does every frame,
   // reads nothing here again
   const overrides = useScene(
-    useShallow((s) => ownOverrides(s, spec.id, rooms[0]!.id)),
+    useShallow((s) =>
+      ownOverrides(
+        opts.settled ? { groups: s.groups, overrides: settledOverrides(s) } : s,
+        spec.id,
+        rooms[0]!.id,
+      ),
+    ),
   );
   const labels = useScene((s) => s.labels);
   const { select, toggleLabel, setProps, placeAll, addProduct, addItem } =
