@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { userIdOf } from "./auth";
 import { costOfTokens, logCost, overCap, RATES, type CostKind } from "./cost";
 import { str } from "./env";
+import { log } from "./log";
 import { allow, callerOf } from "./rate-limit";
 
 /**
@@ -33,7 +34,13 @@ export async function admit(
   const caller = (await userIdOf(req)) ?? callerOf(req);
   if (!(await allow(`${scope}:${caller}`, max, windowMs)))
     return { refused: fallback("rate-limit", 429) };
-  if (await overCap(caller)) return { refused: fallback("cost-cap", 429) };
+  const spent = await overCap(caller);
+  if (spent) {
+    // the site's whole share spent is the studio's to know about: every
+    // caller is on the rules until the day turns
+    (spent === "site" ? log.error : log.warn)("cost.cap", { scope, spent });
+    return { refused: fallback("cost-cap", 429) };
+  }
   return { caller };
 }
 

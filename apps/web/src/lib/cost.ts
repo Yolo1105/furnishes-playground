@@ -11,12 +11,14 @@ import { dayStart } from "./time";
  * caller or the whole site that has spent its day's share is told so
  * before the next call is made. The rates are estimates, set by the
  * environment (dollars per million tokens in and out, dollars per
- * generated item); a cap of 0 is no cap.
+ * generated item); the defaults lean high, at the larger models' list
+ * price, so a cap is reached early rather than late. A cap of 0 is no
+ * cap.
  */
 /** US dollars, as the providers bill */
 export const RATES = {
-  perMillionIn: num("EVA_USD_PER_M_IN", 3),
-  perMillionOut: num("EVA_USD_PER_M_OUT", 15),
+  perMillionIn: num("EVA_USD_PER_M_IN", 5),
+  perMillionOut: num("EVA_USD_PER_M_OUT", 25),
   perItem: num("FAL_USD_PER_ITEM", 0.25),
 };
 export const DAILY_USD = {
@@ -62,11 +64,14 @@ export async function spentToday(caller?: string) {
   return Number(rows[0]?.usd ?? 0);
 }
 
-/** whether a caller, or the site, has spent its day's share */
+/** who has spent its day's share, the caller or the whole site, or
+    null while both have some left */
 export async function overCap(caller: string) {
   if (DAILY_USD.caller > 0 && (await spentToday(caller)) >= DAILY_USD.caller)
-    return true;
-  return DAILY_USD.site > 0 && (await spentToday()) >= DAILY_USD.site;
+    return "caller" as const;
+  return DAILY_USD.site > 0 && (await spentToday()) >= DAILY_USD.site
+    ? ("site" as const)
+    : null;
 }
 
 export async function logCost(entry: {

@@ -23,7 +23,7 @@ import {
   ReplySchema,
   toReply,
 } from "@/components/studio/eva-prompt";
-import { readJson } from "@/lib/schemas";
+import { MODEL_BYTES, readJson } from "@/lib/schemas";
 
 /**
  * Eva's turn, when a model is connected: the message, the last few turns
@@ -51,7 +51,7 @@ const Body = z.object({
 });
 
 export async function POST(req: Request) {
-  const body = await readJson(req);
+  const body = await readJson(req, MODEL_BYTES);
   if (body.error) return body.error;
   const parsed = Body.safeParse(body.value);
   if (!parsed.success) return fallback("bad-request", 400);

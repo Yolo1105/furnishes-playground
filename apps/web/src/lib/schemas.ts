@@ -27,8 +27,12 @@ export const AddressSchema = z.object({
 export const BAD_REQUEST = { error: "bad request" } as const;
 
 /** bytes a route's JSON body may hold unless it says otherwise: room
-    for a chat's thread and its context, not for a flood */
+    for a room's document, not for a flood */
 export const JSON_BYTES = 1_000_000;
+/** bytes a body sent on to the model may hold: a chat's twelve turns
+    and a full room's facts (two hundred pieces) with room to spare;
+    every byte past it would be paid for as tokens */
+export const MODEL_BYTES = 128_000;
 
 /** a request's JSON body, read with a cap on its size: a body said
     (Content-Length) or found to be over `maxBytes` is refused as 413

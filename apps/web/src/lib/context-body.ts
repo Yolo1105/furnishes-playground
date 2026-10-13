@@ -20,7 +20,7 @@ export const ContextBody = z.object({
   pieces: z
     .array(
       z.object({
-        id: z.string(),
+        id: z.string().max(80),
         name: z.string().max(80),
         kind: names(ASSET_KINDS),
         category: names(ASSET_CATEGORIES),
@@ -37,15 +37,17 @@ export const ContextBody = z.object({
       }),
     )
     .max(200),
-  cart: z.array(z.string()).max(200),
+  cart: z.array(z.string().max(80)).max(200),
   findings: z.array(z.string().max(200)).max(20).default([]),
-  prefs: z.record(
-    z.string(),
-    z.object({
-      values: z.array(z.string()),
-      budget: z.tuple([z.number(), z.number()]).optional(),
-    }),
-  ),
+  prefs: z
+    .record(
+      z.string().max(40),
+      z.object({
+        values: z.array(z.string().max(120)).max(30),
+        budget: z.tuple([z.number(), z.number()]).optional(),
+      }),
+    )
+    .refine((p) => Object.keys(p).length <= 30),
   exploration: z.boolean(),
   rules: z.object({
     walkway: z.number(),
