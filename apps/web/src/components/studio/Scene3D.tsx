@@ -113,6 +113,7 @@ import {
   walkStart,
   windowSide,
 } from "./camera-bookmarks";
+import { shownNow } from "./last-frame";
 import { setLive } from "./scene-handle";
 import { recordFrame, recorder } from "./bench";
 import { devFlag, devParam } from "./dev-flags";
@@ -392,7 +393,7 @@ const keepLastFrame = (canvas: HTMLCanvasElement) => {
           read.readAsDataURL(blob);
         }),
     )
-    .then((url) => useStudio.setState({ lastFrame: url }))
+    .then((url) => useStudio.setState({ lastFrame: { url, of: shownNow() } }))
     .catch(() => {
       /* the drawn stand-in stays */
     });

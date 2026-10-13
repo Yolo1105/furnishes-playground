@@ -1,6 +1,7 @@
 import { CubeIcon, PlanIcon, SwapIcon } from "./icons";
 import dynamic from "next/dynamic";
 import { Elevation2D } from "./Elevation2D";
+import { useLastFrame } from "./last-frame";
 import { MiniIso } from "./MiniViews";
 import { Plan2D } from "./Plan2D";
 import { other, useStudio, viewName, type View } from "./studio-store";
@@ -32,9 +33,9 @@ export function ViewPanel({
   onSwap: () => void;
 }) {
   const here = other(main);
-  // the 3D view as it last stood in the main column, when it has stood
-  // there; the drawn stand-in before that
-  const lastFrame = useStudio((s) => s.lastFrame);
+  // the 3D view as it last stood in the main column, while the flat is
+  // as it stood; the drawn view of the flat otherwise
+  const lastFrame = useLastFrame();
   return (
     <>
       <div className="shell-panel-head shell-panel-head-sm">

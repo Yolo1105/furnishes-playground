@@ -197,8 +197,9 @@ type StudioState = {
   /** what the render is doing now, while it generates */
   work: Work | null;
   /** the 3D view's last picture before it left the main column, for
-      the small panel to show it as it stood */
-  lastFrame: string | null;
+      the small panel to show while the flat is as it stood (`of`: the
+      rooms and the pieces it was taken of) */
+  lastFrame: { url: string; of: readonly unknown[] } | null;
   /** where the divider stands, as a percent of the stage's width */
   split: number;
   /** the plan's zoom (1 is the sheet fitted) and pan, px */

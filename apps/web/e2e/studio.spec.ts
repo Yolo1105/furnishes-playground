@@ -472,6 +472,12 @@ test("the right rail holds the other view, and the swap trades them", async ({
     "src",
     /^data:image\/jpeg/,
   );
+  // until the flat changes: a piece moved on the plan (the move undone
+  // above, made again) leaves the panel to its drawn view of the flat
+  // as it stands, never a picture of how it was
+  await page.keyboard.press("Control+Shift+z");
+  await expect(view.locator(".view-last")).toHaveCount(0);
+  await expect(view.locator(".view-iso")).toBeVisible();
   await page.getByRole("button", { name: "Show 3D view in main" }).click();
   await expect(page.locator(".shell-main-hint")).toHaveAttribute(
     "data-view",
