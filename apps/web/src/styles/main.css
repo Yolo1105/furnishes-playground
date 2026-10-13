@@ -692,7 +692,8 @@
   box-shadow: 0 0 8px rgb(from var(--color-accent) r g b / 0.7);
   animation: main-progress var(--load) var(--ease) forwards;
 }
-.main-progress[data-kind="view"] {
+.main-progress[data-kind="view"],
+.main-progress[data-kind="project"] {
   --load: var(--load-view, 0.5s);
 }
 /* a render's line is set from its work: no run of its own */
@@ -2009,6 +2010,10 @@
 }
 .stage-3d[data-drawn="true"] canvas {
   opacity: 1;
+}
+/* another project opened: the picture comes in again over the flat */
+.stage-3d[data-switching="true"] canvas {
+  animation: stage-in 0.5s var(--ease) both;
 }
 .stage-3d-overlay {
   position: absolute;

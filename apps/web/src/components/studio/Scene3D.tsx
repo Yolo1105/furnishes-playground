@@ -576,11 +576,12 @@ let viewHeld = false;
 const holdView = () => {
   viewHeld = true;
 };
-const introWanted = () =>
-  !introDone &&
-  !reduced() &&
-  typeof navigator !== "undefined" &&
-  !navigator.webdriver;
+/** a long camera move is wanted: not under reduced motion, and not in a
+    driven browser (the tests), where a software renderer would spend a
+    minute on it */
+const motionWanted = () =>
+  !reduced() && typeof navigator !== "undefined" && !navigator.webdriver;
+const introWanted = () => !introDone && motionWanted();
 /** the isometric pose over the whole flat, from the side of the room's
     corner, m */
 const overviewPose = (
@@ -681,6 +682,13 @@ const reduced = () =>
   typeof window !== "undefined" &&
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+/** whether a project switch is being shown, written on the stage */
+const switching = (stage: RefObject<HTMLDivElement | null>, on: boolean) => {
+  const el = stage.current;
+  if (el) el.dataset.switching = String(on);
+};
+/** the switch's glide: a moment over the flat, then into the room */
+const SWITCH = { hold: 0.15, glide: 1.6 };
 /** whether the opening is under way, written on the stage */
 const intro = (stage: RefObject<HTMLDivElement | null>, on: boolean) => {
   const el = stage.current;
@@ -823,8 +831,12 @@ function Rig({
     hold?: number;
     length?: number;
     waits?: boolean;
+    /** a project switch being shown */
+    switching?: boolean;
   } | null>(null);
   const free = useStudio((s) => s.free);
+  const switchedAt = useStudio((s) => s.switchedAt);
+  const seenSwitch = useRef(switchedAt);
   // the view moved by hand since the camera last glided to its angle:
   // a new size for the canvas (a window or a panel resized, a phone
   // turned) keeps it; a new angle or room glides as ever
@@ -836,6 +848,16 @@ function Rig({
     // turned by hand: the camera stays where the cube or the canvas put
     // it; the angle picked again, free cleared, glides back to it
     if (free) return;
+    // another project opened from the menu: shown from above and then
+    // into the room, as the opening is, so the change is seen (the same
+    // room at the same angle would otherwise glide nowhere)
+    const switched = seenSwitch.current !== switchedAt;
+    seenSwitch.current = switchedAt;
+    if (switched) {
+      placed.current = "";
+      moved.current = false;
+      viewHeld = false;
+    }
     const key = JSON.stringify([angle, w, d, h, centre, roomW, roomD, corner]);
     const was = shownCentre.current;
     shownCentre.current = centre;
@@ -892,9 +914,14 @@ function Rig({
       invalidate();
       return;
     }
-    if (angle === "Perspective" && introWanted()) {
+    // a switch without the move still says it was shown
+    if (switched && !motionWanted()) switching(stage, false);
+    if (
+      (switched && motionWanted()) ||
+      (angle === "Perspective" && introWanted())
+    ) {
       // the opening: the camera stands over the whole flat first
-      introDone = true;
+      if (!switched) introDone = true;
       const o = overviewPose(w, d, centre, corner, aspect);
       camera.position.copy(o.pos);
       camera.lookAt(o.at);
@@ -911,11 +938,13 @@ function Rig({
         fromShift: 0,
         toShift: shift,
         t: 0,
-        hold: INTRO.hold,
-        length: INTRO.glide,
-        waits: true,
+        hold: switched ? SWITCH.hold : INTRO.hold,
+        length: switched ? SWITCH.glide : INTRO.glide,
+        waits: !switched,
+        switching: switched,
       };
-      intro(stage, true);
+      if (switched) switching(stage, true);
+      else intro(stage, true);
       invalidate();
       return;
     }
@@ -935,6 +964,7 @@ function Rig({
     angle,
     stage,
     free,
+    switchedAt,
     w,
     d,
     h,
@@ -1053,9 +1083,10 @@ function Rig({
     const onStart = () => {
       moved.current = true;
       // a hand on the view ends the opening where it stands
-      if (glide.current?.waits) {
+      if (glide.current?.waits || glide.current?.switching) {
         glide.current = null;
         intro(stage, false);
+        switching(stage, false);
         reportGliding(stage, false);
       }
     };
@@ -1099,16 +1130,15 @@ function Rig({
     const g = glide.current;
     // the opening waits for the room's first picture, then holds on the
     // whole flat a moment
-    if (g?.waits) {
-      if (stage.current?.dataset.drawn !== "true") {
-        wakeAt(introWake, performance.now() + 200, invalidate);
-        return;
-      }
-      if ((g.hold ?? 0) > 0) {
-        g.hold = (g.hold ?? 0) - dt;
-        invalidate();
-        return;
-      }
+    if (g?.waits && stage.current?.dataset.drawn !== "true") {
+      wakeAt(introWake, performance.now() + 200, invalidate);
+      return;
+    }
+    // the opening and a project switch hold on the flat a moment first
+    if (g && (g.hold ?? 0) > 0) {
+      g.hold = (g.hold ?? 0) - dt;
+      invalidate();
+      return;
     }
     if (g) {
       g.t = Math.min(1, g.t + dt / (g.length ?? GLIDE));
@@ -1128,6 +1158,7 @@ function Rig({
       if (g.t >= 1) {
         glide.current = null;
         if (g.waits) intro(stage, false);
+        if (g.switching) switching(stage, false);
       } else invalidate();
       reportGliding(stage, g.t < 1);
     }

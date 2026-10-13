@@ -2517,6 +2517,15 @@ test("projects: a new one starts clean, the first keeps its room, rename and del
     .getByRole("menuitemradio", { name: "HDB 5-room · Balanced" })
     .click();
   await expect(page.getByRole("tab", { name: /^Cart/ })).toHaveText("Cart1");
+  // the switch is shown: the line names it, the 3D view lifts over the
+  // flat and comes back into the room
+  await expect(
+    page.getByRole("progressbar", { name: "Opening the project" }),
+  ).toHaveCount(1);
+  await expect(page.locator(".stage-3d")).toHaveAttribute(
+    "data-switching",
+    /true|false/,
+  );
   await page.waitForTimeout(900);
   await page.reload();
   await expect(name).toHaveText("HDB 5-room · Balanced");
@@ -2545,7 +2554,7 @@ test("projects: a new one starts clean, the first keeps its room, rename and del
   await expect(page.getByRole("menuitem", { name: "Delete" })).toBeDisabled();
 });
 
-test("a browser that kept projects from an earlier studio starts over: the 5-room flat's three arrangements, once", async ({
+test("a browser that kept projects from an earlier studio keeps them: the 5-room flat's three arrangements given beside, once", async ({
   page,
 }) => {
   // what an earlier studio kept: a project of its own, and no word of
@@ -2565,6 +2574,12 @@ test("a browser that kept projects from an earlier studio starts over: the 5-roo
   });
   await page.goto("/rounded");
   const name = page.locator(".shell-project-name");
+  // the visitor's own project is kept, and still the open one
+  await expect(name).toHaveText("My flat");
+  await page.getByRole("button", { name: /^Project, / }).click();
+  await page
+    .getByRole("menuitemradio", { name: "HDB 5-room · Balanced" })
+    .click();
   await expect(name).toHaveText("HDB 5-room · Balanced");
   await page.getByRole("tab", { name: "Room", exact: true }).click();
   await expect(
@@ -2575,20 +2590,21 @@ test("a browser that kept projects from an earlier studio starts over: the 5-roo
     "HDB 5-room · Balanced",
     "HDB 5-room · Study-focused",
     "HDB 5-room · Leisure",
+    "My flat",
   ]);
   await page.keyboard.press("Escape");
-  // the earlier project is noted gone, so an account's copy goes too
+  // nothing of the visitor's is noted gone: an account's copy stays too
   const gone = await page.evaluate(
     () => JSON.parse(localStorage.getItem("furnishes.projects")!).gone,
   );
-  expect(Object.keys(gone)).toEqual(["p-first"]);
+  expect(Object.keys(gone)).toEqual([]);
   // once: a project made now survives the reload
   await page.getByRole("button", { name: /^Project, / }).click();
   await page.getByRole("menuitem", { name: "New project" }).click();
   await page.waitForTimeout(900);
   await page.reload();
   await page.getByRole("button", { name: /^Project, / }).click();
-  await expect(page.getByRole("menuitemradio")).toHaveCount(4);
+  await expect(page.getByRole("menuitemradio")).toHaveCount(5);
 });
 
 test("a project kept by an earlier studio comes up to the catalogue as it is read", async ({

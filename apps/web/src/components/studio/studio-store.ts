@@ -131,7 +131,7 @@ export type Angle = (typeof ANGLES)[View][number];
 
 /** what the line under the toolbar is waiting for: a view swap is quick,
     a render takes its time */
-type Loading = "view" | "render" | "photo" | null;
+type Loading = "view" | "project" | "render" | "photo" | null;
 /** where a photo stands: idle, the scene being copied, the light
     traced, the picture cleaned, done, or failed and the graded view
     standing in */
@@ -184,6 +184,9 @@ type StudioState = {
   turn: { yaw: number; pitch: number; n: number } | null;
   /** the camera was turned by hand since the last named angle */
   free: boolean;
+  /** counts each project opened from the menu: the 3D view shows the
+      change (the flat from above, then into the room again) */
+  switchedAt: number;
   /** where the toolbar's eye was when the panels were hidden, so the peek
       bar's eye stands in the same place */
   peekAt: { top: number; left: number } | null;
@@ -252,6 +255,8 @@ type StudioState = {
   setTool: (tool: Tool) => void;
   setView: (view: View) => void;
   setAngle: (angle: Angle) => void;
+  /** another project is open: the line runs and the view shows it */
+  projectSwitched: () => void;
   /** the scene says where the camera stands */
   reportCam: (cam: { yaw: number; pitch: number }) => void;
   /** turn the camera to an azimuth and height, as the cube is dragged */
@@ -312,6 +317,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   cam: { yaw: Math.PI / 4, pitch: Math.PI / 5 },
   turn: null,
   free: false,
+  switchedAt: 0,
   uiHidden: false,
   walk: false,
   peekAt: null,
@@ -404,6 +410,13 @@ export const useStudio = create<StudioState>((set, get) => ({
     );
   },
   setAngle: (angle) => set({ angle, walk: false, free: false }),
+  projectSwitched: () =>
+    set((s) => ({
+      switchedAt: s.switchedAt + 1,
+      free: false,
+      loading: "project",
+      loadingAt: s.loadingAt + 1,
+    })),
   reportCam: (cam) =>
     set((s) =>
       Math.abs(s.cam.yaw - cam.yaw) > 0.004 ||

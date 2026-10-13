@@ -59,7 +59,9 @@ export function ProgressLine() {
           ? "Tracing the light"
           : loading === "render"
             ? "Rendering the room"
-            : "Switching view"
+            : loading === "project"
+              ? "Opening the project"
+              : "Switching view"
       }
       aria-valuenow={width === null ? undefined : Math.round(width * 100)}
       style={width === null ? undefined : { width: `${width * 100}%` }}

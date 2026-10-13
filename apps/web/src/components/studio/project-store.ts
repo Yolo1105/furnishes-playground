@@ -11,6 +11,7 @@ import {
 import type { Point } from "./room-templates";
 import { type RoomSpec, useRoom } from "./room-store";
 import { useScene } from "./scene-store";
+import { useStudio } from "./studio-store";
 import {
   ARRANGEMENTS,
   arrangementOf,
@@ -582,6 +583,7 @@ export const useProjects = create<ProjectState>((set, get) => ({
     get().save();
     load(target.data ?? fresh());
     set({ activeId: id });
+    useStudio.getState().projectSwitched();
   },
   adopt: ({ projects, gone }) => {
     const { activeId } = get();
