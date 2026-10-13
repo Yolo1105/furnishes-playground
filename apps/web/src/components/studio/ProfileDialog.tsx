@@ -122,6 +122,9 @@ export function ProfileDialog({
     setDevices((d) => d.filter((x) => x.token === thisToken));
   };
   const [ending, setEnding] = useState(false);
+  /** the password the delete is confirmed with, past the first minutes */
+  const [endPassword, setEndPassword] = useState("");
+  const [endNote, setEndNote] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [shares, setShares] = useState<Share[]>([]);
   useEffect(() => {
@@ -146,10 +149,17 @@ export function ProfileDialog({
     if (!r.error) setDraft(null);
   };
   const end = async () => {
-    const r = await authClient.deleteUser();
-    if (r.error) setNote(r.error.message ?? "The account could not go.");
-    else onClose();
+    const r = await authClient.deleteUser(
+      endPassword ? { password: endPassword } : {},
+    );
+    if (!r.error) return onClose();
+    // the account stays; the password field stays open to try again
+    setEndNote(r.error.message ?? "The account could not go.");
+  };
+  const keep = () => {
     setEnding(false);
+    setEndPassword("");
+    setEndNote(null);
   };
   return (
     <Dialog title="Account" onClose={onClose} wide>
@@ -358,14 +368,33 @@ export function ProfileDialog({
         Deleting the account takes what it holds with it: the projects, orders,
         room items and shared links. What is in this browser stays here.
       </p>
+      {ending && (
+        <label className="order-field">
+          <span className="room-dim-label">
+            Password
+            <small className="account-hint">
+              {" "}
+              · asked once you have been signed in a while
+            </small>
+          </span>
+          <input
+            className="room-dim-input"
+            type="password"
+            autoComplete="current-password"
+            value={endPassword}
+            onChange={(e) => setEndPassword(e.target.value)}
+          />
+        </label>
+      )}
+      {endNote && (
+        <p className="account-error" role="alert">
+          {endNote}
+        </p>
+      )}
       <div className="shell-dialog-acts">
         {ending ? (
           <>
-            <button
-              type="button"
-              className="main-btn"
-              onClick={() => setEnding(false)}
-            >
+            <button type="button" className="main-btn" onClick={keep}>
               Keep it
             </button>
             <button

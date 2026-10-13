@@ -4841,6 +4841,13 @@ test("the site's edges: the old addresses lead to the studio, the readings, the 
     "strict-origin-when-cross-origin",
   );
   expect(res!.headers()["permissions-policy"]).toContain("microphone=(self)");
+  expect(res!.headers()["x-frame-options"]).toBe("DENY");
+  expect(res!.headers()["content-security-policy"]).toBe(
+    "frame-ancestors 'none'",
+  );
+  // the room's own files are kept by the browser a day
+  const sky = await page.request.head("/sky/studio.hdr");
+  expect(sky.headers()["cache-control"]).toContain("max-age=86400");
   await page.goto("/reset?token=t1");
   await expect(page).toHaveURL(/\/rounded\?token=t1$/);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();

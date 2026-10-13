@@ -99,6 +99,12 @@ say(
   (page.headers.get("permissions-policy") ?? "").includes("microphone"),
   "header Permissions-Policy",
 );
+say(
+  (page.headers.get("content-security-policy") ?? "").includes(
+    "frame-ancestors 'none'",
+  ),
+  "header CSP frame-ancestors",
+);
 if (base.startsWith("https://"))
   say(
     (page.headers.get("strict-transport-security") ?? "").includes("max-age"),

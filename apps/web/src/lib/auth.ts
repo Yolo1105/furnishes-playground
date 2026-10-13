@@ -1,5 +1,10 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import {
+  APIError,
+  createAuthMiddleware,
+  getSessionFromCtx,
+} from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
 import { eq, like, or } from "drizzle-orm";
 import { getDb } from "./db";
@@ -40,6 +45,15 @@ const google = () =>
         },
       }
     : {};
+
+/** how long after signing in the account can be deleted on the session
+    alone; later, deleting it takes the password (or signing in again),
+    so a device left signed in cannot end someone's account */
+export const DELETE_FRESH_MS = 15 * 60_000;
+
+/** a wildcard of LIKE's taken as itself: an email's _ is not "any
+    character" */
+const likeLiteral = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
 
 const make = () =>
   betterAuth({
@@ -84,7 +98,10 @@ const make = () =>
             .where(
               or(
                 eq(schema.verification.identifier, u.email),
-                like(schema.verification.identifier, `%${u.email}`),
+                like(
+                  schema.verification.identifier,
+                  `%${likeLiteral(u.email)}`,
+                ),
               ),
             );
           await db
@@ -93,6 +110,26 @@ const make = () =>
             .where(eq(schema.helpRequest.userId, u.id));
         },
       },
+    },
+    hooks: {
+      // the session's freshness stays off for the session list (an old
+      // session may see its devices); deleting the account is the one
+      // act that asks for it
+      before: createAuthMiddleware(async (ctx) => {
+        if (ctx.path !== "/delete-user") return;
+        const body = (ctx.body ?? {}) as { password?: string; token?: string };
+        if (body.password || body.token) return;
+        const s = await getSessionFromCtx(ctx);
+        if (
+          s &&
+          Date.now() - new Date(s.session.createdAt).getTime() > DELETE_FRESH_MS
+        )
+          throw APIError.from("FORBIDDEN", {
+            code: "SESSION_NOT_FRESH",
+            message:
+              "Give the account's password, or sign in again, to delete it.",
+          });
+      }),
     },
     plugins: [nextCookies()],
   });
