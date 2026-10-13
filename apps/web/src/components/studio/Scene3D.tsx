@@ -632,6 +632,8 @@ type WalkState = {
   pitch: number;
   keys: Set<string>;
   goto: { x: number; z: number } | null;
+  /** where a drag has the view looking: the heading eases to it */
+  look: { yaw: number; pitch: number } | null;
   /** ask the scene for a frame: set by the walker while it is mounted */
   wake: () => void;
   /** the tour under way: its path in metres, how far along, and the
@@ -658,6 +660,10 @@ const middleOf = (blocks: Block[]) => {
   return { x: x / blocks.length, z: z / blocks.length };
 };
 
+/** how far up or down the walker looks, rad; how quickly the heading
+    catches a drag up, per second */
+const LOOK_PITCH = 1.1;
+const LOOK_EASE = 18;
 /** the walker's place and heading: one scene, one walker */
 const WALK: WalkState = {
   x: 0,
@@ -666,6 +672,7 @@ const WALK: WalkState = {
   pitch: 0,
   keys: new Set(),
   goto: null,
+  look: null,
   wake: () => undefined,
   tour: null,
 };
@@ -1052,7 +1059,15 @@ function Rig({
         reportGliding(stage, false);
       }
     };
-    const onChange = () => keepIn();
+    // the corner's shift lens is for the still picture: once the view is
+    // turned by hand it eases out over a few frames (left in, a turned
+    // camera's verticals lean and its horizon tilts)
+    const onChange = () => {
+      keepIn();
+      const shift = shiftOf(camera);
+      if (moved.current && shift && !glide.current)
+        setShift(camera, shift < 0.005 ? 0 : shift * 0.75);
+    };
     el.addEventListener("wheel", onWheel, { passive: false, capture: true });
     el.addEventListener("gesturestart", onGestureStart, { capture: true });
     el.addEventListener("gesturechange", onGesture, { capture: true });
@@ -1176,6 +1191,7 @@ function Walker({
     s.yaw = Math.atan2(start.pos[0] - start.at[0], start.pos[2] - start.at[2]);
     s.pitch = Math.asin(start.at[1] - EYE);
     s.goto = null;
+    s.look = null;
     s.wake = invalidate;
     camera.position.set(s.x, EYE, s.z);
     setLens(camera, start.fov);
@@ -1215,13 +1231,22 @@ function Walker({
       look = { x: e.clientX, y: e.clientY, id: e.pointerId };
       if (s.tour) useStudio.getState().stopTour();
     };
+    // the room is taken hold of and moved, as a photo sphere is: it
+    // follows the hand, the point under it staying there (an angle a
+    // pixel from the lens), and the heading eases after it
     const pmove = (e: PointerEvent) => {
       if (!look || look.id !== e.pointerId) return;
-      s.yaw -= (e.clientX - look.x) * 0.005;
-      s.pitch = Math.max(
-        -1.2,
-        Math.min(1.2, s.pitch - (e.clientY - look.y) * 0.004),
-      );
+      const lens = camera as PerspectiveCamera;
+      const k =
+        ((lens.fov ?? 60) * Math.PI) / 180 / Math.max(1, el.clientHeight);
+      const to = s.look ?? { yaw: s.yaw, pitch: s.pitch };
+      s.look = {
+        yaw: to.yaw + (e.clientX - look.x) * k,
+        pitch: Math.max(
+          -LOOK_PITCH,
+          Math.min(LOOK_PITCH, to.pitch + (e.clientY - look.y) * k),
+        ),
+      };
       look = { x: e.clientX, y: e.clientY, id: e.pointerId };
       invalidate();
     };
@@ -1315,6 +1340,7 @@ function Walker({
     for (let i = 1; i < pts.length; i++)
       total += Math.hypot(pts[i]!.x - pts[i - 1]!.x, pts[i]!.z - pts[i - 1]!.z);
     s.tour = { pts, gone: 0, total: Math.max(total, 0.01), since: 0 };
+    s.look = null;
     s.goto = null;
     useStudio.getState().setTourAt(0, 1, path.length);
     invalidate();
@@ -1374,6 +1400,19 @@ function Walker({
       camera.rotation.set(s.pitch, s.yaw, 0, "YXZ");
       report(stage, camera.position);
       return;
+    }
+    if (s.look) {
+      const k = 1 - Math.exp(-dt * LOOK_EASE);
+      s.yaw += (s.look.yaw - s.yaw) * k;
+      s.pitch += (s.look.pitch - s.pitch) * k;
+      if (
+        Math.abs(s.look.yaw - s.yaw) < 1e-4 &&
+        Math.abs(s.look.pitch - s.pitch) < 1e-4
+      ) {
+        s.yaw = s.look.yaw;
+        s.pitch = s.look.pitch;
+        s.look = null;
+      } else invalidate();
     }
     const fx = -Math.sin(s.yaw);
     const fz = -Math.cos(s.yaw);
