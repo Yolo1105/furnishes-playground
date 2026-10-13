@@ -68,7 +68,12 @@ its signing secret into `STRIPE_WEBHOOK_SECRET`:
 and `payment_intent.succeeded` (paid), `checkout.session.expired`
 (cancelled) and `charge.refunded` (refunded). The webhook finds the
 order by the number the session carries, and says in the log what it
-applied, refused or could not match. The shopper comes back from the
+applied, refused or could not match. A key without the signing secret
+is reported missing by `/api/health`: without the webhook a paid order
+would never read as paid. A cancel closes the payment page before the
+order reads as cancelled; a payment that lands on a cancelled order
+anyway is logged as an error and mailed to `ADMIN_EMAILS`, to refund
+by hand. The shopper comes back from the
 payment page to the order's own view, `/rounded?order=<number>&key=<key>`,
 which every letter about the order links to; a cancelled order's
 payment page is closed with it. Google: in the OAuth client, allow the redirect

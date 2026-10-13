@@ -6,19 +6,19 @@ import { orders } from "@/lib/db/schema";
 import { orderMailOf, orderMovedMail } from "@/lib/mails";
 import { canMove, type OrderStatus } from "@/lib/orders";
 import { log } from "@/lib/log";
+import { cancelOrder, moveOrder, NOT_MOVED } from "@/lib/order-moves";
 import { adminOf } from "@/lib/ops";
 import { BAD_REQUEST, readJson } from "@/lib/schemas";
-import { expireSession } from "@/lib/stripe";
 
 /**
  * An order moved on by the studio, from the operations page: paid when
  * payment came another way than Stripe, delivered once it is, cancelled
- * while it waits (its payment page closed with it), refunded once the
+ * while it waits (its payment page closed first), refunded once the
  * money went back in Stripe's own dashboard (the move here records it
  * and writes to the buyer; it moves no money); and the studio's note
- * on it. The
- * move follows the same rule as the webhook's (lib/orders), and the
- * buyer is written to when it is paid, delivered or refunded. Anyone
+ * on it. The move follows the same rule as the webhook's (lib/orders),
+ * only from the state it was read in (lib/order-moves), and the buyer
+ * is written to when it is paid, delivered or refunded. Anyone
  * who is not an admin gets 404, as if the route were not here.
  */
 export const runtime = "nodejs";
@@ -47,17 +47,24 @@ export async function PATCH(req: Request, { params }: Ctx) {
       { error: `an order ${row.status} cannot be ${status}` },
       { status: 409 },
     );
-  await db
-    .update(orders)
-    .set({
-      ...(status ? { status } : {}),
-      ...(note !== undefined ? { note: note || null } : {}),
-      updatedAt: Date.now(),
-    })
-    .where(eq(orders.id, id));
-  if (status === "cancelled" && row.paymentRef)
-    if (!(await expireSession(row.paymentRef)))
-      log.warn("stripe.expire.missed", { orderId: id });
+  const changes = note !== undefined ? { note: note || null } : {};
+  if (status) {
+    const refused =
+      status === "cancelled"
+        ? await cancelOrder(row, changes)
+        : (await moveOrder(row, status, changes))
+          ? null
+          : "moved";
+    if (refused)
+      return NextResponse.json(
+        { error: `the order is not ${status}: ${NOT_MOVED[refused]}` },
+        { status: 409 },
+      );
+  } else
+    await db
+      .update(orders)
+      .set({ ...changes, updatedAt: Date.now() })
+      .where(eq(orders.id, id));
   if (status) {
     log.info("order.moved", { orderId: id, from: row.status, to: status });
     await orderMovedMail(orderMailOf(row), status);

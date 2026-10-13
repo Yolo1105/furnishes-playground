@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { orders, paymentEvent } from "@/lib/db/schema";
 import { log, reasonOf } from "@/lib/log";
-import { orderMailOf, orderMovedMail } from "@/lib/mails";
+import { orderMailOf, orderMovedMail, studioAlertMail } from "@/lib/mails";
+import { moveOrder } from "@/lib/order-moves";
 import { canMove, type OrderStatus } from "@/lib/orders";
 import {
   outcomeOf,
@@ -15,16 +16,18 @@ import {
 /**
  * What Stripe says became of a payment: the one write with no session,
  * so it earns its trust itself, in this order. The signature over the
- * raw body, within five minutes. Then the event's id kept, so a replay
- * does nothing twice. Then, and only then, the order moved on: paid,
- * cancelled when the page lapsed, refunded. The order is found by its
+ * raw body, within five minutes. Then a replay of an event already done
+ * with does nothing twice. Then, and only then, the order moved on,
+ * from the state it was read in: paid, cancelled when the page lapsed,
+ * refunded; and only once it has, the event's id kept as done. The order is found by its
  * own number, which the session and its intent carry, or by the
  * session or intent it was opened with. A move the order's state does
  * not allow is left alone and said in the log, as is an event no
- * order answers to; the buyer is written to when it is paid or
- * refunded. A failure while moving the order lets the event's row go
- * again and answers 5xx, so Stripe sends the event again and it is
- * applied then.
+ * order answers to; money taken for an order already cancelled is an
+ * error, and the studio's admins are written to. The buyer is written
+ * to when it is paid or refunded. A failure while moving the order, or
+ * an order moved meanwhile, answers 5xx with the event not kept, so
+ * Stripe sends it again and it is weighed then.
  */
 export const runtime = "nodejs";
 
@@ -39,13 +42,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "bad payload" }, { status: 400 });
   const { db, ready } = getDb();
   await ready;
-  const fresh = await db
-    .insert(paymentEvent)
-    .values({ id: event.id, kind: event.kind, at: Date.now() })
-    .onConflictDoNothing()
-    .returning({ id: paymentEvent.id });
-  if (fresh.length === 0)
+  const seen = await db
+    .select({ id: paymentEvent.id })
+    .from(paymentEvent)
+    .where(eq(paymentEvent.id, event.id));
+  if (seen.length > 0)
     return NextResponse.json({ received: true, duplicate: true });
+  /** the event done with, for whatever order it touched */
+  const done = (orderId: string | null = null) =>
+    db
+      .insert(paymentEvent)
+      .values({ id: event.id, kind: event.kind, at: Date.now(), orderId })
+      .onConflictDoNothing();
   try {
     const outcome = outcomeOf(event);
     if (!outcome) {
@@ -53,6 +61,7 @@ export async function POST(req: Request) {
         eventId: event.id,
         kind: event.kind,
       });
+      await done();
       return NextResponse.json({ received: true, applied: false });
     }
     const row = (
@@ -74,31 +83,36 @@ export async function POST(req: Request) {
         ref: event.ref,
         orderId: event.orderId,
       });
+      await done();
       return NextResponse.json({ received: true, applied: false });
     }
     if (!canMove(row.status as OrderStatus, outcome)) {
-      log.warn("stripe.webhook.refused", {
+      const said = {
         eventId: event.id,
         kind: event.kind,
         orderId: row.id,
         from: row.status,
         to: outcome,
-      });
+      };
+      // paid for an order nobody will send: a person refunds it
+      if (outcome === "paid" && row.status === "cancelled") {
+        log.error("stripe.webhook.paid_cancelled", said);
+        await studioAlertMail(
+          `Order ${row.id} was paid after it was cancelled`,
+          `Stripe says order ${row.id} was paid (${event.kind}, ${event.id}), but it was cancelled first. Refund it in Stripe's dashboard, then mark it refunded on the operations page.`,
+        );
+      } else log.warn("stripe.webhook.refused", said);
+      await done(row.id);
       return NextResponse.json({ received: true, applied: false });
     }
-    const now = Date.now();
-    await db
-      .update(orders)
-      .set({
-        status: outcome,
-        updatedAt: now,
-        ...(event.intentRef ? { paymentIntentRef: event.intentRef } : {}),
-      })
-      .where(eq(orders.id, row.id));
-    await db
-      .update(paymentEvent)
-      .set({ orderId: row.id })
-      .where(eq(paymentEvent.id, event.id));
+    const moved = await moveOrder(
+      row,
+      outcome,
+      event.intentRef ? { paymentIntentRef: event.intentRef } : {},
+    );
+    // moved by another hand since it was read: weighed again on the retry
+    if (!moved) throw new Error(`order ${row.id} moved meanwhile`);
+    await done(row.id);
     log.info("stripe.webhook.applied", {
       eventId: event.id,
       kind: event.kind,
@@ -113,12 +127,6 @@ export async function POST(req: Request) {
       kind: event.kind,
       reason: reasonOf(error),
     });
-    // the event is not yet done with: let its row go, so the retry
-    // is not read as a replay
-    await db
-      .delete(paymentEvent)
-      .where(eq(paymentEvent.id, event.id))
-      .catch(() => undefined);
     return NextResponse.json({ error: "not applied" }, { status: 500 });
   }
 }

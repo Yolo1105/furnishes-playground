@@ -1,7 +1,7 @@
 import { googleOn } from "./auth";
 import { HOSTED, str } from "./env";
 import { mailMode } from "./mail";
-import { adminEmails } from "./ops";
+import { adminEmails } from "./admins";
 import { SITE } from "./site";
 
 /**
@@ -74,8 +74,9 @@ export const services = (): Services => {
 /** what a hosted deployment cannot run without, by name: the database,
     the two auth settings, the mail the account's links and the orders'
     letters go by (without it a reset or a confirmation is a dead end),
-    someone to run operations, the token the nightly sweep is sent, and
-    Google's two halves agreeing */
+    someone to run operations, the token the nightly sweep is sent,
+    Stripe's webhook beside its key (without it a paid order is never
+    told it was paid), and Google's two halves agreeing */
 export const missingForHosting = (s: Services = services()) =>
   [
     s.database === "pglite" ? "DATABASE_URL" : null,
@@ -84,6 +85,9 @@ export const missingForHosting = (s: Services = services()) =>
     s.mail === "off" ? "RESEND_API_KEY" : null,
     s.ops === "off" ? "ADMIN_EMAILS" : null,
     s.cron === "off" ? "CRON_SECRET" : null,
+    s.payments.checkout === "on" && s.payments.webhook === "off"
+      ? "STRIPE_WEBHOOK_SECRET"
+      : null,
     s.auth.google === "half"
       ? "GOOGLE_CLIENT_ID+GOOGLE_CLIENT_SECRET with NEXT_PUBLIC_AUTH_GOOGLE"
       : null,

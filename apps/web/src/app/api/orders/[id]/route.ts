@@ -7,15 +7,16 @@ import { orders } from "@/lib/db/schema";
 import { canMove, type OrderStatus } from "@/lib/orders";
 import { log } from "@/lib/log";
 import { BAD_REQUEST, readJson } from "@/lib/schemas";
-import { expireSession, sessionUrl } from "@/lib/stripe";
+import { cancelOrder, NOT_MOVED } from "@/lib/order-moves";
+import { sessionUrl } from "@/lib/stripe";
 
 /**
  * One order as the server has it, for whoever can show it is theirs:
  * the signed-in owner, or anyone with its key (the link back from
  * paying carries it). GET reads where it stands, its pieces and where
  * it goes, with the payment page to go back to while it is still
- * open; PATCH cancels it while it is awaiting payment, and closes its
- * payment page with it, so it cannot be paid after all.
+ * open; PATCH cancels it while it is awaiting payment, closing its
+ * payment page first, so it cannot be paid after all (lib/order-moves).
  */
 export const runtime = "nodejs";
 
@@ -67,12 +68,12 @@ export async function PATCH(req: Request, { params }: Ctx) {
       { error: `an order ${row.status} cannot be cancelled` },
       { status: 409 },
     );
-  await getDb()
-    .db.update(orders)
-    .set({ status: parsed.data.status, updatedAt: Date.now() })
-    .where(eq(orders.id, id));
-  if (row.paymentRef && !(await expireSession(row.paymentRef)))
-    log.warn("stripe.expire.missed", { orderId: id });
+  const refused = await cancelOrder(row);
+  if (refused)
+    return NextResponse.json(
+      { error: `the order is not cancelled: ${NOT_MOVED[refused]}` },
+      { status: 409 },
+    );
   log.info("order.cancelled", { orderId: id, by: "shopper" });
   return NextResponse.json({ id, status: parsed.data.status });
 }

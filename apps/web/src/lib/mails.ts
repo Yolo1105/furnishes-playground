@@ -1,4 +1,5 @@
 import { addressLine, type Address } from "./address";
+import { adminEmails } from "./admins";
 import type { orders } from "./db/schema";
 import { log, reasonOf } from "./log";
 import { type Mail, sendMail } from "./mail";
@@ -9,8 +10,9 @@ import { SITE } from "./site";
 /**
  * The studio's mails to a buyer or a sender, each a short plain-text
  * letter in the site's voice: an order placed, paid, delivered or
- * refunded; thanks for a word to the studio; and the one note to the
- * waitlist the day ordering opens. Every one goes through sendMail, so
+ * refunded; thanks for a word to the studio; the one note to the
+ * waitlist the day ordering opens; and a word to the studio's admins
+ * when something needs a person. Every one goes through sendMail, so
  * a development server keeps them and the tests read them. A mail with
  * nowhere to go (a guest order without an email) is simply not sent.
  */
@@ -119,6 +121,13 @@ export const waitlistNoteMail = (email: string) =>
     subject: `${SITE.name}: ordering is open`,
     text: `You asked for one note the day ordering opens at ${SITE.name}. This is it.\n\nThe studio is at ${SITE.url}: plan the room at your measurements, see the pieces in it, and order the ones you want. Every price is counted from the parts, and the help page says how a piece arrives and goes together.\n\nThis is the only mail the list sends.${sign}`,
   });
+
+/** a word to each of the studio's admins (ADMIN_EMAILS) about what a
+    person has to look at: money taken for an order already cancelled */
+export const studioAlertMail = (subject: string, text: string) =>
+  Promise.all(
+    adminEmails().map((to) => send({ to, subject, text: `${text}${sign}` })),
+  );
 
 /** the letter an order's move earns, if any: paid, delivered or
     refunded; placed has its own moment, cancelled none */

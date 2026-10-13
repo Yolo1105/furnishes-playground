@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  closeSession,
   outcomeOf,
   parseEvent,
   sessionBody,
@@ -106,5 +107,45 @@ describe("an event", () => {
     expect(outcomeOf(odd)).toBe(null);
     expect(parseEvent("not json")).toBe(null);
     expect(parseEvent(JSON.stringify({ id: "x" }))).toBe(null);
+  });
+});
+
+describe("closing a payment page before its order is cancelled", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+  /** Stripe as a list of answers, one per call, in order */
+  const stripeSays = (...answers: [number, object][]) => {
+    vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_x");
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+      calls.push(`${init.method ?? "GET"} ${url}`);
+      const [status, body] = answers.shift()!;
+      return new Response(JSON.stringify(body), { status });
+    });
+    return calls;
+  };
+
+  it("is closed when Stripe expires it", async () => {
+    const calls = stripeSays([200, { status: "expired" }]);
+    expect(await closeSession("cs_1")).toBe("expired");
+    expect(calls).toEqual([
+      "POST https://api.stripe.com/v1/checkout/sessions/cs_1/expire",
+    ]);
+  });
+
+  it("says a page paid first, or one already lapsed, by reading it", async () => {
+    stripeSays([400, { error: {} }], [200, { status: "complete" }]);
+    expect(await closeSession("cs_2")).toBe("complete");
+    stripeSays([400, { error: {} }], [200, { status: "expired" }]);
+    expect(await closeSession("cs_3")).toBe("expired");
+  });
+
+  it("cannot say without an answer or a key", async () => {
+    stripeSays([500, {}], [500, {}]);
+    expect(await closeSession("cs_4")).toBeNull();
+    vi.stubEnv("STRIPE_SECRET_KEY", "");
+    expect(await closeSession("cs_5")).toBeNull();
   });
 });

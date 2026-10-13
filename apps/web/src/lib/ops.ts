@@ -1,25 +1,14 @@
 import { userOf } from "./auth";
-import { str } from "./env";
+import { isAdminEmail } from "./admins";
 import { SITE } from "./site";
 
 /**
  * Who may open the studio's operations: the accounts whose email is in
- * ADMIN_EMAILS (a comma-separated list), once the email is verified:
- * an account made with someone else's address is not them. Everyone
- * else gets what a page that does not exist gives, 404, so the area is
- * not announced.
- * Without the variable nobody is an admin, on purpose.
+ * ADMIN_EMAILS (lib/admins), once the email is verified: an account
+ * made with someone else's address is not them. Everyone else gets
+ * what a page that does not exist gives, 404, so the area is not
+ * announced. The admin behind a request, or null.
  */
-export const adminEmails = () =>
-  str("ADMIN_EMAILS")
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-
-const isAdminEmail = (email: string | null | undefined) =>
-  !!email && adminEmails().includes(email.toLowerCase());
-
-/** the admin behind a request, or null */
 export const adminOf = async (req: Request) => {
   const who = await userOf(req);
   return who?.emailVerified && isAdminEmail(who.email) ? who : null;

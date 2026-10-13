@@ -106,15 +106,24 @@ export async function createSession(
   return data?.id && data.url ? { id: data.id, url: data.url } : null;
 }
 
-/** a session closed for good, so a cancelled order cannot be paid on
-    its page after all; true when Stripe took it */
-export async function expireSession(id: string): Promise<boolean> {
-  const data = await call<{ status?: string }>(
-    "expire",
-    `/checkout/sessions/${encodeURIComponent(id)}/expire`,
-    { method: "POST" },
-  );
-  return data?.status === "expired";
+/** a session closed for good before its order is cancelled, so the
+    order cannot be paid on its page after all: "expired" when it is
+    closed (now, or it had lapsed before), "complete" when it was paid
+    first, null when Stripe could not say (no key, no answer); only
+    "expired" lets the cancel go ahead */
+export async function closeSession(
+  id: string,
+): Promise<"expired" | "complete" | null> {
+  const path = `/checkout/sessions/${encodeURIComponent(id)}`;
+  const closed = await call<{ status?: string }>("expire", `${path}/expire`, {
+    method: "POST",
+  });
+  if (closed?.status === "expired") return "expired";
+  // Stripe refuses to expire a session that is not open: read which
+  const now = await call<{ status?: string }>("read", path, {});
+  return now?.status === "expired" || now?.status === "complete"
+    ? now.status
+    : null;
 }
 
 /** the hosted page of a session still open, to send the shopper back
