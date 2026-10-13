@@ -1239,8 +1239,9 @@ about each:
    view down onto the living room (asked for earlier this session);
    the room as a photograph takes it is a view of its own, **Corner**,
    beside Walk on the cube: level at 1.15 m, 0.15 m into the corner,
-   the frame shifted 15 % down by `camera.setViewOffset` (a shift
-   lens) rather than tilted, on the window's side when that corner's
+   the frame shifted 15 % down in the projection matrix (a shift
+   lens; `camera.setViewOffset` is TRAA's jitter, so it is not used)
+   rather than tilted, on the window's side when that corner's
    foreground is clear (no piece within 1.2 m in the frame, a rug
    aside), else the next clear corner, else the clearest
    (camera-bookmarks.ts, `shotCorner`). The walk starts level.
@@ -1281,3 +1282,28 @@ ceiling and the far side come out with the probes' bounce on, whether
 the walls clip at 2.5 on a real GPU (lower the day exposure a little
 if they do), the reflections and the lamps' shadow on WebGPU, and
 `?bench=walk`'s opening numbers with the glossy node materials.
+
+**The same picture on every load.** Retaking the pictures showed the
+room lit two ways across fresh page loads (the walls warm white or a
+flat grey, the whole flat at once), so a screenshot test passed or
+failed by chance. Three races, each fixed at its cause:
+
+- A material set arriving after the bake was not in the probes'
+  pictures: the bake's stamp left the sets out on purpose (the
+  materials.ts header said "the next bake sees the set"). That
+  decision is reversed: the stamp ends with `pending` while any set is
+  on its way, so the bake runs again once they are all in.
+- The probes and the floor's picture were taken with whichever walls
+  the camera had cut at that moment (the intro moves the camera
+  through several rooms). Both now draw with every wall standing
+  (`withWallsStanding`, walls-standing.ts), so a picture of the room
+  is the same wherever the camera was.
+- The probes and the floor's reflection each saw the other in its
+  picture, in the order they happened to finish. Now the floor's
+  picture is taken first, the probes wait for it (`hold`), and the
+  floor's is taken again once with the probes lit; the stage reads
+  ready only when its picture is of the current stamp.
+
+Four fresh loads in a row now differ by under 0.7 % of the pixels
+(the antialiasing's last frames at the stage's right edge), inside
+the visual tests' 0.5 %-of-the-frame threshold for their crops.

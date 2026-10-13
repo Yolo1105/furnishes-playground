@@ -31,10 +31,10 @@ import type { Floor } from "./room-data";
  * is tinted twice (`warnIfDark` says so in development). A room
  * surface (Room3D.tsx, the walls and floors) lays the Room tab's tone
  * over the set lightly (`tintOver`, `TINT`), so `plaster` and the
- * floors carry their own colour and the tone still tells. A set's
- * arrival changes no probe stamp (Scene3D.tsx lists what the probes
- * follow: the shell, its tones and its light), so the bake is not run
- * again for it; the next bake sees the set.
+ * floors carry their own colour and the tone still tells. The probes'
+ * stamp (Scene3D.tsx) reads `pending` while any set is on its way, so
+ * the bake runs again once they are all in: the room's light never
+ * depends on which arrived first.
  */
 export type MaterialName =
   "wood" | "cloth" | "plaster" | "parquet" | "vinyl" | "tiles" | "concrete";
