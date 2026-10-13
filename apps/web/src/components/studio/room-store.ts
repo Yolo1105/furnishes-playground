@@ -575,7 +575,8 @@ export const sheetBox = (rooms: readonly RoomSpec[]) =>
  * follow): the three bedrooms in a row along the north, the parents' at
  * the west end and the children's two beside it; a hall under the
  * children's rooms that every bedroom, the common bathroom and the
- * household shelter open off, the parents' bathroom off their own room; the living and dining room across the east end, the
+ * household shelter open off, the parents' bathroom at the head of
+ * their own room; the living and dining room across the east end, the
  * hall coming into it, the entrance in its south wall by the east
  * corner; the kitchen a galley along the south, open to the dining end
  * through a glass slider, with the service yard behind it to the west.
@@ -627,7 +628,7 @@ const showcaseFlat = (): Pick<
   kitchen.openings = [
     makeOpening("window", "south", { at: 4300, width: 1000 }),
   ];
-  const master = at("master", SHOWCASE_ROOMS.master, [0, 900], 3000, 3800);
+  const master = at("master", SHOWCASE_ROOMS.master, [0, 2000], 3000, 3800);
   master.wallTone = "sage";
   master.openings = [makeOpening("window", "west", { width: 1500 })];
   // the children's rooms: one child alone, two sharing
@@ -668,15 +669,10 @@ const showcaseFlat = (): Pick<
       head: 2100,
     }),
   ];
-  // the parents' own bathroom, through a door in their room's south
-  // wall beside the wardrobe, as an HDB master bedroom has it
-  const bathroom2 = at(
-    "ensuite",
-    SHOWCASE_ROOMS.bathroom2,
-    [900, 5000],
-    2100,
-    1700,
-  );
+  // the parents' own bathroom, at the head of their room through a door
+  // in its north wall beside the wardrobe, as an HDB master bedroom has
+  // it: the suite's end of the flat, away from the family bathroom
+  const bathroom2 = at("ensuite", SHOWCASE_ROOMS.bathroom2, [0, 0], 3000, 1700);
   // a grey micro-cement floor, warm sand walls and a timber vanity:
   // the suite's own finish, not the family bathroom's white tiles
   bathroom2.floor = "Concrete";
@@ -744,7 +740,8 @@ const showcaseFlat = (): Pick<
   // the tour's round of the flat: in at the entrance, up the east side
   // past the television, back down between the sofa and the coffee
   // table, past the dining end into the kitchen and back, along the
-  // hall into each child's room and back, then into the parents' room,
+  // hall into each child's room and back, then into the parents' room
+  // past the foot of their bed to the wardrobe,
   // each doorway crossed square on and every leg clear of the furniture
   const stops: Point[] = [
     [14400, 5700],
@@ -765,8 +762,9 @@ const showcaseFlat = (): Pick<
     [5500, 2600],
     [5500, 4250],
     [3700, 4200],
-    [2200, 4200],
-    [1500, 3100],
+    [2600, 4200],
+    [2600, 3300],
+    [1300, 3300],
   ];
   return { flat, rooms, joins, stops };
 };

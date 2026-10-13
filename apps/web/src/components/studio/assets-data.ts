@@ -150,8 +150,8 @@ type Place = Partial<
  * entrance, the entry organiser for shoes on the east wall by the door. The kitchen: the counter with its
  * wall cabinets along the south wall, the fridge and the trolley on the
  * north wall clear of the slider. The parents' room: a queen bed with
- * its head on the north wall and a bedside cabinet each side, the
- * wardrobe on the south wall clear of the door. The children's rooms:
+ * its head on the south wall and a bedside cabinet each side, the
+ * wardrobe on the north wall beside the door to their bathroom. The children's rooms:
  * a bunk bed for two on the west wall with a bedside cabinet and a
  * wardrobe across the room; a single bed, a desk with its chair, a
  * wardrobe and a bedside cabinet for the one alone. The bathrooms: a
@@ -245,27 +245,30 @@ const SHOWCASE: [AssetNode, Place][] = [
   // the parents' room
   [
     decor("bed", "Queen bed", "beds"),
-    { roomId: R.master, x: 700, y: 0, width: 1600, depth: 2100 },
-  ],
-  [piece("bedside", "bedside-west"), { roomId: R.master, x: 100, y: 0 }],
-  [
-    piece("bedside", "bedside-east", undefined, "Bedside cabinet 2"),
-    { roomId: R.master, x: 2300, y: 0 },
-  ],
-  [
-    decor("wardrobe", "Wardrobe", "storage"),
     {
       roomId: R.master,
-      x: 0,
-      y: 3200,
+      x: 600,
+      y: 1700,
       rotation: 180,
-      width: 2000,
-      height: 2200,
+      width: 1600,
+      depth: 2100,
     },
   ],
   [
+    piece("bedside", "bedside-west"),
+    { roomId: R.master, x: 0, y: 3400, rotation: 180 },
+  ],
+  [
+    piece("bedside", "bedside-east", undefined, "Bedside cabinet 2"),
+    { roomId: R.master, x: 2200, y: 3400, rotation: 180 },
+  ],
+  [
+    decor("wardrobe", "Wardrobe", "storage"),
+    { roomId: R.master, x: 0, y: 0, width: 2000, height: 2200 },
+  ],
+  [
     decor("plant-2", "Potted plant 2", "decor"),
-    { roomId: R.master, x: 2500, y: 2300 },
+    { roomId: R.master, x: 0, y: 1000 },
   ],
   // bedroom 2, one child's room
   [

@@ -110,7 +110,9 @@ describe("the flat the studio opens on", () => {
     // the walls rooms share without a door stand solid
     expect(between(master, bedroom3)).toMatchObject({ open: false });
     expect(between(bedroom2, bedroom3)).toMatchObject({ open: false });
-    expect(between(bathroom, bathroom2)).toMatchObject({ open: false });
+    // the two bathrooms share no wall: the parents' is at the head of
+    // their room, the family's off the hall
+    expect(between(bathroom, bathroom2)).toBeUndefined();
     expect(between(living, bedroom2)).toMatchObject({ open: false });
     expect(flat.joins.filter((j) => j.open)).toHaveLength(9);
     // nothing but the hall, the kitchen and the entry opens off the
