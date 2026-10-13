@@ -4705,7 +4705,7 @@ test("View settings: edges, names, a floor grid, shadows and the light, kept for
   await menu.getByRole("slider", { name: "Exposure" }).fill("1.6");
   await expect(stage).toHaveAttribute("data-exposure", "1.6");
   await menu.getByRole("menuitemradio", { name: "Daylight" }).click();
-  await expect(stage).toHaveAttribute("data-exposure", "1.4");
+  await expect(stage).toHaveAttribute("data-exposure", "1");
   await menu.getByRole("menuitemradio", { name: "Evening" }).click();
   await expect(stage).toHaveAttribute("data-exposure", "1.6");
   // none of it shows on the plan, all of it comes back next time

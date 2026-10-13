@@ -1324,7 +1324,10 @@ failed by chance. Three races, each fixed at its cause:
 drew without the probes' bounce (above). With the bounce in every load,
 and the bounce pass on every hardware backend, the morning blew out on
 a real GPU (reported with a screenshot: the flat near white, no
-contrast). The day is now 1.4; the evening stays 1.3. A kept exposure
+contrast). The day is now 1.4; the evening stays 1.3. Still too
+bright on that GPU (reported again, 2026-10-13): the day is 1.0, half
+a stop under 1.4, and the same kept-defaults rule carries it to every
+visitor. A kept exposure
 remembers the defaults it was chosen against (`exposureDefaults`), and
 one chosen against others is dropped once, so the change reaches every
 visitor rather than only new ones.
