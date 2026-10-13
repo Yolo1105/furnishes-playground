@@ -4885,6 +4885,9 @@ test("the studio's operations, by their routes: not here for anyone else; an ord
   });
   // the admin's account (ADMIN_EMAILS in .env.development), made once
   const admin = "ops@example.com";
+  const mails = (to: string, subject: RegExp) => keptMail(page, to, subject);
+  const confirms = async () => (await mails(admin, /^Confirm/)).length;
+  const before = await confirms();
   const made = await page.request.post("/api/auth/sign-up/email", {
     data: { name: "Ops", email: admin, password: PASSWORD },
   });
@@ -4894,7 +4897,27 @@ test("the studio's operations, by their routes: not here for anyone else; an ord
     });
     expect(signedIn.status(), await signedIn.text()).toBe(200);
   }
-  const mails = (to: string, subject: RegExp) => keptMail(page, to, subject);
+  // the address on the list is not enough: until the account proves it
+  // owns the email, the operations are not there for it
+  const verified = async () =>
+    !!(
+      (await (await page.request.get("/api/auth/get-session")).json()) as {
+        user?: { emailVerified?: boolean };
+      } | null
+    )?.user?.emailVerified;
+  if (!(await verified())) {
+    expect((await page.request.get("/api/ops/waitlist")).status()).toBe(404);
+    if (!made.ok())
+      await page.request.post("/api/auth/send-verification-email", {
+        data: { email: admin },
+      });
+    await expect.poll(confirms).toBeGreaterThan(before);
+    const link = (await mails(admin, /^Confirm/))[0]!.text.match(
+      /https?:\/\/\S+/,
+    )![0];
+    await page.request.get(link);
+    expect(await verified()).toBe(true);
+  }
   // an order under the account, offline: the placed mail goes to it
   const stamp = Date.now().toString(36).toUpperCase();
   const first = top.find((a) => a.kind === "piece" && a.productId)!;

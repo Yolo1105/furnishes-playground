@@ -105,11 +105,18 @@ const kept = globalThis as typeof globalThis & {
 export const getAuth = () => (kept.furnishesAuth ??= make());
 export const authReady = () => getDb().ready;
 
-/** who sent a request, by their session cookie: the user's id and
-    email, or null for nobody; waits for the database first */
+/** who sent a request, by their session cookie: the user's id, email
+    and whether that email is proven theirs, or null for nobody; waits
+    for the database first */
 export const userOf = async (req: Request) => {
   await authReady();
   const s = await getAuth().api.getSession({ headers: req.headers });
-  return s ? { id: s.user.id, email: s.user.email } : null;
+  return s
+    ? {
+        id: s.user.id,
+        email: s.user.email,
+        emailVerified: s.user.emailVerified,
+      }
+    : null;
 };
 export const userIdOf = async (req: Request) => (await userOf(req))?.id ?? null;
