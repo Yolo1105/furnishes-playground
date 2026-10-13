@@ -1,4 +1,4 @@
-import { and, isNull, lt, eq } from "drizzle-orm";
+import { and, isNull, like, lt, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import {
@@ -7,6 +7,7 @@ import {
   rateLimit,
   session,
   verification,
+  waitlist,
 } from "@/lib/db/schema";
 import { str } from "@/lib/env";
 import { DAY } from "@/lib/rate-limit";
@@ -18,7 +19,9 @@ import { DAY } from "@/lib/rate-limit";
  * been in every bill it will be in, a session or a mail's link past
  * its time is no way in any more; all go. An order placed offline
  * (no payment page ever opened) and left thirty days is cancelled, so
- * the ledger does not fill with orders nobody meant. Paid orders,
+ * the ledger does not fill with orders nobody meant. The addresses the
+ * after-deploy smoke checks leave on the waitlist (smoke-…@example.com)
+ * go, so the day ordering opens nobody writes to them. Paid orders,
  * payment events, accounts and what people wrote are never touched.
  * Without the secret set the route does nothing and says so; with a
  * wrong one it says 401.
@@ -66,6 +69,10 @@ export async function GET(req: Request) {
       ),
     )
     .returning({ id: orders.id });
+  const smoke = await db
+    .delete(waitlist)
+    .where(like(waitlist.email, "smoke-%@example.com"))
+    .returning({ email: waitlist.email });
   return NextResponse.json({
     ok: true,
     at: new Date(now).toISOString(),
@@ -74,6 +81,7 @@ export async function GET(req: Request) {
       costs: costs.length,
       sessions: sessions.length,
       links: links.length,
+      smoke: smoke.length,
     },
     cancelled: stale.length,
   });

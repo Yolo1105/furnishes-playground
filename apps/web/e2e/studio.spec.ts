@@ -4902,6 +4902,7 @@ test("the studio's operations, by their routes: not here for anyone else; an ord
       costs: expect.any(Number),
       sessions: expect.any(Number),
       links: expect.any(Number),
+      smoke: expect.any(Number),
     },
     cancelled: expect.any(Number),
   });
