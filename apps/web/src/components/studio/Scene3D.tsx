@@ -1858,6 +1858,16 @@ const aroundPiece =
     return [x, y];
   };
 
+/** the view seen again after the plan: one frame brings it up to what
+    changed while it drew nothing */
+function WakeWhenSeen({ seen }: { seen: boolean }) {
+  const invalidate = useThree((s) => s.invalidate);
+  useEffect(() => {
+    if (seen) invalidate();
+  }, [seen, invalidate]);
+  return null;
+}
+
 /** the scene answers the pointer only once its picture is shown: behind
     the loading line the pieces are there but not seen, and a hover must
     not name them nor a click pick them */
@@ -2174,6 +2184,11 @@ export default function Scene3D() {
   const partsPending = usePartStore((s) => s.pending);
   const partBuilds = usePartStore((s) => s.builds);
   const walk = useStudio((s) => s.walk);
+  // the plan in the main view: the 3D view stays mounted, hidden, so it
+  // comes back at once, but draws nothing while nobody sees it (a piece
+  // dragged on the plan drew the whole room, its light and its post
+  // chain, on every move)
+  const unseen = useStudio((s) => s.view !== "3d");
   const room = useActiveRoom();
   const rooms = useRoom((s) => s.rooms);
   const joins = useRoom((s) => s.joins);
@@ -2603,7 +2618,7 @@ export default function Scene3D() {
       <Canvas
         // a frame only when something moves: the orbit, a glide, a walk, a
         // drag or a change in the room; the rest of the time the GPU rests
-        frameloop="demand"
+        frameloop={unseen ? "never" : "demand"}
         shadows={shadows ? SHADOWS : false}
         // at most one and a half device pixels per CSS pixel
         // (camera-motion.tsx)
@@ -2616,6 +2631,7 @@ export default function Scene3D() {
         onPointerMissed={putDown}
       >
         <PointerWhen on={shown} />
+        <WakeWhenSeen seen={!unseen} />
         {walk ? (
           <Walker
             w={w}
