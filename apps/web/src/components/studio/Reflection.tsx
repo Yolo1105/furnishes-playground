@@ -35,6 +35,7 @@ import { Vector3 } from "three";
 import { create } from "zustand";
 import { type StillState, stillOf, wakeAt } from "./capture";
 import { warming } from "./shader-warm";
+import { withWallsStanding } from "./walls-standing";
 
 /**
  * The room in its floor: one picture of the room taken from its
@@ -175,7 +176,9 @@ const take = (
   const background = scene.background;
   scene.background = scene.environment;
   try {
-    stillOf(scene, [floor], () => camera.update(renderer, scene));
+    stillOf(scene, [floor], () =>
+      withWallsStanding(() => camera.update(renderer, scene)),
+    );
   } finally {
     scene.background = background;
   }

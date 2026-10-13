@@ -2316,6 +2316,10 @@ export default function Scene3D() {
     scene.light,
     scene.sky,
     shadows,
+    // the photographed sets on the walls and the floor: with the fills a
+    // whisper the probes carry the room's light, and a bake taken before
+    // a set arrived lit the room another way than one taken after
+    materialsPending > 0 ? "pending" : photographed,
   ]);
   const pieces = useRef<Group>(null);
   // the sun's shadow sees the room's shadow layer too: the ceiling that
@@ -2326,8 +2330,15 @@ export default function Scene3D() {
   });
   // what the floor reflects: the shell and its light, the pieces as they
   // stand and look, and the ceiling that walking puts overhead
+  const [probeState, setProbeState] = useState<StillState>("pending");
+  // the floor's picture of the room and the probes see each other: the
+  // floor reflects (and gathers light from) its picture, and the probes'
+  // pictures show the floor. Taken in turn, never at once: the floor's
+  // picture first, the probes after it, and the floor's again once they
+  // are lit, so the room comes out the same whichever finished first
   const reflectStamp =
     probeStamp +
+    (probeState === "ready" ? "|lit" : "|unlit") +
     JSON.stringify([
       walk,
       a.shown.map((n) => {
@@ -2347,8 +2358,20 @@ export default function Scene3D() {
         ];
       }),
     ]);
-  const [probeState, setProbeState] = useState<StillState>("pending");
-  const [reflectState, setReflectState] = useState<StillState>("pending");
+  // the floor's picture as of which stamp: ready only for the one it
+  // was taken with, so a change to the stamp reads pending at once and
+  // not a render later, when the picture's own wait begins
+  const [reflected, setReflected] = useState<{
+    state: StillState;
+    of: string;
+  }>({ state: "pending", of: "" });
+  const onReflected = useEvent((state: StillState) =>
+    setReflected({ state, of: reflectStamp }),
+  );
+  const reflectState: StillState =
+    reflected.state === "ready" && reflected.of === reflectStamp
+      ? "ready"
+      : "pending";
   const [probeDone, setProbeDone] = useState({ at: 0, of: 0 });
   // whether the edges are still settling: a flag, not the count, so the
   // stage re-renders twice a settle rather than once a frame
@@ -2587,6 +2610,8 @@ export default function Scene3D() {
             // whisper, it is what lights the ceiling and the far side
             bounce={backend !== "software"}
             fine={tier === "desktop"}
+            // the floor's picture first (see reflectStamp)
+            hold={reflectState !== "ready"}
             onState={setProbeState}
             onProgress={(at, of) => setProbeDone({ at, of })}
           />
@@ -2615,7 +2640,7 @@ export default function Scene3D() {
                     walk,
                     onWalkTo: walkTo,
                     reflection: probes
-                      ? { stamp: reflectStamp, onState: setReflectState }
+                      ? { stamp: reflectStamp, onState: onReflected }
                       : null,
                     onDragging: setDragging,
                     pieces,

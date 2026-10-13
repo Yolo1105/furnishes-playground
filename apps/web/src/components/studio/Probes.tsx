@@ -13,6 +13,7 @@ import { cameraMoving } from "./camera-motion";
 import { type StillState, stillOf, wakeAt } from "./capture";
 import { devParam } from "./dev-flags";
 import { warming } from "./shader-warm";
+import { withWallsStanding } from "./walls-standing";
 import { LightProbeGrid } from "three/examples/jsm/lighting/LightProbeGrid.js";
 import { LightProbeGridNode } from "three/examples/jsm/tsl/lighting/LightProbeGridNode.js";
 import type { WebGPURenderer } from "three/webgpu";
@@ -130,6 +131,7 @@ export function Probes({
   pieces,
   bounce,
   fine = false,
+  hold = false,
   onState,
   onProgress,
 }: {
@@ -148,6 +150,9 @@ export function Probes({
   bounce: boolean;
   /** the larger pictures (the desktop tier) */
   fine?: boolean;
+  /** a bake waits while this holds (the floor's picture being taken,
+      which the probes' pictures show) */
+  hold?: boolean;
   /** whether a bake is under way or the probes are up to date */
   onState: (state: StillState) => void;
   /** how many probes of how many are baked, as the bake goes */
@@ -177,6 +182,11 @@ export function Probes({
     [],
   );
   const seen = useRef<Texture | null>(null);
+  const held = useRef(hold);
+  useEffect(() => {
+    held.current = hold;
+    if (!hold) invalidate();
+  }, [hold, invalidate]);
   // a new grid is baked from its first frame on, before anything is
   // drawn with it in the room: a material built while the grid has no
   // texture would never sample it
@@ -234,6 +244,8 @@ export function Probes({
     const j = job.current;
     // a moving camera is drawn first: the bake goes on once it stands
     if (!j) return;
+    // the floor's picture is taken first; the bake starts after it
+    if (held.current && j.at === 0 && j.pass === 0) return;
     if (cameraMoving()) {
       wakeAt(wake, performance.now() + RETRY_MS, state.invalidate);
       return;
@@ -243,16 +255,18 @@ export function Probes({
     do {
       const count = Math.min(PER_CALL, total - j.at);
       stillOf(state.scene, j.pass === 0 ? [pieces.current] : [], () =>
-        grid.bake(state.gl as unknown as WebGPURenderer, state.scene, {
-          cubemapSize: FAST
-            ? CUBEMAP.fast
-            : fine
-              ? CUBEMAP.fine
-              : CUBEMAP.plain,
-          start: j.at,
-          count,
-          pass: j.pass,
-        }),
+        withWallsStanding(() =>
+          grid.bake(state.gl as unknown as WebGPURenderer, state.scene, {
+            cubemapSize: FAST
+              ? CUBEMAP.fast
+              : fine
+                ? CUBEMAP.fine
+                : CUBEMAP.plain,
+            start: j.at,
+            count,
+            pass: j.pass,
+          }),
+        ),
       );
       j.at += count;
     } while (j.at < total && performance.now() - t0 < BAKE_MS);

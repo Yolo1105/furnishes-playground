@@ -73,6 +73,7 @@ import {
   useFloorMaterial,
   useRoomReflection,
 } from "./Reflection";
+import { layerOf, SHADOW_LAYER, wallsDown } from "./walls-standing";
 import { FLOOR_MATERIAL, repeated, tintOver, useMaterial } from "./materials";
 
 /**
@@ -128,10 +129,7 @@ const CAP_HEX = "#d6cfc6";
 /** the line round a wall's cut: a shade under the cut's own tone, so
     the cut reads as a section drawn in pencil, not boxed in black */
 const CAP_LINE_HEX = "#b3a89b";
-/** the layer the sun's shadow sees that the camera does not: a near
-    wall taken out of the picture, and the ceiling that keeps the sun
-    out of the open top */
-export const SHADOW_LAYER = 1;
+export { SHADOW_LAYER } from "./walls-standing";
 /** the plaster's sheen: eggshell, so a window's light sweeps across a
     wall as a soft gloss (the roughness map lays its grain over it) */
 const PLASTER_ROUGH = 0.72;
@@ -677,11 +675,6 @@ const wallGeometry = (
   return { geometry: g, lines };
 };
 
-/** every mesh under an object put on one layer: the camera's (0) or
-    the sun's own (SHADOW_LAYER), which the camera does not draw */
-const layerOf = (root: Object3D, layer: number) =>
-  root.traverse((o) => o.layers.set(layer));
-
 /** whether each wall run stands or is down to its foot, by its id:
     a wall whose corner neighbour is down squares its end there, so the
     mitre meant for the corner is not left standing as a slanted end */
@@ -818,7 +811,13 @@ function WallRun({
   const fullRef = useRef<Group>(null);
   const state = useRef<"inside" | "gone" | null>(null);
   const at = useMemo(() => new Vector3(), []);
-  useEffect(() => () => void wallStates.delete(id), [id]);
+  useEffect(
+    () => () => {
+      wallStates.delete(id);
+      wallsDown.delete(id);
+    },
+    [id],
+  );
   useFrame(({ camera, invalidate }) => {
     const f = fullRef.current;
     if (!f) return;
@@ -834,6 +833,8 @@ function WallRun({
     if (next !== state.current) {
       state.current = next;
       layerOf(f, next === "inside" ? 0 : SHADOW_LAYER);
+      if (next === "gone") wallsDown.set(id, f);
+      else wallsDown.delete(id);
       if (stubRef.current) stubRef.current.visible = next === "gone";
       // a frame more, for the walls beside it to square their ends
       invalidate();
