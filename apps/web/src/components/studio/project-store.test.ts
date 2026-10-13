@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { bracketPart } from "@furnishes/domain";
-import { type Snapshot, upgrade } from "./project-store";
+import {
+  type Project,
+  refreshShowcase,
+  type Snapshot,
+  upgrade,
+} from "./project-store";
 
 /**
  * A snapshot kept by an earlier studio is brought up to the current
@@ -64,5 +69,49 @@ describe("upgrade", () => {
   it("leaves a current snapshot as it is", () => {
     const snap = { ...base(), v: 2 };
     expect(upgrade(snap)).toBe(snap);
+  });
+});
+
+/**
+ * The studio's flat changing never costs a visitor their work: a
+ * showcase project given earlier and left alone is made over in place,
+ * one they changed and every one they made stay as they are, and none
+ * is noted gone.
+ */
+describe("refreshShowcase", () => {
+  const project = (id: string, at: number): Project => ({
+    id,
+    name: id,
+    at,
+    data: base(),
+  });
+  it("makes over an untouched showcase project in place, and leaves the rest", () => {
+    const kept = [
+      project("given", 100),
+      project("changed", 300),
+      project("mine", 50),
+    ];
+    const { projects, given } = refreshShowcase(kept, {
+      v: 6,
+      given: {
+        given: { arrangement: "balanced", at: 100 },
+        changed: { arrangement: "study", at: 200 },
+      },
+    });
+    expect(projects.map((p) => p.id)).toEqual(["given", "changed", "mine"]);
+    const made = projects.find((p) => p.id === "given")!;
+    expect(made.at).toBeGreaterThan(100);
+    expect(made.data).not.toBe(kept[0]!.data);
+    expect(projects.find((p) => p.id === "changed")).toBe(kept[1]);
+    expect(projects.find((p) => p.id === "mine")).toBe(kept[2]);
+    expect(Object.keys(given)).toEqual(["given"]);
+    expect(given.given!.at).toBe(made.at);
+  });
+  it("gives a browser with no record the flat beside what it kept", () => {
+    const kept = [project("mine", 50)];
+    const { projects, given } = refreshShowcase(kept, { v: 6, given: {} });
+    expect(projects.at(-1)).toBe(kept[0]);
+    expect(projects.length).toBeGreaterThan(1);
+    expect(Object.keys(given)).toHaveLength(projects.length - 1);
   });
 });

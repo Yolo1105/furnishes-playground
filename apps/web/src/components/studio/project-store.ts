@@ -40,13 +40,13 @@ const KEY = "furnishes.projects";
 const SNAPSHOT_VERSION = 2;
 const SAVE_AFTER = 600; // ms after the last change
 /** the studio's own flat, the one a new project opens on, by version:
-    raised when the studio starts over, so a browser that kept projects
-    from an earlier studio keeps none of them and opens the flat alone
-    (the projects it had are noted gone, so an account's copies go too).
-    3: the HDB 5-room flat, and nothing kept from before it; 4: the
-    same flat re-laid after a family planner (the bedrooms and
-    bathrooms off a hall, the household shelter, the service yard); 5:
-    the planner's three arrangements, a project each */
+    raised when the flat changes. A browser given an earlier one has
+    each showcase project it was given and has not touched since made
+    over to the new flat in place; a project the visitor made or
+    changed is never touched, and nothing is noted gone (an account's
+    copies stay too). 3: the HDB 5-room flat; 4: re-laid after a family
+    planner; 5: the planner's three arrangements, a project each; 6:
+    lived-in rooms; 7: the parents' bathroom at the head of their room */
 const SHOWCASE_KEY = "furnishes.showcase";
 const SHOWCASE = { version: 7, name: "HDB 5-room" };
 
@@ -152,6 +152,7 @@ const arranged = (id: (typeof ARRANGEMENTS)[number]["id"]): Snapshot => {
 };
 /** the studio's own projects: the flat in each of its arrangements,
     the first the one that opens */
+type Arrangement = (typeof ARRANGEMENTS)[number]["id"];
 const showcaseProjects = (): Project[] => {
   const at = Date.now();
   return ARRANGEMENTS.map((a, i) => ({
@@ -162,6 +163,8 @@ const showcaseProjects = (): Project[] => {
     data: arranged(a.id),
   }));
 };
+/** the arrangement each showcase project was made from, in order */
+const arrangementOrder = (): Arrangement[] => ARRANGEMENTS.map((a) => a.id);
 
 /** a fresh project's contents: the stores' defaults, Eva's slate clean */
 const fresh = (): Snapshot => {
@@ -332,14 +335,22 @@ export const showSnapshot = (data: Snapshot) => load(data);
 
 /** what the browser kept of the projects, read and written whole */
 const readKept = () => {
+  let raw: string | null = null;
   try {
-    const raw = localStorage.getItem(KEY);
+    raw = localStorage.getItem(KEY);
     return raw
       ? (JSON.parse(raw) as Partial<
           Pick<ProjectState, "projects" | "activeId" | "gone">
         >)
       : {};
   } catch {
+    // a save that will not read is set aside, never written over: the
+    // studio opens fresh and the visitor's work can still be recovered
+    try {
+      if (raw) localStorage.setItem(`${KEY}.unread-${Date.now()}`, raw);
+    } catch {
+      /* no room to set it aside */
+    }
     return {};
   }
 };
@@ -353,20 +364,74 @@ const writeKept = (
   }
 };
 
-/** which of the studio's flats this browser has been given */
-const showcaseSeen = () => {
+/** which of the studio's flats this browser has been given, and the
+    showcase projects it was given: each by id, with its arrangement and
+    the time it was given, so one the visitor has since changed is told
+    from one they have not (an earlier studio kept the version alone) */
+type ShowcaseGiven = {
+  v: number;
+  given: Record<string, { arrangement: Arrangement; at: number }>;
+};
+const showcaseGiven = (): ShowcaseGiven => {
   try {
-    return Number(localStorage.getItem(SHOWCASE_KEY)) || 0;
+    const raw = localStorage.getItem(SHOWCASE_KEY);
+    if (!raw) return { v: 0, given: {} };
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed === "number") return { v: parsed, given: {} };
+    const g = parsed as Partial<ShowcaseGiven>;
+    return { v: Number(g.v) || 0, given: g.given ?? {} };
   } catch {
-    return SHOWCASE.version;
+    return { v: SHOWCASE.version, given: {} };
   }
 };
-const showcaseShown = () => {
+const showcaseShown = (
+  given: ShowcaseGiven["given"] = showcaseGiven().given,
+) => {
   try {
-    localStorage.setItem(SHOWCASE_KEY, String(SHOWCASE.version));
+    localStorage.setItem(
+      SHOWCASE_KEY,
+      JSON.stringify({ v: SHOWCASE.version, given }),
+    );
   } catch {
     /* given again next time */
   }
+};
+/** the showcase projects as given now, noted by id */
+const givenOf = (ps: readonly Project[]): ShowcaseGiven["given"] => {
+  const order = arrangementOrder();
+  return Object.fromEntries(
+    ps.map((p, i) => [p.id, { arrangement: order[i]!, at: p.at }]),
+  );
+};
+/**
+ * The kept projects brought to the current flat without losing work:
+ * each showcase project given earlier and untouched since is made over
+ * in place (its id kept, so an account's copy is updated, not
+ * duplicated); one the visitor changed, and every project they made,
+ * stays as it is. A browser with no record of what it was given (an
+ * earlier studio) keeps all it had and is given the flat beside it.
+ */
+export const refreshShowcase = (
+  kept: readonly Project[],
+  was: ShowcaseGiven,
+): { projects: Project[]; given: ShowcaseGiven["given"] } => {
+  const at = Date.now();
+  const given: ShowcaseGiven["given"] = {};
+  let refreshed = 0;
+  const projects = kept.map((p) => {
+    const g = was.given[p.id];
+    if (!g || g.at !== p.at) return p;
+    refreshed += 1;
+    const made = { ...p, at, data: arranged(g.arrangement) };
+    given[p.id] = { arrangement: g.arrangement, at };
+    return made;
+  });
+  if (refreshed > 0) return { projects, given };
+  const fresh = showcaseProjects();
+  return {
+    projects: [...fresh, ...projects],
+    given: { ...given, ...givenOf(fresh) },
+  };
 };
 
 /** a shared room taken in as a new project, kept and made the open
@@ -374,21 +439,24 @@ const showcaseShown = () => {
 export const importProject = (name: string, data: Snapshot) => {
   const kept = readKept();
   const at = Date.now();
-  // a browser the studio has not started over in yet starts over now,
-  // so the start-over on arrival does not take the shared room with
-  // what an earlier studio kept
-  const over = showcaseSeen() < SHOWCASE.version;
-  const earlier =
-    kept.projects?.length && !over ? kept.projects : showcaseProjects();
-  const gone = {
-    ...(kept.gone ?? {}),
-    ...(over
-      ? Object.fromEntries((kept.projects ?? []).map((k) => [k.id, at]))
-      : {}),
-  };
+  // the flat brought up to date first, as arrival would, so arrival
+  // finds nothing left to do and the shared room stays the open one
+  const was = showcaseGiven();
+  const { projects: earlier, given } = !kept.projects?.length
+    ? (() => {
+        const ps = showcaseProjects();
+        return { projects: ps, given: givenOf(ps) };
+      })()
+    : was.v < SHOWCASE.version
+      ? refreshShowcase(kept.projects, was)
+      : { projects: kept.projects, given: was.given };
   const p: Project = { id: newId("p"), name: `${name} (shared)`, at, data };
-  writeKept({ projects: [...earlier, p], activeId: p.id, gone });
-  showcaseShown();
+  writeKept({
+    projects: [...earlier, p],
+    activeId: p.id,
+    gone: kept.gone ?? {},
+  });
+  showcaseShown(given);
   return p.id;
 };
 
@@ -475,19 +543,28 @@ export const useProjects = create<ProjectState>((set, get) => ({
 export function useProjectSync(wanted: string | null = null) {
   useEffect(() => {
     const kept = readKept();
-    if (!kept.projects?.length || showcaseSeen() < SHOWCASE.version) {
-      // a first visit, or the studio started over: the flat opens in
-      // each of its arrangements, a project each, and what an earlier
-      // studio kept goes, noted gone
-      const at = Date.now();
+    const was = showcaseGiven();
+    if (!kept.projects?.length) {
+      // a first visit: the flat opens in each of its arrangements, a
+      // project each
       const ps = showcaseProjects();
-      const gone = {
-        ...(kept.gone ?? {}),
-        ...Object.fromEntries((kept.projects ?? []).map((k) => [k.id, at])),
-      };
+      const gone = kept.gone ?? {};
       useProjects.setState({ projects: ps, activeId: ps[0]!.id, gone });
       load(ps[0]!.data!);
       writeKept({ projects: ps, activeId: ps[0]!.id, gone });
+      showcaseShown(givenOf(ps));
+    } else if (was.v < SHOWCASE.version) {
+      // the flat changed since: brought over without losing a thing
+      const { projects: ps, given } = refreshShowcase(kept.projects, was);
+      const gone = kept.gone ?? {};
+      const activeId = ps.some((p) => p.id === kept.activeId)
+        ? kept.activeId!
+        : ps[0]!.id;
+      useProjects.setState({ projects: ps, activeId, gone });
+      const open = ps.find((p) => p.id === activeId);
+      if (open?.data) load(open.data);
+      writeKept({ projects: ps, activeId, gone });
+      showcaseShown(given);
     } else {
       useProjects.setState({
         projects: kept.projects,
@@ -501,7 +578,6 @@ export function useProjectSync(wanted: string | null = null) {
         .projects.find((p) => p.id === useProjects.getState().activeId);
       if (open?.data) load(open.data);
     }
-    showcaseShown();
     if (wanted) useProjects.getState().open(wanted);
     let timer: ReturnType<typeof setTimeout> | undefined;
     const now = () => {
