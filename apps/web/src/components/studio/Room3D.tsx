@@ -391,13 +391,18 @@ export const sideOf = (room: string, other: string) => {
     beyond answers to whichever of the two rooms is being worked on (its
     near wall goes, its far wall stands), and stands when neither is.
     Read each frame from where the camera stands against the thing's
-    inward normal */
+    inward normal, measured from the thing itself (its position is this
+    group's): measured from the room's middle, a window vanished once the
+    walker passed the middle towards it */
 function Inside({
   normal,
   shared,
+  position,
   children,
 }: {
   normal: readonly [number, number];
+  /** where the thing stands in the room */
+  position: readonly [number, number, number];
   /** a doorway shared with the room beyond: this room and that one */
   shared?: { room: string; other: string } | null | undefined;
   children: React.ReactNode;
@@ -418,7 +423,11 @@ function Inside({
       (camera.position.z - at.z) * normal[1];
     g.visible = side * dot > 0;
   });
-  return <group ref={group}>{children}</group>;
+  return (
+    <group ref={group} position={position as [number, number, number]}>
+      {children}
+    </group>
+  );
 }
 
 /** an edge's wall as the runs this room builds: the whole edge, less
@@ -1146,8 +1155,9 @@ function Window({ r, o }: { r: RoomShape; o: Opening }) {
     <Inside
       normal={inward(o.wall)}
       shared={other ? { room: r.id, other } : null}
+      position={[x, 0, z]}
     >
-      <group position={[x, 0, z]} rotation={[0, yaw, 0]} userData={WINDOW_NAME}>
+      <group rotation={[0, yaw, 0]} userData={WINDOW_NAME}>
         <Outside
           evening={r.evening}
           sun={r.sun}
@@ -1277,8 +1287,9 @@ function Door({ r, o }: { r: RoomShape; o: Opening }) {
     <Inside
       normal={inward(o.wall)}
       shared={other ? { room: r.id, other } : null}
+      position={[x, 0, z]}
     >
-      <group position={[x, 0, z]} rotation={[0, yaw, 0]} userData={DOOR_NAME}>
+      <group rotation={[0, yaw, 0]} userData={DOOR_NAME}>
         {leaves.map((l, i) => (
           <DoorLeaf
             key={i}
