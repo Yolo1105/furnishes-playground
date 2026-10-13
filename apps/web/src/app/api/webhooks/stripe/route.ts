@@ -19,9 +19,9 @@ import {
  * raw body, within five minutes. Then a replay of an event already done
  * with does nothing twice. Then, and only then, the order moved on,
  * from the state it was read in: paid, cancelled when the page lapsed,
- * refunded; and only once it has, the event's id kept as done. The order is found by its
- * own number, which the session and its intent carry, or by the
- * session or intent it was opened with. A move the order's state does
+ * refunded; and only once it has, the event's id kept as done. The
+ * order is found by its own number, which the session and its intent
+ * carry, or by the session or intent it was opened with. A move the order's state does
  * not allow is left alone and said in the log, as is an event no
  * order answers to; money taken for an order already cancelled is an
  * error, and the studio's admins are written to. The buyer is written
