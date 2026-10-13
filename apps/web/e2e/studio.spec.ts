@@ -585,7 +585,10 @@ test("Eva's History lists conversations without an input box", async ({
     .click();
   const menu = page.getByRole("menu", { name: /actions$/ });
   await expect(menu.getByRole("menuitem")).toHaveText(["Rename", "Delete"]);
+  // Delete asks once more, in place, before the conversation goes
   await menu.getByRole("menuitem", { name: "Delete" }).click();
+  await expect(rows).toHaveCount(2);
+  await menu.getByRole("menuitem", { name: "Delete for good" }).click();
   await expect(rows).toHaveCount(1);
   // opening one goes back to the conversation
   await rows.first().locator(".eva-conv-open").click();
@@ -2527,6 +2530,8 @@ test("projects: a new one starts clean, the first keeps its room, rename and del
     await expect(name).toHaveText(other);
     await page.getByRole("button", { name: /^Project, / }).click();
     await page.getByRole("menuitem", { name: "Delete" }).click();
+    await expect(name).toHaveText(other);
+    await page.getByRole("menuitem", { name: "Delete for good" }).click();
     await expect(name).not.toHaveText(other);
     await page.getByRole("button", { name: /^Project, / }).click();
   }

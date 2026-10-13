@@ -9,8 +9,10 @@ import { useDismiss } from "./useDismiss";
 /**
  * "Furnishes / First project" at the head of the project panel: the
  * name opens a menu of every project (the open one marked), with New
- * project, Rename and Delete below. Renaming happens in place; the last
- * project cannot be deleted. Switching keeps the open project first.
+ * project, Rename and Delete below. Renaming happens in place; Delete
+ * asks once more in place (Delete for good) before the project goes,
+ * and the last project cannot be deleted. Switching keeps the open
+ * project first.
  */
 /** the brand's words, the last one marked in the accent: "Furnishes
     Studio" is the house, in ink, and its studio, in orange */
@@ -24,10 +26,15 @@ export function ProjectSwitcher() {
   const activeId = useProjects((s) => s.activeId);
   const { open, create, rename, remove } = useProjects.getState();
   const [menu, setMenu] = useState(false);
+  /** Delete was pressed once: the row now asks for the second press */
+  const [ending, setEnding] = useState(false);
   const [draft, setDraft] = useState<string | null>(null);
   const wrap = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
-  useDismiss(wrap, menu, () => setMenu(false));
+  useDismiss(wrap, menu, () => {
+    setMenu(false);
+    setEnding(false);
+  });
   useEffect(() => {
     if (draft !== null) input.current?.select();
   }, [draft]);
@@ -38,6 +45,7 @@ export function ProjectSwitcher() {
   };
   const pick = (go: () => void) => {
     setMenu(false);
+    setEnding(false);
     go();
   };
   return (
@@ -126,9 +134,11 @@ export function ProjectSwitcher() {
             className="shell-menu-row"
             disabled={projects.length <= 1}
             title={projects.length <= 1 ? "The last project stays" : undefined}
-            onClick={() => pick(() => remove(active.id))}
+            onClick={() =>
+              ending ? pick(() => remove(active.id)) : setEnding(true)
+            }
           >
-            <TrashIcon /> Delete
+            <TrashIcon /> {ending ? "Delete for good" : "Delete"}
           </button>
         </div>
       )}

@@ -540,10 +540,15 @@ export const useEva = create<EvaState>((set, get) => ({
   setExploration: (exploration) => set({ exploration }),
   selectConversation: (id) => set({ activeId: id }),
   deleteConversation: (id) =>
-    set((s) => ({
-      conversations: s.conversations.filter((c) => c.id !== id),
-      activeId: s.activeId === id ? null : s.activeId,
-    })),
+    set((s) => {
+      // its thread goes with it
+      const { [id]: _gone, ...messages } = s.messages;
+      return {
+        conversations: s.conversations.filter((c) => c.id !== id),
+        messages,
+        activeId: s.activeId === id ? null : s.activeId,
+      };
+    }),
   renameConversation: (id, title) =>
     set((s) => ({
       conversations: s.conversations.map((c) =>

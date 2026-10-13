@@ -28,8 +28,14 @@ export function HistoryTab({ onOpen }: { onOpen?: () => void }) {
     if (editing) input.current?.select();
   }, [editing]);
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  /** Delete was pressed once on the open menu's conversation */
+  const [ending, setEnding] = useState(false);
   const menuWrap = useRef<HTMLSpanElement>(null);
-  useDismiss(menuWrap, menuFor !== null, () => setMenuFor(null));
+  const closeMenu = () => {
+    setMenuFor(null);
+    setEnding(false);
+  };
+  useDismiss(menuWrap, menuFor !== null, closeMenu);
 
   const sorted = [...conversations].sort((a, b) => b.at - a.at);
   const groups: { label: string; rows: Conversation[] }[] = [];
@@ -110,9 +116,10 @@ export function HistoryTab({ onOpen }: { onOpen?: () => void }) {
                     aria-label={`More for ${c.title}`}
                     aria-haspopup="menu"
                     aria-expanded={menuFor === c.id}
-                    onClick={() =>
-                      setMenuFor((cur) => (cur === c.id ? null : c.id))
-                    }
+                    onClick={() => {
+                      setEnding(false);
+                      setMenuFor((cur) => (cur === c.id ? null : c.id));
+                    }}
                   >
                     <MoreIcon size={14} />
                   </button>
@@ -127,7 +134,7 @@ export function HistoryTab({ onOpen }: { onOpen?: () => void }) {
                         role="menuitem"
                         className="shell-menu-row"
                         onClick={() => {
-                          setMenuFor(null);
+                          closeMenu();
                           setEditing({ id: c.id, draft: c.title });
                         }}
                       >
@@ -139,11 +146,12 @@ export function HistoryTab({ onOpen }: { onOpen?: () => void }) {
                         role="menuitem"
                         className="shell-menu-row"
                         onClick={() => {
-                          setMenuFor(null);
+                          if (!ending) return setEnding(true);
+                          closeMenu();
                           remove(c.id);
                         }}
                       >
-                        <TrashIcon /> Delete
+                        <TrashIcon /> {ending ? "Delete for good" : "Delete"}
                       </button>
                     </div>
                   )}
