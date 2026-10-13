@@ -36,7 +36,8 @@ room layouts), `pnpm e2e` (the studio's suite, the touch suite on a
 tablet and a phone, and five fixed views of the room compared with the
 pictures kept under `apps/web/e2e/visual.spec.ts-snapshots`, which
 `--update-snapshots` renews once a change in the look is meant),
-`pnpm build`. CI runs the same.
+`pnpm build`. CI runs the same, the kept pictures nightly
+(`.github/workflows/visual.yml`).
 
 Notes:
 
@@ -309,8 +310,8 @@ database and its migrations, mail, the model, pictures, payments and
 its webhook, Google, the operations area and the nightly sweep) and
 what a hosted deployment is still missing,
 never a secret, and lists the shares in force; `.github/workflows/ci.yml`
-runs the format, lint, types, unit tests, build and the end-to-end
-suite on every push, and `pnpm smoke <https://site>` runs the checks
+runs the format, lint, types, unit tests, build, the smoke checks
+against that build and the end-to-end suite on every push, and `pnpm smoke <https://site>` runs the checks
 after a deploy against the live site. The studio's own operations are
 routes for the accounts named in `ADMIN_EMAILS` (404 to anyone else;
 there is no operations page): orders moved on (paid another way,

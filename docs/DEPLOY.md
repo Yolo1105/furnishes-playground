@@ -156,7 +156,12 @@ What to try by hand after the first deploy:
 
 ## 5. Continuous integration
 
-`.github/workflows/ci.yml` runs on every push and pull request: the
-format, the lint, the types, the unit tests of both packages, the
-production build, and the studio's end-to-end suite in Chromium against
-a development server with PGlite. Nothing in CI needs a key.
+`.github/workflows/ci.yml` runs on every push and pull request, on a
+pinned `ubuntu-24.04`: the format, the lint, the types, the unit tests
+of both packages, the production build with its first-load budget, the
+after-deploy smoke checks against that build served locally, and the
+studio's end-to-end suite in Chromium against a development server with
+PGlite (the desktop suite in three shards, the touch suite on its own).
+`.github/workflows/visual.yml` compares the six kept pictures nightly
+and on demand, in Playwright's own container at the pinned version, so
+a runner's software GPU never blocks a push. Nothing in CI needs a key.

@@ -6,9 +6,10 @@
  *
  * Reads /api/health (the database reached and migrated, nothing a
  * hosted deployment still lacks), opens the studio, the old addresses
- * and the readings, reads the security headers, robots and the sitemap, joins the
- * waitlist once (and sees the same address refused the second time),
- * and asks Eva one thing to see which brain answers; sees the
+ * and the readings, reads the security headers, robots and the
+ * sitemap, joins the waitlist once (and sees the same address refused
+ * the second time), and asks Eva one thing to see which brain answers;
+ * sees the
  * operations area kept from a guest and the nightly sweep kept from a
  * caller without the token; and that the money paths refuse what they
  * should: an order that cannot be read, an order nobody holds the key
