@@ -5518,3 +5518,41 @@ test("a GPU that never answers still gets a room, drawn on WebGL", async ({
     ),
   ).toBe("adapter");
 });
+
+test("a piece dragged on the plan stays the one picked where it lands, and the plan stays in reach", async ({
+  page,
+}) => {
+  await page.goto("/rounded");
+  await arrived(page);
+  await page.keyboard.press("2");
+  const stage = page.locator(".shell-stage");
+  const sofa = stage.locator('.stage-piece-body[aria-label="Sofa"]');
+  const rug = stage.locator('.stage-piece-body[aria-label="Rug"]');
+  await sofa.click();
+  await expect(sofa).toHaveAttribute("aria-pressed", "true");
+  // dropped onto the rug, the sofa is still the piece in hand: the click
+  // the browser sends after a drag is the drag's end, not a pick of
+  // what lies under it
+  const from = (await sofa.boundingBox())!;
+  const to = (await rug.boundingBox())!;
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, {
+    steps: 8,
+  });
+  await page.mouse.up();
+  await expect(sofa).toHaveAttribute("aria-pressed", "true");
+  await expect(rug).toHaveAttribute("aria-pressed", "false");
+  await page.keyboard.press("Control+z");
+  // the sheet can be moved no further than its edge to the stage's middle
+  const sheet = page.locator(".shell-stage .plan");
+  await page.keyboard.press("0");
+  const box = (await page.locator(".shell-stage .plan-svg").boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  for (let i = 0; i < 20; i++) await page.mouse.wheel(0, 400);
+  const pan = await sheet.evaluate(
+    (el) => new DOMMatrix(getComputedStyle(el).transform).f,
+  );
+  const half = await page.evaluate(() => window.innerHeight / 2);
+  expect(Math.abs(pan)).toBeLessThanOrEqual(half + 1);
+});

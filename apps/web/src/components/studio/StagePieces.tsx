@@ -102,7 +102,11 @@ export function StagePieces({
     press.current = null;
   };
 
+  // a drag just let go of: the click the browser sends after it is the
+  // drag's end, not a pick (the drag itself is gone by then)
+  const dropped = useRef(false);
   const onDown = (e: PointerEvent<HTMLButtonElement>, n: AssetNode) => {
+    dropped.current = false;
     const p = a.props.get(n.id)!;
     if (e.pointerType === "touch" && !a.focus && !compact) {
       endPress();
@@ -188,13 +192,18 @@ export function StagePieces({
     drag.current = null;
     flushFrame();
     if (d.moved) {
+      dropped.current = true;
       useScene.getState().dragEnd();
       setDragging(null);
     }
   };
   const onClick = (n: AssetNode, x: number, y: number) => {
-    // the click after a drag is the drag's end, not a pick
-    if (drag.current?.moved) return;
+    // the click after a drag is the drag's end, not a pick: the piece
+    // dragged stays the one picked, whatever lies under where it landed
+    if (dropped.current) {
+      dropped.current = false;
+      return;
+    }
     // a click on the piece already picked reaches the one under it at
     // that spot: a rug under a table under a sofa, each in turn
     if (n.id === selectedId && typeof document !== "undefined") {
@@ -267,6 +276,7 @@ export function StagePieces({
             data-locked={p.locked}
             data-clash={a.clashes.has(n.id)}
             data-turn={p.rotation}
+            data-dragging={dragging === n.id}
             style={style}
           >
             <button

@@ -193,6 +193,7 @@ export function StudioShell({
       ref={shell}
       className="shell"
       data-corners={corners}
+      data-view={view}
       data-left={leftCollapsed ? "collapsed" : "open"}
       data-ui={uiHidden ? "hidden" : "shown"}
       {...(open ? { "data-open": open } : {})}

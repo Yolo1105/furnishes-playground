@@ -1579,3 +1579,9 @@ body > .shell-menu {
 .add-tile-keep {
   right: 28px;
 }
+
+/* over the plan the glass is near solid: the drawing's fine lines, blurred
+   through a panel, read as shapes tangled with the panel's own */
+.shell[data-view="2d"] .glass {
+  background: var(--glass-float);
+}

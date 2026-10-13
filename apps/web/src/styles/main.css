@@ -1768,6 +1768,17 @@
 }
 .stage-pieces .stage-piece-body {
   touch-action: none;
+  /* a piece on the plan is taken in the hand: it reads as one to drag */
+  cursor: grab;
+}
+.stage-pieces .stage-piece[data-dragging="true"] .stage-piece-body {
+  cursor: grabbing;
+  box-shadow:
+    0 0 0 2px rgb(from var(--color-accent) r g b / 0.25),
+    0 12px 22px -10px rgb(from var(--color-shadow) r g b / 0.5);
+}
+.stage-pieces .stage-piece[data-locked="true"] .stage-piece-body {
+  cursor: default;
 }
 .stage-piece-tag {
   position: absolute;

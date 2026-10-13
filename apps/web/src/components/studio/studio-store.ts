@@ -76,6 +76,22 @@ export const minRenderMs = () => {
   return Number.isFinite(n) ? n : 1200;
 };
 
+/** the plan's pan held so the sheet never leaves the stage: its edge
+    comes as far as the stage's middle and no further (the sheet fills
+    the window's size at zoom 1, so the window bounds it whatever the
+    rails take), px */
+const heldOn = (pan: { x: number; y: number }, zoom: number) => {
+  if (typeof window === "undefined") return pan;
+  const hold = (v: number, size: number) => {
+    const most = (size * zoom) / 2;
+    return Math.max(-most, Math.min(most, v));
+  };
+  return {
+    x: hold(pan.x, window.innerWidth),
+    y: hold(pan.y, window.innerHeight),
+  };
+};
+
 /** the exposure's range: a dim room to a bright one */
 export const EXPOSURE = { min: 0.6, max: 3, step: 0.05 };
 /** the exposure of the look's own light */
@@ -474,14 +490,19 @@ export const useStudio = create<StudioState>((set, get) => ({
       const k = zoom / s.planZoom;
       return {
         planZoom: zoom,
-        planPan: {
-          x: about.x - (about.x - s.planPan.x) * k,
-          y: about.y - (about.y - s.planPan.y) * k,
-        },
+        planPan: heldOn(
+          {
+            x: about.x - (about.x - s.planPan.x) * k,
+            y: about.y - (about.y - s.planPan.y) * k,
+          },
+          zoom,
+        ),
       };
     }),
   panPlan: (dx, dy) =>
-    set((s) => ({ planPan: { x: s.planPan.x + dx, y: s.planPan.y + dy } })),
+    set((s) => ({
+      planPan: heldOn({ x: s.planPan.x + dx, y: s.planPan.y + dy }, s.planZoom),
+    })),
   fitPlan: () => set({ planZoom: 1, planPan: { x: 0, y: 0 } }),
   setWheelMode: (wheelMode) => set({ wheelMode }),
   setMagnet: (magnet) => set({ magnet }),
