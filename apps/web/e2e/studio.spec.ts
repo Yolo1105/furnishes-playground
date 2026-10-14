@@ -107,6 +107,21 @@ const lampRows = assetGroups
     0,
   );
 
+/** the room built and drawn, its shaders made: on the sandbox's software
+    renderer the page stops answering for seconds at a time while they
+    are made (about 19 s in all since the flat had its windows, doors and
+    lived-in touches, measured), so a test that times a hover or a
+    status line waits for it first */
+const built = async (page: Page) => {
+  const stage = page.locator(".shell-stage .stage-3d");
+  await expect(stage).toHaveAttribute("data-drawn", "true", {
+    timeout: 120_000,
+  });
+  await expect(stage).toHaveAttribute("data-settled", "true", {
+    timeout: 120_000,
+  });
+};
+
 /** the panels slide in on arrival; geometry is measured once they stand */
 const arrived = (page: Page) =>
   page.waitForFunction(() => {
@@ -1165,6 +1180,7 @@ test("the shelf's Saved cards go to the Cart from a hover button", async ({
   page,
 }) => {
   await page.goto("/rounded");
+  await built(page);
   const shelf = page.locator(".main-shelf");
   const cart = shelf.getByRole("tab", { name: /Cart/ });
   const piece = top.find((a) => a.kind === "piece")!;
@@ -4671,9 +4687,10 @@ test("in 3D a picked piece carries its bar: its name, a turn, To wall, Duplicate
 test("View settings: edges, names, a floor grid, shadows and the light, kept for next time", async ({
   page,
 }) => {
-  // the Full picture bakes the probes and takes the floor's picture
-  // on the software GPU, most of a minute each on a busy machine
-  test.setTimeout(240_000);
+  // the Full picture bakes the probes and takes the floor's picture on
+  // the software GPU: its shaders most of a minute, the bake two and a
+  // half (measured), the floor's picture after
+  test.setTimeout(420_000);
   await page.goto("/rounded");
   const stage = page.locator(".shell-stage .stage-3d");
   // the flat's first pictures drawn and at rest: a software renderer
@@ -4721,10 +4738,11 @@ test("View settings: edges, names, a floor grid, shadows and the light, kept for
   // the room's own bounce light, from probes baked over the shell, and
   // the room in its floor, from a picture taken from the middle; the
   // bake waits while the room's shaders are built for the new tier (on
-  // the software renderer, a quarter of a minute) and then takes most of
-  // a minute, two probes a frame
+  // the software renderer, most of a minute) and then takes two and a
+  // half minutes, two probes a frame (148 s measured, the windows' light
+  // in every probe's picture)
   await expect(stage).toHaveAttribute("data-probes", "ready", {
-    timeout: 120_000,
+    timeout: 240_000,
   });
   await expect(stage).toHaveAttribute("data-reflection", "ready", {
     timeout: 60_000,
@@ -5077,6 +5095,7 @@ test("an account: created with an email and a password, signed out, signed in ag
   page,
 }) => {
   await page.goto("/rounded");
+  await built(page);
   const bar = page.locator(".user-bar");
   await expect(bar).toContainText("Guest");
   const gear = page.getByRole("button", { name: "Settings", exact: true });
