@@ -123,7 +123,7 @@ import { recordFrame, recorder } from "./bench";
 import { devFlag, devParam } from "./dev-flags";
 import { settlingPCF } from "./shadow-filter";
 import { SUN_TIMES, sunDirection } from "./sun-position";
-import { type LitRoom, panesOf } from "./window-light";
+import { type LitRoom, lightCount, panesOf } from "./window-light";
 import { WindowLights } from "./WindowLights";
 import { balanceGain, EVENING_LIGHT, LAMP_BULB } from "./white-balance";
 import { propsOf, useScene } from "./scene-store";
@@ -2419,22 +2419,22 @@ export default function Scene3D() {
     ],
     [centre, sunDir],
   );
-  // the windows' soft light: the active room's first, then the nearest
-  const panes = useMemo(
+  // the windows' soft light: the active room's own, as many lights as
+  // the room with the most windows wants
+  const litRooms = useMemo(
     () =>
-      panesOf(
-        rooms.map((rm): LitRoom => ({
-          id: rm.id,
-          pos: rm.pos,
-          W: rm.width,
-          D: rm.depth,
-          outline: footprintOf(rm),
-          openings: openingsOf({ joins }, rm),
-        })),
-        room.id,
-      ),
-    [rooms, joins, room.id],
+      rooms.map((rm): LitRoom => ({
+        id: rm.id,
+        pos: rm.pos,
+        W: rm.width,
+        D: rm.depth,
+        outline: footprintOf(rm),
+        openings: openingsOf({ joins }, rm),
+      })),
+    [rooms, joins],
   );
+  const panes = useMemo(() => panesOf(litRooms, room.id), [litRooms, room.id]);
+  const windowLights = useMemo(() => lightCount(litRooms), [litRooms]);
   // the corner the room is photographed from, and walked in from: kept
   // by its value, so a render that rebuilds the openings does not put
   // the camera back in its corner
@@ -2851,7 +2851,11 @@ export default function Scene3D() {
         />
         <RoomLight evening={scene.light === "evening"} sky={scene.sky} />
         {!devFlag("nowindowlights") && (
-          <WindowLights panes={panes} evening={scene.light === "evening"} />
+          <WindowLights
+            panes={panes}
+            count={windowLights}
+            evening={scene.light === "evening"}
+          />
         )}
         <CeilingLight
           x={ceilingX}

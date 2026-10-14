@@ -58,16 +58,19 @@ function WindowLight({
 
 export function WindowLights({
   panes,
+  count,
   evening,
 }: {
   panes: readonly Pane[];
+  /** the lights the shaders carry (window-light.ts's lightCount) */
+  count: number;
   evening: boolean;
 }) {
   withTables();
   const look = evening ? WINDOW_LIGHT.evening : WINDOW_LIGHT.day;
   return (
     <>
-      {Array.from({ length: WINDOW_LIGHT.max }, (_, i) => (
+      {Array.from({ length: count }, (_, i) => (
         <WindowLight
           key={i}
           pane={panes[i]}

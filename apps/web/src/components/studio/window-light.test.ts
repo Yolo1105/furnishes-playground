@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { Opening } from "./room-data";
-import { type LitRoom, panesOf, WINDOW_LIGHT } from "./window-light";
+import {
+  type LitRoom,
+  lightCount,
+  panesOf,
+  WINDOW_LIGHT,
+} from "./window-light";
 
 const win = (id: string, wall: Opening["wall"], width = 1500): Opening =>
   ({
@@ -59,5 +64,27 @@ describe("the windows' light", () => {
     expect(panes[1]!.facing).toEqual([0, -1]);
     // a room with none has none
     expect(panesOf([room("h", [0, 0], [])], "h")).toEqual([]);
+  });
+
+  it("carries as many lights as the room with the most windows, one to six", () => {
+    // the flat's busiest room has three: every shader carries three
+    expect(
+      lightCount([
+        room("a", [0, 0], [win("a1", "north")]),
+        room(
+          "b",
+          [4000, 0],
+          [win("b1", "north"), win("b2", "east"), win("b3", "south")],
+        ),
+      ]),
+    ).toBe(3);
+    // a flat without a window keeps one, so a window drawn in later
+    // does not change every shader at once
+    expect(lightCount([room("h", [0, 0], [])])).toBe(1);
+    // never more than the cap
+    const many = Array.from({ length: 9 }, (_, i) =>
+      win(`w${i}`, "north", 300),
+    );
+    expect(lightCount([room("m", [0, 0], many)])).toBe(WINDOW_LIGHT.max);
   });
 });

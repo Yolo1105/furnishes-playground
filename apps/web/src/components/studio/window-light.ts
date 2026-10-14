@@ -17,9 +17,13 @@ import { toMetres } from "@furnishes/scene";
  * casts no shadow, so a window of the next room lit the active room
  * through the wall between them (in the hall, a speckle of highlights
  * on the floor's grain from windows it does not have). The other
- * rooms' windows are lit by their probes. The count is always `max` (a
- * light not in use stands dark), so moving between rooms builds no
- * shader again.
+ * rooms' windows are lit by their probes. The count is the most windows
+ * any room of the flat has (`lightCount`; a light not in use stands
+ * dark), so moving between rooms builds no shader again, and no shader
+ * carries lights no room can use: each one is an area light's whole
+ * evaluation in every lit surface's shader (six of them, when the
+ * count was always `max`, more than doubled the time a software
+ * renderer took to build the room's shaders).
  */
 export const WINDOW_LIGHT = {
   /** the sky's radiance through the glass, and its colour */
@@ -62,6 +66,14 @@ export type Pane = {
   width: number;
   height: number;
 };
+
+/** how many window lights the flat's shaders carry: the most windows any
+    one of its rooms has, at least one and at most WINDOW_LIGHT.max */
+export const lightCount = (rooms: readonly LitRoom[]): number =>
+  Math.min(
+    WINDOW_LIGHT.max,
+    Math.max(1, ...rooms.map((r) => r.openings.filter(isWindow).length)),
+  );
 
 /** the windows' lights, the active room's own, at most WINDOW_LIGHT.max */
 export const panesOf = (
