@@ -4761,11 +4761,19 @@ test("View settings: edges, names, a floor grid, shadows and the light, kept for
   // its lamps (it was 1.3, which lifted the corners to a dusk grey)
   await expect(stage).toHaveAttribute("data-exposure", "1");
   await menu.getByRole("slider", { name: "Exposure" }).fill("1.6");
-  await expect(stage).toHaveAttribute("data-exposure", "1.6");
+  // (the evening's and the sunset's shaders are made just before: on a
+  // software renderer the page answers the slider seconds late)
+  await expect(stage).toHaveAttribute("data-exposure", "1.6", {
+    timeout: 30_000,
+  });
   await menu.getByRole("menuitemradio", { name: "Daylight" }).click();
-  await expect(stage).toHaveAttribute("data-exposure", "1");
+  await expect(stage).toHaveAttribute("data-exposure", "1", {
+    timeout: 30_000,
+  });
   await menu.getByRole("menuitemradio", { name: "Evening" }).click();
-  await expect(stage).toHaveAttribute("data-exposure", "1.6");
+  await expect(stage).toHaveAttribute("data-exposure", "1.6", {
+    timeout: 30_000,
+  });
   // none of it shows on the plan, all of it comes back next time
   await page.keyboard.press("Escape");
   await page.keyboard.press("2");
