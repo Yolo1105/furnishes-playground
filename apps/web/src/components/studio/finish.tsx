@@ -1,16 +1,40 @@
 "use client";
 
-import { filteredRoughness } from "./spec-aa";
-import { useEffect, useMemo } from "react";
-import { Color, type Texture, Vector2, type Vector3Tuple } from "three";
-import { MeshPhysicalNodeMaterial, type Node } from "three/webgpu";
-import { plausible, toned, toneOf } from "./albedo";
+import { filtered } from "./spec-aa";
+import { useEffect, useMemo, useRef } from "react";
+import {
+  Color,
+  type Mesh,
+  type Texture,
+  Vector2,
+  type Vector3Tuple,
+} from "three";
+import { useBakeMembers } from "./Bake";
+import {
+  materialColor,
+  materialRoughness,
+  mx_noise_float,
+  normalLocal,
+  positionLocal,
+  smoothstep,
+  vec3,
+  vec4,
+} from "three/tsl";
+import {
+  MeshPhysicalNodeMaterial,
+  MeshStandardNodeMaterial,
+  type Node,
+} from "three/webgpu";
+import { bakedOcclusion, bakedSky, edgeLift } from "./lightmap-nodes";
+import { clothColour, plausible, toned, toneOf } from "./albedo";
 import { type MaterialName, repeated, useMaterial } from "./materials";
 import { jointLine } from "./edge-line";
 import { plyColour } from "./ply";
 import { useRoomReflection } from "./Reflection";
 import {
   batchesOf,
+  cushionGeometry,
+  type CushionShape,
   JOINT_OPACITY,
   JOINT_SHADE,
   jointGeometry,
@@ -68,7 +92,7 @@ export type Finish = {
   ply?: boolean;
 };
 export const cloth = (colour: string): Finish => ({
-  colour,
+  colour: clothColour(colour),
   rough: 0.95,
   sheen: 0.5,
   grain: clothGrain(),
@@ -163,12 +187,6 @@ const useStipple = (on: boolean): Stipple | null => {
   return s;
 };
 
-/** the roughness under which a finish shows what stands round it */
-const GLOSSY_BELOW = 0.5;
-/** a finish that shows what stands round it: a clear coat, or smooth
-    enough to (a lacquer, a satin wood, a screen's glass) */
-const glossy = (f: Finish) =>
-  !f.metal && !f.mirror && ((f.coat ?? 0) > 0 || f.rough < GLOSSY_BELOW);
 /** a coated or sheened finish's layers: the cloth's sheen soft and a
     shade under its colour, the coat a little rough */
 const LAYERS = { sheenRoughness: 0.8, sheenShade: 0.1, coatRoughness: 0.3 };
@@ -188,61 +206,124 @@ type MatProps = {
   normalScale: Vector2;
   banded: boolean;
 };
-/** the node-built finishes' materials, one for each look (the finish,
-    the colour, the maps): the glossy ones with the room's reflection,
-    plywood with its plies; shared by every part that has it, and made
-    again when the room's picture is */
-const glossies = new Map<string, MeshPhysicalNodeMaterial>();
-let glossiesOf: Node | null = null;
+
+/** a finish's roughness is never one even value: a slow drift of
+    ±`ROUGH_DRIFT` across a piece, as a real coat lies thicker and
+    thinner, and on its tops a few faint smudges `SMUDGE` rougher where
+    hands and cups have been; then held still far off (spec-aa.ts) */
+const ROUGH_DRIFT = 0.05;
+const SMUDGE = 0.07;
+const drift = mx_noise_float(positionLocal.mul(2.3)).mul(ROUGH_DRIFT);
+const smudges = smoothstep(
+  0.45,
+  0.75,
+  mx_noise_float(positionLocal.mul(5.1).add(vec3(17, 3, 11))),
+)
+  .mul(smoothstep(0.7, 0.95, normalLocal.y))
+  .mul(SMUDGE);
+const roughness = filtered(
+  materialRoughness.add(drift).add(smudges).clamp(0.04, 1),
+);
+
+/** a part's colour: its board's plies on a plywood edge, its face as
+    the material has it, and a convex edge a hair brighter where it
+    catches the light (lightmap-nodes.ts) */
+const lifted = (c: Node<"vec4">) =>
+  vec4(c.rgb.mul(edgeLift), c.a) as unknown as Node<"vec4">;
+const PLY_COLOUR = lifted(plyColour);
+const FACE_COLOUR = lifted(materialColor as unknown as Node<"vec4">);
+
+type LightingModel = {
+  directRectArea: (
+    input: { lightColor: Node<"vec3"> },
+    builder: unknown,
+  ) => void;
+};
+/** the window's area lights on a part scaled by how much of the sky it
+    sees (its bake's G): deep in a bay the window's light is mostly
+    blocked by the bay's own sides and shelf, which the light itself
+    does not know */
+const skyLit = (m: MeshStandardNodeMaterial) => {
+  const own = m.setupLightingModel.bind(m) as unknown as (
+    b: unknown,
+  ) => LightingModel;
+  m.setupLightingModel = ((builder: unknown) => {
+    const model = own(builder);
+    const area = model.directRectArea.bind(model);
+    model.directRectArea = (input, b) =>
+      area({ ...input, lightColor: input.lightColor.mul(bakedSky) }, b);
+    return model;
+  }) as unknown as typeof m.setupLightingModel;
+};
+
+/**
+ * The finishes' materials, one for each look (the finish, the colour,
+ * the maps), shared by every part that has it: all node materials,
+ * reading the pieces' baked light (lightmap-nodes.ts: occlusion on the
+ * indirect light, the sky on the window's light, the edges' line), a
+ * roughness that drifts, and the room's own reflection where the room
+ * has its picture, so a top or a front shows the window across it and
+ * never the sky map; plywood with its plies. Made again when the
+ * room's picture is.
+ */
+const looks = new Map<string, MeshStandardNodeMaterial>();
+let looksOf: Node | null = null;
 /** how many looks are kept; past it the oldest is let go (not disposed:
     a part may still be drawn with it, and the next picture of the room
     disposes them all) */
-const GLOSSIES_KEPT = 400;
-const glossyMaterial = (env: Node | null, p: MatProps) => {
-  if (env && glossiesOf !== env) {
-    for (const m of glossies.values()) m.dispose();
-    glossies.clear();
-    glossiesOf = env;
+const LOOKS_KEPT = 400;
+const lookMaterial = (env: Node | null, p: MatProps) => {
+  if (looksOf !== env) {
+    for (const m of looks.values()) m.dispose();
+    looks.clear();
+    looksOf = env;
   }
   const key = [
-    env ? "room" : "",
     p.f.ply ? "ply" : "",
     p.colour,
     p.f.rough,
     p.f.sheen ?? "",
     p.f.coat ?? "",
+    p.f.metal ?? "",
     p.banded,
     p.maps.map?.uuid ?? "",
     p.maps.normalMap?.uuid ?? "",
     p.maps.roughnessMap?.uuid ?? "",
     p.normalScale.x,
   ].join("|");
-  const had = glossies.get(key);
+  const had = looks.get(key);
   if (had) return had;
-  const m = new MeshPhysicalNodeMaterial({
+  const shared = {
     color: new Color(p.colour),
     roughness: p.f.rough,
-    metalness: 0,
+    metalness: p.f.metal ?? 0,
     map: p.maps.map ?? null,
     normalMap: p.maps.normalMap ?? null,
     normalScale: p.normalScale,
     roughnessMap: p.maps.roughnessMap ?? null,
     vertexColors: p.banded,
     ...BEHIND,
-    sheen: p.f.sheen ?? 0,
-    sheenColor: new Color(shade(p.colour, LAYERS.sheenShade)),
-    sheenRoughness: LAYERS.sheenRoughness,
-    clearcoat: p.f.coat ?? 0,
-    clearcoatRoughness: LAYERS.coatRoughness,
-  });
+  };
+  // a cloth's sheen or a lacquer's coat wants the physical material;
+  // the rest the standard one, cheaper to draw
+  const m =
+    p.f.sheen !== undefined || p.f.coat !== undefined
+      ? new MeshPhysicalNodeMaterial({
+          ...shared,
+          sheen: p.f.sheen ?? 0,
+          sheenColor: new Color(shade(p.colour, LAYERS.sheenShade)),
+          sheenRoughness: LAYERS.sheenRoughness,
+          clearcoat: p.f.coat ?? 0,
+          clearcoatRoughness: LAYERS.coatRoughness,
+        })
+      : new MeshStandardNodeMaterial(shared);
   if (env) m.envNode = env;
-  // plywood: its edges the plies, its faces as the material draws them
-  if (p.f.ply) m.colorNode = plyColour;
-  // the lacquer's highlight held still far off (spec-aa.ts)
-  m.roughnessNode = filteredRoughness;
-  if (glossies.size >= GLOSSIES_KEPT)
-    glossies.delete(glossies.keys().next().value!);
-  glossies.set(key, m);
+  m.colorNode = p.f.ply ? PLY_COLOUR : FACE_COLOUR;
+  m.aoNode = bakedOcclusion;
+  m.roughnessNode = roughness;
+  skyLit(m);
+  if (looks.size >= LOOKS_KEPT) looks.delete(looks.keys().next().value!);
+  looks.set(key, m);
   return m;
 };
 
@@ -264,62 +345,32 @@ export function Mat({
   const c = plausible(colour ?? f.colour);
   const maps = useGrainMaps(f.grain);
   const stipple = useStipple(!f.grain && !f.metal && !f.mirror);
-  // a glossy finish reflects the room, where the room has its picture
+  // the room's reflection, where the room has its picture
   const room = useRoomReflection((s) => s.node);
-  const grained = {
-    ...BEHIND,
-    map: maps?.map ?? null,
-    normalMap: maps?.normalMap ?? stipple?.normalMap ?? null,
-    normalScale: maps ? RELIEF_SCALE : STIPPLE_SCALE,
-    roughnessMap: maps?.roughnessMap ?? stipple?.roughnessMap ?? null,
-    vertexColors: banded,
-  };
-  // a glossy finish reflects the room where it has its picture; plywood
-  // draws its plies on its edges: both are node materials
-  if ((room && glossy(f)) || f.ply)
-    return (
-      <primitive
-        object={glossyMaterial(room && glossy(f) ? room : null, {
-          colour: c,
-          f,
-          maps: {
-            map: grained.map,
-            normalMap: grained.normalMap,
-            roughnessMap: grained.roughnessMap,
-          },
-          normalScale: grained.normalScale,
-          banded,
-        })}
-        attach="material"
-        dispose={null}
-      />
-    );
-  if (f.sheen !== undefined || f.coat !== undefined)
-    return (
-      <meshPhysicalMaterial
-        color={c}
-        roughness={f.rough}
-        {...grained}
-        sheen={f.sheen ?? 0}
-        sheenColor={shade(c, LAYERS.sheenShade)}
-        sheenRoughness={LAYERS.sheenRoughness}
-        clearcoat={f.coat ?? 0}
-        clearcoatRoughness={LAYERS.coatRoughness}
-      />
-    );
   return (
-    <meshStandardMaterial
-      color={c}
-      roughness={f.rough}
-      {...grained}
-      metalness={f.metal ?? 0}
+    <primitive
+      object={lookMaterial(room, {
+        colour: c,
+        f,
+        maps: {
+          map: maps?.map ?? null,
+          normalMap: maps?.normalMap ?? stipple?.normalMap ?? null,
+          roughnessMap: maps?.roughnessMap ?? stipple?.roughnessMap ?? null,
+        },
+        normalScale: maps ? RELIEF_SCALE : STIPPLE_SCALE,
+        banded,
+      })}
+      attach="material"
+      dispose={null}
     />
   );
 }
 
 const unpickable = () => null;
 
-/** a square-edged part: a panel, a plinth, a frame member */
+/** a square-edged part: a panel, a plinth, a frame member. Its own
+    copy of the board's geometry, as its piece's bake gives each board
+    its own place in the light's atlas */
 export function Slab({
   at,
   dims,
@@ -333,13 +384,35 @@ export function Slab({
   colour?: string | undefined;
   rotation?: Vector3Tuple | undefined;
 }) {
+  const key = dims.join(",");
+  const geometry = useMemo(
+    () => slabGeometry(key.split(",").map(Number) as Vector3Tuple).clone(),
+    [key],
+  );
+  useEffect(() => () => geometry.dispose(), [geometry]);
+  const mesh = useRef<Mesh>(null);
+  useBakeMembers(
+    () =>
+      mesh.current
+        ? [
+            {
+              kind: "boards",
+              mesh: mesh.current,
+              parts: [{ at: [0, 0, 0], dims, f }],
+              ranges: [[0, geometry.getAttribute("position").count]],
+            },
+          ]
+        : [],
+    [geometry],
+  );
   return (
     <mesh
+      ref={mesh}
       position={at}
       {...(rotation ? { rotation } : {})}
       castShadow
       receiveShadow
-      geometry={slabGeometry(dims)}
+      geometry={geometry}
     >
       <Mat f={f} colour={colour} banded />
       <lineSegments
@@ -377,10 +450,37 @@ export function Built({ parts }: { parts: Part[] }) {
     },
     [batches],
   );
+  // each batch tells the piece's bake its parts (Bake.tsx)
+  const meshes = useRef<(Mesh | null)[]>([]);
+  useBakeMembers(
+    () =>
+      batches.flatMap((b, i) => {
+        const mesh = meshes.current[i];
+        return mesh
+          ? [
+              {
+                kind: "boards" as const,
+                mesh,
+                parts: b.parts,
+                ranges: b.ranges,
+              },
+            ]
+          : [];
+      }),
+    [batches],
+  );
   return (
     <>
-      {batches.map((b) => (
-        <mesh key={b.key} geometry={b.faces} castShadow receiveShadow>
+      {batches.map((b, i) => (
+        <mesh
+          key={b.key}
+          ref={(m) => {
+            meshes.current[i] = m;
+          }}
+          geometry={b.faces}
+          castShadow
+          receiveShadow
+        >
           <Mat f={b.f} colour={b.colour} banded />
           {b.joints && (
             <lineSegments
@@ -413,8 +513,29 @@ export function Soft({
   rotation?: Vector3Tuple | undefined;
 }) {
   const r = Math.min(radius, Math.min(...dims) / 2 - 0.001);
+  const mesh = useRef<Mesh>(null);
+  const [w, h, d] = dims;
+  // to its piece's bake, a box a little inside its rounds
+  useBakeMembers(
+    () =>
+      mesh.current
+        ? [
+            {
+              kind: "solid",
+              mesh: mesh.current,
+              box: {
+                c: [0, 0, 0],
+                h: [w / 2 - r * 0.3, h / 2 - r * 0.3, d / 2 - r * 0.3],
+              },
+              shared: true,
+            },
+          ]
+        : [],
+    [w, h, d, r],
+  );
   return (
     <mesh
+      ref={mesh}
       position={at}
       {...(rotation ? { rotation } : {})}
       castShadow
@@ -422,6 +543,51 @@ export function Soft({
       geometry={softGeometry(dims, Math.max(0.002, r))}
     >
       {/* each cushion a hair its own tone, as no two are alike */}
+      <Mat f={f} colour={toned(f.colour, toneOf(at))} banded />
+    </mesh>
+  );
+}
+
+/** an upholstered cushion (part-geometry.ts's cushionGeometry): rounded,
+    crowned, welted, and, seeded, sat on */
+export function Cushion({
+  at,
+  shape,
+  f,
+  rotation,
+}: {
+  at: Vector3Tuple;
+  shape: CushionShape;
+  f: Finish;
+  rotation?: Vector3Tuple | undefined;
+}) {
+  const geometry = cushionGeometry(shape);
+  const mesh = useRef<Mesh>(null);
+  const [w, h, d] = shape.dims;
+  const r = shape.radius * 0.3;
+  useBakeMembers(
+    () =>
+      mesh.current
+        ? [
+            {
+              kind: "solid",
+              mesh: mesh.current,
+              box: { c: [0, 0, 0], h: [w / 2 - r, h / 2 - r, d / 2 - r] },
+              shared: true,
+            },
+          ]
+        : [],
+    [geometry],
+  );
+  return (
+    <mesh
+      ref={mesh}
+      position={at}
+      {...(rotation ? { rotation } : {})}
+      castShadow
+      receiveShadow
+      geometry={geometry}
+    >
       <Mat f={f} colour={toned(f.colour, toneOf(at))} banded />
     </mesh>
   );
@@ -443,8 +609,25 @@ export function Rod({
   top?: number;
   rotation?: Vector3Tuple | undefined;
 }) {
+  const mesh = useRef<Mesh>(null);
+  const s = Math.max(r, top ?? r) * 0.85;
+  useBakeMembers(
+    () =>
+      mesh.current
+        ? [
+            {
+              kind: "solid",
+              mesh: mesh.current,
+              box: { c: [0, 0, 0], h: [s, h / 2, s] },
+              shared: true,
+            },
+          ]
+        : [],
+    [s, h],
+  );
   return (
     <mesh
+      ref={mesh}
       position={at}
       {...(rotation ? { rotation } : {})}
       castShadow

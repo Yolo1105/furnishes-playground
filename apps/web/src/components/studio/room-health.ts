@@ -1,3 +1,4 @@
+import { luminanceOf } from "./albedo";
 import { isRug, isSmall } from "./piece-detail";
 import {
   gapToWalls,
@@ -64,7 +65,9 @@ export type Issue = {
     | "bed"
     | "missing"
     /** the room itself stands into another room of the flat */
-    | "rooms";
+    | "rooms"
+    /** a piece's colour so near the floor's that it reads as part of it */
+    | "blends";
   text: string;
   /** the piece it is about; none when the room is missing something,
       or stands into another room */
@@ -422,4 +425,31 @@ export const healthOf = (boxes: Box[], r: Room): Issue[] => {
       });
   }
   return issues;
+};
+
+/** how near in value (linear luminance, a share of the floor's) a
+    piece's colour may stand to the floor's before, from across the room,
+    it reads as part of the floor (round 8, 1h) */
+export const BLEND_WITHIN = 0.1;
+/** the pieces whose colour so nearly matches the floor's that they melt
+    into it at a glance: a note each, with what keeps them apart (a rug
+    is meant to lie on the floor, and is left out) */
+export const blendsIntoFloor = (
+  pieces: readonly { id: string; name: string; colour: string }[],
+  floor: string,
+): Issue[] => {
+  if (!/^#[0-9a-f]{6}$/i.test(floor)) return [];
+  const f = luminanceOf(floor);
+  return pieces
+    .filter(
+      (p) =>
+        /^#[0-9a-f]{6}$/i.test(p.colour) &&
+        !isRug({ name: p.name }) &&
+        Math.abs(luminanceOf(p.colour) - f) / f < BLEND_WITHIN,
+    )
+    .map((p) => ({
+      kind: "blends" as const,
+      text: `${p.name} is within a tenth of the floor's tone: from across the room it melts into the floor. A lighter or darker finish, a painted one, or a rug under it keeps it apart.`,
+      pieceId: p.id,
+    }));
 };

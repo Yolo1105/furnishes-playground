@@ -37,6 +37,7 @@ import { HAND_MARKS, handMarks } from "./wear";
 import { LAMP_BULB } from "./white-balance";
 import { CURTAIN, curtainGeometry } from "./curtain";
 import { cloth, type Finish, Mat, Rod, Soft, wood } from "./finish";
+import { slabGeometry } from "./part-geometry";
 import { useRoom } from "./room-store";
 import {
   BufferAttribute,
@@ -1061,7 +1062,11 @@ function WallRun({
           castShadow
           userData={SKIRTING_NAME}
         >
-          <boxGeometry args={[len, SKIRTING, 0.016]} />
+          <primitive
+            object={slabGeometry([len, SKIRTING, 0.016] as Vector3Tuple)}
+            attach="geometry"
+            dispose={null}
+          />
           <meshStandardMaterial color={FRAME_HEX} roughness={JOINERY_ROUGH} />
         </mesh>
         {!devFlag("nocornice") && (
@@ -1072,7 +1077,11 @@ function WallRun({
             receiveShadow
             userData={CORNICE_NAME}
           >
-            <boxGeometry args={[len, CORNICE, 0.012]} />
+            <primitive
+              object={slabGeometry([len, CORNICE, 0.012] as Vector3Tuple)}
+              attach="geometry"
+              dispose={null}
+            />
             <meshStandardMaterial color={FRAME_HEX} roughness={JOINERY_ROUGH} />
           </mesh>
         )}
@@ -1107,7 +1116,11 @@ function Member({
 }) {
   return (
     <mesh position={at} castShadow receiveShadow>
-      <boxGeometry args={size} />
+      <primitive
+        object={slabGeometry(size as Vector3Tuple)}
+        attach="geometry"
+        dispose={null}
+      />
       <Mat f={f} />
     </mesh>
   );
@@ -1601,17 +1614,29 @@ function Door({ r, o }: { r: RoomShape; o: Opening }) {
             position={[s * (width / 2 - lining / 2), tall / 2, -t / 2]}
             receiveShadow
           >
-            <boxGeometry args={[lining, tall, t]} />
+            <primitive
+              object={slabGeometry([lining, tall, t] as Vector3Tuple)}
+              attach="geometry"
+              dispose={null}
+            />
             <meshStandardMaterial color={FRAME_HEX} roughness={JOINERY_ROUGH} />
           </mesh>
         ))}
         <mesh position={[0, tall - lining / 2, -t / 2]} receiveShadow>
-          <boxGeometry args={[width, lining, t]} />
+          <primitive
+            object={slabGeometry([width, lining, t] as Vector3Tuple)}
+            attach="geometry"
+            dispose={null}
+          />
           <meshStandardMaterial color={FRAME_HEX} roughness={JOINERY_ROUGH} />
         </mesh>
         {/* the threshold across the opening */}
         <mesh position={[0, threshold / 2, -t / 2]} receiveShadow>
-          <boxGeometry args={[width, threshold, t + 0.02]} />
+          <primitive
+            object={slabGeometry([width, threshold, t + 0.02] as Vector3Tuple)}
+            attach="geometry"
+            dispose={null}
+          />
           <meshStandardMaterial color={THRESHOLD_HEX} roughness={0.6} />
         </mesh>
         {/* the architrave round the opening: one moulding swept up the
@@ -1655,7 +1680,15 @@ function Door({ r, o }: { r: RoomShape; o: Opening }) {
             receiveShadow
             userData={SWITCH_NAME}
           >
-            <boxGeometry args={[PLATE.switch, PLATE.tall, PLATE.deep]} />
+            <primitive
+              object={slabGeometry([
+                PLATE.switch,
+                PLATE.tall,
+                PLATE.deep,
+              ] as Vector3Tuple)}
+              attach="geometry"
+              dispose={null}
+            />
             <meshStandardMaterial color={FRAME_HEX} roughness={0.4} />
           </mesh>
         )}
@@ -1866,7 +1899,11 @@ function DoorLeaf({
               receiveShadow
               userData={LEAF_NAME}
             >
-              <boxGeometry args={[lw, tall - gap, leaf]} />
+              <primitive
+                object={slabGeometry([lw, tall - gap, leaf] as Vector3Tuple)}
+                attach="geometry"
+                dispose={null}
+              />
               <Mat f={f} />
             </mesh>
           )}

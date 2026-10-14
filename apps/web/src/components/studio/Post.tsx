@@ -26,6 +26,7 @@ import { bloom } from "three/examples/jsm/tsl/display/BloomNode.js";
 import {
   float,
   Fn,
+  hash,
   max,
   metalness,
   mix,
@@ -37,6 +38,7 @@ import {
   renderOutput,
   roughness,
   rtt,
+  screenCoordinate,
   screenUV,
   smoothstep,
   toneMappingExposure,
@@ -251,6 +253,11 @@ const GLOW = { strength: 0.06, radius: 0.2, threshold: 2 };
 const GLOW_CLAMP = 8;
 /** a lens's fall-off at the frame's corners, a share of the light */
 const VIGNETTE = { depth: 0.065, from: 0.4, to: 0.72 };
+/** a photograph's faint grain (round 8, 1h): up to ±`GRAIN` of a
+    pixel's value in the midtones, none in the blacks and the whites,
+    fixed to the pixel so a still frame stays still (it does not crawl;
+    TRAA's jitter moves the scene under it, not it) */
+const GRAIN = 0.012;
 /** the picture's white balance, a gain on each channel before the tone
     mapping (white-balance.ts): the scene sets it for its look */
 export const WHITE_BALANCE = uniform(new Vector3(1, 1, 1));
@@ -298,17 +305,20 @@ const frameOf = (
       VIGNETTE.depth,
     ),
   );
+  const toned = renderOutput(
+    vec4(withGlow, 1),
+    TONE_MAPPING,
+    SRGBColorSpace,
+  ).rgb.mul(lens);
+  const luma = toned.dot(vec3(0.2126, 0.7152, 0.0722)).clamp(0, 1);
+  const speck = hash(
+    screenCoordinate.x.floor().add(screenCoordinate.y.floor().mul(4099)),
+  ).sub(0.5);
+  const grained = toned.mul(
+    float(1).add(speck.mul(2 * GRAIN).mul(luma.mul(float(1).sub(luma)).mul(4))),
+  );
   const frame = rtt(
-    vec4(
-      mix(
-        backdrop,
-        renderOutput(vec4(withGlow, 1), TONE_MAPPING, SRGBColorSpace).rgb.mul(
-          lens,
-        ),
-        depth.r.lessThan(1).select(1, 0),
-      ),
-      1,
-    ),
+    vec4(mix(backdrop, grained, depth.r.lessThan(1).select(1, 0)), 1),
   );
   return { frame, glow };
 };

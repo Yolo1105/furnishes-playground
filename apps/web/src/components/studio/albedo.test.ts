@@ -1,14 +1,21 @@
 import { describe, expect, it } from "vitest";
 import {
+  ALBEDO,
+  CLOTH_PUREST,
+  clothColour,
   DARKEST,
   LIGHTEST,
+  luminanceOf,
   plausible,
+  variedWood,
+  WOOD_SPREAD,
   PUREST,
   TONE_SPREAD,
   toned,
   toneOf,
 } from "./albedo";
-import { COLOURS, ROOM_ITEM_HEX } from "./piece-detail";
+import { COLOURS, LIGHT_WOOD_HEX, ROOM_ITEM_HEX } from "./piece-detail";
+import { FLOOR_TONES, WALL_TONES } from "./room-data";
 
 /** a hex's HSL lightness and saturation */
 const ls = (hex: string) => {
@@ -56,5 +63,49 @@ describe("a colour as a real surface carries it", () => {
     expect(toneOf([0.4, 0.2, 0])).toBe(ks[1]);
     expect(toned("#808080", 1.1)).toBe("#8d8d8d");
     expect(toned("#ffffff", 1.1)).toBe("#ffffff");
+  });
+});
+
+describe("every finish within a real surface's albedo (round 8, 1c)", () => {
+  const presets = [
+    ...COLOURS.map((c) => c.hex),
+    ROOM_ITEM_HEX,
+    LIGHT_WOOD_HEX,
+    ...Object.values(FLOOR_TONES),
+    ...WALL_TONES.map((t) => t.hex),
+  ];
+  it("draws every preset between a black's and a white paint's", () => {
+    for (const hex of presets) {
+      const y = luminanceOf(plausible(hex));
+      expect(y, hex).toBeGreaterThanOrEqual(ALBEDO.least - 0.002);
+      expect(y, hex).toBeLessThanOrEqual(ALBEDO.most + 0.002);
+    }
+  });
+  it("holds a pure white under 0.83 and a pure black over 0.035", () => {
+    expect(luminanceOf(plausible("#ffffff"))).toBeLessThanOrEqual(
+      ALBEDO.most + 0.002,
+    );
+    expect(luminanceOf(plausible("#000000"))).toBeGreaterThanOrEqual(
+      ALBEDO.least - 0.002,
+    );
+    expect(luminanceOf(plausible("#000000"))).toBeLessThan(0.08);
+  });
+  it("keeps a cloth's dye less pure than a paint's", () => {
+    const orange = clothColour("#e8641e");
+    expect(ls(orange).s).toBeLessThanOrEqual(CLOTH_PUREST + 0.01);
+    // a soft colour already within it stays as it is
+    expect(clothColour("#c9bfb2")).toBe("#c9bfb2");
+  });
+  it("turns two pieces of one wood a little apart, the same each time", () => {
+    const a = variedWood(LIGHT_WOOD_HEX, 1);
+    const b = variedWood(LIGHT_WOOD_HEX, 2);
+    expect(variedWood(LIGHT_WOOD_HEX, 1)).toBe(a);
+    expect(a).not.toBe(b);
+    for (const seed of [1, 2, 3, 99, 12345]) {
+      const y = luminanceOf(variedWood(LIGHT_WOOD_HEX, seed));
+      const y0 = luminanceOf(LIGHT_WOOD_HEX);
+      // ±6 % of lightness is a little more of luminance: within a fifth
+      expect(Math.abs(y / y0 - 1)).toBeLessThan(WOOD_SPREAD.value * 3);
+    }
   });
 });

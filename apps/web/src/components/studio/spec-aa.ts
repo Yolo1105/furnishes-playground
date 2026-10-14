@@ -18,11 +18,17 @@ import type { Node } from "three/webgpu";
     turned matt */
 export const SPEC_AA = { kappa: 0.18 };
 
-export const filteredRoughness: Node<"float"> = Fn(() => {
-  const dx = dFdx(normalView);
-  const dy = dFdy(normalView);
-  const variance = dx.dot(dx).add(dy.dot(dy)).mul(0.25);
-  const kernel = variance.mul(2).min(SPEC_AA.kappa);
-  const r = materialRoughness;
-  return r.mul(r).add(kernel).clamp(0, 1).sqrt();
-})() as unknown as Node<"float">;
+/** a roughness widened so (`filtered(r)`), for a finish whose own
+    roughness is worked out in its material (finish.tsx's drift) */
+export const filtered = (r: Node<"float">): Node<"float"> =>
+  Fn(() => {
+    const dx = dFdx(normalView);
+    const dy = dFdy(normalView);
+    const variance = dx.dot(dx).add(dy.dot(dy)).mul(0.25);
+    const kernel = variance.mul(2).min(SPEC_AA.kappa);
+    return r.mul(r).add(kernel).clamp(0, 1).sqrt();
+  })() as unknown as Node<"float">;
+
+export const filteredRoughness: Node<"float"> = filtered(
+  materialRoughness as unknown as Node<"float">,
+);

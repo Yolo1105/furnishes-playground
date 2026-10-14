@@ -64,6 +64,37 @@ const hex = (h: number, s: number, l: number) => {
   return `#${ch(r)}${ch(g)}${ch(b)}`;
 };
 
+/** what a surface reflects, linear luminance: a white melamine or
+    paint about 0.8 (never all of it; the palette's Ash white, the
+    lightest finish offered, is 0.823), a black or a dark wood about
+    0.04 (never none) (round 8, 1c) */
+export const ALBEDO = { least: 0.035, most: 0.83 } as const;
+/** a cloth's dye is never as pure as a paint's: its most saturation */
+export const CLOTH_PUREST = 0.45;
+
+const linear = (c: number) =>
+  c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+/** a hex's linear luminance */
+export const luminanceOf = (colour: string) => {
+  const n = parseInt(colour.slice(1, 7), 16);
+  return (
+    0.2126 * linear(((n >> 16) & 255) / 255) +
+    0.7152 * linear(((n >> 8) & 255) / 255) +
+    0.0722 * linear((n & 255) / 255)
+  );
+};
+/** the lightness at which a hue and saturation reflect `y` (by halving) */
+const lightnessFor = (h: number, s: number, y: number) => {
+  let lo = 0;
+  let hi = 1;
+  for (let k = 0; k < 24; k++) {
+    const mid = (lo + hi) / 2;
+    if (luminanceOf(hex(h, s, mid)) < y) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2;
+};
+
 const kept = new Map<string, string>();
 /** the colour within what a real surface reflects: its lightness and
     its saturation held inside the bounds, its hue kept; a colour
@@ -73,12 +104,49 @@ export const plausible = (colour: string) => {
   const had = kept.get(colour);
   if (had) return had;
   const [h, s, l] = hsl(colour);
-  const out =
+  let out =
     l > LIGHTEST || l < DARKEST || s > PUREST
       ? hex(h, Math.min(s, PUREST), Math.min(LIGHTEST, Math.max(DARKEST, l)))
       : colour;
+  // and within what a real surface reflects, by its luminance
+  const y = luminanceOf(out);
+  if (y > ALBEDO.most || y < ALBEDO.least) {
+    const [h2, s2] = hsl(out);
+    out = hex(
+      h2,
+      s2,
+      lightnessFor(h2, s2, Math.min(ALBEDO.most, Math.max(ALBEDO.least, y))),
+    );
+  }
   kept.set(colour, out);
   return out;
+};
+
+/** a cloth's colour: its dye held under `CLOTH_PUREST`, as a woven
+    cloth never carries a paint's purity (an orange sofa read as a
+    plastic one) */
+export const clothColour = (colour: string) => {
+  if (!/^#[0-9a-f]{6}$/i.test(colour)) return colour;
+  const [h, s, l] = hsl(colour);
+  return s > CLOTH_PUREST ? hex(h, CLOTH_PUREST, l) : colour;
+};
+
+/** a piece's own wood: its hue turned up to ±3° and its value up to
+    ±6 % by its seed, as two oak pieces are never cut from the same
+    tree (round 8, 1h) */
+export const WOOD_SPREAD = { hue: 3, value: 0.06 } as const;
+export const variedWood = (colour: string, seed: number) => {
+  if (!/^#[0-9a-f]{6}$/i.test(colour)) return colour;
+  const u = (k: number) => {
+    let x = (seed * 2654435761 + k * 97) >>> 0;
+    x ^= x >>> 15;
+    x = Math.imul(x, 2246822519) >>> 0;
+    x ^= x >>> 13;
+    return (x >>> 0) / 4294967296;
+  };
+  const [h, s, l] = hsl(colour);
+  const hue = (h + (u(1) * 2 - 1) * WOOD_SPREAD.hue + 360) % 360;
+  return hex(hue, s, Math.min(1, l * (1 + (u(2) * 2 - 1) * WOOD_SPREAD.value)));
 };
 
 /** how far a part's tone strays from its finish's, either way */

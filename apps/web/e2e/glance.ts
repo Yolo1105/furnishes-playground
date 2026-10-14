@@ -9,7 +9,10 @@ import type { Pixels } from "./png";
  * value an eye and a squint image see), and sampled where the pieces'
  * faces fall on it: points on each named piece's faces found through
  * the camera (`__camera`, `__scene`, development only), each point a
- * single pixel of the small picture. And the squint image itself:
+ * single pixel of the small picture, and only where the camera sees
+ * that point itself (a ray from the camera, `__ray`, first meets the
+ * scene there, on the piece), so a cushion or a neighbour standing in
+ * front never counts as the face. And the squint image itself:
  * greyscale, blurred 4 px, cut to 8 tones.
  */
 
@@ -28,6 +31,8 @@ export type GlancePoints = {
   bays: { back: UV[]; front: UV[] } | null;
   contact: { near: UV[]; open: UV[] } | null;
   table: { top: UV[]; floor: UV[] } | null;
+  /** what the points were found from, for a failing run */
+  debug: number[];
 };
 
 /** the pieces the glance looks at, by their names in the scene */
@@ -39,14 +44,22 @@ export const GLANCE_PIECES = [
   "Coffee table",
 ];
 
-/** the points, worked out in the page */
+/** the points, worked out in the page. Each is where a ray from the
+    camera meets the scene: a face's point where the ray through a grid
+    on the piece's box first lands on the piece, on a surface turned the
+    face's way (so a cushion's front counts as the sofa's front, and the
+    floor seen past it does not); the floor's where it lands on the
+    floor itself */
 export const glancePoints = (page: Page) =>
   page.evaluate((names: string[]): GlancePoints => {
     type V = {
       clone: () => V;
+      normalize: () => V;
+      distanceTo: (v: V) => number;
       set: (x: number, y: number, z: number) => V;
       project: (c: unknown) => V;
       applyMatrix4: (m: unknown) => V;
+      transformDirection: (m: unknown) => V;
       sub: (v: V) => V;
       dot: (v: V) => number;
       x: number;
@@ -54,7 +67,7 @@ export const glancePoints = (page: Page) =>
       z: number;
     };
     type O = {
-      userData: { name?: string };
+      userData: { name?: string; export?: string };
       matrixWorld: unknown;
       geometry?: {
         computeBoundingBox: () => void;
@@ -62,15 +75,72 @@ export const glancePoints = (page: Page) =>
       };
       isMesh?: boolean;
       visible: boolean;
+      parent: O | null;
       traverse: (f: (o: O) => void) => void;
       updateMatrixWorld: (force: boolean) => void;
       worldToLocal: (v: V) => V;
       localToWorld: (v: V) => V;
     };
-    const w = window as unknown as { __camera: { position: V }; __scene: O };
+    type Hit = {
+      distance: number;
+      object: O;
+      point: V;
+      face?: { normal: V } | null;
+    };
+    const w = window as unknown as {
+      __camera: { position: V };
+      __scene: O;
+      __ray: {
+        set: (o: V, d: V) => void;
+        far: number;
+        intersectObject: (o: O, deep: boolean) => Hit[];
+      };
+    };
     const camera = w.__camera;
+    const shown = (o: O | null): boolean =>
+      !o || (o.visible && shown(o.parent));
+    const within = (o: O | null, of: O): boolean =>
+      !!o && (o === of || within(o.parent, of));
     const v3 = (x: number, y: number, z: number) =>
       camera.position.clone().set(x, y, z);
+    /** the first thing the camera sees through a point, with its normal */
+    const look = (pt: V) => {
+      w.__ray.set(camera.position, pt.clone().sub(camera.position).normalize());
+      w.__ray.far = 100;
+      const hit = w.__ray
+        .intersectObject(w.__scene, true)
+        .find((h) => shown(h.object) && h.face);
+      if (!hit) return null;
+      const n = hit
+        .face!.normal.clone()
+        .transformDirection(hit.object.matrixWorld);
+      return { hit, n };
+    };
+    /** where the camera sees a piece through a point, on a surface facing
+        `dir` (world), or null */
+    const onPiece = (pt: V, p: O, dir: V) => {
+      const l = look(pt);
+      if (!l || !within(l.hit.object, p) || l.n.dot(dir) < 0.7) return null;
+      return l.hit.point;
+    };
+    /** what the ground is where the camera sees it through a point: the
+        floor itself or a rug on it (each its own surface), or neither */
+    const groundAt = (pt: V) => {
+      const l = look(pt);
+      if (!l || l.n.y < 0.9) return null;
+      let o: O | null = l.hit.object;
+      if (o.userData?.name === "Floor")
+        return { q: l.hit.point, kind: "floor" };
+      for (; o; o = o.parent)
+        if (/rug/i.test(o.userData?.name ?? ""))
+          return { q: l.hit.point, kind: "rug" };
+      return null;
+    };
+    /** where the camera sees the floor itself through a point */
+    const onFloor = (pt: V) => {
+      const g = groundAt(pt);
+      return g?.kind === "floor" ? g.q : null;
+    };
     const at = (v: V): UV => {
       const s = v.clone().project(camera);
       return [(s.x + 1) / 2, (1 - s.y) / 2];
@@ -90,7 +160,10 @@ export const glancePoints = (page: Page) =>
       const lo = [Infinity, Infinity, Infinity];
       const hi = [-Infinity, -Infinity, -Infinity];
       p.traverse((m) => {
+        // the piece itself: not its pick halo, nor its footprint
         if (!m.isMesh || !m.geometry || !m.visible) return;
+        if (m.userData?.export === "helper" || m.userData?.name === "Footprint")
+          return;
         m.geometry.computeBoundingBox();
         const b = m.geometry.boundingBox;
         if (!b) return;
@@ -112,15 +185,16 @@ export const glancePoints = (page: Page) =>
       bays: null,
       contact: null,
       table: null,
+      debug: [],
     };
-    /** a grid of points on a face of the box, inset 12 % */
+    /** a grid of points on a face of the box, inset 8 % */
     const grid = (
       p: O,
       axis: 0 | 1 | 2,
       at0: number,
       lo: number[],
       hi: number[],
-      n = 7,
+      n = 9,
     ) => {
       const pts: V[] = [];
       const others = [0, 1, 2].filter((i) => i !== axis);
@@ -129,88 +203,133 @@ export const glancePoints = (page: Page) =>
           const c = [0, 0, 0];
           c[axis] = at0;
           const [a, b] = others as [number, number];
-          c[a] = lo[a]! + (hi[a]! - lo[a]!) * (0.12 + (0.76 * i) / (n - 1));
-          c[b] = lo[b]! + (hi[b]! - lo[b]!) * (0.12 + (0.76 * j) / (n - 1));
+          c[a] = lo[a]! + (hi[a]! - lo[a]!) * (0.08 + (0.84 * i) / (n - 1));
+          c[b] = lo[b]! + (hi[b]! - lo[b]!) * (0.08 + (0.84 * j) / (n - 1));
           pts.push(p.localToWorld(v3(c[0]!, c[1]!, c[2]!)));
         }
       return pts;
     };
+    /** a direction in the piece's frame, in the world */
+    const dirOf = (p: O, x: number, y: number, z: number) =>
+      p
+        .localToWorld(v3(x, y, z))
+        .sub(p.localToWorld(v3(0, 0, 0)))
+        .normalize();
+    const kept = <T>(xs: (T | null)[]) => xs.filter((x): x is T => x !== null);
     for (const name of names) {
       const p = find(name);
       if (!p) continue;
       const { lo, hi } = boxOf(p);
       if (!Number.isFinite(lo[0]!)) continue;
-      const centre = p.localToWorld(
-        v3((lo[0]! + hi[0]!) / 2, (lo[1]! + hi[1]!) / 2, (lo[2]! + hi[2]!) / 2),
-      );
-      const facing = (pt: V) =>
-        camera.position.clone().sub(pt).dot(pt.clone().sub(centre)) > 0;
-      const faces: [string, 0 | 1 | 2, number][] = [
-        ["front", 2, hi[2]!],
-        ["top", 1, hi[1]!],
-        ["left", 0, lo[0]!],
-        ["right", 0, hi[0]!],
+      const faces: [string, 0 | 1 | 2, number, V][] = [
+        ["front", 2, hi[2]!, dirOf(p, 0, 0, 1)],
+        ["top", 1, hi[1]!, dirOf(p, 0, 1, 0)],
+        ["left", 0, lo[0]!, dirOf(p, -1, 0, 0)],
+        ["right", 0, hi[0]!, dirOf(p, 1, 0, 0)],
       ];
-      for (const [face, axis, plane] of faces) {
-        // the bookwall's front is its open bays: its sides and top
-        if (name === "Bookwall" && face === "front") continue;
-        const pts = grid(p, axis, plane, lo, hi);
-        const mid = pts[Math.floor(pts.length / 2)]!;
-        if (!facing(mid)) continue;
+      for (const [face, axis, plane, dir] of faces) {
+        const pts = kept(
+          grid(p, axis, plane, lo, hi).map((q) => onPiece(q, p, dir)),
+        );
         const uv = pts.map(at).filter(onScreen);
         if (uv.length > 10) out.faces.push({ piece: name, face, pts: uv });
       }
-      // the top front edge, and the front face a hand below it
+      // the top of the piece's front face, found down the front at each
+      // place across, and the face a hand below it
+      const front = dirOf(p, 0, 0, 1);
       const edge: UV[] = [];
       const below: UV[] = [];
       for (let i = 0; i < 9; i++) {
         const x = lo[0]! + (hi[0]! - lo[0]!) * (0.15 + (0.7 * i) / 8);
-        edge.push(at(p.localToWorld(v3(x, hi[1]! - 0.002, hi[2]! - 0.002))));
-        below.push(at(p.localToWorld(v3(x, hi[1]! - 0.06, hi[2]! + 0.001))));
+        let top: V | null = null;
+        for (let y = hi[1]!; y > hi[1]! - 0.6 && !top; y -= 0.005)
+          top = onPiece(p.localToWorld(v3(x, y, hi[2]! + 0.05)), p, front);
+        if (!top) continue;
+        const t = p.worldToLocal(top.clone());
+        const e = onPiece(p.localToWorld(v3(x, t.y - 0.004, t.z)), p, front);
+        const b = onPiece(p.localToWorld(v3(x, t.y - 0.06, t.z)), p, front);
+        if (!e || !b) continue;
+        edge.push(at(e));
+        below.push(at(b));
       }
-      if (name !== "Bookwall" && edge.every(onScreen))
+      if (name !== "Bookwall" && edge.length >= 3)
         out.edges.push({ piece: name, edge, below });
       if (name === "Bookwall") {
-        // a bay's back: 3 cm in front of the back, at bay middles; its
-        // front edge: the side panels' front edges, mid-height
-        const back: UV[] = [];
-        const front: UV[] = [];
-        for (let i = 0; i < 6; i++)
-          for (let j = 0; j < 4; j++) {
-            const x = lo[0]! + (hi[0]! - lo[0]!) * ((i + 0.5) / 6);
-            const y = lo[1]! + (hi[1]! - lo[1]!) * ((j + 0.5) / 4);
-            back.push(at(p.localToWorld(v3(x, y, lo[2]! + 0.03))));
+        // a bay's back: the back panel seen at bay middles; its front
+        // edge: the boards' front edges seen across the bays
+        // the boards' front edges stand furthest forward; a bay's back
+        // (its back panel, or the middle panel of a shelf open both
+        // ways) is the face seen at least 8 cm behind them
+        const seenAt: { q: V; z: number }[] = [];
+        for (let i = 0; i < 16; i++)
+          for (let j = 0; j < 10; j++) {
+            const x = lo[0]! + (hi[0]! - lo[0]!) * ((i + 0.5) / 16);
+            const y = lo[1]! + (hi[1]! - lo[1]!) * ((j + 0.5) / 10);
+            const q = onPiece(p.localToWorld(v3(x, y, hi[2]!)), p, front);
+            if (q) seenAt.push({ q, z: p.worldToLocal(q.clone()).z });
           }
-        for (const x of [lo[0]! + 0.009, hi[0]! - 0.009])
-          for (let j = 0; j < 8; j++) {
-            const y = lo[1]! + (hi[1]! - lo[1]!) * (0.15 + (0.7 * j) / 7);
-            front.push(at(p.localToWorld(v3(x, y, hi[2]! - 0.004))));
-          }
+        const zFront = Math.max(...seenAt.map((s) => s.z));
+        const back = seenAt
+          .filter((s) => s.z < zFront - 0.08)
+          .map((s) => at(s.q));
+        const fronts = seenAt
+          .filter((s) => s.z > zFront - 0.004)
+          .map((s) => at(s.q));
         out.bays = {
           back: back.filter(onScreen),
-          front: front.filter(onScreen),
+          front: fronts.filter(onScreen),
         };
       }
       if (name === "Sofa") {
-        // the floor 3 cm off the base's front, and 1.2 m off it
-        const near: UV[] = [];
-        const open: UV[] = [];
+        // the ground 3 cm off the base's front, and open ground of the
+        // same kind (the floor, or the rug it stands at) round it
+        const nears: { q: V; kind: string }[] = [];
         for (let i = 0; i < 9; i++) {
           const x = lo[0]! + (hi[0]! - lo[0]!) * (0.15 + (0.7 * i) / 8);
-          near.push(at(p.localToWorld(v3(x, 0.002, hi[2]! + 0.03))));
-          open.push(at(p.localToWorld(v3(x, 0.002, hi[2]! + 1.2))));
+          const g = groundAt(p.localToWorld(v3(x, 0.002, hi[2]! + 0.03)));
+          if (g) nears.push(g);
         }
+        const kind =
+          nears.filter((g) => g.kind === "rug").length * 2 > nears.length
+            ? "rug"
+            : "floor";
+        const near = nears.filter((g) => g.kind === kind).map((g) => at(g.q));
+        const open: UV[] = [];
+        for (let i = 0; i < 11; i++)
+          for (let j = 0; j < 6; j++) {
+            const x = lo[0]! - 1.2 + (hi[0]! - lo[0]! + 2.4) * (i / 10);
+            const g = groundAt(
+              p.localToWorld(v3(x, 0.002, hi[2]! + 0.6 + j * 0.3)),
+            );
+            if (g?.kind === kind) open.push(at(g.q));
+          }
         out.contact = {
           near: near.filter(onScreen),
           open: open.filter(onScreen),
         };
       }
       if (name === "Coffee table") {
-        const top = grid(p, 1, hi[1]!, lo, hi, 5).map(at).filter(onScreen);
+        const up = dirOf(p, 0, 1, 0);
+        const top = kept(
+          grid(p, 1, hi[1]!, lo, hi, 7).map((q) => onPiece(q, p, up)),
+        )
+          .map(at)
+          .filter(onScreen);
         const floor: UV[] = [];
-        for (let i = 0; i < 9; i++) {
-          const x = lo[0]! + (hi[0]! - lo[0]!) * (i / 8);
-          floor.push(at(p.localToWorld(v3(x, 0.002, hi[2]! + 0.35))));
+        for (let i = 0; i < 12; i++) {
+          const a = (i / 12) * Math.PI * 2;
+          for (const r of [0.5, 0.8, 1.1]) {
+            const q = onFloor(
+              p.localToWorld(
+                v3(
+                  Math.cos(a) * ((hi[0]! - lo[0]!) / 2 + r),
+                  0.002,
+                  Math.sin(a) * ((hi[2]! - lo[2]!) / 2 + r),
+                ),
+              ),
+            );
+            if (q) floor.push(at(q));
+          }
         }
         out.table = { top, floor: floor.filter(onScreen) };
       }

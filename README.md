@@ -187,7 +187,14 @@ backdrop, and the edges are resolved over frames (TRAA); a desktop
 draws the occlusion at full size, a laptop at half, a phone skips it
 and smooths its edges in one pass (SMAA), the stage says which
 (`data-post`), and View settings' Picture picks Auto, Full, Light or
-Plain (Auto follows the device; a software GPU gets a phone's). On a
+Plain (Auto follows the device; a software GPU gets a phone's). Each
+built piece has its light baked once it is built (`Bake.tsx`,
+`lightmap-bake.ts`, in a worker, kept in IndexedDB): its boards' faces
+darken into a bay's corners and towards the floor and the wall, its
+deep bays see less of the window, its convex edges catch a thin line
+of light, and it leaves a soft footprint on the floor (`data-bakes`
+counts the pieces still waiting). The sofa is upholstered as one is,
+crowned and welted cushions apart from each other. On a
 browser with WebGPU, Render takes a photo: the light is traced through
 the room (`apps/web/src/components/studio/Photo.tsx`), denoised with
 weights the app serves under `apps/web/public/oidn`, and the compare

@@ -10,11 +10,16 @@ import {
   Suspense,
   useEffect,
   useMemo,
+  useRef,
 } from "react";
 import type { Panel } from "@furnishes/domain";
 import {
   Box3,
   BoxGeometry,
+  CanvasTexture,
+  Color,
+  SRGBColorSpace,
+  type Texture,
   DoubleSide,
   EdgesGeometry,
   type Mesh,
@@ -26,6 +31,7 @@ import {
 } from "three";
 import type { AssetNode } from "./assets-data";
 import { seedOf } from "./seed";
+import { clothColour, variedWood } from "./albedo";
 import { tileMaps, WALL_TILE } from "./tile-maps";
 import { recipeOf } from "./catalogue";
 import { useEvent } from "./use-event";
@@ -47,6 +53,7 @@ import { shade } from "./textures";
 import { type FormPart, furnishesForm, type Role } from "./furnishes-forms";
 import {
   cloth,
+  Cushion,
   type Finish,
   finishOf,
   Mat,
@@ -60,6 +67,7 @@ import {
   wood,
   Built,
 } from "./finish";
+import { slabGeometry } from "./part-geometry";
 import { Panels3D } from "./Panels3D";
 import {
   BedTouches,
@@ -69,6 +77,10 @@ import {
   TableTouches,
 } from "./LivedIn";
 import { budgetModel } from "./model-budget";
+import { BakeScope, useBakeMembers } from "./Bake";
+import { withBakeDefaults } from "./bake-defaults";
+import { bakedOcclusion } from "./lightmap-nodes";
+import { MeshStandardNodeMaterial } from "three/webgpu";
 import { useStudio } from "./studio-store";
 import { useMaterial } from "./materials";
 import { LAMP_BULB } from "./white-balance";
@@ -141,6 +153,9 @@ type Props = {
   panels?: readonly Panel[] | undefined;
   /** the piece is in hand: its panels can be picked and moved */
   editable: boolean;
+  /** the wall behind the piece, as its bake takes it: the plane z in the
+      piece's frame (its back is −z), when it stands against one */
+  wall?: number | null | undefined;
   onPick: () => void;
 };
 
@@ -181,19 +196,90 @@ const stockOf = (node: AssetNode) => {
   return { src, cloth: STOCK_CLOTH[file] ?? null };
 };
 
-/** the item's cloth over the model's own weave: its colour and sheen
-    with the model's normal and roughness maps kept */
+/** a model's colour map with its colour taken out: its values kept
+    (the weave's shading, its seams, its wear) and brought to a mean of
+    `GREY_MEAN` (linear), so a dark leather's map and a pale linen's both
+    carry the item's colour at its own tone; the colour is lifted by the
+    same share. Made once a map, on a canvas */
+const GREY_MEAN = 0.8;
+const greys = new Map<string, Texture>();
+const toLinear = (c: number) =>
+  c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+const toSrgb = (c: number) =>
+  c <= 0.0031308 ? c * 12.92 : 1.055 * c ** (1 / 2.4) - 0.055;
+const greyOf = (map: Texture) => {
+  const had = greys.get(map.uuid);
+  if (had) return had;
+  const image = map.image as CanvasImageSource & {
+    width: number;
+    height: number;
+  };
+  if (!image?.width) return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = image.width;
+  canvas.height = image.height;
+  const g = canvas.getContext("2d", { willReadFrequently: true });
+  if (!g) return null;
+  g.drawImage(image, 0, 0);
+  const px = g.getImageData(0, 0, canvas.width, canvas.height);
+  const d = px.data;
+  const lum = new Float32Array(d.length / 4);
+  let sum = 0;
+  for (let i = 0, k = 0; i < d.length; i += 4, k++) {
+    const v =
+      0.2126 * toLinear(d[i]! / 255) +
+      0.7152 * toLinear(d[i + 1]! / 255) +
+      0.0722 * toLinear(d[i + 2]! / 255);
+    lum[k] = v;
+    sum += v;
+  }
+  const k0 = GREY_MEAN / Math.max(0.01, sum / lum.length);
+  for (let i = 0, k = 0; i < d.length; i += 4, k++) {
+    const v = Math.round(toSrgb(Math.min(1, lum[k]! * k0)) * 255);
+    d[i] = v;
+    d[i + 1] = v;
+    d[i + 2] = v;
+  }
+  g.putImageData(px, 0, 0);
+  const grey = new CanvasTexture(canvas);
+  grey.colorSpace = SRGBColorSpace;
+  grey.flipY = map.flipY;
+  grey.wrapS = map.wrapS;
+  grey.wrapT = map.wrapT;
+  grey.repeat.copy(map.repeat);
+  grey.offset.copy(map.offset);
+  grey.channel = map.channel;
+  greys.set(map.uuid, grey);
+  return grey;
+};
+
+/** the item's cloth over the model's own: the item's colour over a grey
+    copy of the model's colour map (its weave, seams and wear kept), and
+    the model's normal, roughness, occlusion and sheen maps as they are
+    (round 8, 1g; it once dropped the colour map for one flat colour) */
 const clothOver = (own: MeshStandardMaterial, colour: string) => {
+  const grey = own.map ? greyOf(own.map) : null;
+  const tint = new Color(clothColour(colour));
+  // the grey's mean brought back to the colour asked for
+  if (grey) tint.multiplyScalar(1 / GREY_MEAN);
+  const sheened = own as MeshStandardMaterial & Partial<MeshPhysicalMaterial>;
   const m = new MeshPhysicalMaterial({
-    color: colour,
-    roughness: 0.9,
+    color: tint,
+    map: grey ?? null,
+    roughness: own.roughnessMap ? own.roughness : 0.9,
     metalness: 0,
-    sheen: 0.5,
+    sheen: sheened.sheen ?? 0.5,
     sheenColor: shade(colour, 0.1),
-    sheenRoughness: 0.8,
+    sheenRoughness: sheened.sheenRoughness ?? 0.8,
+    ...(sheened.sheenColorMap ? { sheenColorMap: sheened.sheenColorMap } : {}),
+    ...(sheened.sheenRoughnessMap
+      ? { sheenRoughnessMap: sheened.sheenRoughnessMap }
+      : {}),
     normalMap: own.normalMap,
     normalScale: own.normalScale,
     roughnessMap: own.roughnessMap,
+    aoMap: own.aoMap,
+    aoMapIntensity: own.aoMapIntensity,
   });
   m.userData.own = true;
   return m;
@@ -267,9 +353,35 @@ class ModelGuard extends Component<
   }
 }
 
+/** a loose piece is set down a little off the square, as no one lines a
+    chair or a coffee table up with the walls: turned 1–4° either way,
+    seeded by the piece; anything standing against a wall or built in
+    stays square (round 8, 1h) */
+const LOOSE_TURN = { least: 1, most: 4 } as const;
+const looseTurn = (node: AssetNode) => {
+  const name = node.name.toLowerCase();
+  const loose =
+    (node.category === "seating" &&
+      !/sofa|couch|settee|bench|bed/.test(name)) ||
+    (node.category === "tables" && /coffee|side|end|occasional/.test(name)) ||
+    (node.category === "decor" &&
+      /vase|plant|fig|palm|fern|pouf|ottoman/.test(name));
+  if (!loose) return 0;
+  const u = ((seedOf(node.id) * 9301 + 49297) % 233280) / 233280;
+  const v = ((seedOf(node.id) * 7919 + 104729) % 65536) / 65536;
+  const deg = LOOSE_TURN.least + (LOOSE_TURN.most - LOOSE_TURN.least) * u;
+  return ((v < 0.5 ? -1 : 1) * deg * Math.PI) / 180;
+};
+
 export function Furniture3D(p: Props) {
   const outline = p.clash || p.selected || p.edges || p.hovered;
-  const form = <Form {...p} />;
+  // the built form within its bake (Bake.tsx): its light baked once it
+  // is built, and its footprint on the floor
+  const form = (
+    <BakeScope name={p.node.name} wall={p.wall ?? null}>
+      <Form {...p} />
+    </BakeScope>
+  );
   // a generated item's own mesh, else the stock mesh its name has; a
   // piece opened as panels is its panels
   const stock = p.panels
@@ -281,23 +393,26 @@ export function Furniture3D(p: Props) {
     e.stopPropagation();
     p.onPick();
   });
+  const turn = looseTurn(p.node);
   return (
     <group onClick={onClick}>
-      {stock ? (
-        <ModelGuard fallback={form}>
-          <Suspense fallback={form}>
-            <Model
-              src={stock.src}
-              size={p.size}
-              cloth={
-                stock.cloth ? { colour: p.colour, names: stock.cloth } : null
-              }
-            />
-          </Suspense>
-        </ModelGuard>
-      ) : (
-        form
-      )}
+      <group rotation={[0, turn, 0]}>
+        {stock ? (
+          <ModelGuard fallback={form}>
+            <Suspense fallback={form}>
+              <Model
+                src={stock.src}
+                size={p.size}
+                cloth={
+                  stock.cloth ? { colour: p.colour, names: stock.cloth } : null
+                }
+              />
+            </Suspense>
+          </ModelGuard>
+        ) : (
+          form
+        )}
+      </group>
       {outline && (
         <Outline size={p.size} colour={p.clash ? DANGER_HEX : ACCENT_HEX} />
       )}
@@ -526,13 +641,14 @@ function Form(p: Props) {
                   Math.round((w - 2 * Math.min(0.18, w * 0.12)) / CUSHION),
                 )
           }
+          wear={seed}
           seed={lived ? seed : null}
         />
       );
     case "tables":
       return (
         <group>
-          <Table w={w} h={h} d={d} />
+          <Table w={w} h={h} d={d} stone={/coffee/.test(name)} seed={seed} />
           {lived && /coffee|dining/.test(name) && (
             <TableTouches
               w={w}
@@ -560,6 +676,61 @@ function Form(p: Props) {
     }
   }
 }
+
+/** a plinth set back under a piece, as a cabinet's is: `PLINTH_IN` at
+    the front so its toe space throws a shadow, 10 mm at the back and
+    30 mm at the sides */
+const PLINTH_IN = 0.065;
+const plinthOf = (w: number, d: number, f: Finish): Part => ({
+  f,
+  at: [0, PLINTH / 2, (0.01 - PLINTH_IN) / 2],
+  dims: [w - 0.06, PLINTH, d - PLINTH_IN - 0.01],
+});
+/** a back panel stands this far in from the carcass's back edge */
+const BACK_IN = 0.01;
+const backOf = (
+  w: number,
+  h: number,
+  y: number,
+  d: number,
+  f: Finish,
+): Part => ({
+  f,
+  at: [0, y, -d / 2 + BACK_IN + PANEL / 2],
+  dims: [w, h, PANEL],
+});
+/** a door set in its opening: the gap round it, m, and how far its face
+    stands proud of the carcass's front */
+const REVEAL = 0.0025;
+const FRONT_PROUD = 0.0015;
+/** a D-pull at real size: a 12 mm bar 160 mm long on two posts 128 mm
+    apart, 28 mm off the front, in brushed steel (upright on a door, flat
+    on a drawer) */
+const PULL = {
+  r: 0.006,
+  length: 0.16,
+  centres: 0.128,
+  off: 0.028,
+  post: 0.0045,
+};
+const pull = (x: number, y: number, z: number, upright: boolean): Part[] => {
+  const f = metal(METAL, 0.32);
+  const bar: Part = {
+    f,
+    at: [x, y, z + PULL.off],
+    rod: [PULL.r, PULL.length],
+    ...(upright ? {} : { rotation: [0, 0, Math.PI / 2] as Vector3Tuple }),
+  };
+  const posts = [-1, 1].map((s): Part => ({
+    f,
+    at: upright
+      ? [x, y + (s * PULL.centres) / 2, z + PULL.off / 2]
+      : [x + (s * PULL.centres) / 2, y, z + PULL.off / 2],
+    rod: [PULL.post, PULL.off],
+    rotation: [Math.PI / 2, 0, 0],
+  }));
+  return [bar, ...posts];
+};
 
 /* ---------- the Furnishes pieces: 18 mm panels ---------- */
 
@@ -597,14 +768,10 @@ function Carcass({
   });
   const hookCount = Math.max(2, Math.round(bayW / 0.18));
   const parts: Part[] = [
-    { f: plinthF, at: [0, PLINTH / 2, 0], dims: [w - 0.06, PLINTH, d - 0.05] },
+    plinthOf(w, d, plinthF),
     { f, at: [0, PLINTH + PANEL / 2, 0], dims: [w, PANEL, d] },
     { f, at: [0, h - PANEL / 2, 0], dims: [w, PANEL, d] },
-    {
-      f,
-      at: [0, PLINTH + h / 2 - PLINTH / 2, -d / 2 + PANEL / 2],
-      dims: [w - 2 * PANEL, h - PLINTH, PANEL],
-    },
+    backOf(w - 2 * PANEL, inner, PLINTH + PANEL + inner / 2, d, f),
   ];
   bays.forEach((colour, i) => {
     const x0 = -w / 2 + PANEL + i * (bayW + PANEL);
@@ -616,12 +783,13 @@ function Carcass({
       dims: [PANEL, h - PLINTH, d],
     });
     parts.push(side(x0 - PANEL / 2));
+    // the shelves from the back panel's face to a hair in from the front
     for (const y of rows)
       parts.push({
         f,
         colour,
-        at: [mid, y, 0],
-        dims: [bayW, PANEL, d - PANEL],
+        at: [mid, y, (BACK_IN + PANEL - 0.009) / 2],
+        dims: [bayW, PANEL, d - BACK_IN - PANEL - 0.009],
       });
     if (i === bays.length - 1) parts.push(side(x0 + bayW + PANEL / 2));
     if (doors)
@@ -634,15 +802,12 @@ function Carcass({
           at: [mid, PLINTH + PANEL + inner / 2, d / 2 + PANEL / 2],
           dims: [bayW + PANEL - DOOR_GAP, inner + PANEL - DOOR_GAP, PANEL],
         },
-        {
-          f: handle,
-          at: [
-            x0 + bayW - 0.05,
-            PLINTH + PANEL + inner * 0.5,
-            d / 2 + PANEL + 0.012,
-          ],
-          rod: [0.005, 0.11],
-        },
+        ...pull(
+          x0 + bayW - 0.05,
+          PLINTH + PANEL + inner * 0.5,
+          d / 2 + PANEL,
+          true,
+        ),
       );
     if (hooks)
       for (let k = 0; k < hookCount; k++)
@@ -825,18 +990,52 @@ function Books({
   room: number;
   seed: number;
 }) {
-  const geometry = useMemo(
-    () => booksGeometry(bookLayout({ x0, y, bayW, z, deep, room, seed })),
-    [x0, y, bayW, z, deep, room, seed],
-  );
+  const geometry = useMemo(() => {
+    const g = booksGeometry(bookLayout({ x0, y, bayW, z, deep, room, seed }));
+    return g && withBakeDefaults(g);
+  }, [x0, y, bayW, z, deep, room, seed]);
   useEffect(() => () => geometry?.dispose(), [geometry]);
+  // to the piece's bake, the books as one block, a little inside their
+  // run (their heights differ), their vertices taking its light
+  const mesh = useRef<Mesh>(null);
+  useBakeMembers(() => {
+    if (!mesh.current || !geometry) return [];
+    geometry.computeBoundingBox();
+    const b = geometry.boundingBox!;
+    const c = b.getCenter(new Vector3());
+    const h = b.getSize(new Vector3()).multiplyScalar(0.5);
+    return [
+      {
+        kind: "solid",
+        mesh: mesh.current,
+        box: {
+          c: [c.x, c.y - h.y * 0.1, c.z],
+          h: [h.x, h.y * 0.85, h.z * 0.9],
+        },
+        shared: false,
+      },
+    ];
+  }, [geometry]);
   if (!geometry) return null;
   return (
-    <mesh geometry={geometry} castShadow receiveShadow>
-      <meshStandardMaterial map={spineAtlas()} roughness={BOOK_ROUGH} />
+    <mesh ref={mesh} geometry={geometry} castShadow receiveShadow>
+      <primitive object={booksMaterial()} attach="material" dispose={null} />
     </mesh>
   );
 }
+
+/** the books' one material: the spines' picture, matt, the shelf's
+    baked light on them (their vertices', lightmap-nodes.ts) */
+let books: MeshStandardNodeMaterial | null = null;
+const booksMaterial = () => {
+  if (books) return books;
+  books = new MeshStandardNodeMaterial({
+    map: spineAtlas(),
+    roughness: BOOK_ROUGH,
+  });
+  books.aoNode = bakedOcclusion;
+  return books;
+};
 
 function Bench({ w, h, d, f }: { w: number; h: number; d: number; f: Finish }) {
   const seatH = Math.max(0.1, h - 0.07);
@@ -909,12 +1108,30 @@ function Cart({ w, h, d, f }: { w: number; h: number; d: number; f: Finish }) {
 
 /* ---------- the room's own things ---------- */
 
+/** an upholstered seat, as an upholsterer builds a box sofa: a base on
+    wooden legs, two arms and a back frame, all with soft rounded edges,
+    and on them seat and back cushions apart from each other, crowned,
+    welted along their seams, each sat on a little differently (seeded
+    by the piece) */
+const SEAT = {
+  /** between two cushions, m */
+  gap: 0.008,
+  /** the cushions' rounds and crowns, m */
+  seatRound: 0.035,
+  seatCrown: 0.018,
+  backRound: 0.045,
+  backCrown: 0.024,
+  /** the frame's rounds: the base, the arms and the back */
+  base: 0.025,
+  arm: 0.04,
+};
 function Seat({
   w,
   h,
   d,
   colour,
   seats,
+  wear,
   seed,
 }: {
   w: number;
@@ -922,6 +1139,8 @@ function Seat({
   d: number;
   colour: string;
   seats: number;
+  /** how its cushions have been sat on: the piece's own seed */
+  wear: number;
   /** the lived-in touches' seed, or null for none */
   seed: number | null;
 }) {
@@ -933,6 +1152,7 @@ function Seat({
   const cw = inner / seats;
   const body = cloth(colour);
   const cushion = cloth(shade(colour, 0.04));
+  const backH = h - LEG - baseH - 0.16;
   return (
     <group>
       <Built
@@ -940,7 +1160,7 @@ function Seat({
           [-1, 1].map((sz): Part => ({
             f: wood(DARK_WOOD, false),
             at: [sx * (w / 2 - 0.08), LEG / 2, sz * (d / 2 - 0.08)],
-            rod: [0.018, LEG, 0.024],
+            rod: [0.016, LEG, 0.02],
           })),
         )}
       />
@@ -948,7 +1168,7 @@ function Seat({
         f={body}
         at={[0, LEG + baseH / 2, 0]}
         dims={[w, baseH, d]}
-        radius={0.02}
+        radius={SEAT.base}
       />
       {[-1, 1].map((s) => (
         <Soft
@@ -956,34 +1176,44 @@ function Seat({
           f={body}
           at={[(s * (w - arm)) / 2, LEG + baseH + 0.14, 0]}
           dims={[arm, 0.28, d]}
-          radius={0.04}
+          radius={SEAT.arm}
         />
       ))}
       <Soft
         f={body}
         at={[0, LEG + baseH + (h - LEG - baseH) / 2, -d / 2 + back / 2]}
         dims={[inner, h - LEG - baseH, back]}
-        radius={0.04}
+        radius={SEAT.arm}
       />
       {Array.from({ length: seats }, (_, i) => {
         const x = -inner / 2 + cw * (i + 0.5);
         return (
           <group key={i}>
-            <Soft
+            <Cushion
               f={cushion}
               at={[x, LEG + baseH + 0.07, back / 2]}
-              dims={[cw - 0.02, 0.14, d - back - 0.02]}
-              radius={0.045}
+              shape={{
+                dims: [cw - SEAT.gap, 0.14, d - back - 0.02],
+                radius: SEAT.seatRound,
+                crown: SEAT.seatCrown,
+                facing: "up",
+                seed: wear * 7 + i,
+              }}
             />
-            <Soft
+            <Cushion
               f={cushion}
               at={[
                 x,
-                LEG + baseH + 0.14 + (h - LEG - baseH - 0.14) / 2,
+                LEG + baseH + 0.14 + backH / 2 + 0.01,
                 -d / 2 + back + 0.08,
               ]}
-              dims={[cw - 0.03, h - LEG - baseH - 0.16, 0.16]}
-              radius={0.05}
+              shape={{
+                dims: [cw - SEAT.gap * 1.5, backH, 0.16],
+                radius: SEAT.backRound,
+                crown: SEAT.backCrown,
+                facing: "front",
+                seed: null,
+              }}
               rotation={[-0.1, 0, 0]}
             />
           </group>
@@ -1004,9 +1234,67 @@ function Seat({
   );
 }
 
-function Table({ w, h, d }: { w: number; h: number; d: number }) {
+/** a coffee table's stone top, honed and sealed (a little coat), and
+    its frame in blackened steel: the room's tables are not all the
+    floor's oak (round 8, 1h) */
+const STONE_TOP = "#d8d3ca";
+const BLACK_STEEL = "#2b2a28";
+function Table({
+  w,
+  h,
+  d,
+  stone,
+  seed,
+}: {
+  w: number;
+  h: number;
+  d: number;
+  /** a stone top on a steel frame (the coffee table) */
+  stone: boolean;
+  /** the piece's seed: its own wood's tone */
+  seed: number;
+}) {
+  if (stone) {
+    const top = 0.03;
+    const steel = metal(BLACK_STEEL, 0.45);
+    const inset = 0.05;
+    const rail = 0.03;
+    return (
+      <group>
+        <Soft
+          f={{ colour: STONE_TOP, rough: 0.42, coat: 0.12 }}
+          at={[0, h - top / 2, 0]}
+          dims={[w, top, d]}
+          radius={0.005}
+        />
+        <Built
+          parts={[
+            ...[-1, 1].flatMap((sx) =>
+              [-1, 1].map((sz): Part => ({
+                f: steel,
+                at: [sx * (w / 2 - inset), (h - top) / 2, sz * (d / 2 - inset)],
+                rod: [0.011, h - top],
+              })),
+            ),
+            // the frame's rails under the top, a hair in from the legs
+            ...[-1, 1].map((sz): Part => ({
+              f: steel,
+              at: [0, h - top - rail / 2, sz * (d / 2 - inset)],
+              dims: [w - 2 * inset, rail, 0.016],
+            })),
+            ...[-1, 1].map((sx): Part => ({
+              f: steel,
+              at: [sx * (w / 2 - inset), h - top - rail / 2, 0],
+              dims: [0.016, rail, d - 2 * inset - 0.016],
+            })),
+          ]}
+        />
+      </group>
+    );
+  }
   const top = 0.035;
-  const f = wood(LIGHT_WOOD);
+  const oak = variedWood(LIGHT_WOOD, seed);
+  const f = wood(oak);
   const inset = 0.07;
   return (
     <group>
@@ -1014,13 +1302,13 @@ function Table({ w, h, d }: { w: number; h: number; d: number }) {
       <Built
         parts={[
           {
-            f: wood(LIGHT_WOOD, false),
+            f: wood(oak, false),
             at: [0, h - top - 0.035, 0],
             dims: [w - 0.14, 0.07, d - 0.14],
           },
           ...[-1, 1].flatMap((sx) =>
             [-1, 1].map((sz): Part => ({
-              f: wood(shade(LIGHT_WOOD, -0.08), false),
+              f: wood(shade(oak, -0.08), false),
               at: [sx * (w / 2 - inset), (h - top) / 2, sz * (d / 2 - inset)],
               rod: [0.016, h - top, 0.026],
             })),
@@ -1642,7 +1930,15 @@ function Glass({ w, h, d }: { w: number; h: number; d: number }) {
   return (
     <group>
       <mesh position={[0, h / 2, 0]} castShadow receiveShadow>
-        <boxGeometry args={[Math.max(w, 0.008), h, Math.max(d, 0.008)]} />
+        <primitive
+          object={slabGeometry([
+            Math.max(w, 0.008),
+            h,
+            Math.max(d, 0.008),
+          ] as Vector3Tuple)}
+          attach="geometry"
+          dispose={null}
+        />
         <meshPhysicalMaterial
           color={GLASS_HEX}
           transparent
@@ -1933,19 +2229,55 @@ function MediaConsole({
 }) {
   const tvW = Math.min(1.45, w * 0.8);
   const tvH = tvW * 0.57;
+  // a carcass of three bays on a set-back plinth: two doors set in
+  // with a reveal round them, the middle bay open for the boxes; its
+  // back stands in from the back edge, as a cabinet maker fits it
+  const inner = h - PLINTH - 2 * PANEL;
+  const innerW = w - 2 * PANEL;
+  const bayW = (innerW - 2 * PANEL) / 3;
+  const midY = PLINTH + PANEL + inner / 2;
+  const dark = wood(DARK_WOOD, false);
+  const xs = [-1, 0, 1].map((k) => k * (bayW + PANEL));
   const parts: Part[] = [
+    plinthOf(w, d, dark),
+    { f, at: [0, h - PANEL / 2, 0], dims: [w, PANEL, d] },
+    ...[-1, 1].map((s): Part => ({
+      f,
+      at: [(s * (w - PANEL)) / 2, PLINTH + (h - PLINTH - PANEL) / 2, 0],
+      dims: [PANEL, h - PLINTH - PANEL, d],
+    })),
+    { f, at: [0, PLINTH + PANEL / 2, 0], dims: [innerW, PANEL, d] },
+    backOf(innerW, inner, midY, d, f),
+    ...[-1, 1].map((s): Part => ({
+      f,
+      at: [(s * (bayW + PANEL)) / 2, midY, -BACK_IN / 2],
+      dims: [PANEL, inner, d - BACK_IN - PANEL],
+    })),
+    // the open bay's shelf, and a box on it
     {
-      f: wood(DARK_WOOD, false),
-      at: [0, PLINTH / 2, 0],
-      dims: [w - 0.06, PLINTH, d - 0.06],
+      f,
+      at: [0, midY, -BACK_IN / 2],
+      dims: [bayW, PANEL, d - BACK_IN - PANEL],
     },
-    { f, at: [0, (h + PLINTH) / 2, 0], dims: [w, h - PLINTH, d] },
-    // the two doors' meeting line
     {
-      f: wood(DARK_WOOD, false),
-      at: [0, (h + PLINTH) / 2, d / 2 + 0.001],
-      dims: [0.004, h - PLINTH - 0.04, 0.002],
+      f: { colour: RUBBER, rough: 0.6 },
+      at: [0, midY + PANEL / 2 + 0.025, -0.02],
+      dims: [Math.min(0.3, bayW * 0.8), 0.05, Math.min(0.22, d * 0.6)],
     },
+    // the two doors, set in a reveal and a hair proud, each with its pull
+    ...[xs[0]!, xs[2]!].flatMap((x, i): Part[] => [
+      {
+        f,
+        at: [x, midY, d / 2 - PANEL / 2 + FRONT_PROUD],
+        dims: [bayW - 2 * REVEAL, inner - 2 * REVEAL, PANEL],
+      },
+      ...pull(
+        x + (i ? -1 : 1) * (bayW / 2 - 0.05),
+        midY + inner * 0.18,
+        d / 2 + FRONT_PROUD,
+        true,
+      ),
+    ]),
     // the television's foot
     { f: metal(IRON), at: [0, h + 0.01, -d * 0.1], dims: [0.36, 0.02, 0.2] },
     { f: metal(IRON), at: [0, h + 0.05, -d * 0.12], dims: [0.06, 0.08, 0.03] },

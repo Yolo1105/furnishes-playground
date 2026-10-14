@@ -15,7 +15,12 @@ import {
   type PieceProps,
 } from "./piece-detail";
 import { explainPlan, travel } from "./plan-explain";
-import { healthOf, type Issue, type Room } from "./room-health";
+import {
+  blendsIntoFloor,
+  healthOf,
+  type Issue,
+  type Room,
+} from "./room-health";
 import { designOf } from "./design-rules";
 import {
   againstWall,
@@ -24,7 +29,7 @@ import {
   layoutRoom,
   type Placed,
 } from "./room-layout";
-import { MUST_HAVE_CHOICES } from "./room-data";
+import { type Floor, FLOOR_TONES, MUST_HAVE_CHOICES } from "./room-data";
 import {
   footprintOf,
   openingsOf,
@@ -144,6 +149,14 @@ const readRoom = (
       roomId: other.id,
     })),
     ...healthOf(boxes(now), room),
+    ...blendsIntoFloor(
+      pieces.map((n) => ({
+        id: n.id,
+        name: n.name,
+        colour: props.get(n.id)!.colour,
+      })),
+      FLOOR_TONES[spec.floor as Floor] ?? "",
+    ),
   ];
   const clashes = new Set(
     issues

@@ -29,6 +29,14 @@ export const CLIP = { near: 0.05, far: 100 } as const;
 export const FRAME_ASPECT = 16 / 10;
 /** the least the room spans across the picture, degrees */
 const ROOM_ACROSS = 66;
+/** the most a room's picture ever spans across, degrees: a real-estate
+    photographer stays within about 70–85°, and past it a chair at the
+    frame's edge stretches. On a tall or square stage the picture is
+    cropped to it, never widened (round 8, 1h) */
+export const ACROSS_MOST = 85;
+/** the vertical lens that spans `degrees` across on a stage this shape */
+const verticalFor = (degrees: number, aspect: number) =>
+  (2 * Math.atan(Math.tan((degrees * Math.PI) / 360) / aspect) * 180) / Math.PI;
 /** the room from above its corner: how high the camera looks down,
     degrees; how far off the corner's diagonal it turns, so the longer
     walls read; the margin round the room in the picture */
@@ -96,7 +104,11 @@ export const cornerShot = (
     // still to the far corner, so the far walls and the window frame
     // the picture as before
     at: [-x, SHOT.height, -z],
-    fov: roomFov(aspect) * framing.lens,
+    // the framing's lens never past the most across
+    fov: Math.min(
+      roomFov(aspect) * framing.lens,
+      verticalFor(ACROSS_MOST, aspect),
+    ),
     shift: SHOT.shift,
   };
 };
@@ -288,11 +300,12 @@ export const openCorner = (
 
 /** the vertical lens that keeps a room's corner shot `ROOM_ACROSS`
     wide on a screen of this shape (width / height) */
-export const roomFov = (aspect: number) => {
-  const across = (ROOM_ACROSS * Math.PI) / 180;
-  const fit = (2 * Math.atan(Math.tan(across / 2) / aspect) * 180) / Math.PI;
-  return Math.min(FOV.widest, Math.max(FOV.room, fit));
-};
+export const roomFov = (aspect: number) =>
+  Math.min(
+    FOV.widest,
+    verticalFor(ACROSS_MOST, aspect),
+    Math.max(FOV.room, verticalFor(ROOM_ACROSS, aspect)),
+  );
 
 export const cameraFor = (
   angle: Angle,

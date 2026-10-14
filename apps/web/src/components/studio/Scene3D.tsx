@@ -31,6 +31,7 @@ import {
   type PerspectiveCamera,
   PCFShadowMap,
   Plane,
+  Raycaster,
   Spherical,
   Vector3,
   type Vector3Tuple,
@@ -69,7 +70,7 @@ import {
 } from "./piece-detail";
 import { FLOOR_TONES, WALL_TONES, type Floor, widestWindow } from "./room-data";
 import { settle, wallGaps, type Rect } from "./room-layout";
-import { WALL_MM } from "./room-geometry";
+import { edgesOf, WALL_MM } from "./room-geometry";
 import type { Point } from "./room-templates";
 import {
   activeOf,
@@ -136,6 +137,8 @@ import {
   type Spot,
 } from "./walk-path";
 import { allBlocks, forgetBlocks, noteBlocks } from "./walk-blocks";
+import { useBakes } from "./lightmap";
+import { WALL_NEAR } from "./lightmap-bake";
 import { balanceGain, EVENING_LIGHT, LAMP_BULB } from "./white-balance";
 import { propsOf, useScene } from "./scene-store";
 import { type GestureEvent, readWheel, useCoarse } from "./input";
@@ -325,9 +328,15 @@ function LiveHandle({
     });
     // in development the scene and its camera are at hand in the
     // console too, for hiding one thing at a time when a defect is
-    // hunted, and for a script to find where a thing is on screen
+    // hunted, and for a script to find where a thing is on screen (and,
+    // with the ray, whether it is seen there: e2e/glance.ts)
     if (process.env.NODE_ENV !== "production")
-      Object.assign(window, { __scene: scene, __camera: camera, __gl: gl });
+      Object.assign(window, {
+        __scene: scene,
+        __camera: camera,
+        __gl: gl,
+        __ray: new Raycaster(),
+      });
     return () => setLive(null);
   }, [scene, camera, gl, w, d, h, spanW, spanD, centre, corner, shot, sun]);
   return null;
@@ -1872,6 +1881,48 @@ const samePieceMidDrag = (a: PieceArgs, b: PieceArgs) =>
   a.room.D === b.room.D &&
   a.room.outline === b.room.outline &&
   !a.actions === !b.actions;
+/** the wall a piece stands against, as its bake takes it (Bake.tsx):
+    the plane behind its back, z in its own frame (its back is −z), when
+    a wall facing its back stands within `WALL_NEAR` of it across its
+    width; none when it is turned off the square */
+const wallBehind = (
+  at: readonly number[],
+  turn: number,
+  size: readonly number[],
+  room: PieceArgs["room"],
+): number | null => {
+  const quarter = Math.round(turn / (Math.PI / 2));
+  if (Math.abs(turn - (quarter * Math.PI) / 2) > 0.03) return null;
+  const k = ((quarter % 4) + 4) % 4;
+  // its back's way on the plan (y down, as +z): local −z turned by turn
+  const [bx, by] = (
+    [
+      [0, -1],
+      [-1, 0],
+      [0, 1],
+      [1, 0],
+    ] as const
+  )[k]!;
+  const wall = (["north", "west", "south", "east"] as const)[k]!;
+  const cx = (at[0]! + room.w / 2) * 1000;
+  const cy = (at[2]! + room.d / 2) * 1000;
+  const half = (size[0]! * 1000) / 2;
+  const back = (size[2]! * 1000) / 2;
+  const bx0 = cx + bx * back;
+  const by0 = cy + by * back;
+  let gap = Infinity;
+  for (const e of edgesOf(room.outline)) {
+    if (e.wall !== wall) continue;
+    const along = by !== 0;
+    const lo = Math.min(along ? e.a[0] : e.a[1], along ? e.b[0] : e.b[1]);
+    const hi = Math.max(along ? e.a[0] : e.a[1], along ? e.b[0] : e.b[1]);
+    const mid = along ? cx : cy;
+    if (hi < mid - half || lo > mid + half) continue;
+    const g = along ? (e.a[1] - by0) * by : (e.a[0] - bx0) * bx;
+    if (g > -5) gap = Math.min(gap, Math.max(0, g));
+  }
+  return gap <= WALL_NEAR * 1000 ? -(size[2]! / 2 + gap / 1000) : null;
+};
 const Piece = memo(PieceDrawn, samePieceMidDrag);
 
 function PieceDrawn({
@@ -1920,6 +1971,11 @@ function PieceDrawn({
   useEffect(() => () => cancelAnimationFrame(moveFrame.current), []);
   // the bar's place, worked out from the piece's size
   const placeBar = useMemo(() => aroundPiece(size), [size]);
+  // the wall behind it, for its bake
+  const wall = useMemo(
+    () => wallBehind(at, turn, size, room),
+    [at, turn, size, room],
+  );
   // in hand: its distance to the walls shows in place of its bar
   const [dragging, setDragging] = useState(false);
   const drag = useRef<{
@@ -2030,6 +2086,7 @@ function PieceDrawn({
     >
       <Furniture3D
         edges={edges}
+        wall={wall}
         hovered={hovered}
         node={node}
         size={size}
@@ -2534,6 +2591,7 @@ export default function Scene3D() {
   useEffect(() => loadMaterials(), []);
   // the part worker's requests under way, for the stage to say
   const partsPending = usePartStore((s) => s.pending);
+  const bakesPending = useBakes((s) => s.pending);
   const partBuilds = usePartStore((s) => s.builds);
   const walk = useStudio((s) => s.walk);
   // the plan in the main view: the 3D view stays mounted, hidden, so it
@@ -3045,6 +3103,7 @@ export default function Scene3D() {
       data-rooms-overlap={roomsOver}
       data-wall-items={wallItems.length}
       data-parts={partsPending}
+      data-bakes={bakesPending}
       data-part-builds={partBuilds}
       data-walk={walk}
       data-doors-open={doorsOpen}

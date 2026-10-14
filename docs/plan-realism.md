@@ -1952,3 +1952,156 @@ sheet is stained through its edge; a birch board's plies stay birch),
 they give way to the board's colour, a shade down, between 2.5 and 7 m
 (`PLY_FADE`), and the joint lines fade out between 2 and 6 m
 (`jointLine`, edge-line.ts), as the outlines already did further off.
+
+## Boxes that look real, objects not light (2026-10-14)
+
+Round 8, Part 1. The outside review rendered the same Corner view with
+the code-built sofa and a real artist's sofa: the light was good enough,
+the boxes were not. Every flat face was one even tone (a sun constant
+across it, a constant fill, probes 1.5 m apart and a thin screen-space
+occlusion line), with a knife edge, no reflection and no contact with
+the floor. The lighting values are left as they were this round
+(exposure 2.15 by day); every change below is to the objects.
+
+**The glance test (1i), measured first.** e2e/glance.ts reads the day
+Corner view at 480 px across, in greyscale, at points found by casting
+rays from the camera (`__ray`, development only), so a cushion or a
+neighbour in front never counts as the face. A visual test holds the
+numbers (visual.spec.ts, "the glance"). Before and after, on the same
+build and view:
+
+|                                       | before        | after  | the brief |
+| ------------------------------------- | ------------- | ------ | --------- |
+| bookwall bay back vs its front edges  | 19.5 % darker | 44 %   | ≥ 35 %    |
+| floor 3 cm off the sofa vs open floor | 39 % darker   | 40 %   | ≥ 25 %    |
+| coffee table top vs the floor         | 18 %          | 27 %   | ≥ 15 %    |
+| sofa front's top edge over its face   | +4.5 %        | +5.4 % | ≥ 4 %     |
+| faces' spread (p90/p10), least        | 1.38          | 1.68   | ≥ 1.15    |
+| darkest 1 % of the picture            | 0.172         | 0.138  | ≤ 0.06    |
+| darkest 0.1 %                         | 0.062         | 0.013  |           |
+
+The spreads were already over 1.15 before: on this build the faces
+carry their grain, books and cushions, which the measure counts; the
+squint pictures show the change better. Not met: the black point. The
+tone mapping is Neutral (no lifted toe), there is no fog or haze term,
+and the glow only takes what is past 2× white; the picture is high-key
+(white walls, a cream sofa, light oak) at the owner's 2.15, and the
+near blacks the bake made (under the sofa, in the bays' corners) are
+too few to be 1 % of the frame. Reaching 0.06 would need darker
+furnishings or a lower exposure, which are the owner's to choose.
+
+**A lightmap for each piece (1a).** Each board's six faces are laid
+into the piece's own atlas (`layoutCharts`, lightmap-bake.ts): 48 texels
+a metre (2 cm), at least 2 across, a 2-texel border repeating the edge,
+a face pressed against another board or the floor left out; a piece
+past 48 000 texels is laid coarser. The brief's 2–4 texels a
+centimetre would be 50–200 times the rays for a light that changes over
+decimetres; the sharp things (an edge's line, a joint) are drawn by the
+geometry and the shader. The pieces' atlases share one 2048² texture
+(lightmap.ts), so every piece keeps its finish's material and shader (a
+texture a piece would be a material, and a shader build, a piece); its
+white corner is what an unbaked part reads. The bake runs in a worker
+(lightmap.worker.ts) against the piece as boxes (boards exactly; a leg,
+a cushion, a shelf of books by their box), the floor, and the wall
+behind when the piece stands within 50 mm of one (`wallBehind` in
+Scene3D), with our own ray–box tests rather than three-mesh-bvh: a
+piece is a few dozen boxes, and a box test is cheaper than a triangle
+tree's walk. From each texel 14 rays on a golden spiral, turned per
+texel and evened by a 3 × 3 blur within the face:
+
+- R, occlusion within 0.4 m, a smooth step over the reach (a near hit
+  takes nearly all its share), into the material's ambient occlusion,
+  so it scales the fill, the probes and the room's reflection; the sun
+  keeps its shadow map;
+- G, the sky: of the light from above the horizon, the share that gets
+  out at any distance; it scales the window's area lights on that part
+  (`skyLit` in finish.tsx wraps the lighting model's `directRectArea`),
+  which have no shadows of their own and lit a bay's back as brightly
+  as its front;
+- the brief's B (convexity) is not in the map: a board's vertices carry
+  their distance to each of the face's four edges (the `edge`
+  attribute), exact where a 2 cm texel is not, and an edge another
+  board covers is set far (`coveredEdges`).
+
+Parts that are not boards keep their light at their vertices (`lm`,
+20 rays), which hold what is taken away, so a part never baked takes
+nothing. A soft footprint is baked on the floor round the piece (rays
+up from the floor within 0.35 m, 20 cm round it, 40 texels a metre) and
+laid on a plane 1.2 mm over the floor, drawn pulled a fixed step
+forward in depth (a slope-scaled offset showed a rug's footprint
+through the rug at a grazing look); a thing lying flat (a rug) leaves
+none. Bakes are kept by a key of everything they read
+(`bakeKey`, FNV-1a) in memory and in IndexedDB, run nearest the camera
+first, and the stage says how many pieces still wait (`data-bakes`),
+which the pictures wait on. Times, one core of this sandbox in Node:
+the bookwall-sized piece (30 boards, 55 000 texels) 393 ms, the three-bay
+sideboard (14 boards) 245 ms; in the browser under the software
+renderer, which takes the other cores, 3–4 s each, and the first bake
+of a visit some tens of seconds while the development server builds the
+worker. A laptop with a GPU should be near the Node times; not
+measured here.
+
+**Edges that catch the light (1b).** The boards' round is 1.8 mm in
+three steps (1.3 mm in two). Where the round is under a pixel, a
+board's colour is lifted 9 % along a line a pixel wide (`edgeLift`,
+lightmap-nodes.ts, from the `edge` attribute and its screen rate),
+fading out between 6 and 14 m. Not scaled by how the edge faces the
+key light: the lift is on the colour, so a face in shadow lifts its
+edge less in light. Every `BoxGeometry` left in the scene, listed:
+the room's skirting, cornice, door lining and threshold, switch plates,
+its plain boxes and door leaves (Room3D.tsx) and the shower screen's
+glass (Furniture3D.tsx) now use the rounded board; the outlines
+(Furniture3D, Panels3D: lines, not faces), the machining marks on a
+panel in the editor (Panels3D) and a part's stand-in while its body
+loads (Part3D) stay boxes.
+
+**Surfaces that reflect (1c).** All the furniture's finishes are now node
+materials with the room's box-projected reflection, metals and matt
+finishes included (they had the sky map), a roughness that drifts
+±0.05 across a piece and a few faint smudges on its tops
+(`ROUGH_DRIFT`, `SMUDGE`). Every colour is held between 0.035 and 0.83
+linear luminance (`ALBEDO`, albedo.ts; the palette's Ash white, the
+lightest finish offered, is 0.823), and a cloth's saturation under
+0.45 (`clothColour`). albedo.test.ts checks every preset.
+
+**Construction (1d).** Plinths stand 65 mm back from the front
+(`plinthOf`), backs 10 mm in from the back edge (`backOf`), shelves stop
+at the back's face. Handles are D-pulls at real size (a 12 mm bar
+160 mm long on posts 128 mm apart, 28 mm off the front). The media
+console is a carcass of three bays: two doors set in a 2.5 mm reveal
+and 1.5 mm proud, each with its pull, and an open middle bay with a
+shelf and a box.
+
+**Ply (1e).** Already so from earlier rounds: each board its own tone
+(±4 %, `toneOf`), its own cut of the sheet and half of them end for end
+(`grainShiftOf`), the grain along each board's longer side.
+
+**The soft box (1f).** The sofa keeps its box shape and is built as an
+upholsterer builds one: the base, arms and back with soft rounds, and
+cushions apart from each other by 8 mm (`cushionGeometry`): a grid
+pushed onto a round of 35–45 mm, crowned 18–24 mm, a darker welt round
+both seams, and each seat cushion sat on a little differently (a
+seeded sag of 6–14 mm towards the front and two or three faint
+creases). Its legs are wood, 32–40 mm.
+
+**Cloth (1g).** A stock model's cloth takes the item's colour over a
+grey copy of the model's own colour map (its weave, seams and wear),
+brought to a mean of 0.8 so a dark leather's map and a pale linen's
+both carry the colour at its tone, with its normal, roughness,
+occlusion and sheen maps kept.
+
+**Separation and finish (1h).** The coffee table is a honed stone top
+on a blackened steel frame; the other tables' oak is turned ±3° in hue
+and ±6 % in value by the piece. A health note says when a piece's
+colour is within 10 % of the floor's (`blendsIntoFloor`). The room's
+views open no wider than 85° across (`ACROSS_MOST`, camera-bookmarks):
+on a tall or square stage the picture is cropped, not widened. Loose
+pieces (chairs, the armchair, the coffee table, decor) stand 1–4° off
+the square, seeded; anything against a wall stays square. The frame has
+a faint grain, ±1.2 % in the midtones, fixed to the pixel so a still
+frame stays still; the lens vignette was already there.
+
+**Not done this round, listed for the next:** a lightmap for the stock
+models (they need a second UV set: xatlas-three, Part 2); the convexity
+channel scaled by the key light's direction; a wall footprint (the wall
+is in the bake as a blocker, but nothing is drawn on it).
