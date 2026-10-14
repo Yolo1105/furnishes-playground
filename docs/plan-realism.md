@@ -1526,9 +1526,10 @@ instead, and why:
 - The test holds the wall at 1.2 or more, between the 1.08 of a room
   whose windows do not light it and the 1.27 as drawn, and adds the
   brief's second check, missing until now: the sofa's end seat by the
-  window brighter than its far one (0.250 against 0.204 as drawn; with
-  the windows' lights off the far one is the brighter, 0.136 against
-  0.117).
+  window brighter than its far one (0.264 against 0.241 where the test
+  reads them, the middle of each end seat; nearer the front, 0.250
+  against 0.204, and with the windows' lights off the far one is the
+  brighter, 0.136 against 0.117).
 
 Getting nearer 2 would mean taking out the sky map's light indoors and
 most of the fill (1.39 at best, the room darker away from the windows
