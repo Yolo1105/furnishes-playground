@@ -33,6 +33,9 @@ const ROOM_ACROSS = 66;
     degrees; how far off the corner's diagonal it turns, so the longer
     walls read; the margin round the room in the picture */
 const ROOM_VIEW = { elevation: 38, skew: 0.7, margin: 1.12 };
+/** a side of the cube: the room from that side, raised this many
+    degrees, with this much room round it */
+const SIDE_VIEW = { elevation: 32, margin: 1.1 };
 
 /** a pose: where the camera stands, what it looks at, its lens, and
     how far its frame is shifted down, a share of the frame's height
@@ -308,16 +311,13 @@ export const cameraFor = (
   /** the picture's width over its height */
   aspect = FRAME_ASPECT,
 ): Pose => {
-  const r = Math.max(w, d);
-  const [cx, cz] = centre;
   const [sx, sz] = room.corner ?? [1, 1];
   if (angle === "Corner")
     return cornerShot(room.w, room.d, [sx, sz], aspect, room.framing);
-  // the four sides look in over the near wall, which is open to the
-  // camera, from above the walls: the floor, the pieces and the far wall
-  // all in view, as a section through the room is drawn
-  const over = h * 1.3;
-  const side: Vector3Tuple = [cx, h / 3, cz];
+  // the four sides look into the room being worked on from that side,
+  // over its near wall (which drops to its foot for the camera), raised
+  // as the perspective is: the floor, the pieces and the far wall all in
+  // view; the top looks straight down on it
   // the perspective: the room from above its corner, far enough back
   // that all of it (its walls' height too) fits the picture both ways
   const up = (ROOM_VIEW.elevation * Math.PI) / 180;
@@ -332,9 +332,28 @@ export const cameraFor = (
       reach / (Math.tan(half) * Math.max(0.5, aspect)),
     );
   const look = h / 4;
+  const wide = Math.tan(half) * Math.max(0.5, aspect);
+  const sideOf = (dx: number, dz: number): Vector3Tuple => {
+    const rise = (SIDE_VIEW.elevation * Math.PI) / 180;
+    // across the picture, and along the way the camera looks
+    const across = dx ? room.d : room.w;
+    const along = dx ? room.w : room.d;
+    const high = (along * Math.sin(rise) + h * Math.cos(rise)) / 2;
+    const back =
+      SIDE_VIEW.margin * Math.max(high / Math.tan(half), across / 2 / wide);
+    return [
+      dx * back * Math.cos(rise),
+      look + back * Math.sin(rise),
+      dz * back * Math.cos(rise),
+    ];
+  };
+  const above =
+    SIDE_VIEW.margin *
+      Math.max(room.d / 2 / Math.tan(half), room.w / 2 / wide) +
+    h;
   const at: Record<string, Vector3Tuple> = {
     Perspective: [0, look, 0],
-    Top: [cx, h / 2, cz],
+    Top: [0, 0, 0],
   };
   const pos: Record<string, Vector3Tuple> = {
     Perspective: [
@@ -342,17 +361,17 @@ export const cameraFor = (
       look + far * Math.sin(up),
       far * Math.cos(up) * Math.cos(yaw),
     ],
-    // across the flat's width: far enough that its near corners, closer
-    // to the camera than its middle, stay in the picture
-    Front: [cx, over, cz + r * 1.45],
-    Back: [cx, over, cz - r * 1.45],
-    Left: [cx - r * 1.3, over, cz],
-    Right: [cx + r * 1.3, over, cz],
-    Top: [cx, r * 1.8, cz + 0.01],
+    Front: sideOf(0, 1),
+    Back: sideOf(0, -1),
+    Left: sideOf(-1, 0),
+    Right: sideOf(1, 0),
+    // a hair south of straight down, so the orbit keeps its bearings
+    // and north stays up the screen
+    Top: [0, above, 0.01],
   };
   return {
     pos: pos[angle] ?? pos.Perspective!,
-    at: at[angle] ?? side,
+    at: at[angle] ?? [0, look, 0],
     fov: FOV.overview,
   };
 };

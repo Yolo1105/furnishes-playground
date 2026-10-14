@@ -202,6 +202,10 @@ export function Plan2D({
   /** the active room's fields with the actions, as one */
   const r = { ...st, ...active };
   const tool = useStudio((s) => s.tool);
+  // walking in 3D: the plan shows where the walker is and the way it
+  // takes, and a click on it sends the walker there
+  const walking = useStudio((s) => s.walk);
+  const walker = useStudio((s) => s.walker);
   const wheelMode = useStudio((s) => s.wheelMode);
   const { zoomPlan, panPlan } = useStudio.getState();
   const coarse = useCoarse();
@@ -479,6 +483,10 @@ export function Plan2D({
     }
     const pt = mmOf(e);
     if (!pt) return;
+    if (walking) {
+      useStudio.getState().walkTo(pt);
+      return;
+    }
     if (drawingOn) r.addCorner(pt);
     else if (touring) r.addStop(pt);
     else if (measuring)
@@ -889,6 +897,7 @@ export function Plan2D({
     <PlanSheet
       ref={sheetRef}
       interactive={interactive}
+      data-walking={walking}
       data-pan={canPan ? (panning ? "moving" : "ready") : undefined}
       onPointerDown={onDown}
       onPointerMove={onMove}
@@ -1241,6 +1250,35 @@ export function Plan2D({
                 </text>
               </>
             )}
+          </g>
+        )}
+        {walking && walker && (
+          <g className="plan-walker" aria-hidden="true">
+            {walker.path && walker.path.length > 1 && (
+              <>
+                <polyline
+                  className="plan-walker-path"
+                  points={walker.path.map((p) => p.join(",")).join(" ")}
+                />
+                <circle
+                  className="plan-walker-goal"
+                  cx={walker.path[walker.path.length - 1]![0]}
+                  cy={walker.path[walker.path.length - 1]![1]}
+                  r={110}
+                />
+              </>
+            )}
+            {/* the walker, its point the way it faces (yaw 0 faces north,
+                up the sheet) */}
+            <g
+              transform={`translate(${walker.x} ${walker.y}) rotate(${(-walker.yaw * 180) / Math.PI})`}
+            >
+              <path
+                className="plan-walker-heading"
+                d="M 0 -330 L 120 -150 L -120 -150 Z"
+              />
+              <circle className="plan-walker-dot" r={170} />
+            </g>
           </g>
         )}
       </svg>

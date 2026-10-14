@@ -166,10 +166,21 @@ test("the front elevation", async ({ page }) => {
 
 test("at eye level, walking", async ({ page }) => {
   await page.getByRole("button", { name: "Walk the room" }).click();
+  // the walk is seen from behind its figure; Eyes brings it to the
+  // walker's own eye height
+  await page
+    .getByRole("button", { name: "See through the walker's eyes" })
+    .click();
   // the walk's ceiling changes the room: the probes and the floor's
   // picture are taken again, and the picture waits for them
   await settled(page);
   await picture(page, "walk.png");
+});
+
+test("walking, the figure followed", async ({ page }) => {
+  await page.getByRole("button", { name: "Walk the room" }).click();
+  await settled(page);
+  await picture(page, "walk-follow.png");
 });
 
 /**

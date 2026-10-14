@@ -13,6 +13,7 @@ import { cameraMoving } from "./camera-motion";
 import { type StillState, stillOf, wakeAt } from "./capture";
 import { devParam } from "./dev-flags";
 import { warming } from "./shader-warm";
+import { useEvent } from "./use-event";
 import { withWallsStanding } from "./walls-standing";
 import { LightProbeGrid } from "three/examples/jsm/lighting/LightProbeGrid.js";
 import { LightProbeGridNode } from "three/examples/jsm/tsl/lighting/LightProbeGridNode.js";
@@ -59,6 +60,9 @@ const SETTLE_MS = 400;
 /** a bake held back (shaders building, the camera moving) looks again
     after this, ms */
 const RETRY_MS = 250;
+/** the pause between two slices of a bake, ms: the page answers a hand
+    in it */
+const SLICE_GAP_MS = 4;
 
 /** the renderer told how the grid lights a material, once, before any
     material is built with the grid in the scene */
@@ -252,6 +256,64 @@ export function Probes({
         }),
       ),
     );
+  // the bake runs between the frames, a slice at a time and a moment
+  // apart, not in them: each slice in a frame of its own drew the whole
+  // view again with every pass (a picture that had not moved) on top of
+  // the slice's own pictures, and the page took no hand for the seconds
+  // a bake lasts. The room is drawn again once, when it is done
+  const pumping = useRef(0);
+  useEffect(
+    () => () => {
+      window.clearTimeout(pumping.current);
+      pumping.current = 0;
+    },
+    [],
+  );
+  // a slice a moment from now (the pump reads itself through a ref)
+  const pumpRef = useRef<() => void>(() => undefined);
+  const later = (ms: number) => {
+    pumping.current = window.setTimeout(() => pumpRef.current(), ms);
+  };
+  const pump = useEvent(() => {
+    pumping.current = 0;
+    const j = job.current;
+    if (!j) return;
+    const state = get();
+    // the room's shaders being built hold the renderer's outputs, a
+    // moving camera is drawn first, and the floor's picture is taken
+    // before the bake starts: each looks again shortly
+    if (
+      warming() ||
+      cameraMoving() ||
+      (held.current && j.at === 0 && j.pass === 0)
+    ) {
+      later(RETRY_MS);
+      return;
+    }
+    const total = grid.resolution.x * grid.resolution.y * grid.resolution.z;
+    const t0 = performance.now();
+    do {
+      const count = Math.min(PER_CALL, total - j.at);
+      bakeSlice(state, j.at, count, j.pass);
+      j.at += count;
+    } while (j.at < total && performance.now() - t0 < BAKE_MS);
+    const passes = bounce && !FAST ? BOUNCES + 1 : 1;
+    onProgress?.(j.pass * total + j.at, total * passes);
+    if (j.at >= total) {
+      if (j.pass >= passes - 1) {
+        job.current = null;
+        noteBake(key, bakeOf(stampNow.current, state.scene.environment));
+        onState("ready");
+        state.invalidate();
+        return;
+      }
+      job.current = { at: 0, pass: j.pass + 1 };
+    }
+    later(SLICE_GAP_MS);
+  });
+  useLayoutEffect(() => {
+    pumpRef.current = pump;
+  }, [pump]);
   // the probes' frame comes before the chain's (Post draws after)
   useFrame((state) => {
     // a grid without its picture takes one at once, of its first probe
@@ -280,32 +342,8 @@ export function Probes({
       due.current = 0;
       job.current = { at: 0, pass: 0 };
     }
-    const j = job.current;
-    // a moving camera is drawn first: the bake goes on once it stands
-    if (!j) return;
-    // the floor's picture is taken first; the bake starts after it
-    if (held.current && j.at === 0 && j.pass === 0) return;
-    if (cameraMoving()) {
-      wakeAt(wake, performance.now() + RETRY_MS, state.invalidate);
-      return;
-    }
-    const total = grid.resolution.x * grid.resolution.y * grid.resolution.z;
-    const t0 = performance.now();
-    do {
-      const count = Math.min(PER_CALL, total - j.at);
-      bakeSlice(state, j.at, count, j.pass);
-      j.at += count;
-    } while (j.at < total && performance.now() - t0 < BAKE_MS);
-    const passes = bounce && !FAST ? BOUNCES + 1 : 1;
-    onProgress?.(j.pass * total + j.at, total * passes);
-    if (j.at >= total) {
-      if (j.pass >= passes - 1) {
-        job.current = null;
-        noteBake(key, bakeOf(stampNow.current, state.scene.environment));
-        onState("ready");
-      } else job.current = { at: 0, pass: j.pass + 1 };
-    }
-    state.invalidate();
+    // a bake due: its slices go on between the frames (above)
+    if (job.current && !pumping.current) later(0);
   });
   return <primitive object={grid} />;
 }

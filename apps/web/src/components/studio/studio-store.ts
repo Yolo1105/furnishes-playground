@@ -155,6 +155,9 @@ export const ANGLES: Record<View, readonly string[]> = {
   "2d": ["Plan", "Front", "Back", "Left", "Right"],
 };
 export type Angle = (typeof ANGLES)[View][number];
+/** how the walk is seen: the figure followed from behind it, or through
+    its own eyes */
+export type WalkView = "follow" | "eyes";
 
 /** what the line under the toolbar is waiting for: a view swap is quick,
     a render takes its time */
@@ -200,8 +203,22 @@ type StudioState = {
   /** how the view is looked at, one of ANGLES[view] */
   angle: Angle;
   uiHidden: boolean;
-  /** walking the room in 3D at eye height */
+  /** walking the flat in 3D: a figure followed from behind, or the
+      walker's own eyes (`walkView`) */
   walk: boolean;
+  walkView: WalkView;
+  /** the walk as the plan draws it: where the walker stands and which
+      way it faces (sheet mm; yaw as the camera's, 0 facing north), and
+      the way it is taking, if any */
+  walker: {
+    x: number;
+    y: number;
+    yaw: number;
+    path: [number, number][] | null;
+  } | null;
+  /** a point on the plan the walker was sent to, sheet mm: counted, so
+      the same point sent twice still sends it */
+  walkGoal: { at: [number, number]; n: number } | null;
   /** where the 3D camera stands about the room: its azimuth (0 looks in
       from the front, a quarter turn to the right from the right) and
       its height above the floor, radians; the view cube turns with it */
@@ -211,6 +228,9 @@ type StudioState = {
   turn: { yaw: number; pitch: number; n: number } | null;
   /** the camera was turned by hand since the last named angle */
   free: boolean;
+  /** counts each angle picked: the same face picked again, after the
+      view was turned by hand, goes back to it */
+  angleAt: number;
   /** counts each project opened from the menu: the 3D view shows the
       change (the flat from above, then into the room again) */
   switchedAt: number;
@@ -289,6 +309,10 @@ type StudioState = {
   /** turn the camera to an azimuth and height, as the cube is dragged */
   turnTo: (to: { yaw: number; pitch: number }) => void;
   setWalk: (walk: boolean) => void;
+  setWalkView: (view: WalkView) => void;
+  setWalker: (walker: StudioState["walker"]) => void;
+  /** send the walker to a point on the plan, sheet mm */
+  walkTo: (at: [number, number]) => void;
   setUiHidden: (hidden: boolean, at?: { top: number; left: number }) => void;
   setFocus: (id: string | null) => void;
   setPanelTab: (tab: PanelTab) => void;
@@ -344,9 +368,13 @@ export const useStudio = create<StudioState>((set, get) => ({
   cam: { yaw: Math.PI / 4, pitch: Math.PI / 5 },
   turn: null,
   free: false,
+  angleAt: 0,
   switchedAt: 0,
   uiHidden: false,
   walk: false,
+  walkView: "follow",
+  walker: null,
+  walkGoal: null,
   peekAt: null,
   focusId: null,
   panelTab: "assets",
@@ -436,7 +464,8 @@ export const useStudio = create<StudioState>((set, get) => ({
           },
     );
   },
-  setAngle: (angle) => set({ angle, walk: false, free: false }),
+  setAngle: (angle) =>
+    set((s) => ({ angle, walk: false, free: false, angleAt: s.angleAt + 1 })),
   projectSwitched: () =>
     set((s) => ({
       switchedAt: s.switchedAt + 1,
@@ -456,7 +485,14 @@ export const useStudio = create<StudioState>((set, get) => ({
       turn: { ...to, n: (s.turn?.n ?? 0) + 1 },
       free: true,
     })),
-  setWalk: (walk) => set(walk ? { walk } : { walk, touring: false }),
+  setWalk: (walk) =>
+    set(
+      walk ? { walk } : { walk, touring: false, walker: null, walkGoal: null },
+    ),
+  setWalkView: (walkView) => set({ walkView }),
+  setWalker: (walker) => set({ walker }),
+  walkTo: (at) =>
+    set((s) => ({ walkGoal: { at, n: (s.walkGoal?.n ?? 0) + 1 } })),
   setUiHidden: (uiHidden, at) => {
     try {
       sessionStorage.setItem(IMMERSIVE_KEY, uiHidden ? "1" : "0");

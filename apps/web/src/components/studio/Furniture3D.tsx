@@ -322,8 +322,8 @@ function Outline({
   );
   useEffect(() => () => geometry.dispose(), [geometry]);
   // faded with distance, so a far line does not crawl (edge-line.ts)
-  const material = useMemo(() => edgeLine(colour), [colour]);
-  useEffect(() => () => material.dispose(), [material]);
+  // (kept a colour, shared by every outline: not let go with one)
+  const material = edgeLine(colour);
   // the lines are drawn, never picked: a line is hit within a metre of
   // the pointer, which would take the pick from a panel or a neighbour
   return (

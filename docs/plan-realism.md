@@ -1847,3 +1847,108 @@ alike), which is a change to how every piece builds its finishes.
   settings (the bake), the shelf's hover and the account (both timed a
   hover or a status line into the shaders' making: they now wait for
   the first settled frame, `built()`).
+
+## The owner's round: orange, brighter, square, quicker, walked (2026-10-14)
+
+Ten asks from the owner, each found first and then changed. Three of
+them reverse something recorded above, at the owner's word.
+
+**Reversed at the owner's request.**
+
+- _The page's backdrop (H7)._ The neutral warm grey went back to the
+  cream-to-peach gradient and its blobs (globals.css as it stood before
+  H7, the glass panels' base with it). H7's reason, a peach page making
+  the room's whites read blue-grey beside it, still holds; the owner
+  prefers the orange.
+- _The photographed parquet (Prompt 1)._ The Leisure arrangement's
+  floor drew a muddy dark olive-brown. The cause: WoodFloor050's own
+  colour is dark, and a floor's tone goes over a photograph by
+  multiplying (`tintOver`), which darkens and never lightens, so the
+  honey tone the arrangement asks for (`#c59b6b`) could not show. The
+  set moves to `public/materials/optional/parquet/` (out of
+  `index.json`); the grown parquet, painted in the floor's own tone,
+  draws instead. Compared on the Leisure project with the set and with
+  its files blocked: honey boards against dark olive ones.
+- _Mitred wall corners._ Seen from above, where a wall stood beside a
+  neighbour cut to its foot, the mitre left a slanted end, and the two
+  walls' tops met on a diagonal. Every corner is now taken whole by one
+  wall (the one that starts there, or the one that ends there when this
+  room builds no wall starting at it) and the other stops square
+  against it (`cornerEnd`, wall-solid.ts); the outline of the flat is
+  the same, only the joint moves. The top's lines follow the solid's
+  outline and not the joint; a corner's end face is plaster, and the
+  inside face of a concave corner is shaded as the wall is.
+
+**The day's exposure is 2.15** (the owner's number), the evening's
+stays 1 so the room still falls dark away from its lamps. A kept
+exposure resets through the defaults check that was already there.
+
+**Slow and stuck, measured.** On this sandbox's software renderer
+(absolute times are its own, the shares are what matter), with the Full
+picture: at rest the main thread was busy 98 % of the time while the
+probes baked (five long tasks of 3.3 to 4.1 s in 15 s), and each bake
+slice drew the whole view again with every pass, though nothing in it
+had moved. Under a drag the shadow maps were drawn on each throttled
+step, and the floor lamp's shadow is six pictures of every caster in
+the flat, drawn by day with the lamp off. A pointer passing over pieces
+built a new outline material each time, a shader build in the middle
+of a drag; and a window hidden from behind its wall at load was never
+built with the rest, so turning the view to it stalled (two pipelines
+on a true orbit, nothing else: no caster changes as the camera turns).
+What changed:
+
+- the probe bake runs between the frames, a slice at a time 4 ms
+  apart, and the room is drawn again once when it is done
+  (Probes.tsx): the page takes a hand during a bake;
+- a light that is off keeps its shadow map as it stands
+  (ShadowsOnChange.tsx): by day the lamp's six faces are not drawn;
+- one outline material a colour, kept (edge-line.ts);
+- the warm-up builds the parts hidden in a group the camera may show
+  again (`MAY_SHOW`: a window, a door or a wall's things seen from
+  beyond its wall, a wall's foot), shader-warm.ts.
+
+What could not be measured here: frame times on a real GPU. The bench
+(`?bench=walk`) is the way to read them on a device.
+
+**The opening** starts over the whole flat from straight above, north
+up the screen as on the plan, holds a moment, then pushes down and in
+to the living room on an arc (the distance closing evenly, the tilt
+coming in a little after the push), and lands on the room from above
+its corner as before.
+
+**The cube.** A face picked goes to that face again even after the
+view was turned by hand (`angleAt`); the four sides and the top now
+frame the room being worked on from that side, not the whole flat from
+afar; a drag still turns the view to any angle. From above the walls, a
+wall of any room that stands across the line from the camera to the
+room, or within half a metre of it (`SIGHT_CLEAR`: a wall in line with
+the camera hid as much), goes to its foot, so the rooms in front never
+cut across it.
+
+**The walk has a walker.** A figure 1.7 m tall, built of a few rounded
+parts (WalkFigure.tsx), its legs and arms swinging with the ground it
+covers, followed from behind and above (pulled in short of a wall
+behind it); Eyes sees through its eyes, at 1.6 m, as the walk did. A
+click on the floor of any room, or on the plan (the small one beside
+the 3D view included), sends it there by a way found round the walls
+and every room's pieces, through the doorways (walk-path.ts: A* on
+10 cm cells, a body's width kept clear, pulled straight where a line
+is clear; walk-blocks.ts for the pieces). The plan draws the walker,
+the way it faces and the way it is taking. It casts no shadow map of
+its own (a moving caster draws every map again each frame); a soft
+disc sets it on the floor.
+
+**Why the box pieces read fake from across the room.** Cropped from the
+Leisure project's overview: every board of a Furnishes piece finished
+dark (the walnut bookwall, the sideboard) was outlined in cream. The
+plies on a board's edge (ply.ts) were drawn in birch whatever the
+board's finish, so each 18 mm edge was a light stripe two or three
+pixels wide round every box and every shelf, the way an illustration
+inks its outlines. Under it, two smaller tells of the same kind: the
+boards' joint lines, a one-pixel line at any distance, and the plies'
+thirteen stripes, under a pixel from a few metres and drawn only as a
+flicker. Now the plies take 85 % of the board's own colour (a stained
+sheet is stained through its edge; a birch board's plies stay birch),
+they give way to the board's colour, a shade down, between 2.5 and 7 m
+(`PLY_FADE`), and the joint lines fade out between 2 and 6 m
+(`jointLine`, edge-line.ts), as the outlines already did further off.

@@ -66,6 +66,7 @@ const signatureOf = (scene: Object3D, lights: Caster[]) => {
   for (const l of lights) {
     add(l.id);
     add(l.castShadow ? 1 : 2);
+    add(l.intensity > 0 ? 1 : 2);
     for (const e of l.matrixWorld.elements) add(e * 1000);
     const c = l.shadow.camera as unknown as Record<string, number>;
     for (const k of ["left", "right", "top", "bottom", "near", "far"])
@@ -134,7 +135,11 @@ export function ShadowsOnChange() {
     if (now === last.current) return;
     last.current = now;
     drawnAt.current = at;
-    for (const l of lights) l.shadow.needsUpdate = true;
+    // a light that is off (a lamp by day: it stays in the scene at
+    // nothing, so its coming on builds no shader) keeps its map as it
+    // stands: a lamp's is six pictures of every caster in the flat,
+    // drawn for nothing at every change of the day
+    for (const l of lights) l.shadow.needsUpdate = l.intensity > 0;
   });
   return null;
 }

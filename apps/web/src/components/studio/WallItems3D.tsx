@@ -27,6 +27,9 @@ import {
   type WallItem,
   type WallItemKind,
 } from "./wall-items";
+import { MAY_SHOW } from "./shader-warm";
+
+const MAY_SHOW_TAG = { [MAY_SHOW]: true } as const;
 
 /**
  * A room's wall items in 3D (see wall-items.ts): each item is one mesh,
@@ -515,7 +518,13 @@ function WallItem3D({
   });
   const lit = kind !== "outlet" && kind !== "clock";
   return (
-    <group ref={ref} position={at} rotation={[0, yawOf(wall), 0]}>
+    <group
+      ref={ref}
+      position={at}
+      rotation={[0, yawOf(wall), 0]}
+      // built with the rest though hidden from behind its wall
+      userData={MAY_SHOW_TAG}
+    >
       <mesh
         geometry={g.body}
         material={BODY}

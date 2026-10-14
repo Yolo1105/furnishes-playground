@@ -6,6 +6,7 @@ import { Color, type Texture, Vector2, type Vector3Tuple } from "three";
 import { MeshPhysicalNodeMaterial, type Node } from "three/webgpu";
 import { plausible, toned, toneOf } from "./albedo";
 import { type MaterialName, repeated, useMaterial } from "./materials";
+import { jointLine } from "./edge-line";
 import { plyColour } from "./ply";
 import { useRoomReflection } from "./Reflection";
 import {
@@ -341,13 +342,14 @@ export function Slab({
       geometry={slabGeometry(dims)}
     >
       <Mat f={f} colour={colour} banded />
-      <lineSegments geometry={jointGeometry(dims)} raycast={unpickable}>
-        <lineBasicMaterial
-          color={shade(colour ?? f.colour, JOINT_SHADE)}
-          transparent
-          opacity={JOINT_OPACITY}
-        />
-      </lineSegments>
+      <lineSegments
+        geometry={jointGeometry(dims)}
+        material={jointLine(
+          shade(colour ?? f.colour, JOINT_SHADE),
+          JOINT_OPACITY,
+        )}
+        raycast={unpickable}
+      />
     </mesh>
   );
 }
@@ -381,13 +383,14 @@ export function Built({ parts }: { parts: Part[] }) {
         <mesh key={b.key} geometry={b.faces} castShadow receiveShadow>
           <Mat f={b.f} colour={b.colour} banded />
           {b.joints && (
-            <lineSegments geometry={b.joints} raycast={unpickable}>
-              <lineBasicMaterial
-                color={shade(b.colour ?? b.f.colour, JOINT_SHADE)}
-                transparent
-                opacity={JOINT_OPACITY}
-              />
-            </lineSegments>
+            <lineSegments
+              geometry={b.joints}
+              material={jointLine(
+                shade(b.colour ?? b.f.colour, JOINT_SHADE),
+                JOINT_OPACITY,
+              )}
+              raycast={unpickable}
+            />
           )}
         </mesh>
       ))}

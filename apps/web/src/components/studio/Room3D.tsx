@@ -84,6 +84,7 @@ import {
   useRoomReflection,
 } from "./Reflection";
 import { layerOf, SHADOW_LAYER, wallsDown } from "./walls-standing";
+import { MAY_SHOW } from "./shader-warm";
 import { FLOOR_MATERIAL, repeated, tintOver, useMaterial } from "./materials";
 
 /**
@@ -151,7 +152,10 @@ const THRESHOLD_HEX = "#b9b2a7";
 const CORNICE_DROP = 0.003;
 /** a gone wall's foot, m: the height its solid stays at */
 const STUB_H = 0.12;
-const STUB_NAME = { name: "Wall foot" } as const;
+const STUB_NAME = { name: "Wall foot", [MAY_SHOW]: true } as const;
+/** a window, a door or a wall's things, hidden from beyond its wall:
+    built with the rest (shader-warm.ts) */
+const MAY_SHOW_TAG = { [MAY_SHOW]: true } as const;
 /** a switch plate, m, white as the joinery */
 const PLATE = { switch: 0.086, tall: 0.086, deep: 0.009 };
 /** the cut faces of a wall (its open top, its ends where a run stops):
@@ -477,7 +481,11 @@ function Inside({
     g.visible = side * dot > 0;
   });
   return (
-    <group ref={group} position={position as [number, number, number]}>
+    <group
+      ref={group}
+      position={position as [number, number, number]}
+      userData={MAY_SHOW_TAG}
+    >
       {children}
     </group>
   );
@@ -724,6 +732,66 @@ const wallGeometry = (
   return { geometry: g, lines };
 };
 
+/** how near, m, a wall may stand to the line from the camera to the
+    room being worked on before it goes to its foot */
+const SIGHT_CLEAR = 0.5;
+/** whether the line from the camera (cx, cz) to the scene's middle
+    passes within SIGHT_CLEAR of a wall standing at (x, z) and reaching
+    (ux, uz) to either side of it, m on the floor: across the line, or
+    along it (a wall in line with the camera hid as much) */
+const crossesSight = (
+  cx: number,
+  cz: number,
+  x: number,
+  z: number,
+  ux: number,
+  uz: number,
+) => {
+  const ax = x - ux;
+  const az = z - uz;
+  const bx = x + ux;
+  const bz = z + uz;
+  // which side of a line through p and q the point r is on
+  const turn = (
+    px: number,
+    pz: number,
+    qx: number,
+    qz: number,
+    rx: number,
+    rz: number,
+  ) => Math.sign((qx - px) * (rz - pz) - (qz - pz) * (rx - px));
+  if (
+    turn(cx, cz, 0, 0, ax, az) !== turn(cx, cz, 0, 0, bx, bz) &&
+    turn(ax, az, bx, bz, cx, cz) !== turn(ax, az, bx, bz, 0, 0)
+  )
+    return true;
+  // the nearest the two come, from an end of one to the other
+  const near = (
+    px: number,
+    pz: number,
+    qx: number,
+    qz: number,
+    rx: number,
+    rz: number,
+  ) => {
+    const dx = qx - px;
+    const dz = qz - pz;
+    const k = Math.max(
+      0,
+      Math.min(1, ((rx - px) * dx + (rz - pz) * dz) / (dx * dx + dz * dz || 1)),
+    );
+    return Math.hypot(px + dx * k - rx, pz + dz * k - rz);
+  };
+  return (
+    Math.min(
+      near(cx, cz, 0, 0, ax, az),
+      near(cx, cz, 0, 0, bx, bz),
+      near(ax, az, bx, bz, cx, cz),
+      near(ax, az, bx, bz, 0, 0),
+    ) < SIGHT_CLEAR
+  );
+};
+
 /** whether each wall run stands or is down to its foot, by its id:
     a wall whose corner neighbour is down shows its end there whole
     (its top's edges drawn round the corner it now stands alone at) */
@@ -884,7 +952,21 @@ function WallRun({
     const dot =
       side *
       ((camera.position.x - at.x) * nx + (camera.position.z - at.z) * nz);
-    const next = side === 0 || dot > 0 ? "inside" : "gone";
+    // from above the walls, a wall standing across the line from the
+    // camera to the room being worked on (the scene's middle) goes too,
+    // whichever room it is of: looked at from a side of the cube, the
+    // rooms on that side stood in front of the room and cut across it
+    const across =
+      camera.position.y > h + 0.2 &&
+      crossesSight(
+        camera.position.x,
+        camera.position.z,
+        at.x,
+        at.z,
+        Math.cos(yaw) * (len / 2),
+        -Math.sin(yaw) * (len / 2),
+      );
+    const next = (side === 0 || dot > 0) && !across ? "inside" : "gone";
     wallStates.set(id, next);
     if (next !== state.current) {
       state.current = next;

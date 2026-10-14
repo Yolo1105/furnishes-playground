@@ -107,6 +107,8 @@ export function ViewCube() {
   const light = useStudio((s) => s.scene.light);
   const setScene = useStudio((s) => s.setScene);
   const setWalk = useStudio((s) => s.setWalk);
+  const walkView = useStudio((s) => s.walkView);
+  const setWalkView = useStudio((s) => s.setWalkView);
   const { turnTo } = useStudio.getState();
   const drag = useRef<{
     x0: number;
@@ -306,13 +308,33 @@ export function ViewCube() {
             title={
               walk
                 ? "Stop walking (Esc)"
-                : "Walk the room: W A S D, drag to look, click the floor to go there"
+                : "Walk the flat: W A S D, drag to look, click the floor or the plan to go there"
             }
             onClick={() => setWalk(!walk)}
           >
             <WalkIcon size={13} />
             {walk ? "Stop" : "Walk"}
           </button>
+          {walk && (
+            // the walker seen from behind, or through its own eyes
+            <button
+              type="button"
+              className="view-cube-walk"
+              aria-pressed={walkView === "eyes"}
+              aria-label="See through the walker's eyes"
+              title={
+                walkView === "eyes"
+                  ? "Follow the walker from behind"
+                  : "See through the walker's eyes"
+              }
+              onClick={() =>
+                setWalkView(walkView === "eyes" ? "follow" : "eyes")
+              }
+            >
+              <CameraIcon size={13} />
+              Eyes
+            </button>
+          )}
         </div>
       )}
       {view === "3d" && !walk && (

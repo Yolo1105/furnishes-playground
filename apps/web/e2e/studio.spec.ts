@@ -2912,25 +2912,34 @@ test("in 3D a piece is dragged over the floor, the camera glides between angles,
   // the piece goes back (the walk below starts where it now stands)
   await page.keyboard.press("Control+z");
   await expect(page.getByRole("button", { name: "Undo" })).toBeDisabled();
-  // Walk: the camera drops to eye height; W moves it north; Esc leaves
+  // Walk: a figure, followed from behind and above it; W moves it
+  // north; Eyes brings the camera to its eye height; Esc leaves
   await page.getByRole("button", { name: "Walk the room" }).click();
   await expect(stage).toHaveAttribute("data-walk", "true");
   await expect
     .poll(async () =>
       Number((await stage.getAttribute("data-cam"))!.split(",")[1]),
     )
-    .toBeCloseTo(1.6, 1);
-  const z0 = Number((await stage.getAttribute("data-cam"))!.split(",")[2]);
-  // W held until the camera has gone north (a software renderer gives
+    .toBeGreaterThan(1.9);
+  const walker = async () =>
+    ((await stage.getAttribute("data-walker")) ?? "0,0").split(",").map(Number);
+  await expect.poll(async () => (await walker()).length).toBe(2);
+  const z0 = (await walker())[1]!;
+  // W held until the figure has gone north (a software renderer gives
   // few frames a second, so this is read, not timed)
   await page.keyboard.down("w");
   await expect
-    .poll(
-      async () => Number((await stage.getAttribute("data-cam"))!.split(",")[2]),
-      { timeout: 8000 },
-    )
+    .poll(async () => (await walker())[1]!, { timeout: 8000 })
     .toBeLessThan(z0 - 0.3);
   await page.keyboard.up("w");
+  await page
+    .getByRole("button", { name: "See through the walker's eyes" })
+    .click();
+  await expect
+    .poll(async () =>
+      Number((await stage.getAttribute("data-cam"))!.split(",")[1]),
+    )
+    .toBeCloseTo(1.6, 1);
   await page.keyboard.press("Escape");
   await expect(stage).toHaveAttribute("data-walk", "false");
 });
@@ -4787,6 +4796,34 @@ test("View settings: edges, names, a floor grid, shadows and the light, kept for
   await expect(stage).toHaveAttribute("data-labels", "true");
   await expect(stage).toHaveAttribute("data-exposure", "1.6");
   await expect(stage).toHaveAttribute("data-post", "off");
+});
+
+test("the walk: a click on the small plan sends the figure there, the way drawn on the plan", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  await built(page);
+  const stage = page.locator(".shell-stage .stage-3d");
+  await page.getByRole("button", { name: "Walk the room" }).click();
+  await expect(stage).toHaveAttribute("data-walk", "true");
+  // the walker on the plan, where the figure stands
+  await expect(page.locator(".view-mini .plan-walker")).toBeAttached({
+    timeout: 60_000,
+  });
+  const before = await stage.getAttribute("data-walker");
+  // a point in the flat's south-west, rooms away from the living room:
+  // a way is found to it and drawn, and the figure sets off
+  const plan = page.locator(".view-mini .plan-svg");
+  const box = (await plan.boundingBox())!;
+  await page.mouse.click(box.x + box.width * 0.25, box.y + box.height * 0.7);
+  await expect(page.locator(".view-mini .plan-walker-path")).toBeAttached({
+    timeout: 60_000,
+  });
+  await expect
+    .poll(() => stage.getAttribute("data-walker"), { timeout: 60_000 })
+    .not.toBe(before);
+  await page.keyboard.press("Escape");
+  await expect(stage).toHaveAttribute("data-walk", "false");
 });
 
 test("the tour: stops on the plan, Play walks the camera through them, Stop and Escape end it, a round when there are none", async ({

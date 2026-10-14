@@ -2590,6 +2590,38 @@
 .plan-tour[data-on="true"] .plan-stop {
   cursor: pointer;
 }
+
+/* ---- the walk on the plan: where the walker is, the way it takes ---- */
+.plan[data-walking="true"] .plan-svg {
+  cursor: crosshair;
+}
+/* a click on a piece is a place to walk to: the pieces let it through */
+.plan[data-walking="true"] .plan-pieces,
+.plan[data-walking="true"] .plan-pieces * {
+  pointer-events: none;
+}
+.plan-walker-path {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 26;
+  stroke-dasharray: 60 60;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  opacity: 0.85;
+}
+.plan-walker-goal {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 30;
+}
+.plan-walker-dot {
+  fill: var(--color-accent);
+  stroke: rgb(from var(--color-glass) r g b / 0.95);
+  stroke-width: 36;
+}
+.plan-walker-heading {
+  fill: var(--color-accent);
+}
 .tour-strip,
 .tour-run {
   position: static;

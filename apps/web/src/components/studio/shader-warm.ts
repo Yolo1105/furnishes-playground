@@ -72,21 +72,34 @@ export const lightingKey = (scene: Scene) => {
   return `${lights.sort().join(",")}|${scene.environment?.uuid ?? ""}|${scene.fog ? 1 : 0}`;
 };
 
-/** the parts shown whose materials' shaders have not been built (by
-    the keys `warmed` holds for them), with the keys they have now */
+/** a group hidden for now that the camera brings back as it turns (a
+    window or a door seen from beyond its wall, a wall's foot): its
+    parts are built with the rest, so turning the view builds nothing.
+    Tagged in the group's userData */
+export const MAY_SHOW = "mayShow";
+
+/** the parts shown, or hidden in a group the camera may show again,
+    whose materials' shaders have not been built (by the keys `warmed`
+    holds for them), with the keys they have now. A hidden window was
+    built the moment the view turned to it, a stall in the middle of an
+    orbit */
 export const unwarmed = (
   scene: Object3D,
   warmed: WeakMap<Object3D, string>,
 ) => {
   const out: { part: Object3D; key: string }[] = [];
-  scene.traverseVisible((o) => {
+  const visit = (o: Object3D) => {
+    if (!o.visible && !o.userData[MAY_SHOW]) return;
     const material = (o as Drawn).material;
-    if (!material) return;
-    const key = Array.isArray(material)
-      ? material.map(shaderKey).join("|")
-      : shaderKey(material);
-    if (warmed.get(o) !== key) out.push({ part: o, key });
-  });
+    if (material) {
+      const key = Array.isArray(material)
+        ? material.map(shaderKey).join("|")
+        : shaderKey(material);
+      if (warmed.get(o) !== key) out.push({ part: o, key });
+    }
+    for (const c of o.children) visit(c);
+  };
+  visit(scene);
   return out;
 };
 

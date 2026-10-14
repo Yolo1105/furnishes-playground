@@ -236,6 +236,10 @@
 .view-mini .plan-pieces {
   pointer-events: auto;
 }
+/* while walking the small plan takes a click: the walker goes there */
+.view-mini .plan[data-walking="true"] {
+  pointer-events: auto;
+}
 .view-mini .plan-svg {
   --plan-ink: rgb(from var(--color-ink) r g b / 0.6);
 }
