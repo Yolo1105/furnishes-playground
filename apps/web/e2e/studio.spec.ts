@@ -919,12 +919,16 @@ test("Render runs a line along the top, sweeps the render in over the view, then
     "compare",
   );
   await expect(handle).toHaveAttribute("aria-valuenow", "50");
-  // Before left of the line, Rendered right of it, both at the top
-  const [before, after] = await Promise.all([
+  // Before left of the line, Rendered right of it, both at the top (the
+  // line and the stage read now: with the panels hidden the stage is the
+  // window's width, not the width between the rails measured above)
+  const [before, after, knob, full] = await Promise.all([
     page.locator(".preview-tag", { hasText: "Before" }).boundingBox(),
     page.locator(".preview-tag", { hasText: "Rendered" }).boundingBox(),
+    handle.boundingBox(),
+    page.locator(".preview-stage").boundingBox(),
   ]);
-  const mid = sb.x + sb.width / 2;
+  const mid = knob!.x + knob!.width / 2;
   expect(before!.x + before!.width).toBeLessThan(mid);
   expect(after!.x).toBeGreaterThan(mid);
   expect(before!.y).toBeLessThan(120);
@@ -932,9 +936,9 @@ test("Render runs a line along the top, sweeps the render in over the view, then
   await handle.focus();
   await page.keyboard.press("ArrowRight");
   await expect(handle).toHaveAttribute("aria-valuenow", "52");
-  await page.mouse.move(sb.x + sb.width * 0.8, 300);
+  await page.mouse.move(full!.x + full!.width * 0.8, 300);
   await page.mouse.down();
-  await page.mouse.move(sb.x + sb.width * 0.25, 300, { steps: 4 });
+  await page.mouse.move(full!.x + full!.width * 0.25, 300, { steps: 4 });
   await page.mouse.up();
   await expect(handle).toHaveAttribute("aria-valuenow", "25");
   // the panels back: the compare is left, the render stands whole
