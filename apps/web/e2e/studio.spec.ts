@@ -269,9 +269,13 @@ test("rails collapse into the toolbar and come back", async ({ page }) => {
   ).toHaveCount(0);
   const eye = page.getByRole("button", { name: "Hide panels" });
   // the rail's reopening still moves the toolbar: wait until the main
-  // column is back to the width it had
+  // column is back to the width it had (the stage redraws the flat as the
+  // column narrows, as it did widening above: on a software renderer the
+  // transition takes a while)
   await expect
-    .poll(async () => Math.abs((await main.boundingBox())!.width - wide) < 1)
+    .poll(async () => Math.abs((await main.boundingBox())!.width - wide) < 1, {
+      timeout: 20_000,
+    })
     .toBe(true);
   const eb = (await eye.boundingBox())!;
   await eye.click();
@@ -2495,6 +2499,10 @@ test("Eva keeps to the order of the work: the room's size first, a budget before
 test("projects: a new one starts clean, the first keeps its room, rename and delete", async ({
   page,
 }) => {
+  // six switches of the whole flat and a reload under a software
+  // renderer: most of a minute before the flat had its windows, doors
+  // and lived-in touches, past it since
+  test.setTimeout(120_000);
   await page.goto("/rounded");
   const name = page.locator(".shell-project-name");
   const saved = page.getByRole("tab", { name: /^Saved/ });
@@ -2778,8 +2786,9 @@ test("in 3D a piece is dragged over the floor, the camera glides between angles,
   page,
 }) => {
   // four glides and two drags under a software renderer: more than the
-  // usual half minute
-  test.setTimeout(90_000);
+  // usual half minute (a minute before the flat had its windows, doors
+  // and lived-in touches, past a minute and a half since)
+  test.setTimeout(180_000);
   await page.goto("/rounded");
   const stage = page.locator(".stage-3d");
   await expect(stage.locator("canvas")).toHaveCount(1);
