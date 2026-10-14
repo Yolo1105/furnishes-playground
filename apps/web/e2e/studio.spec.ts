@@ -118,7 +118,9 @@ const arrived = (page: Page) =>
 
 test.beforeEach(({ page }) => seed(page));
 
-/** The background is the studio palette: cream→peach gradient + blobs. */
+/** The background is the studio palette: a neutral warm-grey gradient
+    and its blobs (a peach wash made every white in the room read
+    blue-grey against it) */
 test("background paints the playground palette", async ({ page }) => {
   // the site's address leads to the studio, its one page
   await page.goto("/");
@@ -128,7 +130,7 @@ test("background paints the playground palette", async ({ page }) => {
     () => getComputedStyle(document.body).backgroundImage,
   );
   expect(image).toContain("linear-gradient");
-  expect(image).toContain("rgb(255, 244, 227)");
+  expect(image).toContain("rgb(246, 244, 241)");
   // the theme tokens must reach plain CSS: the accent resolves on :root and
   // actually paints (a blank token once turned every orange invisible)
   const accent = await page.evaluate(() =>
