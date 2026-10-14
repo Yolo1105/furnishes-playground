@@ -828,7 +828,7 @@ sandbox cannot give.
 | R4   | done   | the SSGI default: on only if post stays at or under 6 ms with it on                    |
 | R5   | done   | whether SSR needs the stochastic path with the denoiser (the floor items)              |
 | R6   | done   | the photo itself: 1080p at 256 samples under a minute; ten shots, no VRAM growth       |
-| R7   | done   | 60 fps desktop and 30 fps phone from the bench (first-load JS 387 KB gzip, 2026-10-09) |
+| R7   | done   | 60 fps desktop and 30 fps phone from the bench (first-load JS 407 KB gzip, 2026-10-14) |
 | M1   | done   | —                                                                                      |
 | M2   | done   | —                                                                                      |
 | M3   | done   | —                                                                                      |
@@ -919,6 +919,13 @@ light parts split off (order-status.ts, download.ts, part-store.ts,
 part-outline.ts) it loads 387 KB gzip, under the 450 KB budget; the
 landing (`/`) 179 KB. No chunk in the first load carries a kernel or
 the tracer.
+
+Re-measured on 2026-10-14 (`scripts/first-load.mjs --check` after
+`next build`): /rounded loads 407.0 KB gzip, under the 450 KB budget.
+The same build of 4aae136, the commit before the rounds 5–7, windows
+and lived-in flat work, loads 404.4 KB: those rounds added 2.6 KB. The
+387 KB above was of 2026-10-09; the rounds between took it to 404.4 KB.
+The landing is gone (the studio is the site's one page).
 
 ## KTX2 textures: measured, left as JPG
 
@@ -1787,3 +1794,56 @@ be saved as a PNG. Not done: the mild Panini lens: the picking, the
 name tags and the handles all assume a pinhole camera, and a lens
 remap in the post chain would put them up to several pixels off at the
 frame's edges; it belongs in the photo, not the live view.
+
+## Checks (2026-10-14)
+
+The gates for the three sections above, run in this sandbox (software
+WebGPU, no GPU), and what each found.
+
+- Lint, typecheck: clean. Unit tests: 205 in the web app (43 files),
+  67 in packages/domain.
+- The visual project, three times without updating after the baselines
+  were taken again on purpose: 8 of 8 each time (57.0, 55.8 and 56.6
+  minutes). The window light test read, run by run: the wall at 1 m
+  0.3247, 0.3247, 0.3234 against 0.2563, 0.2569, 0.2562 at 3.5 m
+  (ratio 1.27, 1.26, 1.26); the sofa's window end 0.2639, 0.2633,
+  0.2639 against 0.2414, 0.2416, 0.2416.
+- First-load JavaScript: 407.0 KB gzip (404.4 KB before these rounds);
+  no new file to download beyond two small JSON indexes: every new
+  texture (tiles, book spines, hand marks, ply) is painted in the page.
+- The end-to-end suite: tablet 2 of 2, phone 2 of 2. Desktop, on a
+  fresh server, after the fixes below: the three that fail fail the
+  same way on 4aae136 (not this round's): the operations test (an
+  account kept by an earlier run is unverified, and asking for its mail
+  again is refused, 403), the account following to another browser
+  (past its minute), and Reflections with Bounce light (the bounce
+  light settles slower than its wait while the full probe bake runs).
+
+**What this round did to the studio's start, and what was done.** On
+the software renderer, the studio's first picture came at 26 s instead
+of 12 (the default picture) and 79 s instead of 20 (Full), and the
+page stopped answering for about 19 s in all while the room's shaders
+were made (9 s before). A CPU profile puts it in shader compilation;
+the scene has 1,236 meshes against 880, 1,033 materials against 839,
+and 27 kinds of material against 17. The largest single cost was the
+windows' six area lights: every lit shader carried all six, in use or
+not. They now number the most windows any room of the flat has (two
+here; window-light.ts's `lightCount`), which keeps the shaders stable
+across room switches and brought the first picture to 10.9 s (default)
+and 42.9 s (Full); the probe bake stays at about 148 s against 122,
+the windows' light in every probe's picture. Left: sharing materials
+between pieces (367 plain materials with no map at all, most of them
+alike), which is a change to how every piece builds its finishes.
+
+**The end-to-end tests changed, and why.** Each was checked against
+4aae136 before it was changed.
+
+- Stale before this round: the tour's stop count (21, not 20), the
+  compare test's middle (measured before the panels hid, when the stage
+  is narrower), the palette test (the page's neutral backdrop, H7).
+- This round's own: the evening's exposure (1, not 1.3, A5).
+- Time on the software renderer: the rails test (the column comes back
+  to its width 4.7 s after the click), projects, the 3D drag, View
+  settings (the bake), the shelf's hover and the account (both timed a
+  hover or a status line into the shaders' making: they now wait for
+  the first settled frame, `built()`).
