@@ -97,6 +97,9 @@ export const glancePoints = (page: Page) =>
       };
     };
     const camera = w.__camera;
+    // the world as drawn: a piece re-made since the last frame (the
+    // studio draws on demand) has not had its place worked out yet
+    w.__scene.updateMatrixWorld(true);
     const shown = (o: O | null): boolean =>
       !o || (o.visible && shown(o.parent));
     const within = (o: O | null, of: O): boolean =>
@@ -107,10 +110,12 @@ export const glancePoints = (page: Page) =>
     const look = (pt: V) => {
       w.__ray.set(camera.position, pt.clone().sub(camera.position).normalize());
       w.__ray.far = 100;
+      // a model answers a ray by its box, with no face (model-budget.ts):
+      // it hides what stands behind it all the same
       const hit = w.__ray
         .intersectObject(w.__scene, true)
-        .find((h) => shown(h.object) && h.face);
-      if (!hit) return null;
+        .find((h) => shown(h.object));
+      if (!hit?.face) return null;
       const n = hit
         .face!.normal.clone()
         .transformDirection(hit.object.matrixWorld);

@@ -2,6 +2,7 @@
 
 import { cloth, metal, type Part, Rod, Soft, Built } from "./finish";
 import { shade } from "./textures";
+import type { ReactNode } from "react";
 
 /**
  * The touches a lived-in room has and a showroom does not (the View
@@ -45,9 +46,12 @@ export function SeatTouches({
   back,
   seats,
   seed,
+  cushions = null,
 }: {
   w: number;
   d: number;
+  /** the real cushions drawn in place of the built ones, when listed */
+  cushions?: ReactNode;
   /** the seat cushions' top, m */
   seatTop: number;
   /** the arm's width and the back's depth, m */
@@ -61,20 +65,21 @@ export function SeatTouches({
   const throwSide = wobble(seed, 2) > 0 ? 1 : -1;
   return (
     <group>
-      {corners.map((s, i) => (
-        <Soft
-          key={s}
-          f={cloth(pick(TEXTILES, seed, i))}
-          at={[
-            s * (w / 2 - arm - c / 2 + 0.03),
-            seatTop + c / 2 - 0.04,
-            -d / 2 + back + 0.1,
-          ]}
-          dims={[c, c, 0.13]}
-          radius={0.06}
-          rotation={[-0.32, s * (0.3 + 0.08 * wobble(seed, 3 + i)), s * 0.12]}
-        />
-      ))}
+      {cushions ??
+        corners.map((s, i) => (
+          <Soft
+            key={s}
+            f={cloth(pick(TEXTILES, seed, i))}
+            at={[
+              s * (w / 2 - arm - c / 2 + 0.03),
+              seatTop + c / 2 - 0.04,
+              -d / 2 + back + 0.1,
+            ]}
+            dims={[c, c, 0.13]}
+            radius={0.06}
+            rotation={[-0.32, s * (0.3 + 0.08 * wobble(seed, 3 + i)), s * 0.12]}
+          />
+        ))}
       {seats > 1 && (
         // the throw: over the arm's top and down its outer side
         <group position={[throwSide * (w / 2 - arm / 2), 0, 0.04]}>

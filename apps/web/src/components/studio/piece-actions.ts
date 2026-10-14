@@ -17,6 +17,7 @@ import {
 import { explainPlan, travel } from "./plan-explain";
 import {
   blendsIntoFloor,
+  fittedToModels,
   healthOf,
   type Issue,
   type Room,
@@ -156,6 +157,9 @@ const readRoom = (
         colour: props.get(n.id)!.colour,
       })),
       FLOOR_TONES[spec.floor as Floor] ?? "",
+    ),
+    ...fittedToModels(
+      pieces.map((n) => ({ id: n.id, name: n.name, ...props.get(n.id)! })),
     ),
   ];
   const clashes = new Set(

@@ -180,3 +180,32 @@ export const HELP_TABS: readonly HelpTab[] = [
     ],
   },
 ];
+
+/** the 3D models the room draws whose licence asks for credit where they
+    are used (CC-BY 4.0), and those whose authors are thanked anyway:
+    public/props/LICENSES.md has every file's source and what was changed */
+export const MODEL_CREDITS: { model: string; by: string; licence: string }[] = [
+  { model: "Glam velvet sofa", by: "Eric Chadwick", licence: "CC BY 4.0" },
+  {
+    model: "Leather and wood sofa",
+    by: "Eric Chadwick; Fran Calvente",
+    licence: "CC BY 4.0 and CC0",
+  },
+  { model: "Damask chair", by: "Eric Chadwick", licence: "CC BY 4.0" },
+  { model: "Velvet chair", by: "Eric Chadwick", licence: "CC0" },
+  { model: "Silk pouf", by: "Eric Chadwick", licence: "CC BY 4.0" },
+  { model: "Arc floor lamp", by: "DGG", licence: "CC BY 4.0" },
+  {
+    model: "Glass vase with flowers",
+    by: "Eric Chadwick; Rico Cilliers",
+    licence: "CC0",
+  },
+  {
+    model: "Tall potted plant",
+    by: "Eric Chadwick; Rico Cilliers",
+    licence: "CC BY 4.0 and CC0",
+  },
+];
+/** where they come from */
+export const MODEL_SOURCE =
+  "Khronos glTF Sample Assets (github.com/KhronosGroup/glTF-Sample-Assets); the other room models are Poly Haven's, CC0.";

@@ -138,6 +138,7 @@ import {
 } from "./walk-path";
 import { allBlocks, forgetBlocks, noteBlocks } from "./walk-blocks";
 import { useBakes } from "./lightmap";
+import { useProps } from "./props-store";
 import { WALL_NEAR } from "./lightmap-bake";
 import { balanceGain, EVENING_LIGHT, LAMP_BULB } from "./white-balance";
 import { propsOf, useScene } from "./scene-store";
@@ -2457,6 +2458,7 @@ function FlatRoom({
             evening,
             sun,
             shared,
+            order: st.rooms.findIndex((x) => x.id === rm.id),
           }}
           // any room's floor sends the walker there: the way is found
           // through the doorways
@@ -2592,6 +2594,11 @@ export default function Scene3D() {
   // the part worker's requests under way, for the stage to say
   const partsPending = usePartStore((s) => s.pending);
   const bakesPending = useBakes((s) => s.pending);
+  const modelsDrawn = useProps((s) => Object.keys(s.drawn).sort().join(","));
+  // the models still on their way: "list" until the list is read
+  const modelsPending = useProps((s) =>
+    s.models === null ? "list" : String(s.loading),
+  );
   const partBuilds = usePartStore((s) => s.builds);
   const walk = useStudio((s) => s.walk);
   // the plan in the main view: the 3D view stays mounted, hidden, so it
@@ -3104,6 +3111,8 @@ export default function Scene3D() {
       data-wall-items={wallItems.length}
       data-parts={partsPending}
       data-bakes={bakesPending}
+      data-models={modelsDrawn}
+      data-models-pending={modelsPending}
       data-part-builds={partBuilds}
       data-walk={walk}
       data-doors-open={doorsOpen}

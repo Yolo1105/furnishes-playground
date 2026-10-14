@@ -2105,3 +2105,126 @@ frame stays still; the lens vignette was already there.
 models (they need a second UV set: xatlas-three, Part 2); the convexity
 channel scaled by the key light's direction; a wall footprint (the wall
 is in the bake as a blocker, but nothing is drawn on it).
+
+### Part 2: real models, picked by design (2026-10-14)
+
+**The list, not the code, says what is drawn.** `public/props/index.json`
+is read once as the studio (or a shared room) opens (`useModels`,
+props-store.ts); the hard-coded choice (`PROPS` and `propFor` in the
+generation store, `stockOf` and `STOCK_CLOTH` in Furniture3D) is gone.
+A room item is drawn from a model of its kind (`kindOf`, 25 kinds now,
+the cushion, throw, fridge, toilet, basin, bed and dish rack among them)
+and of its design (`styleOf`: boxy, curved or organic; a boxy sofa never
+takes a curved model) that fits its size within a tenth on every axis
+(`variantFor`), its cloth taking the item's colour as Part 1 tints it.
+Plain chairs, cabinets and the tables keep their built forms (a design
+of their own each), and the sofa its soft-box build: no boxy sofa model
+fits the living room's 2.4 m one, and the leather and wood sofa is 2.73
+m with a 1.12 m back over its throw. While a model loads its built form
+stands in, and the stage counts the ones on their way
+(`data-models-pending`, "list" until the list is read), which the
+pictures and the glance now wait on. An e2e test serves the list with a
+model added and sees it drawn (studio.spec.ts).
+
+**When no model fits (2.3).** A room item of a kind whose built form
+only stands in (an armchair, a lamp, a plant, a vase, a basket, a stool,
+a pouf, cushions, a throw) takes the size of the nearest model of its
+design, once, if no axis changes by more than 1.8× (`snapFor`,
+`fittedSizes`); past that it is another design, not this one at
+another size, and keeps its form (the only floor lamp, an arc lamp, is
+3.8 times as wide as a standing one: the floor lamp stays built). The
+planner says which items took a model's size (a "fitted" note). The
+first take of this showed what a snap does to a laid-out room: the
+living room's armchair grew 14 cm deeper and turned the Corner view to
+the other corner, and its plant, 0.4 → 0.7 m across, pushed into the
+TV console and past the wall. So the flat's layout is checked both ways
+now, as built and fitted (showcase.test.ts, every arrangement too), and
+moved to keep to the rules at either size: the sofa, rug and table
+150 mm north; the plant to the north-east corner clear of both windows
+(to the rug's south end in Study-focused); the armchair from the rug's
+south end to the table's north end, facing it (at its real 1.02 m
+height it stood between the Corner view's camera and the sofa, and hid
+the sofa's whole front), its old place taken by Leisure's second
+armchair; Leisure's reading chair a sill's depth off the window wall;
+and in the parents' room a small plant, where every free corner is a
+way in or out. The Corner view is the same corner and framing at
+either size (checked against `shotCorner`).
+
+**The pack (2.4).** The eight Khronos sample models are in, with their
+style, measured sizes (their accessors are quantised: the min/max read
+divided out) and notes in `index.json`, their licences in the folder's
+LICENSES.md and a "3D model credits" list in Help (CC-BY needs a
+visible credit). Every model stands on y = 0 but the arc lamp (11 mm
+up, noted) and faces +z. The extensions as the loader reads them, WebGL
+and WebGPU alike (three-stdlib's GLTFLoader, the same materials on
+either back end): sheen, specular, transmission, volume, meshopt and
+WebP are read; `KHR_materials_diffuse_transmission` (the tall plant's
+leaves) and `KHR_materials_variants` are not, so the leaves are opaque.
+The tall plant was 68,000 triangles and 4.2 MB, three quarters of it
+textures past the 1024 px the budget keeps on arrival anyway; it is now
+simplified to 12,000 triangles with WebP textures at 1024 px, 1.0 MB.
+
+**Cushions (2.5).** `throw_pillows_01`, shipped and never drawn, sits on
+the sofa's seat in the lived-in view (`Pillows`, LivedIn.tsx's
+`cushions` slot), tinted. The README lists the fridge, toilet, basin and
+tap, and bed models wanted, with the sizes the plan uses.
+
+**Scale (2.6).** Every listed model measured against its index size
+(a script reading each GLB's accessor bounds): all 23 within 5 mm, and
+each a real size for what it is. One reads off by its name: the
+"classic laptop" is a vintage portable on its stand, 0.65 m across, so
+an item sized as a laptop today fits no model (noted in the index).
+
+**Contact (2.7).** A model's piece lays its footprint in the bake as two
+boxes (a low narrow base, the body above it), so a plant, a chair or a
+lamp leaves the soft floor shadow the built pieces do; not a lightmap
+of its own (a second UV set needs xatlas, a dependency this round does
+not add).
+
+**Two bugs the models showed.** A model is picked by its box
+(model-budget.ts), but the copies the room draws had lost that (a copy
+takes the geometry, not the mesh's own raycast) and were tested
+triangle by triangle; they keep it now. And a model with cloth (the
+armchair) was copied and its cloth re-tinted on every render of its
+piece: the pattern naming its cloth materials was a new `RegExp` each
+time, and the copy's memo hung on it. It is passed as the string the
+list gives now. The glance test reads a box hit as hiding what is
+behind it, and works its points out on the world as drawn.
+
+**Download, the default flat.** Before, the old picker drew the
+armchair and the small potted plant: 421 KB of models. Now: the
+armchair, the tall plant, the small plant and the cushions, 1.84 MB
+(4.97 MB before the tall plant was simplified). All of it after the
+first frame: the built forms stand in until each arrives.
+
+### Part 5, first: the room's surfaces, one to a pixel (2026-10-14)
+
+**The test.** The recipes' boxes were checked for faces in one place
+(z-fight.test.ts); the room was not. Now an e2e test (studio.spec.ts,
+"no two of the room's surfaces fight for a pixel") reads every flat,
+square-on triangle the flat draws, as the world has it, with each
+triangle's own finish and depth bias, and looks for two finishes facing
+the same way within a millimetre of each other that overlap
+(`planeFightsOf`, z-fight.ts, with unit tests). One finish over itself
+shades the same either way; a face pressed against another part's face
+the other way round is inside it; two behind a third part's face just in
+front are hidden by it; a face looking down at the floor's level is
+never seen; two biased differently are drawn in one order. What is left
+is a fight, and it found 52:
+
+- **Shared walls.** Each room's wall had its outer face exactly on the
+  face of the room beyond, in a different tone. An outer face that is
+  no room's inside now stands 2 mm into the wall (`OUTER_IN`,
+  wall-solid.ts). Where two rooms' walls run on into each other at a
+  corner, a later room's wall faces are biased a step behind an
+  earlier's (`order` on the room's shape).
+- **The kitchen slider.** Its leaves lay on the wall's face over the
+  lining's edges, and its floor track's top was level with the
+  threshold's; the leaves are 2 mm in, the track 2 mm proud.
+- **Windows.** The plaster bead's round ends stood on the reveals (now
+  4 mm short), and the stone sill's top was level with the opening's
+  floor (now 2 mm over it).
+
+The test was written to read the brief's list (wall caps and ceiling,
+skirting and cornice, lining and reveal, rug and floor, the hand marks,
+the footprints): none of those fought.

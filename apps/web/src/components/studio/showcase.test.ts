@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   ARRANGEMENTS,
@@ -8,6 +10,9 @@ import {
 import { healthOf, type Room } from "./room-health";
 import { footprint, isRug, isSmall } from "./piece-detail";
 import { hdbOffset, PRIVATE_ROOMS, SHOWCASE_ROOMS } from "./room-data";
+import type { PieceProps } from "./piece-detail";
+import type { Variant } from "./prop-variants";
+import { fittedSizes } from "./props-store";
 import { footprintOf, openingsOf, roomOverlaps, useRoom } from "./room-store";
 import { inRoom, ownOverrides, propsOf } from "./scene-store";
 
@@ -22,6 +27,31 @@ const flat = useRoom.getInitialState();
 const items = assetGroups
   .flatMap((g) => g.items)
   .filter((n) => n.kind !== "fixed");
+/** the real models' list as the studio reads it (props-store.ts) */
+const models = (
+  JSON.parse(
+    readFileSync(
+      path.join(__dirname, "../../../public/props/index.json"),
+      "utf8",
+    ),
+  ) as { models: Variant[] }
+).models;
+/** the overrides as they stand, and as they stand once the room items
+    take their real models' sizes (fit-models.tsx): the flat has to keep
+    to its rules both before the list arrives and after */
+const asBuiltAndFitted = (
+  things: typeof items,
+  overrides: Record<string, Partial<PieceProps>>,
+) => {
+  const sizes = fittedSizes(things, overrides, models);
+  const fitted = { ...overrides };
+  for (const [id, size] of Object.entries(sizes))
+    fitted[id] = { ...fitted[id], ...size };
+  return [
+    ["as built", overrides],
+    ["fitted to the models", fitted],
+  ] as const;
+};
 
 describe("the flat the studio opens on", () => {
   it("is a 5-room flat: three bedrooms, a common bathroom and the master's own, the hall, the shelter and the yard, standing clear", () => {
@@ -135,49 +165,50 @@ describe("the flat the studio opens on", () => {
     expect(PRIVATE_ROOMS).toContain("shelter");
   });
 
-  it("stands every piece in its room, clear of the rules", () => {
-    for (const r of flat.rooms) {
-      const room: Room = {
-        W: r.width,
-        D: r.depth,
-        outline: footprintOf(r),
-        openings: openingsOf(flat, r),
-        rules: r.rules,
-        thickness: r.thickness,
-      };
-      const mine = items.filter((n) =>
-        inRoom(showcasePlaces[n.id] ?? {}, r.id, flat.rooms[0]!.id),
-      );
-      // the hall is kept clear; every other room is furnished
-      if (r.room !== "hall") expect(mine.length, r.room).toBeGreaterThan(0);
-      const boxes = mine.map((n) => {
-        const p = propsOf(n, showcasePlaces);
-        expect(p.x, n.name).toBeDefined();
-        // on the 50 mm grid a drag snaps to, so a drag never shifts the rest
-        expect(p.x! % 50, n.name).toBe(0);
-        expect(p.y! % 50, n.name).toBe(0);
-        const f = footprint(p);
-        // inside the room
-        expect(p.x!, n.name).toBeGreaterThanOrEqual(0);
-        expect(p.y!, n.name).toBeGreaterThanOrEqual(0);
-        expect(p.x! + f.w, n.name).toBeLessThanOrEqual(r.width);
-        expect(p.y! + f.d, n.name).toBeLessThanOrEqual(r.depth);
-        return {
-          id: n.id,
-          name: n.name,
-          x: p.x!,
-          y: p.y!,
-          ...f,
-          h: p.height,
-          own: { w: p.width, d: p.depth, rotation: p.rotation },
+  it("stands every piece in its room, clear of the rules, its room items fitted to their models or not", () => {
+    for (const [how, places] of asBuiltAndFitted(items, showcasePlaces))
+      for (const r of flat.rooms) {
+        const room: Room = {
+          W: r.width,
+          D: r.depth,
+          outline: footprintOf(r),
+          openings: openingsOf(flat, r),
+          rules: r.rules,
+          thickness: r.thickness,
         };
-      });
-      const issues = healthOf(boxes, room);
-      expect(
-        issues.map((i) => `${r.room}: ${i.kind} ${i.text}`),
-        r.room,
-      ).toEqual([]);
-    }
+        const mine = items.filter((n) =>
+          inRoom(showcasePlaces[n.id] ?? {}, r.id, flat.rooms[0]!.id),
+        );
+        // the hall is kept clear; every other room is furnished
+        if (r.room !== "hall") expect(mine.length, r.room).toBeGreaterThan(0);
+        const boxes = mine.map((n) => {
+          const p = propsOf(n, places);
+          expect(p.x, n.name).toBeDefined();
+          // on the 50 mm grid a drag snaps to, so a drag never shifts the rest
+          expect(p.x! % 50, n.name).toBe(0);
+          expect(p.y! % 50, n.name).toBe(0);
+          const f = footprint(p);
+          // inside the room
+          expect(p.x!, n.name).toBeGreaterThanOrEqual(0);
+          expect(p.y!, n.name).toBeGreaterThanOrEqual(0);
+          expect(p.x! + f.w, n.name).toBeLessThanOrEqual(r.width);
+          expect(p.y! + f.d, n.name).toBeLessThanOrEqual(r.depth);
+          return {
+            id: n.id,
+            name: n.name,
+            x: p.x!,
+            y: p.y!,
+            ...f,
+            h: p.height,
+            own: { w: p.width, d: p.depth, rotation: p.rotation },
+          };
+        });
+        const issues = healthOf(boxes, room);
+        expect(
+          issues.map((i) => `${r.room}: ${i.kind} ${i.text}`),
+          `${how}: ${r.room}`,
+        ).toEqual([]);
+      }
   });
 
   it("walks the tour clear of the furniture and through the rooms", () => {
@@ -236,35 +267,36 @@ describe("the flat the studio opens on", () => {
           .sort()
           .join(","),
       );
-      for (const r of flat.rooms) {
-        const room: Room = {
-          W: r.width,
-          D: r.depth,
-          outline: footprintOf(r),
-          openings: openingsOf(flat, r),
-          rules: r.rules,
-          thickness: r.thickness,
-        };
-        const boxes = things
-          .filter((n) => inRoom(overrides[n.id] ?? {}, r.id, flat.rooms[0]!.id))
-          .map((n) => {
-            const p = propsOf(n, overrides);
-            const f = footprint(p);
-            return {
-              id: n.id,
-              name: n.name,
-              x: p.x!,
-              y: p.y!,
-              ...f,
-              h: p.height,
-              own: { w: p.width, d: p.depth, rotation: p.rotation },
-            };
-          });
-        expect(
-          healthOf(boxes, room).map((i) => `${i.kind} ${i.text}`),
-          `${a.name}: ${r.room}`,
-        ).toEqual([]);
-      }
+      for (const [how, places] of asBuiltAndFitted(things, overrides))
+        for (const r of flat.rooms) {
+          const room: Room = {
+            W: r.width,
+            D: r.depth,
+            outline: footprintOf(r),
+            openings: openingsOf(flat, r),
+            rules: r.rules,
+            thickness: r.thickness,
+          };
+          const boxes = things
+            .filter((n) => inRoom(places[n.id] ?? {}, r.id, flat.rooms[0]!.id))
+            .map((n) => {
+              const p = propsOf(n, places);
+              const f = footprint(p);
+              return {
+                id: n.id,
+                name: n.name,
+                x: p.x!,
+                y: p.y!,
+                ...f,
+                h: p.height,
+                own: { w: p.width, d: p.depth, rotation: p.rotation },
+              };
+            });
+          expect(
+            healthOf(boxes, room).map((i) => `${i.kind} ${i.text}`),
+            `${a.name}, ${how}: ${r.room}`,
+          ).toEqual([]);
+        }
     }
     expect(seen.size).toBe(ARRANGEMENTS.length);
   });

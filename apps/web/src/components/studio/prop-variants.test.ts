@@ -3,7 +3,11 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   fitOf,
+  KINDS,
   kindOf,
+  modelFor,
+  snapFor,
+  styleOf,
   LOD_NEAR,
   lodAt,
   type Variant,
@@ -25,6 +29,7 @@ describe("a room item's real model", () => {
     const table: Variant = {
       file: "t",
       kind: "coffee-table",
+      style: "boxy",
       size: [0.6, 0.39, 1.2],
     };
     // turned a quarter, a 1.2 × 0.6 table fits a 1.15 × 0.6 item
@@ -35,8 +40,18 @@ describe("a room item's real model", () => {
     expect(variantFor(listed.models, "sofa", [2.4, 0.8, 0.9])).toBeNull();
   });
   it("picks the nearest variant of the kind", () => {
-    const two: Variant = { file: "a", kind: "sofa", size: [1.7, 0.8, 0.9] };
-    const three: Variant = { file: "b", kind: "sofa", size: [2.3, 0.8, 0.9] };
+    const two: Variant = {
+      file: "a",
+      kind: "sofa",
+      style: "boxy",
+      size: [1.7, 0.8, 0.9],
+    };
+    const three: Variant = {
+      file: "b",
+      kind: "sofa",
+      style: "boxy",
+      size: [2.3, 0.8, 0.9],
+    };
     expect(variantFor([two, three], "sofa", [2.25, 0.8, 0.9])?.v.file).toBe(
       "b",
     );
@@ -55,5 +70,59 @@ describe("a room item's real model", () => {
     expect(lodAt(LOD_NEAR + 0.5, 0)).toBe(1);
     expect(lodAt(LOD_NEAR - 0.1, 1)).toBe(1);
     expect(lodAt(LOD_NEAR - 0.5, 1)).toBe(0);
+  });
+});
+
+describe("choosing by design (round 8, Part 2)", () => {
+  it("never draws a boxy sofa as a curved one", () => {
+    // the 2.19 m glam velvet sofa fits a 2.2 m item, but it is curved
+    expect(
+      variantFor(listed.models, "sofa", [2.2, 0.8, 1.0], "boxy"),
+    ).toBeNull();
+    expect(
+      variantFor(listed.models, "sofa", [2.2, 0.8, 1.0], "curved")?.v.file,
+    ).toBe("glam_velvet_sofa");
+  });
+  it("lists every model with its design and a kind it knows", () => {
+    for (const m of listed.models) {
+      expect(["boxy", "curved", "organic"]).toContain(m.style);
+      expect(KINDS).toContain(m.kind);
+    }
+  });
+  it("reads a design from the name", () => {
+    expect(styleOf("Sofa", "sofa")).toBe("boxy");
+    expect(styleOf("Velvet sofa", "sofa")).toBe("curved");
+    expect(styleOf("Potted plant", "plant")).toBe("organic");
+  });
+  it("knows the kinds the details asked for", () => {
+    expect(kindOf("Cushion")).toBe("cushion");
+    expect(kindOf("Wool throw")).toBe("throw");
+    expect(kindOf("Fridge")).toBe("fridge");
+    expect(kindOf("WC")).toBe("toilet");
+    expect(kindOf("Basin")).toBe("basin");
+    expect(kindOf("Queen bed")).toBe("bed");
+    expect(kindOf("Bedside cabinet")).toBe("cabinet");
+    expect(kindOf("Dish rack")).toBe("dish-rack");
+  });
+  it("sizes a stand-in item to its model, within reason", () => {
+    // the room's armchair, 0.8 × 0.85 × 0.8, takes the boxy armchair's size
+    const a = snapFor(listed.models, "armchair", "boxy", [0.8, 0.85, 0.8]);
+    expect(a?.v.file).toBe("modern_arm_chair_01");
+    // a standing lamp is not the arc lamp four times its width
+    expect(
+      snapFor(listed.models, "floor-lamp", "organic", [0.3, 1.5, 0.3]),
+    ).toBeNull();
+    // a sofa keeps its size and its built form
+    expect(snapFor(listed.models, "sofa", "boxy", [2.4, 0.8, 0.9])).toBeNull();
+    // an item a model already fits is left as it is
+    expect(
+      snapFor(listed.models, "vase", "organic", [0.2, 0.39, 0.2]),
+    ).toBeNull();
+  });
+  it("finds the model a few words ask for", () => {
+    expect(modelFor(listed.models, "a tall fiddle-leaf fig")).toMatch(
+      /potted_plant/,
+    );
+    expect(modelFor(listed.models, "a sculpture")).toBeUndefined();
   });
 });

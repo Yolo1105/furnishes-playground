@@ -121,6 +121,9 @@ type SceneState = {
   setProps: (id: string, patch: Partial<PieceProps>) => void;
   /** a whole layout at once: every piece's place, one undo step */
   placeAll: (places: Record<string, Partial<PieceProps>>) => void;
+  /** room items sized to their real models as the list arrives: not a
+      step of the person's to undo */
+  fitToModels: (sizes: Record<string, Partial<PieceProps>>) => void;
   /** take a piece out of the room altogether */
   removeNode: (id: string) => void;
   /** a second of a piece, as it is configured, standing at `at` (mm),
@@ -505,6 +508,13 @@ export const useScene = create<SceneState>((set, get) => {
             : {}),
           ...remember(s),
         };
+      }),
+    fitToModels: (sizes) =>
+      set((s) => {
+        const overrides = { ...s.overrides };
+        for (const [id, patch] of Object.entries(sizes))
+          overrides[id] = { ...overrides[id], ...patch };
+        return { overrides };
       }),
     placeAll: (places) =>
       set((s) => {

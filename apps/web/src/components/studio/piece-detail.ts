@@ -34,6 +34,9 @@ export type PieceProps = {
       in its own frame (x across, y up from the floor, z to the front,
       mm about its middle); its size and price then come from them */
   panels?: Panel[];
+  /** a room item sized to its real model (the model's file), so it is
+      drawn as one; the planner says so (fit-models.tsx) */
+  fitted?: string;
   /** a Furnishes piece as configured: doors on its bays, and which
       add-ons it takes; unset, the recipe's own (defaultConfig) */
   doors?: boolean;

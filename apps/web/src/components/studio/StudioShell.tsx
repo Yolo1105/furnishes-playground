@@ -17,6 +17,7 @@ import { PreviewStage } from "./PreviewStage";
 import { Tour } from "./Tour";
 import { ViewCube } from "./ViewCube";
 import { immersiveAtStart, other, useStudio } from "./studio-store";
+import { FitToModels } from "./fit-models";
 import { toast, useAccountSync } from "./account-sync";
 import { useGenerationsSync } from "./generation-store";
 import { useBoardSync } from "./board-store";
@@ -206,6 +207,8 @@ export function StudioShell({
       data-ui={uiHidden ? "hidden" : "shown"}
       {...(open ? { "data-open": open } : {})}
     >
+      {/* the real models' list, and the items sized to them */}
+      <FitToModels />
       {/* ---- the stage: the room, behind everything ---- */}
       <div
         className="shell-stage"

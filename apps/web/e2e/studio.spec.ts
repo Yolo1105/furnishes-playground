@@ -17,6 +17,7 @@ import { products } from "../src/components/studio/catalogue";
 import { GUIDE_STORAGE_KEY } from "../src/components/studio/guide-store";
 import { defaultProps } from "../src/components/studio/piece-detail";
 import { ROOM_TEMPLATES } from "../src/components/studio/room-templates";
+import { planeFightsOf } from "../src/components/studio/z-fight";
 
 /* expectations come from the same data the app renders */
 const top = assetGroups.flatMap((g) => g.items);
@@ -1723,6 +1724,183 @@ test("the desktop extras: Reflections and Bounce light stand behind View setting
   await expect(stage3d).toHaveAttribute("data-settled", "true", {
     timeout: 90_000,
   });
+});
+
+test("a model added to the props list is drawn with no change to the code", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  // the list as served, its plants swapped for one more model: the
+  // living room's potted plant (0.4 × 0.9 × 0.4 m) is drawn from it
+  await page.route("**/props/index.json", async (route) => {
+    const res = await route.fetch();
+    const { models } = (await res.json()) as {
+      models: { file: string; kind: string }[];
+    };
+    const added = {
+      file: "glass_vase_flowers",
+      kind: "plant",
+      style: "organic",
+      size: [0.4, 0.9, 0.4],
+    };
+    await route.fulfill({
+      response: res,
+      json: { models: [...models.filter((m) => m.kind !== "plant"), added] },
+    });
+  });
+  const asked = page.waitForRequest(/\/props\/glass_vase_flowers\.glb$/, {
+    timeout: 180_000,
+  });
+  await page.goto("/rounded");
+  await built(page);
+  await asked;
+  await expect(page.locator(".shell-stage .stage-3d")).toHaveAttribute(
+    "data-models",
+    /(^|,)glass_vase_flowers(,|$)/,
+    { timeout: 120_000 },
+  );
+});
+
+test("no two of the room's surfaces fight for a pixel", async ({ page }) => {
+  test.setTimeout(240_000);
+  await page.goto("/rounded");
+  await built(page);
+  const stage = page.locator(".shell-stage .stage-3d");
+  // the pieces' footprints are laid once their bakes land
+  await expect(stage).toHaveAttribute("data-bakes", "0", { timeout: 180_000 });
+  // every flat, square-on triangle of the room as the world has it: its
+  // walls and their caps, floor and ceiling, skirting and cornice, door
+  // linings and reveals, windows, the marks on the walls, the rugs and
+  // the pieces' footprints (a built piece's own boards are checked by
+  // its recipe, z-fight.test.ts)
+  const faces = await page.evaluate(() => {
+    type V = { x: number; y: number; z: number };
+    type F = {
+      type: string;
+      color?: { getHexString: () => string };
+      map?: { source: { uuid: string } } | null;
+      opacity: number;
+      polygonOffset: boolean;
+      polygonOffsetFactor: number;
+      polygonOffsetUnits: number;
+    };
+    type A = {
+      count: number;
+      getX: (i: number) => number;
+      getY: (i: number) => number;
+      getZ: (i: number) => number;
+    };
+    type M = {
+      isMesh?: boolean;
+      visible: boolean;
+      parent: M | null;
+      name: string;
+      userData: { name?: string; export?: string };
+      geometry?: {
+        index: { count: number; getX: (i: number) => number } | null;
+        getAttribute: (n: string) => A | undefined;
+        groups: { start: number; count: number; materialIndex?: number }[];
+      };
+      material: F | F[];
+      matrixWorld: { elements: number[] };
+    };
+    const w = window as unknown as {
+      __scene: M & { traverse: (f: (o: M) => void) => void };
+    };
+    const shown = (o: M | null): boolean =>
+      !o || (o.visible && shown(o.parent));
+    const named = (o: M | null): string =>
+      !o ? "?" : o.userData?.name || o.name || named(o.parent);
+    const inRoom = (o: M | null): boolean =>
+      !!o && (o.userData?.export === "room" || inRoom(o.parent));
+    const finish = (f: F) =>
+      `${f.type}:${f.color?.getHexString() ?? ""}:${f.map?.source.uuid ?? ""}:${f.opacity}`;
+    const out: {
+      id: string;
+      finish: string;
+      bias: string;
+      axis: 0 | 1 | 2;
+      side: 1 | -1;
+      at: number;
+      rect: [number, number, number, number];
+    }[] = [];
+    let n = 0;
+    w.__scene.traverse((m) => {
+      if (!m.isMesh || !m.geometry || !shown(m)) return;
+      if (m.userData?.export === "helper") return;
+      const name = named(m);
+      if (!inRoom(m) && !/footprint|rug|mat\b/i.test(name)) return;
+      const pos = m.geometry.getAttribute("position");
+      if (!pos) return;
+      const mats = Array.isArray(m.material) ? m.material : [m.material];
+      const id = `${name}#${n++}`;
+      const groups = m.geometry.groups;
+      // each triangle's own finish: a wall's plaster, reveal and cap are
+      // groups of one mesh
+      const materialAt = (t: number) => {
+        const g = groups.find((x) => t >= x.start && t < x.start + x.count);
+        return mats[g?.materialIndex ?? 0] ?? mats[0]!;
+      };
+      const e = m.matrixWorld.elements;
+      const world = (i: number): V => {
+        const x = pos.getX(i);
+        const y = pos.getY(i);
+        const z = pos.getZ(i);
+        return {
+          x: e[0]! * x + e[4]! * y + e[8]! * z + e[12]!,
+          y: e[1]! * x + e[5]! * y + e[9]! * z + e[13]!,
+          z: e[2]! * x + e[6]! * y + e[10]! * z + e[14]!,
+        };
+      };
+      const idx = m.geometry.index;
+      const count = idx ? idx.count : pos.count;
+      for (let t = 0; t + 2 < count; t += 3) {
+        const [a, b, c] = [0, 1, 2].map((k) =>
+          world(idx ? idx.getX(t + k) : t + k),
+        ) as [V, V, V];
+        const u = [b.x - a.x, b.y - a.y, b.z - a.z];
+        const v = [c.x - a.x, c.y - a.y, c.z - a.z];
+        const nrm = [
+          u[1]! * v[2]! - u[2]! * v[1]!,
+          u[2]! * v[0]! - u[0]! * v[2]!,
+          u[0]! * v[1]! - u[1]! * v[0]!,
+        ];
+        const len = Math.hypot(nrm[0]!, nrm[1]!, nrm[2]!);
+        if (len < 1e-12) continue;
+        const axis = nrm.findIndex((x) => Math.abs(x) / len > 0.9999);
+        if (axis < 0) continue;
+        // a face looking down at the floor's level is never seen: the
+        // camera is always above the floor
+        if (axis === 1 && nrm[1]! < 0 && Math.abs(a.y) < 0.001) continue;
+        const [p, q] = [0, 1, 2].filter((k) => k !== axis) as [number, number];
+        const co = (pt: V, k: number) => [pt.x, pt.y, pt.z][k]!;
+        out.push({
+          id,
+          finish: finish(materialAt(t)),
+          bias: materialAt(t).polygonOffset
+            ? `${materialAt(t).polygonOffsetFactor}/${materialAt(t).polygonOffsetUnits}`
+            : "",
+          axis: axis as 0 | 1 | 2,
+          side: nrm[axis]! > 0 ? 1 : -1,
+          at: (co(a, axis) + co(b, axis) + co(c, axis)) / 3,
+          rect: [
+            Math.min(co(a, p), co(b, p), co(c, p)),
+            Math.min(co(a, q), co(b, q), co(c, q)),
+            Math.max(co(a, p), co(b, p), co(c, p)),
+            Math.max(co(a, q), co(b, q), co(c, q)),
+          ],
+        });
+      }
+    });
+    return out;
+  });
+  expect(faces.length).toBeGreaterThan(1000);
+  const finish = new Map(faces.map((f) => [f.id, f.finish]));
+  const fights = planeFightsOf(faces).map(
+    (f) =>
+      `${f.a} (${finish.get(f.a)}) and ${f.b} (${finish.get(f.b)}) on ${"xyz"[f.axis]}${f.side > 0 ? "+" : "-"} at ${f.at.toFixed(4)}`,
+  );
+  expect(fights).toEqual([]);
 });
 
 test("the sketcher: an L-shaped shelf with a 20 mm round hole, fully held; one dimension changed moves the solid, the DXF and the STEP", async ({

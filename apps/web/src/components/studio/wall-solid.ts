@@ -124,7 +124,8 @@ export const cornerEnd = (
 };
 
 /** the triangles of a wall's blocks as one geometry: each block a box
-    from the inner face (z 0) to the outer (z t), its ends square and
+    from the inner face (z 0) to the outer (z t, `OUTER_IN` less where it
+    is no room's inside), its ends square and
     run on into a corner or stopped short of it by `ends` (cornerEnd).
     The faces come
     grouped by material (`groups`, for the geometry's groups), with a
@@ -136,6 +137,11 @@ export const cornerEnd = (
     joint where one run meets the next (`joints`, at its start and its
     end): no cut, so the end face there is no cap and carries no line,
     which lay on the next run's face and flickered through it. */
+/** how far a wall's outer face stands in from its full thickness where
+    another room's wall face lies on it, m (z-fight.ts's `FIGHT` apart,
+    and more) */
+export const OUTER_IN = 0.002;
+
 export const wallTriangles = (
   blocks: readonly Block[],
   len: number,
@@ -235,7 +241,10 @@ export const wallTriangles = (
         else quad(group, p0, p1, p2, p3, shaded);
       }
   };
-  const oz = t * outward;
+  // the outer face stands a hair into the wall where it is no room's
+  // inside: there it lies on the face of the room beyond (its own wall,
+  // drawn by that room), and the two fought for every pixel
+  const oz = (shading?.outer === true ? t : t - OUTER_IN) * outward;
   const [endA, endB] = ends;
   const line = (x0: number, x1: number, y: number, z: number) => {
     if (x1 - x0 > 1e-6) capLines.push(x0, y, z, x1, y, z);

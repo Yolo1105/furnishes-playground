@@ -425,6 +425,9 @@ type RoomShape = {
       once, by the earlier room (`both`: this room builds it and it shows
       from both sides; else the other room does and this one skips it) */
   shared?: readonly Stretch[];
+  /** the room's place in the flat: where two rooms' walls run on into
+      each other at a corner, the earlier room's faces are drawn */
+  order?: number;
 };
 type Stretch = {
   wall: Wall;
@@ -813,6 +816,7 @@ function WallRun({
   holes,
   both = false,
   shared,
+  order = 0,
 }: {
   /** the run's id among every room's walls */
   id: string;
@@ -841,6 +845,8 @@ function WallRun({
   /** when shared, this room and the room beyond: the wall answers to
       whichever is being worked on */
   shared?: { room: string; other: string } | undefined;
+  /** the room's place in the flat (RoomShape's `order`) */
+  order?: number;
 }) {
   // the walls' plaster, its maps repeated by its stretch over the
   // solid's metres
@@ -994,11 +1000,13 @@ function WallRun({
   });
   const wallColour = plaster.photo ? tintOver(wallHex) : wallHex;
   // the faces stand a hair behind their own cut lines: a line on a face
-  // fought it for depth and flickered into dashes as the camera moved
+  // fought it for depth and flickered into dashes as the camera moved;
+  // and a later room's a hair behind an earlier's, where two rooms'
+  // walls run on into each other at a corner (z-fight.ts)
   const behind = {
     polygonOffset: true,
     polygonOffsetFactor: 1,
-    polygonOffsetUnits: 1,
+    polygonOffsetUnits: 1 + order,
   } as const;
   const materials = (
     <>
@@ -1153,6 +1161,11 @@ const WINDOW = {
   /** the plaster's round where the reveal meets the wall's face */
   bead: 0.006,
 };
+/** how much shorter than its run the bead is, m: its round ends stood
+    on the reveals' faces and fought them */
+const BEAD_SHORT = 0.004;
+/** how far the sill's top stands over the opening's floor, m */
+const SILL_PROUD = 0.002;
 /** the frame and sash: powder-coated aluminium, satin, never a mirror
     (a plain finish takes the plaster's faint stipple, finish.tsx); the
     gasket's black rubber; the hardware's satin steel; the sill's stone */
@@ -1479,21 +1492,22 @@ function Window({ r, o }: { r: RoomShape; o: Opening }) {
             </group>
           );
         })}
-        {/* the plaster's round where the reveal turns onto the wall */}
+        {/* the plaster's round where the reveal turns onto the wall,
+            its ends a hair short of the reveals, not on them */}
         {[-1, 1].map((s) => (
           <Rod
             key={`b${s}`}
             f={plaster}
             at={[s * (width / 2), mid, 0]}
             r={WINDOW.bead}
-            h={tall}
+            h={tall - BEAD_SHORT}
           />
         ))}
         <Rod
           f={plaster}
           at={[0, head, 0]}
           r={WINDOW.bead}
-          h={width}
+          h={width - BEAD_SHORT}
           rotation={[0, 0, Math.PI / 2]}
         />
         {r.floor !== "Tiles" && (
@@ -1507,12 +1521,13 @@ function Window({ r, o }: { r: RoomShape; o: Opening }) {
           />
         )}
         {/* the sill: stone, from the frame out past the wall's face,
-            its front edge rounded, a little wider than the opening */}
+            its front edge rounded, a little wider than the opening, its
+            top a hair over the opening's floor, not level with it */}
         <Soft
           f={SILL_STONE}
           at={[
             0,
-            sill - WINDOW.sill / 2,
+            sill - WINDOW.sill / 2 + SILL_PROUD,
             (WINDOW.overhang + zf + depth / 2) / 2,
           ]}
           dims={[width + 0.05, WINDOW.sill, WINDOW.overhang - zf - depth / 2]}
@@ -1662,9 +1677,10 @@ function Door({ r, o }: { r: RoomShape; o: Opening }) {
               size={[width, 0.04, 0.06]}
               f={ALU}
             />
+            {/* standing a little above the threshold, not level with it */}
             <Member
-              at={[0, 0.006, -0.035]}
-              size={[width, 0.012, 0.06]}
+              at={[0, 0.007, -0.035]}
+              size={[width, 0.014, 0.06]}
               f={ALU}
             />
           </>
@@ -1774,7 +1790,9 @@ function DoorLeaf({
   const k = useRef(open ? 1 : 0);
   const invalidate = useThree((s) => s.invalidate);
   useEffect(() => invalidate(), [open, invalidate]);
-  const zl = sliding ? -0.02 - i * (leaf + 0.01) : leafZ;
+  // a sliding panel runs a little in from the wall's face, clear of the
+  // lining's edge there
+  const zl = sliding ? -0.022 - i * (leaf + 0.01) : leafZ;
   const lw = l.w - 2 * gap - 2 * lining;
   const s = Math.sign(l.handle) || 1;
   // the hinge: the leaf's far edge from its handle, on its room face;
@@ -2148,6 +2166,7 @@ export function RoomShell({
             holes={holes}
             both={both}
             shared={other ? { room: r.id, other } : undefined}
+            order={r.order ?? 0}
           />
         ),
       )}

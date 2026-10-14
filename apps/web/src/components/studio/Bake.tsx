@@ -72,6 +72,9 @@ type Solid = {
   mesh: Mesh;
   box: { c: V3; h: V3 };
   shared: boolean;
+  /** its vertices take their light (none for a model drawn in its own
+      materials, whose box stands only for its footprint) */
+  points?: boolean;
 };
 export type Member = Boards | Solid;
 
@@ -218,6 +221,7 @@ const assemble = (
     } else {
       const k = boxes.length;
       boxes.push(boxAt(m, member.box.c, member.box.h));
+      if (member.points === false) continue;
       const count = mesh.geometry.getAttribute("position")?.count ?? 0;
       pointsOf(member, mesh, m, [0, count], k);
     }

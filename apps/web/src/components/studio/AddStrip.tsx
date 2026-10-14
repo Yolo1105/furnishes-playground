@@ -17,10 +17,11 @@ import { OPENING_KINDS } from "./room-data";
 import { useRoom } from "./room-store";
 import {
   describeItem,
-  propFor,
   useGenerations,
   type Generation,
 } from "./generation-store";
+import { modelFor } from "./prop-variants";
+import { useProps } from "./props-store";
 import { BoardIcon, CloseIcon, CubeIcon, ExportIcon, StarIcon } from "./icons";
 import { boxPart, bracketPart, knobPart, type Part } from "@furnishes/domain";
 import { checkStepText } from "./part-client";
@@ -309,7 +310,7 @@ function Generate({
     const { name, category } = describeItem(words);
     // without a provider's answer: a stock mesh of the thing when there
     // is one, else a shape
-    const prop = propFor(words);
+    const prop = modelFor(useProps.getState().models ?? [], words);
     const stand = (why: string) => {
       made = add({
         prompt: words,

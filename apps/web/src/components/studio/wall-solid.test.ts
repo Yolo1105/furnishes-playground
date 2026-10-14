@@ -4,6 +4,7 @@ import {
   CAP,
   cornerEnd,
   CUT_END,
+  OUTER_IN,
   PLASTER,
   REVEAL,
   wallTriangles,
@@ -86,7 +87,9 @@ describe("wallTriangles", () => {
     const along = (z: number) =>
       ownerTop.find((l) => near(l[2], z) && near(l[5], z) && l[0] !== l[3])!;
     expect(Math.max(along(0)[0]!, along(0)[3]!)).toBeCloseTo(4);
-    expect(Math.max(along(0.3)[0]!, along(0.3)[3]!)).toBeCloseTo(4.3);
+    // (the outer face a hair in, off the face of the room beyond)
+    const outer = along(0.3 - OUTER_IN);
+    expect(Math.max(outer[0]!, outer[3]!)).toBeCloseTo(4.3);
     expect(
       ownerTop.some((l) => l[0]! > 4.29 && l[3]! > 4.29 && l[2] !== l[5]),
     ).toBe(true);

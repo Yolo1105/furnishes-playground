@@ -498,13 +498,23 @@ dragged there too, and the 3D room follows.
 Add also makes room items: things that set the scene and are not for
 sale (an armchair, a plant, a pendant) from a few words. With `FAL_KEY`
 set, `/api/generate-item` has Flux draw a product shot and Hunyuan 3D
-turn it into a mesh that stands in the room; without a key a stock mesh
-of the thing stands in when there is one (fifteen CC0 Poly Haven models
-under `public/props`: a sofa, an armchair, a chair, a stool, a coffee
-table, a cabinet, a lamp, a plant, a planter, a vase, a basket, books,
-pillows, a box, a laptop), and otherwise the item
+turn it into a mesh that stands in the room; without a key a real model
+of the thing stands in when there is one, and otherwise the item
 stands as a shape and the strip says so. Generations are kept in the
 browser, can be starred, and a tile puts another into the room.
+
+The real models are listed in `public/props/index.json` (23 of them:
+fifteen CC0 Poly Haven models and eight CC-BY Khronos sample models,
+credited in Help), each with its kind, its design (boxy, curved or
+organic) and its measured size, read as the studio opens: a model added
+to the list is drawn with no change to the code. A room item is drawn
+from the model of its kind and design that fits its size within 10 %;
+when none fits, a room item of a kind whose built form only stands in
+(an armchair, a plant, a vase, cushions…) takes the nearest model's own
+size, and the planner says so. Plain chairs, cabinets and tables keep
+their built forms, and a sofa its soft-box build unless a sofa model of
+its design fits it; the default flat is laid out so its items keep to
+the planner's rules at either size (showcase.test.ts).
 
 Eva speaks through Claude when `ANTHROPIC_API_KEY` is set (`/api/chat`,
 with the chatbot's rules and a fixed answer shape); without a key her rule

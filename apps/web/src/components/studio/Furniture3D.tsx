@@ -16,6 +16,7 @@ import type { Panel } from "@furnishes/domain";
 import {
   Box3,
   BoxGeometry,
+  type Group,
   CanvasTexture,
   Color,
   SRGBColorSpace,
@@ -35,7 +36,14 @@ import { clothColour, variedWood } from "./albedo";
 import { tileMaps, WALL_TILE } from "./tile-maps";
 import { recipeOf } from "./catalogue";
 import { useEvent } from "./use-event";
-import { propFor } from "./generation-store";
+import {
+  kindOf,
+  type Kind,
+  styleOf,
+  type Variant,
+  variantFor,
+} from "./prop-variants";
+import { drawnModel, loadingModel, useModels, useProps } from "./props-store";
 import {
   ACCENT_HEX,
   bodyOf,
@@ -76,7 +84,7 @@ import {
   SeatTouches,
   TableTouches,
 } from "./LivedIn";
-import { budgetModel } from "./model-budget";
+import { boxRaycast, budgetModel } from "./model-budget";
 import { BakeScope, useBakeMembers } from "./Bake";
 import { withBakeDefaults } from "./bake-defaults";
 import { bakedOcclusion } from "./lightmap-nodes";
@@ -163,37 +171,37 @@ type Props = {
     compressed mesh never reaches out to a third party for it */
 const DRACO = "/draco/";
 
-/** which of a stock mesh's materials are its cloth, to take the
-    item's colour; the rest (legs, a frame) keep their own */
-const STOCK_CLOTH: Record<string, RegExp> = {
-  sofa_02: /./,
-  modern_arm_chair_01: /pillow/,
-};
-/** the stock mesh a room item is drawn from, by its name, and which of
-    its materials take the item's colour; null for an item with none
-    (a rug, a bed, a floor lamp keep their built form) */
-const stockOf = (node: AssetNode) => {
-  const name = node.name.toLowerCase();
-  const cat = node.category;
-  // a plain chair is built: the stock one is in dark leather, one
-  // picture that takes no colour, and a room of them read heavy. So is
-  // a sofa (the stock one is a tufted Chesterfield, a period piece
-  // among plywood and linen) and a coffee table (the stock one is a
-  // near-square side table, fitted to a 1 m table it stood a third of
-  // the size): the built forms keep to the room's calm language
-  if (/\bchair\b/.test(name) && !/arm|lounge|easy|reading/.test(name))
-    return null;
-  if (/sofa|couch|settee|coffee table/.test(name)) return null;
-  const fits =
-    cat === "seating" ||
-    cat === "tables" ||
-    (cat === "lighting" && /desk|table/.test(name)) ||
-    (cat === "decor" &&
-      /plant|fig|palm|fern|vase|jug|bottle|basket/.test(name));
-  const src = fits ? propFor(name) : undefined;
-  if (!src) return null;
-  const file = src.slice(src.lastIndexOf("/") + 1).replace(/\.glb$/, "");
-  return { src, cloth: STOCK_CLOTH[file] ?? null };
+/** the kinds kept to their built forms whatever the list holds: a plain
+    chair (the room's are light and many, and the stock one is a heavy
+    dark leather), a cabinet (built of panels), and the tables (the
+    stone-topped coffee table and the oak ones are designs of their own) */
+const BUILT_KINDS: readonly Kind[] = [
+  "chair",
+  "cabinet",
+  "coffee-table",
+  "side-table",
+];
+/** the real model a room item is drawn from (public/props/index.json,
+    prop-variants.ts): of its kind and its design, within a tenth of its
+    size on every axis; and which of the model's materials take the
+    item's colour. None for a product, a part, or an item with no model
+    that fits, which keeps its built form */
+const modelOf = (
+  node: AssetNode,
+  [w, h, d]: Vector3Tuple,
+  models: readonly Variant[] | null,
+) => {
+  if (!models || node.part || recipeOf(node)) return null;
+  const kind = kindOf(node.name, node.category);
+  if (!kind || BUILT_KINDS.includes(kind)) return null;
+  const pick = variantFor(models, kind, [w, h, d], styleOf(node.name, kind));
+  if (!pick) return null;
+  return {
+    src: `/props/${pick.v.file}.glb`,
+    file: pick.v.file,
+    cloth: pick.v.cloth ?? null,
+    turned: pick.fit.turned,
+  };
 };
 
 /** a model's colour map with its colour taken out: its values kept
@@ -287,20 +295,31 @@ const clothOver = (own: MeshStandardMaterial, colour: string) => {
 
 /** a generated or stock mesh fitted into the item's size, standing on
     the floor: a copy of its own, so two of a kind can stand in one
-    room, its cloth in the item's colour when it has any */
+    room, its cloth in the item's colour when it has any. A listed model
+    (`fit`) is turned a quarter when that fits and scaled on each axis
+    (never past a tenth, prop-variants.ts); a generated one is scaled
+    evenly to stand within the item. It tells the piece's bake its box,
+    for its footprint on the floor */
 function Model({
   src,
   size,
   cloth,
+  fit,
 }: {
   src: string;
   size: Vector3Tuple;
-  cloth: { colour: string; names: RegExp } | null;
+  /** the item's colour, and the pattern naming the model's cloth
+      materials (index.json's `cloth`): a string, so a render that makes
+      the same one again keeps the copy */
+  cloth: { colour: string; names: string } | null;
+  fit?: { file: string; turned: boolean } | undefined;
 }) {
   const { scene } = useGLTF(src, DRACO);
   const colour = cloth?.colour;
   const names = cloth?.names;
+  const turned = !!fit?.turned;
   const { object, box } = useMemo(() => {
+    const pattern = names ? new RegExp(names, "i") : null;
     // within what any model may cost, stock or generated, once for the
     // loaded scene its copies share (model-budget.ts)
     budgetModel(scene);
@@ -310,12 +329,17 @@ function Model({
       if (!mesh.isMesh) return;
       mesh.castShadow = true;
       mesh.receiveShadow = true;
+      // picked by its box, as the budget set on the loaded meshes (a
+      // copy takes their geometry, not their own raycast)
+      mesh.raycast = boxRaycast;
       const own = mesh.material as MeshStandardMaterial;
-      if (colour && names?.test(own.name))
+      if (colour && pattern?.test(own.name))
         mesh.material = clothOver(own, colour);
     });
+    o.rotation.y = turned ? Math.PI / 2 : 0;
+    o.updateMatrixWorld(true);
     return { object: o, box: new Box3().setFromObject(o) };
-  }, [scene, colour, names]);
+  }, [scene, colour, names, turned]);
   useEffect(
     () => () => {
       object.traverse((child) => {
@@ -325,18 +349,68 @@ function Model({
     },
     [object],
   );
+  const file = fit?.file;
+  useEffect(() => {
+    if (!file) return;
+    drawnModel(file, true);
+    return () => drawnModel(file, false);
+  }, [file]);
   const dims = box.getSize(new Vector3());
-  const k = Math.min(
+  const even = Math.min(
     size[0] / (dims.x || 1),
     size[1] / (dims.y || 1),
     size[2] / (dims.z || 1),
   );
+  const k: Vector3Tuple = fit
+    ? [
+        size[0] / (dims.x || 1),
+        size[1] / (dims.y || 1),
+        size[2] / (dims.z || 1),
+      ]
+    : [even, even, even];
   const centre = box.getCenter(new Vector3());
+  // its footprint: a base low and narrow, and its body above, inside
+  // its box (a plant's pot and its leaves, a chair's legs and its seat)
+  const anchor = useRef<Group>(null);
+  const [w, h, d] = size;
+  useBakeMembers(() => {
+    const g = anchor.current;
+    if (!g) return [];
+    const at = (
+      c: [number, number, number],
+      half: [number, number, number],
+    ) => ({
+      kind: "solid" as const,
+      mesh: g as unknown as Mesh,
+      box: { c, h: half },
+      shared: false,
+      points: false,
+    });
+    return [
+      at([0, h * 0.15, 0], [w * 0.3, h * 0.15, d * 0.3]),
+      at([0, h * 0.6, 0], [w * 0.4, h * 0.3, d * 0.4]),
+    ];
+  }, [w, h, d]);
   return (
-    <group scale={k} position={[-centre.x * k, -box.min.y * k, -centre.z * k]}>
-      <primitive object={object} />
+    <group ref={anchor}>
+      <group
+        scale={k}
+        position={[-centre.x * k[0], -box.min.y * k[1], -centre.z * k[2]]}
+      >
+        <primitive object={object} />
+      </group>
     </group>
   );
+}
+
+/** a model on its way while its form stands in (Suspense's fallback),
+    counted for the stage to say */
+function ModelLoading() {
+  useEffect(() => {
+    loadingModel(true);
+    return () => loadingModel(false);
+  }, []);
+  return null;
 }
 
 /** a mesh that fails to load falls back to the form */
@@ -375,20 +449,18 @@ const looseTurn = (node: AssetNode) => {
 
 export function Furniture3D(p: Props) {
   const outline = p.clash || p.selected || p.edges || p.hovered;
-  // the built form within its bake (Bake.tsx): its light baked once it
-  // is built, and its footprint on the floor
-  const form = (
-    <BakeScope name={p.node.name} wall={p.wall ?? null}>
-      <Form {...p} />
-    </BakeScope>
-  );
-  // a generated item's own mesh, else the stock mesh its name has; a
+  const form = <Form {...p} />;
+  // a generated item's own mesh, else the listed model that fits it; a
   // piece opened as panels is its panels
+  const models = useModels();
+  const listed = p.panels ? null : modelOf(p.node, p.size, models);
   const stock = p.panels
     ? null
     : p.node.model
-      ? { src: p.node.model, cloth: null }
-      : stockOf(p.node);
+      ? { src: p.node.model, cloth: null, fit: undefined }
+      : listed
+        ? { src: listed.src, cloth: listed.cloth, fit: listed }
+        : null;
   const onClick = useEvent((e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
     p.onPick();
@@ -396,23 +468,37 @@ export function Furniture3D(p: Props) {
   const turn = looseTurn(p.node);
   return (
     <group onClick={onClick}>
-      <group rotation={[0, turn, 0]}>
-        {stock ? (
-          <ModelGuard fallback={form}>
-            <Suspense fallback={form}>
-              <Model
-                src={stock.src}
-                size={p.size}
-                cloth={
-                  stock.cloth ? { colour: p.colour, names: stock.cloth } : null
+      {/* the piece within its bake (Bake.tsx): its light baked once it is
+          built, and its footprint on the floor */}
+      <BakeScope name={p.node.name} wall={p.wall ?? null}>
+        <group rotation={[0, turn, 0]}>
+          {stock ? (
+            <ModelGuard fallback={form}>
+              <Suspense
+                fallback={
+                  <>
+                    {form}
+                    <ModelLoading />
+                  </>
                 }
-              />
-            </Suspense>
-          </ModelGuard>
-        ) : (
-          form
-        )}
-      </group>
+              >
+                <Model
+                  src={stock.src}
+                  size={p.size}
+                  cloth={
+                    stock.cloth
+                      ? { colour: p.colour, names: stock.cloth }
+                      : null
+                  }
+                  fit={stock.fit}
+                />
+              </Suspense>
+            </ModelGuard>
+          ) : (
+            form
+          )}
+        </group>
+      </BakeScope>
       {outline && (
         <Outline size={p.size} colour={p.clash ? DANGER_HEX : ACCENT_HEX} />
       )}
@@ -1153,6 +1239,8 @@ function Seat({
   const body = cloth(colour);
   const cushion = cloth(shade(colour, 0.04));
   const backH = h - LEG - baseH - 0.16;
+  // the listed cushions, when there are any (index.json's kind "cushion")
+  const pillows = useProps((s) => s.models?.find((m) => m.kind === "cushion"));
   return (
     <group>
       <Built
@@ -1228,8 +1316,52 @@ function Seat({
           back={back + 0.16}
           seats={seats}
           seed={seed}
+          cushions={
+            pillows && seats > 1 ? (
+              <Pillows
+                file={pillows.file}
+                size={pillows.size}
+                room={inner * 0.45}
+                at={[
+                  (seed % 2 ? 1 : -1) * (inner / 2 - (inner * 0.45) / 2),
+                  LEG + baseH + 0.14,
+                  -d / 2 + back + 0.16 + 0.04,
+                ]}
+              />
+            ) : null
+          }
         />
       )}
+    </group>
+  );
+}
+
+/** the listed cushions (a set of throw pillows, a real model) on a
+    sofa's seat at one end, against its back cushions: in their own
+    proportions, as wide as `room` at most; the built cushions stand in
+    while they load */
+function Pillows({
+  file,
+  size: [mw, mh, md],
+  room,
+  at,
+}: {
+  file: string;
+  size: [number, number, number];
+  room: number;
+  at: Vector3Tuple;
+}) {
+  const k = Math.min(1, room / mw, 0.45 / md);
+  return (
+    <group position={[at[0], at[1], at[2] + (md * k) / 2]}>
+      <Suspense fallback={null}>
+        <Model
+          src={`/props/${file}.glb`}
+          size={[mw * k, mh * k, md * k]}
+          cloth={null}
+          fit={{ file, turned: false }}
+        />
+      </Suspense>
     </group>
   );
 }

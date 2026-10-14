@@ -2,7 +2,12 @@
 
 import { useState } from "react";
 import { Dialog } from "./Dialog";
-import { HELP_TABS, type HelpTab } from "./help-data";
+import {
+  HELP_TABS,
+  type HelpTab,
+  MODEL_CREDITS,
+  MODEL_SOURCE,
+} from "./help-data";
 import { KeyboardIcon, MouseIcon, TouchIcon } from "./icons";
 import { useCoarse } from "./input";
 import { SHORTCUTS } from "./shortcuts";
@@ -93,6 +98,21 @@ export function HelpDialog({
           </ul>
         </div>
       )}
+      {/* the models' credits, as CC BY asks where the work is used */}
+      <section className="help-group" aria-label="3D model credits">
+        <h3 className="help-where">3D model credits</h3>
+        <ul className="shell-dialog-list help-list">
+          {MODEL_CREDITS.map((c) => (
+            <li key={c.model}>
+              <span className="help-does">{c.model}</span>
+              <span className="help-how">
+                {c.by} · {c.licence}
+              </span>
+            </li>
+          ))}
+        </ul>
+        <p className="help-source">{MODEL_SOURCE}</p>
+      </section>
     </Dialog>
   );
 }

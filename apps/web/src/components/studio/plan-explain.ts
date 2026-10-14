@@ -43,6 +43,7 @@ const WEIGHT: Record<Issue["kind"], number> = {
   rooms: 0,
   // a finish's tone is no layout's to change
   blends: 0,
+  fitted: 0,
 };
 /** past this a priority is spoken of; under its mirror, the other way */
 const LEANS = 70;

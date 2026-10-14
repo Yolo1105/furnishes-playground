@@ -1,7 +1,7 @@
 import { defaultConfig, depthOf, products } from "@furnishes/domain";
 import { describe, expect, it } from "vitest";
 import { furnishesForm } from "./furnishes-forms";
-import { fightsOf, type Slab } from "./z-fight";
+import { type Face, fightsOf, planeFightsOf, type Slab } from "./z-fight";
 
 /**
  * No two surfaces of a built piece lie in the same place facing the same
@@ -48,5 +48,48 @@ describe("z-fighting", () => {
           );
       }
     expect(found).toEqual([]);
+  });
+});
+
+describe("z-fighting among a room's surfaces", () => {
+  const face = (
+    id: string,
+    finish: string,
+    at: number,
+    rect: [number, number, number, number],
+    side: 1 | -1 = 1,
+  ): Face => ({ id, finish, axis: 2, side, at, rect });
+  it("finds two finishes in one plane, the same way round", () => {
+    const fights = planeFightsOf([
+      face("wall", "plaster", 0, [0, 0, 3, 2.6]),
+      // a cap flush with the wall's face, over it
+      face("cap", "grey", 0.0004, [0, 2.5, 3, 2.6]),
+      // a skirting a centimetre proud: clear
+      face("skirting", "white", 0.012, [0, 0, 3, 0.1]),
+    ]);
+    expect(fights.map((f) => `${f.a}/${f.b}`)).toEqual(["cap/wall"]);
+  });
+  it("leaves one finish over itself, edges touching and hidden faces", () => {
+    expect(
+      planeFightsOf([
+        // two runs of skirting meeting at a corner
+        face("run1", "white", 0, [0, 0, 1, 0.1]),
+        face("run2", "white", 0, [0.9, 0, 2, 0.1]),
+        // a jamb's back and a threshold's end, both against the reveal
+        face("jamb", "frame", 1, [0, 0, 0.3, 2.1]),
+        face("sill", "stone", 1, [0, 0, 0.3, 0.012]),
+        face("reveal", "plaster", 1, [0, 0, 0.3, 2.1], -1),
+        // two finishes side by side, sharing an edge only
+        face("left", "oak", 2, [0, 0, 1, 1]),
+        face("right", "ash", 2, [1, 0, 2, 1]),
+        // two rooms' outer faces, behind a third room's own face
+        face("outerA", "white", 3, [0, 0, 1, 1]),
+        face("outerB", "cream", 3.0005, [0.5, 0, 1.5, 1]),
+        face("inside", "sage", 3.002, [0, 0, 2, 1]),
+        // two rooms' walls at a corner, the later one a hair behind
+        { ...face("earlier", "white", 4, [0, 0, 1, 1]), bias: "1/1" },
+        { ...face("later", "cream", 4, [0, 0, 1, 1]), bias: "1/2" },
+      ]),
+    ).toEqual([]);
   });
 });

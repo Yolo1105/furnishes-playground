@@ -96,6 +96,11 @@ const still = async (page: Page) => {
   await expect(stage(page)).toHaveAttribute("data-materials-pending", "0", {
     timeout: LONG,
   });
+  // the real models arrived (props-store.ts): until then their items'
+  // built forms stand in
+  await expect(stage(page)).toHaveAttribute("data-models-pending", "0", {
+    timeout: LONG,
+  });
   // the pieces' light baked (lightmap.ts): until then each is drawn
   // without it, and the picture would change when it lands
   await expect(stage(page)).toHaveAttribute("data-bakes", "0", {

@@ -30,32 +30,6 @@ export type Generation = {
   source: "fal" | "prop" | "shape";
 };
 
-/** the stock meshes, by the words that name them; the first match wins,
-    so the more particular come first */
-const PROPS: [RegExp, string][] = [
-  [/sofa|couch|settee/, "sofa_02"],
-  [/armchair|lounge chair|reading chair|easy chair/, "modern_arm_chair_01"],
-  [/stool/, "metal_stool_01"],
-  [/chair/, "dining_chair_02"],
-  [/coffee table|side table|low table/, "modern_coffee_table_01"],
-  [/cabinet|dresser|chest|cupboard/, "modern_wooden_cabinet"],
-  [/lamp|light/, "desk_lamp_arm_01"],
-  [/planter|herbs?\b|window box/, "planter_box_02"],
-  [/plant|fig|palm|fern|monstera|tree/, "potted_plant_04"],
-  [/vase|jug|bottle/, "ceramic_vase_01"],
-  [/basket|hamper/, "wicker_basket_01"],
-  [/books?\b|encyclop/, "book_encyclopedia_set_01"],
-  [/pillow|cushion/, "throw_pillows_01"],
-  [/\bbox|carton|crate/, "cardboard_box_01"],
-  [/laptop|computer|notebook/, "classic_laptop"],
-];
-/** the stock mesh that stands in for what the words describe, if any */
-export const propFor = (prompt: string) => {
-  const t = prompt.toLowerCase();
-  const hit = PROPS.find(([re]) => re.test(t));
-  return hit ? `/props/${hit[1]}.glb` : undefined;
-};
-
 type GenerationState = {
   generations: Generation[];
   /** the ids removed here, with when: a mirror does not bring them back */

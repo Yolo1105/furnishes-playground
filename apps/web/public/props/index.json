@@ -3,32 +3,151 @@
     {
       "file": "sofa_02",
       "kind": "sofa",
+      "style": "curved",
       "size": [1.81, 0.71, 0.82],
       "cloth": "."
     },
     {
+      "file": "glam_velvet_sofa",
+      "kind": "sofa",
+      "style": "curved",
+      "size": [2.19, 0.79, 1.02],
+      "cloth": "fabric"
+    },
+    {
+      "file": "leather_wood_sofa",
+      "kind": "sofa",
+      "style": "boxy",
+      "size": [2.73, 1.12, 0.92],
+      "note": "1.12 m tall over its folded throw and cushions; the seat's back stands about 0.8 m"
+    },
+    {
       "file": "modern_arm_chair_01",
       "kind": "armchair",
+      "style": "boxy",
       "size": [0.82, 1.02, 0.99],
       "cloth": "pillow"
     },
     {
+      "file": "sheen_chair",
+      "kind": "armchair",
+      "style": "curved",
+      "size": [0.83, 0.69, 0.57],
+      "cloth": "fabric"
+    },
+    {
+      "file": "chair_damask",
+      "kind": "armchair",
+      "style": "curved",
+      "size": [0.83, 0.69, 0.57],
+      "cloth": "fabric"
+    },
+    {
+      "file": "dining_chair_02",
+      "kind": "chair",
+      "style": "boxy",
+      "size": [0.43, 0.97, 0.58]
+    },
+    {
       "file": "modern_coffee_table_01",
       "kind": "coffee-table",
+      "style": "boxy",
       "size": [0.6, 0.39, 1.2]
     },
-    { "file": "potted_plant_04", "kind": "plant", "size": [0.17, 0.27, 0.18] },
-    { "file": "ceramic_vase_01", "kind": "vase", "size": [0.2, 0.4, 0.2] },
     {
-      "file": "wicker_basket_01",
-      "kind": "basket",
-      "size": [0.38, 0.12, 0.29]
+      "file": "metal_stool_01",
+      "kind": "stool",
+      "style": "boxy",
+      "size": [0.35, 0.88, 0.35]
     },
-    { "file": "metal_stool_01", "kind": "stool", "size": [0.35, 0.88, 0.35] },
+    {
+      "file": "silk_pouf",
+      "kind": "pouf",
+      "style": "curved",
+      "size": [0.61, 0.2, 0.61],
+      "cloth": "."
+    },
+    {
+      "file": "modern_wooden_cabinet",
+      "kind": "cabinet",
+      "style": "boxy",
+      "size": [2.44, 0.68, 0.52]
+    },
     {
       "file": "desk_lamp_arm_01",
       "kind": "desk-lamp",
+      "style": "organic",
       "size": [0.2, 0.89, 0.61]
+    },
+    {
+      "file": "floor_lamp_arc",
+      "kind": "floor-lamp",
+      "style": "organic",
+      "size": [1.13, 1.86, 0.72],
+      "note": "its foot stands 11 mm above the model's origin: set on the floor by its own box when drawn"
+    },
+    {
+      "file": "potted_plant_04",
+      "kind": "plant",
+      "style": "organic",
+      "size": [0.17, 0.27, 0.18]
+    },
+    {
+      "file": "potted_plant_tall",
+      "kind": "plant",
+      "style": "organic",
+      "size": [0.7, 0.84, 0.66],
+      "note": "its leaves' diffuse transmission (KHR_materials_diffuse_transmission) is not read by the loader: drawn opaque"
+    },
+    {
+      "file": "planter_box_02",
+      "kind": "planter",
+      "style": "organic",
+      "size": [1.25, 0.45, 0.47]
+    },
+    {
+      "file": "ceramic_vase_01",
+      "kind": "vase",
+      "style": "organic",
+      "size": [0.2, 0.4, 0.2]
+    },
+    {
+      "file": "glass_vase_flowers",
+      "kind": "vase",
+      "style": "organic",
+      "size": [0.22, 0.2, 0.14]
+    },
+    {
+      "file": "wicker_basket_01",
+      "kind": "basket",
+      "style": "organic",
+      "size": [0.38, 0.12, 0.29]
+    },
+    {
+      "file": "throw_pillows_01",
+      "kind": "cushion",
+      "style": "organic",
+      "size": [1.04, 0.45, 0.76],
+      "note": "a set of pillows lying together, not one cushion"
+    },
+    {
+      "file": "book_encyclopedia_set_01",
+      "kind": "books",
+      "style": "boxy",
+      "size": [0.55, 0.24, 0.16]
+    },
+    {
+      "file": "cardboard_box_01",
+      "kind": "box",
+      "style": "boxy",
+      "size": [0.39, 0.34, 0.52]
+    },
+    {
+      "file": "classic_laptop",
+      "kind": "laptop",
+      "style": "boxy",
+      "size": [0.65, 0.54, 0.49],
+      "note": "a vintage portable on its stand, not a modern laptop (one is about 0.36 m across): an item sized as one today fits no model"
     }
   ]
 }

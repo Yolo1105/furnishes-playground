@@ -1,4 +1,58 @@
-# Room items as real models: what to download
+# Room items as real models
+
+## How a model is picked (round 8)
+
+`index.json` is read when the studio opens (props-store.ts), so a model
+added to it is drawn with no change to the code. Each entry has:
+
+- `file` (without `.glb`), `kind`, `size` in metres as it stands
+  (width × height × depth, measured from the file's own bounds);
+- `style`: `boxy`, `curved` or `organic`. An item keeps its design: a
+  boxy sofa is never drawn as a curved one (`styleOf` reads the item's
+  name: velvet, tufted, round, oval, tub or wingback ask for curved);
+- `cloth`: a pattern for the material names that take the item's
+  colour, laid over a grey copy of the model's own map;
+- optional `lod` (a `file.lod1.glb` beside it) and `note` (what a check
+  found).
+
+A model draws an item when every axis is within ±10 % of the model
+(turned a quarter if that fits better). The kinds whose built form only
+stands in (armchair, lamps, plant, vase, basket, stool, pouf, cushion,
+throw) are sized to the nearest model of their design when none fits,
+if no axis changes by more than 1.8×, and the planner says so; a sofa,
+a table or a bed keeps its size and its built form. Plain chairs,
+cabinets and tables are always built (`BUILT_KINDS` in Furniture3D).
+
+The kinds known (`KINDS`, prop-variants.ts): sofa, armchair,
+coffee-table, side-table, floor-lamp, desk-lamp, plant, vase, rug,
+basket, stool, pouf, chair, cushion, throw, fridge, toilet, basin, bed,
+dish-rack, cabinet, planter, books, box, laptop.
+
+## The sizes, checked (2026-10-14)
+
+Every file's bounds were read from its accessors (quantised positions
+de-normalised) and compared with `index.json` and with the real thing:
+all within 1 cm of the listed size, and all of a believable real size
+(the arc lamp 1.86 m tall, the tall plant 0.84 m, the pouf 0.20 m, the
+encyclopaedias 0.24 m). One correction: the arc lamp's foot stands
+11 mm over its origin, which the studio's fitting takes off (it stands
+every model on the floor by its own box). Fronts are taken as glTF's
++z, as the Khronos sample models are authored; not checked by eye in
+this sandbox for the sofas and chairs, which no item in the default
+flat draws.
+
+## Material extensions
+
+The models are read with three-stdlib's GLTFLoader (drei's `useGLTF`).
+It reads `KHR_materials_sheen`, `KHR_materials_specular`,
+`KHR_materials_transmission` and `KHR_materials_volume`, which the
+WebGPU renderer draws on its WebGPU and WebGL 2 backends alike (one node
+material system); not `KHR_materials_diffuse_transmission` (the tall
+plant's leaves are drawn opaque) nor `KHR_materials_variants` (each
+sofa and chair is drawn in its default material). Not checked on a
+GPU here.
+
+## Still needed: what to download
 
 The room items (the things in a room that are not for sale: the sofa,
 the armchair, the coffee table, the lamps, the rug, plants and decor)
@@ -63,6 +117,21 @@ stretched.
 | Cushions      | `throw_pillows_01` (have)                                      | 0.45 × 0.45                   |
 | Side table    | e.g. `side_table_01`                                           | 0.45 × 0.55 × 0.45            |
 | Table lamp    | e.g. `table_lamp_01`                                           | 0.3 × 0.5 × 0.3               |
+
+## Fittings and beds (the kinds are there; the models are not)
+
+The kitchen's and the bathroom's fittings and the beds are built forms
+until a model is listed (kinds `fridge`, `toilet`, `basin`, `bed`,
+`dish-rack`; a tap goes with the basin's model). Wanted, at 1k–2k,
+CC0 or CC-BY, measured and listed as above:
+
+| Kind      | Size, m                                               | Notes                                       |
+| --------- | ----------------------------------------------------- | ------------------------------------------- |
+| fridge    | 0.70 × 1.75 × 0.65                                    | a plain white or steel two-door             |
+| toilet    | 0.38 × 0.78 × 0.65                                    | a close-coupled WC with its cistern         |
+| basin     | 0.60 × 0.85 × 0.45                                    | a basin on a vanity, its mixer tap modelled |
+| bed       | 1.55 × 0.45 × 2.00 (queen), 1.0 × 0.45 × 2.0 (single) | a low frame with a mattress and bedding     |
+| dish-rack | 0.45 × 0.30 × 0.30                                    | a wire rack with a tray                     |
 
 ## Paid libraries
 

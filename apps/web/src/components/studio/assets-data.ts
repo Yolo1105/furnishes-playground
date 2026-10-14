@@ -144,7 +144,7 @@ type Place = Partial<
  * The living and dining room: a homework desk for three under the north
  * window with its chairs, the bookwall on the west wall beside it; the
  * sofa facing the media wall on the east wall, the rug and the coffee
- * table between, the armchair at the rug's south end; the dining table
+ * table between, the armchair at the table's north end; the dining table
  * by the kitchen's slider with four chairs; the sideboard, a charging
  * dock on its top, on the south wall between the slider and the
  * entrance, the entry organiser for shoes on the east wall by the door. The kitchen: the counter with its
@@ -199,22 +199,19 @@ const SHOWCASE: [AssetNode, Place][] = [
   ],
   [
     decor("sofa", "Sofa", "seating"),
-    { x: 2500, y: 2000, rotation: 270, width: 2400 },
+    { x: 2500, y: 1850, rotation: 270, width: 2400 },
   ],
   [
     decor("rug", "Rug", "decor"),
-    { x: 3400, y: 2000, rotation: 90, width: 2400, depth: 1600 },
+    { x: 3400, y: 1850, rotation: 90, width: 2400, depth: 1600 },
   ],
   [
     decor("coffee-table", "Coffee table", "tables"),
-    { x: 4000, y: 2700, rotation: 90 },
+    { x: 4000, y: 2550, rotation: 90 },
   ],
-  [
-    decor("armchair", "Armchair", "seating"),
-    { x: 3900, y: 4400, rotation: 180 },
-  ],
+  [decor("armchair", "Armchair", "seating"), { x: 3900, y: 850 }],
   [decor("floor-lamp", "Floor lamp", "lighting"), { x: 2550, y: 1500 }],
-  [decor("plant", "Potted plant", "decor"), { x: 5200, y: 1700 }],
+  [decor("plant", "Potted plant", "decor"), { x: 5000, y: 0 }],
   [
     decor("dining-table", "Dining table", "tables"),
     { x: 1100, y: 4400, rotation: 90, width: 1200 },
@@ -268,7 +265,8 @@ const SHOWCASE: [AssetNode, Place][] = [
   ],
   [
     decor("plant-2", "Potted plant 2", "decor"),
-    { roomId: R.master, x: 0, y: 1000 },
+    // a small one: the room's free corners are its ways in and out
+    { roomId: R.master, x: 0, y: 1000, width: 250, depth: 250, height: 400 },
   ],
   // bedroom 2, one child's room
   [
@@ -488,7 +486,7 @@ export const ARRANGEMENTS: {
             { x: 0, y: 2500, rotation: 270 },
           ],
           // a second place to work, in the north-east corner clear of both
-          // windows, the plant moved to the lamp's place
+          // windows, the plant moved to the rug's south end
           [
             piece("workstation"),
             { x: 4700, y: 0, rotation: 90, accessories: ["charging-dock"] },
@@ -511,7 +509,7 @@ export const ARRANGEMENTS: {
           ],
         ],
         // ash white pieces, a cool grey sofa on a slate rug, crisp linen
-        move: { plant: { x: 2550, y: 1500 } },
+        move: { plant: { x: 3850, y: 4300 } },
         paint: "ash",
         tones: {
           sofa: "#aeb3b1",
@@ -547,10 +545,15 @@ export const ARRANGEMENTS: {
           ],
           [
             decor("reading-chair", "Reading armchair", "seating"),
-            { x: 2100, y: 0 },
+            // a sill's depth off the wall: the real model's back stands
+            // taller than the sill
+            { x: 2100, y: 150 },
           ],
           // a second armchair across the rug from the first
-          [decor("armchair-2", "Armchair 2", "seating"), { x: 3900, y: 1100 }],
+          [
+            decor("armchair-2", "Armchair 2", "seating"),
+            { x: 3850, y: 4300, rotation: 180 },
+          ],
           [
             decor("play-table", "Play table", "tables"),
             {

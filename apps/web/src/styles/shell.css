@@ -1176,6 +1176,11 @@ body > .shell-menu {
 .help-how {
   color: rgb(from var(--color-ink) r g b / 0.72);
 }
+.help-source {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: rgb(from var(--color-ink) r g b / 0.6);
+}
 /* the share page's head and cards */
 .account-head {
   display: flex;
