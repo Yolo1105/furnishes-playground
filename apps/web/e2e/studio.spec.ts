@@ -4775,7 +4775,7 @@ test("the tour: stops on the plan, Play walks the camera through them, Stop and 
   await expect(tourTool).toHaveAttribute("aria-pressed", "true");
   const strip = page.getByRole("group", { name: "Tour" });
   // the flat comes with a round of its rooms; Clear starts afresh
-  await expect(strip).toContainText("20 stops");
+  await expect(strip).toContainText("21 stops");
   await strip.getByRole("button", { name: "Clear" }).click();
   await expect(strip).toContainText("No stops yet");
   const box = (await svg.boundingBox())!;
