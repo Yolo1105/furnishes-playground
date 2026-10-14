@@ -197,8 +197,9 @@ the window's wall and comes in through the glass, the walls casting
 their shadows, with the surroundings standing back. The walls have a thickness
 (the Room tab's Walls, beside the height): the outline is their inner
 face in both views, the plan draws the band outside it, and in 3D each
-wall is built solid with its openings cut through, mitred where it
-meets the next. A carcass piece opens as panels in the Detail tab
+wall is built solid with its openings cut through, square where it
+meets the next (one wall takes the corner whole, the other stops
+against it). A carcass piece opens as panels in the Detail tab
 (Panelizer's model and snapping, rewritten into `packages/domain`):
 each panel is listed and typed in millimetres, added to, duplicated
 or removed, picked and dragged in 3D with its faces snapping to its
@@ -443,8 +444,11 @@ other. A piece may stand anywhere, past the walls too; with the magnet
 on (Settings), a side within 150 mm of a wall or of another piece goes
 flush to it, inside or out, and the room's rules say when a piece
 stands past a wall. Clashes are outlined; a view cube turned as the camera is glides it to
-a named angle from a face and turns it to any angle by a drag; there is a
-walk mode, a tour (stops set on the plan, numbered and joined; Play
+a named angle from a face (the room worked on, from that side) and turns it to any angle by a drag; there is a
+walk mode, a figure followed from behind (or seen through its eyes)
+that goes where the floor or the plan is clicked, by a way found round
+the walls and the pieces through the doorways, the plan drawing it and
+its way; a tour (stops set on the plan, numbered and joined; Play
 walks the camera through them at a slow pace with its eye on the
 pieces, a progress bar and Stop; a round of the room clear of the
 pieces when there are no stops),
@@ -452,8 +456,9 @@ and View settings (edges on every piece, the names, a floor
 grid, shadows, daylight or evening light), kept with the view. Review
 renders whichever view is up, the 3D room (its shadows on, its handles
 away) or the plan, sweeps it in and, with the panels hidden, offers a
-before/after divider. The studio opens in 3D on each visit, standing
-at eye height beyond the room's open corner under the room's ceiling
+before/after divider. The studio opens in 3D on each visit over the
+whole flat from straight above, as the plan lays it out, and pushes
+down and in to the room seen from above its corner
 (the overhead views are on the cube and look in over the open top),
 the room fading up over the shell on its first frame while its
 surfaces are painted in a worker, and keeps the view and angle for

@@ -202,17 +202,22 @@ test("walking, the figure followed", async ({ page }) => {
  * - The sofa's two end seats, on their tops at the front, the one
  *   nearer the window wall against the other.
  *
- * The wall's ratio is held at 1.2, not the brief's 2: from these two
+ * The wall's ratio is held well under the brief's 2: from these two
  * points a 3 m window's own light is 2.05 times as strong at the near
  * one (its form factor, 0.066 against 0.032), so 2 would want a room
- * with no bounce light at all. As drawn the ratio is 1.27; with the
- * windows' lights put out it is 1.08 and the sofa's far end the
- * brighter, so both checks fail when the windows stop lighting the
- * room. docs/plan-realism.md has the measurements.
+ * with no bounce light at all. As drawn at the day exposure of 1 the
+ * ratio was 1.27; with the windows' lights put out it was 1.08 and the
+ * sofa's far end the brighter, so both checks fail when the windows
+ * stop lighting the room. At the owner's day exposure of 2.15 the near
+ * wall climbs into AgX's shoulder and the same light reads 1.18 on the
+ * screen (the ratio is taken from the picture, after the tone map), so
+ * the bar is 1.14: still well clear of the unlit 1.08, which the
+ * shoulder squeezes lower too. docs/plan-realism.md has the
+ * measurements.
  */
 const LIVING = { w: 5.7, d: 6.3 };
 const WALL_POINTS = { up: 1.9, near: 1, far: 3.5, patch: 4 };
-const WALL_RATIO = 1.2;
+const WALL_RATIO = 1.14;
 /** a patch is bare wall when its spread is under this share of its mean */
 const EVEN = 0.08;
 /** the sofa's seat tops, m up, and how far in from the front, m */
