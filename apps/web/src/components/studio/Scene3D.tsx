@@ -2850,7 +2850,9 @@ export default function Scene3D() {
           shadow-normalBias={0.02}
         />
         <RoomLight evening={scene.light === "evening"} sky={scene.sky} />
-        <WindowLights panes={panes} evening={scene.light === "evening"} />
+        {!devFlag("nowindowlights") && (
+          <WindowLights panes={panes} evening={scene.light === "evening"} />
+        )}
         <CeilingLight
           x={ceilingX}
           y={h - CEILING_LIGHT.drop}
