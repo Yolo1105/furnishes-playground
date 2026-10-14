@@ -920,15 +920,15 @@ test("Render runs a line along the top, sweeps the render in over the view, then
   );
   await expect(handle).toHaveAttribute("aria-valuenow", "50");
   // Before left of the line, Rendered right of it, both at the top (the
-  // line and the stage read now: with the panels hidden the stage is the
-  // window's width, not the width between the rails measured above)
-  const [before, after, knob, full] = await Promise.all([
+  // stage read now: with the panels hidden it is the window's width, not
+  // the width between the rails measured above, and the line at 50 %
+  // stands in its middle)
+  const [before, after, full] = await Promise.all([
     page.locator(".preview-tag", { hasText: "Before" }).boundingBox(),
     page.locator(".preview-tag", { hasText: "Rendered" }).boundingBox(),
-    handle.boundingBox(),
     page.locator(".preview-stage").boundingBox(),
   ]);
-  const mid = knob!.x + knob!.width / 2;
+  const mid = full!.x + full!.width / 2;
   expect(before!.x + before!.width).toBeLessThan(mid);
   expect(after!.x).toBeGreaterThan(mid);
   expect(before!.y).toBeLessThan(120);
