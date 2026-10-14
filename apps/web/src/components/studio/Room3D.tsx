@@ -67,9 +67,11 @@ import { edgesOf, outerOutline, type Edge } from "./room-geometry";
 import {
   blocksOf,
   CAP,
+  cornerEnd,
   PLASTER,
   REVEAL,
   type Shading,
+  type WallEnd,
   wallTriangles,
 } from "./wall-solid";
 import { openingCentre } from "./room-health";
@@ -540,6 +542,10 @@ const mitresOf = (
   });
 };
 
+/** a wall's corner at one end: how far a mitred outer face would run
+    past the inner there, and whether this wall takes the corner */
+type Corner = { mitre: number; owner: boolean };
+
 /** a run's mitres: the edge's where the run reaches the edge's end,
     none where it stops along the wall */
 const runMitres = (
@@ -690,7 +696,7 @@ const wallGeometry = (
   len: number,
   height: number,
   t: number,
-  mitres: readonly [number, number],
+  ends: readonly [WallEnd, WallEnd],
   holes: ReturnType<typeof holesOf>,
   shading: Shading,
   joints: readonly [boolean, boolean],
@@ -705,17 +711,7 @@ const wallGeometry = (
       y1: o.y1,
     })),
   );
-  const tri = wallTriangles(
-    blocks,
-    len,
-    t,
-    mitres[0],
-    mitres[1],
-    -1,
-    height,
-    shading,
-    joints,
-  );
+  const tri = wallTriangles(blocks, len, t, ends, -1, height, shading, joints);
   const g = new BufferGeometry();
   g.setAttribute("position", new BufferAttribute(tri.positions, 3));
   g.setAttribute("normal", new BufferAttribute(tri.normals, 3));
@@ -729,8 +725,8 @@ const wallGeometry = (
 };
 
 /** whether each wall run stands or is down to its foot, by its id:
-    a wall whose corner neighbour is down squares its end there, so the
-    mitre meant for the corner is not left standing as a slanted end */
+    a wall whose corner neighbour is down shows its end there whole
+    (its top's edges drawn round the corner it now stands alone at) */
 const wallStates = new Map<string, "inside" | "gone">();
 
 function WallRun({
@@ -741,7 +737,7 @@ function WallRun({
   d,
   h,
   t,
-  mitres,
+  corners,
   joints,
   wallHex,
   floorHex,
@@ -751,7 +747,7 @@ function WallRun({
 }: {
   /** the run's id among every room's walls */
   id: string;
-  /** the runs met at its mitred corners, at its start and its end */
+  /** the runs met at its convex corners, at its start and its end */
   ends: readonly [string | null, string | null];
   e: Edge;
   w: number;
@@ -759,10 +755,11 @@ function WallRun({
   h: number;
   /** the wall's thickness, m */
   t: number;
-  /** how far the outer face runs past the inner at each end, m: a
-      thickness at a convex corner, minus one at a concave, nothing
-      where the run ends along the wall */
-  mitres: readonly [number, number];
+  /** the corner at each end: how far a mitred outer face would run
+      past the inner (a thickness at a convex corner, minus one at a
+      concave, nothing where the run ends along the wall), and whether
+      this run takes the corner's square (cornerEnd) */
+  corners: readonly [Corner, Corner];
   /** where the run meets the next run of its wall, at its start and its
       end, rather than a corner */
   joints: readonly [boolean, boolean];
@@ -793,20 +790,23 @@ function WallRun({
   );
   // the wall built solid, its openings cut through it, so a doorway is
   // a way through and a window a hole for the glass; the inside is +z
-  // and with an end squared where the corner's other wall is down: made
-  // the first time it is asked for, four at most
+  // and with an end shown whole where the corner's other wall is down:
+  // made the first time it is asked for, four at most
   const variants = useMemo(() => {
     const made = new Map<string, ReturnType<typeof wallGeometry>>();
     return {
-      get: (squareA: boolean, squareB: boolean) => {
-        const k = `${squareA}-${squareB}`;
+      get: (openA: boolean, openB: boolean) => {
+        const k = `${openA}-${openB}`;
         let g = made.get(k);
         if (!g) {
           g = wallGeometry(
             len,
             h,
             t,
-            [squareA ? 0 : mitres[0], squareB ? 0 : mitres[1]],
+            [
+              cornerEnd(corners[0].mitre, corners[0].owner, openA),
+              cornerEnd(corners[1].mitre, corners[1].owner, openB),
+            ],
             holes,
             shading,
             joints,
@@ -817,7 +817,7 @@ function WallRun({
       },
       made,
     };
-  }, [len, h, t, mitres, holes, shading, joints]);
+  }, [len, h, t, corners, holes, shading, joints]);
   const full = variants.get(false, false);
   useEffect(
     () => () => {
@@ -840,14 +840,17 @@ function WallRun({
         len,
         STUB_H,
         t,
-        mitres,
+        [
+          cornerEnd(corners[0].mitre, corners[0].owner),
+          cornerEnd(corners[1].mitre, corners[1].owner),
+        ],
         holes
           .filter((o) => o.y0 < STUB_H)
           .map((o) => ({ ...o, y1: Math.min(o.y1, STUB_H) })),
         shadingOf(len, STUB_H, floorHex, both),
         joints,
       ),
-    [len, t, mitres, holes, floorHex, both, joints],
+    [len, t, corners, holes, floorHex, both, joints],
   );
   useEffect(
     () => () => {
@@ -892,8 +895,8 @@ function WallRun({
       // a frame more, for the walls beside it to square their ends
       invalidate();
     }
-    // standing, its end squared where the corner's other wall is down;
-    // down, its foot keeps the mitre and fills the corner low
+    // standing, its end shown whole where the corner's other wall is
+    // down; down, its foot keeps its corner and fills it low
     const down = (n: string | null) =>
       next === "inside" && n !== null && wallStates.get(n) === "gone";
     const a = down(ends[0]);
@@ -1927,14 +1930,19 @@ export function RoomShell({
     const out = edges.flatMap((e, i) =>
       byEdge[i]!.map(({ e: run, both, other }, k) => {
         const m = runMitres(e, run, mitres[i]!);
-        // the run at the other side of each mitred corner: the last of
-        // the edge before, the first of the edge after, where this room
+        // the run at the other side of each corner: the last of the
+        // edge before, the first of the edge after, where this room
         // builds them up to the corner
         const before = byEdge[(i - 1 + n) % n]!;
         const after = byEdge[(i + 1) % n]!;
         const prev = before.length - 1;
         const reaches = (a: Edge, b: Edge, end: "a" | "b") =>
           a[end][0] === b[end][0] && a[end][1] === b[end][1];
+        // a corner is taken whole by the wall that starts there, or by
+        // the wall that ends there when this room builds no wall
+        // starting at it: so each corner has one, both walls square
+        const nextReaches =
+          after.length > 0 && reaches(after[0]!.e, edges[(i + 1) % n]!, "a");
         const start =
           m[0] > 0 &&
           prev >= 0 &&
@@ -1954,7 +1962,10 @@ export function RoomShell({
           key: `${i}-${k}`,
           id: idOf(i, k),
           ends: [start, end] as [string | null, string | null],
-          mitres: m,
+          corners: [
+            { mitre: m[0], owner: true },
+            { mitre: m[1], owner: !nextReaches },
+          ] as [Corner, Corner],
           joints: jointsOf(e, run),
           holes: holesOf(shape, run, h),
         };
@@ -2001,7 +2012,7 @@ export function RoomShell({
         />
       )}
       {runs.map(
-        ({ run, both, other, key, id, ends, mitres, joints, holes }) => (
+        ({ run, both, other, key, id, ends, corners, joints, holes }) => (
           <WallRun
             key={key}
             id={id}
@@ -2011,7 +2022,7 @@ export function RoomShell({
             d={d}
             h={h}
             t={t}
-            mitres={mitres}
+            corners={corners}
             joints={joints}
             wallHex={r.wallHex}
             floorHex={r.floorHex}

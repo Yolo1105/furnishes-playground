@@ -126,7 +126,9 @@ export const SCENE_DEFAULT: SceneLook = {
   // living room has one)
   sunTime: "morning",
   sky: "panels",
-  exposure: { day: 1, evening: 1 },
+  // the day at 2.15, the owner's chosen brightness; the evening stays
+  // at 1, so the room falls dark away from its lamps
+  exposure: { day: 2.15, evening: 1 },
   quality: "auto",
   // a photo is 1080 px tall unless asked otherwise: the screen's own
   // size varies with the window, and a photo to keep should not

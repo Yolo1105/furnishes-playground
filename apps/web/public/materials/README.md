@@ -41,20 +41,26 @@ Two tint paths, which decide how a set's colour map must be made:
 
 What is in: `wood` (ambientCG Wood049, 1.2 m a tile, so its figure
 runs at the scale of a real birch face rather than a fine stripe),
-`parquet` (ambientCG WoodFloor050, 6 m a tile: the set has 64 strips
-across a tile, so 6 m lays them about 94 mm wide, as real strip
-parquet; at the 3.2 m it had before they were 50 mm, a fine stripe
-that read as a printed pattern), `plaster` (ambientCG PaintedPlaster017,
-2 m) and `cloth` (the SheenChair fabric from KhronosGroup/glTF-Sample-
-Assets, 0.3 m), all CC0, resized to 1K; the ambientCG sets came by way
-of Open3D's GitHub data release, since the studio's build sandbox
-cannot reach ambientcg.com or polyhaven.com. `LICENSES.md` beside this
-file lists each with what was changed.
+`plaster` (ambientCG PaintedPlaster017, 2 m) and `cloth` (the
+SheenChair fabric from KhronosGroup/glTF-Sample-Assets, 0.3 m), all
+CC0, resized to 1K; the ambientCG sets came by way of Open3D's GitHub
+data release, since the studio's build sandbox cannot reach
+ambientcg.com or polyhaven.com. `LICENSES.md` beside this file lists
+each with what was changed.
 
-Not listed, so the grown surface stands in: `tiles`, `vinyl` and
-`concrete`. Two photographed floors wait under `optional/` (ambientCG
-Tiles074 and Terrazzo018): both are loud patterns for an HDB default,
-so they are not switched on. To use one, move its folder up to
+Not listed, so the grown surface stands in: `parquet`, `tiles`, `vinyl`
+and `concrete`. The photographed parquet (ambientCG WoodFloor050) waits
+under `optional/parquet/`: its own colour is a dark olive-brown, and
+the floor's tone goes over a photograph only by multiplying
+(`tintOver`), which can darken it but never lighten it, so the warm
+honey floor the arrangements ask for (`#c59b6b`) came out a muddy dark
+brown that the owner found ugly; the grown parquet is painted in the
+floor's own tone instead. To use it again, move its folder up and add
+a `parquet` entry to `index.json` with a tile of 6.0 (the set has 64
+strips across a tile, so 6 m lays them about 94 mm wide). Two
+photographed floors wait under `optional/` too (ambientCG Tiles074 and
+Terrazzo018): both are loud patterns for an HDB default, so they are
+not switched on. To use one, move its folder up to
 `public/materials/tiles/` and add a `tiles` entry to `index.json` with
 a tile of 1.2.
 

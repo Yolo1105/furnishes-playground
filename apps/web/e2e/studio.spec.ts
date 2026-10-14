@@ -133,9 +133,8 @@ const arrived = (page: Page) =>
 
 test.beforeEach(({ page }) => seed(page));
 
-/** The background is the studio palette: a neutral warm-grey gradient
-    and its blobs (a peach wash made every white in the room read
-    blue-grey against it) */
+/** The background is the studio palette: the cream→peach gradient and
+    its blobs (the owner's orange, back after a neutral grey) */
 test("background paints the playground palette", async ({ page }) => {
   // the site's address leads to the studio, its one page
   await page.goto("/");
@@ -145,7 +144,7 @@ test("background paints the playground palette", async ({ page }) => {
     () => getComputedStyle(document.body).backgroundImage,
   );
   expect(image).toContain("linear-gradient");
-  expect(image).toContain("rgb(246, 244, 241)");
+  expect(image).toContain("rgb(255, 244, 227)");
   // the theme tokens must reach plain CSS: the accent resolves on :root and
   // actually paints (a blank token once turned every orange invisible)
   const accent = await page.evaluate(() =>
@@ -4757,8 +4756,9 @@ test("View settings: edges, names, a floor grid, shadows and the light, kept for
   await menu.getByRole("menuitemradio", { name: "A sunset" }).click();
   await expect(stage).toHaveAttribute("data-sky", "sunset");
   // the exposure: a camera's, from dim to bright, one for each light:
-  // the evening's at 1, as the day's, so the room falls dark away from
-  // its lamps (it was 1.3, which lifted the corners to a dusk grey)
+  // the evening's at 1, below the day's 2.15, so the room falls dark
+  // away from its lamps (it was 1.3, which lifted the corners to a
+  // dusk grey)
   await expect(stage).toHaveAttribute("data-exposure", "1");
   await menu.getByRole("slider", { name: "Exposure" }).fill("1.6");
   // (the evening's and the sunset's shaders are made just before: on a
@@ -4767,7 +4767,7 @@ test("View settings: edges, names, a floor grid, shadows and the light, kept for
     timeout: 30_000,
   });
   await menu.getByRole("menuitemradio", { name: "Daylight" }).click();
-  await expect(stage).toHaveAttribute("data-exposure", "1", {
+  await expect(stage).toHaveAttribute("data-exposure", "2.15", {
     timeout: 30_000,
   });
   await menu.getByRole("menuitemradio", { name: "Evening" }).click();

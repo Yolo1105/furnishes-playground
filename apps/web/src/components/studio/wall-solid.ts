@@ -1,9 +1,10 @@
 /**
  * A wall built solid: its elevation less its openings as stretches,
- * each a box from the inner face to the outer, the ends slanted where
- * the wall meets the next at a corner (the outer face longer at a
- * convex corner, shorter at a concave one). The outline's outer face
- * is `outerOutline` in room-geometry.
+ * each a box from the inner face to the outer, the ends square. Where
+ * two walls meet at a corner one of them takes the corner's square
+ * whole and the other stops square against it (`cornerEnd`), so no
+ * end is slanted and no joint runs across a corner on the slant. The
+ * outline's outer face is `outerOutline` in room-geometry.
  */
 
 /** a stretch of a wall's elevation, m: along the wall from its start
@@ -60,10 +61,72 @@ export type Shading = {
   outer?: boolean;
 };
 
+/** how a wall's end meets the corner there, if any: how far the whole
+    end runs past the end of the inner face (`ext`, m: past it into
+    the corner's square, or short of it by the wall beside), how far
+    the top's inner and outer edges are drawn past it (`inner`,
+    `outer`: a line where the solid's outline is, none where it joins
+    the wall beside), whether the end's face is seen (its top edge
+    drawn), and whether it is a corner's plaster rather than a cut */
+export type WallEnd = {
+  ext: number;
+  inner: number;
+  outer: number;
+  seen: boolean;
+  corner: boolean;
+  /** the face looks into the room, shaded as the inner face is */
+  inside: boolean;
+};
+
+/** a plain end: no corner, cut square where the run stops */
+export const CUT_END: WallEnd = {
+  ext: 0,
+  inner: 0,
+  outer: 0,
+  seen: true,
+  corner: false,
+  inside: false,
+};
+
+/** an end at a corner, square. `mitre` is how far the outer face would
+    run past the inner for a mitred joint (a thickness at a convex
+    corner, minus one at a concave, 0 for no corner); the corner's
+    `owner` takes the corner's square (at a convex corner it runs on
+    through it, at a concave one it stops at the inner face's end with
+    its end looking into the room) and the other wall stops square
+    against it (at the inner corner, or a thickness short of it at a
+    concave one). `open`: the wall beside is down, so this end's top
+    is seen whole */
+export const cornerEnd = (
+  mitre: number,
+  owner: boolean,
+  open = false,
+): WallEnd => {
+  if (mitre === 0) return CUT_END;
+  if (owner)
+    return {
+      ext: Math.max(0, mitre),
+      inner: open ? Math.max(0, mitre) : 0,
+      outer: mitre,
+      seen: true,
+      corner: true,
+      inside: mitre < 0,
+    };
+  const short = Math.min(0, mitre);
+  return {
+    ext: short,
+    inner: short,
+    outer: short,
+    seen: open,
+    corner: true,
+    inside: false,
+  };
+};
+
 /** the triangles of a wall's blocks as one geometry: each block a box
-    from the inner face (z 0) to the outer (z t), its ends slanted where
-    the wall's ends are mitred (the outer face longer at a convex corner
-    by `mitreA`/`mitreB`, shorter at a concave one). The faces come
+    from the inner face (z 0) to the outer (z t), its ends square and
+    run on into a corner or stopped short of it by `ends` (cornerEnd).
+    The faces come
     grouped by material (`groups`, for the geometry's groups), with a
     vertex colour each (the shading on the plaster, white elsewhere),
     and the cap faces' edges as line segments (`capLines`), so a cut
@@ -77,8 +140,7 @@ export const wallTriangles = (
   blocks: readonly Block[],
   len: number,
   t: number,
-  mitreA: number,
-  mitreB: number,
+  ends: readonly [WallEnd, WallEnd],
   /** which way the outer face lies along z: -1 when +z is the inside */
   outward: 1 | -1 = 1,
   h = Infinity,
@@ -174,35 +236,66 @@ export const wallTriangles = (
       }
   };
   const oz = t * outward;
+  const [endA, endB] = ends;
+  const line = (x0: number, x1: number, y: number, z: number) => {
+    if (x1 - x0 > 1e-6) capLines.push(x0, y, z, x1, y, z);
+  };
   for (const b of blocks) {
-    // the outer face reaches past the inner at a wall's end by its mitre
-    const ox0 = b.x0 === 0 ? b.x0 - mitreA : b.x0;
-    const ox1 = b.x1 === len ? b.x1 + mitreB : b.x1;
-    const i0: P = [b.x0, b.y0, 0];
-    const i1: P = [b.x1, b.y0, 0];
-    const i2: P = [b.x1, b.y1, 0];
-    const i3: P = [b.x0, b.y1, 0];
-    const o0: P = [ox0, b.y0, oz];
-    const o1: P = [ox1, b.y0, oz];
-    const o2: P = [ox1, b.y1, oz];
-    const o3: P = [ox0, b.y1, oz];
+    // a block at the wall's end runs on into the corner, or stops
+    // short of it, square: both faces alike
+    const startHere = b.x0 === 0 && !joints[0];
+    const endHere = b.x1 === len && !joints[1];
+    const x0 = startHere ? b.x0 - endA.ext : b.x0;
+    const x1 = endHere ? b.x1 + endB.ext : b.x1;
+    const i0: P = [x0, b.y0, 0];
+    const i1: P = [x1, b.y0, 0];
+    const i2: P = [x1, b.y1, 0];
+    const i3: P = [x0, b.y1, 0];
+    const o0: P = [x0, b.y0, oz];
+    const o1: P = [x1, b.y0, oz];
+    const o2: P = [x1, b.y1, oz];
+    const o3: P = [x0, b.y1, oz];
     const top = b.y1 >= h;
-    const atStart = b.x0 === 0 && !joints[0];
-    const atEnd = b.x1 === len && !joints[1];
     // the inner face, seen from inside (−z), shaded; the outer face
     // (+z) plain, or shaded too where it is another room's inside
-    face(PLASTER, b.x0, b.x1, b.y0, b.y1, 0, true, true);
-    if (ox0 === b.x0 && ox1 === b.x1)
-      face(PLASTER, b.x0, b.x1, b.y0, b.y1, oz, false, shading?.outer === true);
-    else quad(PLASTER, o0, o1, o2, o3);
-    // the top, or a head: its outline along the wall alone, so a corner
-    // where two walls are mitred carries no slanting line across it
-    quad(top ? CAP : REVEAL, i3, o3, o2, i2, false, [1, 3]);
+    face(PLASTER, x0, x1, b.y0, b.y1, 0, true, true);
+    face(PLASTER, x0, x1, b.y0, b.y1, oz, false, shading?.outer === true);
+    // the top, or a head: its lines along the wall alone, drawn where
+    // they are the solid's outline and not where it joins the wall
+    // beside at a corner
+    quad(top ? CAP : REVEAL, i3, o3, o2, i2, false, []);
+    if (top) {
+      line(
+        startHere ? b.x0 - endA.inner : b.x0,
+        endHere ? b.x1 + endB.inner : b.x1,
+        b.y1,
+        0,
+      );
+      line(
+        startHere ? b.x0 - endA.outer : b.x0,
+        endHere ? b.x1 + endB.outer : b.x1,
+        b.y1,
+        oz,
+      );
+    }
     quad(b.y0 === 0 ? CAP : REVEAL, i0, i1, o1, o0); // the bottom, or a sill
-    // an end draws its top edge where the wall stops, not where it meets
-    // another at a corner (a mitred end is the corner's own joint)
-    quad(atStart ? CAP : REVEAL, i0, o0, o3, i3, false, mitreA ? [] : [2]);
-    quad(atEnd ? CAP : REVEAL, i1, i2, o2, o1, false, mitreB ? [] : [1]);
+    // an end: cut where the run stops, plaster at a corner, a reveal
+    // where it meets the next run of its wall or an opening; its top
+    // edge drawn where the end is seen
+    const endFace = (here: boolean, e: WallEnd) =>
+      here ? (e.corner ? PLASTER : CAP) : REVEAL;
+    quad(
+      endFace(startHere, endA),
+      i0,
+      o0,
+      o3,
+      i3,
+      startHere && endA.inside,
+      [],
+    );
+    quad(endFace(endHere, endB), i1, i2, o2, o1, endHere && endB.inside, []);
+    if (top && startHere && endA.seen) capLines.push(...o3, ...i3);
+    if (top && endHere && endB.seen) capLines.push(...i2, ...o2);
   }
   const groups: { start: number; count: number; materialIndex: number }[] = [];
   let at = 0;
