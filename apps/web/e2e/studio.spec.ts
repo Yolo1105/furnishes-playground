@@ -1620,7 +1620,7 @@ test("machining cut for real: shelf pins, a groove and a cup show as holes in th
 test("the desktop extras: Reflections and Bounce light stand behind View settings on the Full picture and the stage says which draw; a Mirror finish puts a reflector on a door, one at a time", async ({
   page,
 }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(480_000);
   await page.goto("/rounded");
   const stage3d = page.locator(".stage-3d");
   await expect(stage3d).toHaveAttribute("data-drawn", "true", {
@@ -1656,10 +1656,11 @@ test("the desktop extras: Reflections and Bounce light stand behind View setting
   await bounce.click();
   await expect(stage3d).toHaveAttribute("data-ssgi", "on", { timeout: 90_000 });
   // the chain draws, and settles, with both on: the device did not
-  // fall back to the plain room
+  // fall back to the plain room (the bounce light's settle took 138 s on
+  // the sandbox's software renderer, measured)
   await expect(stage3d).toHaveAttribute("data-post", "desktop");
   await expect(stage3d).toHaveAttribute("data-settled", "true", {
-    timeout: 90_000,
+    timeout: 240_000,
   });
   await reflections.click();
   await expect(stage3d).toHaveAttribute("data-ssr", "off", { timeout: 90_000 });
