@@ -229,6 +229,9 @@ test("/rounded has a toolbar on top and a sideways-scrolling shelf below", async
 });
 
 test("rails collapse into the toolbar and come back", async ({ page }) => {
+  // the column narrows and widens twice, and the stage redraws the flat
+  // each time: past the usual minute on a software renderer
+  test.setTimeout(120_000);
   await page.goto("/rounded");
   await arrived(page);
   const shell = page.locator(".shell");
