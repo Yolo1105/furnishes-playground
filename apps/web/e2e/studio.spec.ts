@@ -4757,8 +4757,9 @@ test("View settings: edges, names, a floor grid, shadows and the light, kept for
   await menu.getByRole("menuitemradio", { name: "A sunset" }).click();
   await expect(stage).toHaveAttribute("data-sky", "sunset");
   // the exposure: a camera's, from dim to bright, one for each light:
-  // the evening is exposed for its lamps, the day for its walls
-  await expect(stage).toHaveAttribute("data-exposure", "1.3");
+  // the evening's at 1, as the day's, so the room falls dark away from
+  // its lamps (it was 1.3, which lifted the corners to a dusk grey)
+  await expect(stage).toHaveAttribute("data-exposure", "1");
   await menu.getByRole("slider", { name: "Exposure" }).fill("1.6");
   await expect(stage).toHaveAttribute("data-exposure", "1.6");
   await menu.getByRole("menuitemradio", { name: "Daylight" }).click();
@@ -5094,6 +5095,9 @@ test("the studio's operations, by their routes: not here for anyone else; an ord
 test("an account: created with an email and a password, signed out, signed in again; a wrong password is said", async ({
   page,
 }) => {
+  // the room built first (most of a minute on a software renderer),
+  // then the account's walk
+  test.setTimeout(120_000);
   await page.goto("/rounded");
   await built(page);
   const bar = page.locator(".user-bar");
