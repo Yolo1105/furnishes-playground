@@ -45,7 +45,8 @@ import { useEva } from "./eva-store";
 import { orderedIds, useOrders } from "./order-store";
 import { useRoom } from "./room-store";
 import { portraitOf } from "./catalogue";
-import type { PieceProps } from "./piece-detail";
+import { colourHex, type PieceProps } from "./piece-detail";
+import { PanelView } from "./PanelView";
 import { PlanSymbol } from "./plan-symbols";
 import dynamic from "next/dynamic";
 import { ComponentGlyph } from "./component-glyphs";
@@ -1110,7 +1111,8 @@ function ShelfCard({
   onCart,
 }: {
   node: AssetNode;
-  /** the piece's size and turn, for its mark */
+  /** the piece's size and turn, for its mark; a designed piece's panels
+      and finish, for its front */
   props: PieceProps;
   tab: ShelfTab;
   selected: boolean;
@@ -1159,6 +1161,12 @@ function ShelfCard({
       >
         {portrait ? (
           <Portrait productId={n.productId!} />
+        ) : n.design && props.panels ? (
+          <PanelView
+            panels={props.panels}
+            view="front"
+            colour={colourHex(props.colour)}
+          />
         ) : n.productId ? (
           <ComponentGlyph id={n.productId} />
         ) : (

@@ -2837,6 +2837,10 @@ export default function Scene3D() {
     !devFlag("noshadows") &&
     (rendered || (scene.shadows === "auto" ? !coarse : scene.shadows === "on"));
   const labels = scene.labels && !readOnly && !rendered;
+  // the pieces designed in the studio that stand in the flat
+  const designs = useScene((s) =>
+    s.groups.reduce((n, g) => n + g.items.filter((a) => a.design).length, 0),
+  );
   const grid = scene.grid && !rendered;
   const edges = scene.edges && !rendered;
   const light = LIGHTS[scene.light];
@@ -3137,6 +3141,7 @@ export default function Scene3D() {
       data-focus={a.focus !== null}
       data-rooms-overlap={roomsOver}
       data-wall-items={wallItems.length}
+      data-designs={designs}
       data-parts={partsPending}
       data-bakes={bakesPending}
       data-models={modelsDrawn}

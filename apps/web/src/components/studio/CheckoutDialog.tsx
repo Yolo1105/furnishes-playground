@@ -79,11 +79,15 @@ export function CheckoutDialog({
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          lines: order.lines.map((l) => ({
-            productId: l.productId ?? l.pieceId,
-            name: l.name,
-            price: l.price,
-          })),
+          lines: order.lines.map((l) => {
+            const design = pieces.find((n) => n.id === l.pieceId)?.design;
+            return {
+              productId: l.productId ?? l.pieceId,
+              name: l.name,
+              price: l.price,
+              ...(design ? { design } : {}),
+            };
+          }),
           total: order.total,
           address,
           currency: "SGD",

@@ -1,5 +1,7 @@
 import {
   boundsOf,
+  designPanels,
+  type DesignRecipe,
   type Panel,
   type Part,
   priceOf,
@@ -77,6 +79,10 @@ type SceneState = {
   redo: () => void;
   /** put a catalogue product into a room; returns the new node's id */
   addProduct: (p: Product, roomId: string) => string;
+  /** put a piece designed in the studio (design.ts) into a room: its
+      panels from the recipe, its finish the recipe's; it takes the first
+      clear spot the layout finds. Returns the new node's id */
+  addDesign: (recipe: DesignRecipe, roomId: string) => string;
   /** put a part modelled in the studio into a room, as its own item;
       returns the new node's id */
   addPart: (part: Part, roomId: string) => string;
@@ -90,15 +96,7 @@ type SceneState = {
   ) => void;
   /** put a room item into a room: something that sets the scene and is
       not for sale; returns the new node's id */
-  addItem: (
-    item: {
-      name: string;
-      category: AssetCategory;
-      image?: string;
-      model?: string;
-    },
-    roomId: string,
-  ) => string;
+  addItem: (item: ItemIn, roomId: string) => string;
   select: (id: string | null, reveal?: boolean) => void;
   selectPanel: (id: string | null) => void;
   /** a piece's panels moved under a drag: live, between dragStart and
@@ -106,7 +104,8 @@ type SceneState = {
   panelsMove: (id: string, panels: readonly Panel[]) => void;
   /** a piece opened as panels, its panels changed, or closed again
       (undefined): the box settles round them, the size and the price
-      follow; one step to undo unless `live`, inside a drag */
+      follow; one step to undo unless `live`, inside a drag. A designed
+      piece closed goes back to its design's panels */
   setPanels: (
     id: string,
     panels: readonly Panel[] | undefined,
@@ -174,16 +173,18 @@ const productNode = (groups: AssetGroup[], p: Product): AssetNode => {
     productId: p.id,
   };
 };
+/** a room item as it comes in: its name and kind, a generated one's
+    picture, mesh and material, and the colour its cloth takes (hex) */
+type ItemIn = {
+  name: string;
+  category: AssetCategory;
+  image?: string;
+  model?: string;
+  material?: AssetNode["material"];
+  colour?: string;
+};
 /** a room item as a new node, numbered the same way */
-const itemNode = (
-  groups: AssetGroup[],
-  item: {
-    name: string;
-    category: AssetCategory;
-    image?: string;
-    model?: string;
-  },
-): AssetNode => {
+const itemNode = (groups: AssetGroup[], item: ItemIn): AssetNode => {
   const n = groups
     .flatMap((g) => g.items)
     .filter((a) => a.name === item.name).length;
@@ -194,6 +195,7 @@ const itemNode = (
     category: item.category,
     ...(item.image ? { image: item.image } : {}),
     ...(item.model ? { model: item.model } : {}),
+    ...(item.material ? { material: item.material } : {}),
   };
 };
 /** a piece's price set anew: from its panels, or its recipe's as it
@@ -361,6 +363,34 @@ export const useScene = create<SceneState>((set, get) => {
       }));
       return node.id;
     },
+    addDesign: (recipe, roomId) => {
+      const n = get()
+        .groups.flatMap((g) => g.items)
+        .filter((a) => a.name === recipe.name).length;
+      const settled = settledPanels(designPanels(recipe));
+      const node: AssetNode = {
+        id: newId("design"),
+        name: n === 0 ? recipe.name : `${recipe.name} ${n + 1}`,
+        kind: "piece",
+        category: "storage",
+        price: priceOfPanels(settled.panels),
+        design: recipe,
+      };
+      set((s) => ({
+        groups: into(s.groups, node),
+        overrides: {
+          ...held(s),
+          [node.id]: {
+            roomId,
+            colour: recipe.finish,
+            texture: "Wood grain",
+            ...settled,
+          },
+        },
+        ...remember(s),
+      }));
+      return node.id;
+    },
     addPart: (part, roomId) => {
       const n = get()
         .groups.flatMap((g) => g.items)
@@ -402,7 +432,13 @@ export const useScene = create<SceneState>((set, get) => {
       const node = itemNode(get().groups, item);
       set((s) => ({
         groups: into(s.groups, node),
-        overrides: { ...held(s), [node.id]: { roomId } },
+        overrides: {
+          ...held(s),
+          [node.id]: {
+            roomId,
+            ...(item.colour ? { colour: item.colour } : {}),
+          },
+        },
         ...remember(s),
       }));
       return node.id;
@@ -457,9 +493,15 @@ export const useScene = create<SceneState>((set, get) => {
           [id]: { ...s.overrides[id], panels: [...panels], ...sizedBy(panels) },
         },
       })),
-    setPanels: (id, panels, live = false) =>
+    setPanels: (id, given, live = false) =>
       set((s) => {
         const overrides = live ? s.overrides : held(s);
+        // a designed piece has no recipe of the catalogue's to go back
+        // to: back is its design's own panels
+        const design = given
+          ? undefined
+          : s.groups.flatMap((g) => g.items).find((n) => n.id === id)?.design;
+        const panels = given ?? (design ? designPanels(design) : undefined);
         const settled = panels ? settledPanels(panels) : null;
         const patch = settled
           ? {

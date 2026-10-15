@@ -16,7 +16,8 @@
  * place is set below (SHOWCASE), so a first visit shows the rooms laid
  * out and not a heap of pieces.
  */
-import type { Part } from "@furnishes/domain";
+import type { DesignRecipe, Part } from "@furnishes/domain";
+import type { StudioMaterial } from "./studio-materials";
 import { productOf } from "./catalogue";
 import type { PieceProps } from "./piece-detail";
 import { SHOWCASE_ROOMS } from "./room-data";
@@ -64,9 +65,15 @@ export type AssetNode = {
   /** a generated room item's picture and mesh, when a provider made them */
   image?: string;
   model?: string;
+  /** a generated item's material (studio-materials.ts), the studio's
+      own taking the place of the generated one */
+  material?: StudioMaterial;
   /** a part modelled in the studio (kind "part"): its sketches and
       feature history, built by the part worker */
   part?: Part;
+  /** a piece designed in the studio (design.ts): the recipe it was made
+      from; its panels are its own (PieceProps.panels) */
+  design?: DesignRecipe;
 };
 
 export type AssetGroup = {

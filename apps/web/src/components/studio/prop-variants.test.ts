@@ -5,7 +5,9 @@ import {
   fitOf,
   KINDS,
   kindOf,
-  modelFor,
+  colourIn,
+  COLOUR_WORDS,
+  retrieve,
   snapFor,
   styleOf,
   LOD_HYSTERESIS,
@@ -123,10 +125,33 @@ describe("choosing by design (round 8, Part 2)", () => {
       snapFor(listed.models, "vase", "organic", [0.2, 0.39, 0.2]),
     ).toBeNull();
   });
-  it("finds the model a few words ask for", () => {
-    expect(modelFor(listed.models, "a tall fiddle-leaf fig")).toMatch(
-      /potted_plant/,
+  it("retrieves a real model before anything is generated: kind, design, size, colour", () => {
+    // a green velvet armchair: a curved one, its cloth green, at the
+    // model's own size (an armchair takes it)
+    const chair = retrieve(
+      listed.models,
+      "a green velvet armchair",
+      [0.8, 0.85, 0.8],
+    )!;
+    expect(chair.kind).toBe("armchair");
+    expect(chair.style).toBe("curved");
+    expect(chair.v.style).toBe("curved");
+    expect(chair.colour).toBe(COLOUR_WORDS.green);
+    expect(chair.size).toEqual(chair.v.size);
+    // a plant within a tenth of its size: the item keeps its own
+    const fig = retrieve(
+      listed.models,
+      "a tall fiddle-leaf fig",
+      [0.4, 0.9, 0.4],
     );
-    expect(modelFor(listed.models, "a sculpture")).toBeUndefined();
+    expect(fig?.v.file).toMatch(/potted_plant/);
+    expect(fig?.colour).toBeNull();
+    // nothing of the kind, or a kind kept to its built form
+    expect(retrieve(listed.models, "a sculpture", [0.4, 0.4, 0.4])).toBeNull();
+    expect(
+      retrieve(listed.models, "an oak dining chair", [0.45, 0.85, 0.48]),
+    ).toBeNull();
+    expect(colourIn("a Navy rug")).toBe(COLOUR_WORDS.navy);
+    expect(colourIn("a reddish lamp")).toBeNull();
   });
 });

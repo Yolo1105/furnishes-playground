@@ -26,7 +26,7 @@ export const DAILY_USD = {
   site: num("DAILY_USD", 50),
 };
 
-export type CostKind = "chat" | "item" | "review";
+export type CostKind = "chat" | "item" | "review" | "design";
 
 export const costOfTokens = (inTokens: number, outTokens: number) =>
   (inTokens * RATES.perMillionIn + outTokens * RATES.perMillionOut) / 1e6;

@@ -240,6 +240,10 @@ export const carcassOf = (
 /** a rug lies under things; a small item (a lamp, a vase) is no obstacle */
 export const isRug = (n: Pick<AssetNode, "name">) =>
   /rug|bath mat/i.test(n.name);
+/** a room item generated from words (Part 3b): a concept, not a real
+    object, so labelled; a real model found for it is not one */
+export const isConcept = (n: Pick<AssetNode, "image" | "model">) =>
+  !!(n.image || (n.model && !n.model.startsWith("/props/")));
 /** a plant, a small tree or a fern, by its name */
 export const isPlant = (n: Pick<AssetNode, "name">) =>
   /plant|tree|fig|palm|fern/i.test(n.name);

@@ -1,3 +1,5 @@
+import { MARGIN, SHEET } from "./cutlist";
+import { SYSTEM } from "./features";
 import { partPrice } from "./price";
 import {
   boundsOf,
@@ -34,7 +36,33 @@ export type CarcassSpec = {
   height: number;
   bays: number;
   doors: boolean;
+  /** a designed piece's own choices (design.ts): the shelves a bay
+      (else by the room inside it), how many bays from the left take a
+      door when it has doors (else every one), how many bays after
+      those take a drawer at their foot, and whether it stands on a
+      plinth (else it does) */
+  shelves?: number | undefined;
+  doored?: number | undefined;
+  drawers?: number | undefined;
+  plinth?: boolean | undefined;
 };
+
+/** a back too big to cut from one sheet either way round, in strips
+    one above another that each are: their heights, mm */
+const backs = (w: number, h: number) => {
+  const fits = (a: number, b: number) =>
+    Math.max(a, b) <= SHEET.length - 2 * MARGIN &&
+    Math.min(a, b) <= SHEET.width - 2 * MARGIN;
+  // no strips help a back too wide for a sheet's length: the cut list
+  // says it does not fit
+  if (w > SHEET.length - 2 * MARGIN) return [h];
+  let k = 1;
+  while (!fits(w, h / k)) k += 1;
+  return Array.from({ length: k }, () => h / k);
+};
+
+/** a drawer's front, mm tall */
+export const DRAWER_MM = 160;
 
 const make = (
   id: string,
@@ -73,39 +101,53 @@ export const carcassPanels = ({
   height: h,
   bays,
   doors,
+  shelves: shelvesAsked,
+  doored,
+  drawers = 0,
+  plinth = true,
 }: CarcassSpec): Panel[] => {
   const T = PANEL_THICKNESS;
+  const P = plinth ? PLINTH_MM : 0;
   const n = Math.max(1, Math.round(bays));
   const bayW = (w - T * (n + 1)) / n;
-  const inner = h - PLINTH_MM - 2 * T;
-  const midY = PLINTH_MM + T + inner / 2;
+  const inner = h - P - 2 * T;
+  const midY = P + T + inner / 2;
   const out: Panel[] = [
-    make("plinth", "Plinth", "z", w - 2 * T, PLINTH_MM, [
-      0,
-      PLINTH_MM / 2,
-      d / 2 - PLINTH_BACK - T / 2,
-    ]),
-    make("bottom", "Bottom", "y", w - 2 * T, d, [0, PLINTH_MM + T / 2, 0]),
+    ...(plinth
+      ? [
+          make("plinth", "Plinth", "z", w - 2 * T, PLINTH_MM, [
+            0,
+            PLINTH_MM / 2,
+            d / 2 - PLINTH_BACK - T / 2,
+          ]),
+        ]
+      : []),
+    make("bottom", "Bottom", "y", w - 2 * T, d, [0, P + T / 2, 0]),
     make("top", "Top", "y", w - 2 * T, d, [0, h - T / 2, 0]),
-    make("back", "Back", "z", w - 2 * T, inner, [0, midY, -d / 2 + T / 2]),
-    make("side-west", "Side", "x", d, h - PLINTH_MM, [
+    ...backs(w - 2 * T, inner).map((h, j, all) =>
+      make(all.length > 1 ? `back-${j}` : "back", "Back", "z", w - 2 * T, h, [
+        0,
+        P + T + h * (j + 0.5),
+        -d / 2 + T / 2,
+      ]),
+    ),
+    make("side-west", "Side", "x", d, h - P, [
       -w / 2 + T / 2,
-      PLINTH_MM + (h - PLINTH_MM) / 2,
+      P + (h - P) / 2,
       0,
     ]),
-    make("side-east", "Side", "x", d, h - PLINTH_MM, [
+    make("side-east", "Side", "x", d, h - P, [
       w / 2 - T / 2,
-      PLINTH_MM + (h - PLINTH_MM) / 2,
+      P + (h - P) / 2,
       0,
     ]),
   ];
-  const shelves = shelvesFor(inner);
-  // a shelf runs from the back to the front, or to the door
-  const shelfD = doors ? d - 2 * T : d - T;
-  const shelfZ = doors ? 0 : T / 2;
+  const doorBays = doors ? Math.min(n, doored ?? n) : 0;
   for (let i = 0; i < n; i++) {
     const x0 = -w / 2 + T + i * (bayW + T);
     const mid = x0 + bayW / 2;
+    const door = i < doorBays;
+    const drawer = !door && i >= doorBays && i < doorBays + drawers;
     if (i > 0)
       out.push(
         make(`divider-${i}`, "Divider", "x", d - T, inner, [
@@ -114,15 +156,42 @@ export const carcassPanels = ({
           T / 2,
         ]),
       );
-    for (let k = 0; k < shelves; k++)
+    // a drawer at the bay's foot: its front, and the runner shelf over
+    // the box, the rest of the bay over it
+    const floor = P + T + (drawer ? DRAWER_MM + T : 0);
+    const room = h - T - floor;
+    if (drawer)
       out.push(
-        make(`shelf-${i}-${k}`, "Shelf", "y", bayW, shelfD, [
+        make(
+          `drawer-${i}`,
+          "Drawer front",
+          "z",
+          bayW - 2 * REVEAL,
+          DRAWER_MM - 2 * REVEAL,
+          [mid, P + T + DRAWER_MM / 2, d / 2 - T / 2],
+          "door",
+        ),
+        make(`runner-${i}`, "Shelf", "y", bayW, d - 2 * T, [
           mid,
-          PLINTH_MM + T + ((k + 1) * inner) / (shelves + 1),
-          shelfZ,
+          P + T + DRAWER_MM + T / 2,
+          0,
         ]),
       );
-    if (doors)
+    const shelves = shelvesAsked ?? shelvesFor(inner);
+    // a shelf runs from the back to the front, or to the door; its
+    // height on the 32 mm system's step up from the floor of its bay
+    const shelfD = door || drawer ? d - 2 * T : d - T;
+    const shelfZ = door || drawer ? 0 : T / 2;
+    for (let k = 0; k < shelves; k++) {
+      const at =
+        floor +
+        Math.round(((k + 1) * room) / (shelves + 1) / SYSTEM.pitch) *
+          SYSTEM.pitch;
+      out.push(
+        make(`shelf-${i}-${k}`, "Shelf", "y", bayW, shelfD, [mid, at, shelfZ]),
+      );
+    }
+    if (door)
       out.push(
         make(
           `door-${i}`,

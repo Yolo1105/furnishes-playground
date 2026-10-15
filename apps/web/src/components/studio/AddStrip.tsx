@@ -11,6 +11,7 @@ import {
   startOpeningDrag,
   startTileDrag,
 } from "./dnd";
+import { DesignPane } from "./DesignPane";
 import { OpeningGlyph } from "./opening-glyphs";
 import { ComponentGlyph } from "./component-glyphs";
 import { OPENING_KINDS } from "./room-data";
@@ -20,7 +21,9 @@ import {
   useGenerations,
   type Generation,
 } from "./generation-store";
-import { modelFor } from "./prop-variants";
+import { defaultProps } from "./piece-detail";
+import { retrieve } from "./prop-variants";
+import type { StudioMaterial } from "./studio-materials";
 import { useProps } from "./props-store";
 import { BoardIcon, CloseIcon, CubeIcon, ExportIcon, StarIcon } from "./icons";
 import { boxPart, bracketPart, knobPart, type Part } from "@furnishes/domain";
@@ -35,15 +38,21 @@ import { useScene } from "./scene-store";
  * (a door, a sliding or double door, a passage, a window: a click puts
  * one in a wall with room for it, a drag onto the plan puts it where it
  * lands). One line of chips narrows it by
- * category; the last chip, Generate, makes a room item from a few words
+ * category; Design makes a Furnishes piece from a few words, drawn and
+ * priced before it is placed (DesignPane); the last chip, Generate,
+ * makes a room item from a few words
  * (a sofa, a plant, a lamp: things that set the scene and are not for
- * sale). With an image and mesh provider connected the item gets a
- * picture and a model; without one it stands as a shape, and the strip
- * says so. Every item made is kept as a tile to use again; a star keeps
+ * sale). A real model is looked for first and used when one fits, its
+ * cloth in the colour asked for; Generate instead, or no model fitting,
+ * asks the image and mesh provider for a concept, checked before it is
+ * kept; without a provider it stands as a shape, and the strip says so.
+ * Every item made is kept as a tile to use again; a star keeps
  * the ones worth coming back to, and Starred shows only those.
  */
-type Chip = "all" | "openings" | AssetCategory | "model" | "generate";
-/** every category with something to add, All first, Generate last */
+type Chip =
+  "all" | "openings" | AssetCategory | "model" | "design" | "generate";
+/** every category with something to add, All first, then the ways to
+    make one's own: Model a part, Design a piece, Generate an item */
 const CHIPS: Chip[] = [
   "all",
   "openings",
@@ -51,6 +60,7 @@ const CHIPS: Chip[] = [
     products.some((p) => p.category === c),
   ),
   "model",
+  "design",
   "generate",
 ];
 
@@ -58,6 +68,7 @@ export function AddStrip({ onAdded }: { onAdded: (id: string) => void }) {
   const add = useScene((s) => s.addProduct);
   const addItem = useScene((s) => s.addItem);
   const addPart = useScene((s) => s.addPart);
+  const addDesign = useScene((s) => s.addDesign);
   const select = useScene((s) => s.select);
   const addOpening = useRoom((s) => s.addOpening);
   const activeId = useRoom((s) => s.activeId);
@@ -79,6 +90,8 @@ export function AddStrip({ onAdded }: { onAdded: (id: string) => void }) {
         category: g.category,
         ...(g.imageUrl ? { image: g.imageUrl } : {}),
         ...(g.modelUrl ? { model: g.modelUrl } : {}),
+        ...(g.material ? { material: g.material } : {}),
+        ...(g.colour ? { colour: g.colour } : {}),
       },
       activeId,
     );
@@ -106,9 +119,11 @@ export function AddStrip({ onAdded }: { onAdded: (id: string) => void }) {
                 ? "Openings"
                 : c === "model"
                   ? "Model"
-                  : c === "generate"
-                    ? "Generate"
-                    : CATEGORY_NAMES[c]}
+                  : c === "design"
+                    ? "Design"
+                    : c === "generate"
+                      ? "Generate"
+                      : CATEGORY_NAMES[c]}
           </button>
         ))}
       </div>
@@ -118,6 +133,14 @@ export function AddStrip({ onAdded }: { onAdded: (id: string) => void }) {
             const id = addPart(part, activeId);
             select(id, false);
             useStudio.getState().setPanelTab("detail");
+            onAdded(id);
+          }}
+        />
+      ) : category === "design" ? (
+        <DesignPane
+          onPlace={(recipe) => {
+            const id = addDesign(recipe, activeId);
+            select(id, false);
             onAdded(id);
           }}
         />
@@ -302,65 +325,114 @@ function Generate({
     ? generations.filter((g) => g.starred)
     : generations;
 
-  const make = async () => {
-    const words = prompt.trim();
-    if (!words || busy) return;
-    setBusy(true);
-    setNote("");
+  // what a found model can be swapped for: the words, to generate from
+  const [offer, setOffer] = useState<string | null>(null);
+
+  /** a room item's usual size from its name, m (w, h, d), as the room
+      will first stand it */
+  const usual = (name: string, category: Generation["category"]) => {
+    const p = defaultProps({ id: "", name, kind: "decor", category });
+    return [p.width / 1000, p.height / 1000, p.depth / 1000] as const;
+  };
+
+  /** a concept from the provider, checked before it is kept: a mesh
+      with holes or a coarse picture stands as a shape instead */
+  const generate = async (words: string, keep: boolean) => {
     const { name, category } = describeItem(words);
-    // without a provider's answer: a stock mesh of the thing when there
-    // is one, else a shape
-    const prop = modelFor(useProps.getState().models ?? [], words);
-    const stand = (why: string) => {
-      made = add({
-        prompt: words,
-        name,
-        category,
-        ...(prop
-          ? { modelUrl: prop, source: "prop" as const }
-          : { source: "shape" as const }),
-      });
+    const size = usual(name, category);
+    const shape = (why: string) => {
       setNote(
-        prop
-          ? `${why}; a stock ${name.toLowerCase()} stands in for it.`
-          : `${why}; it stands as a shape.`,
+        keep
+          ? `${why}; it stands as a shape.`
+          : `${why}; the real model stays.`,
       );
+      return keep
+        ? add({ prompt: words, name, category, source: "shape" })
+        : null;
     };
-    let made: Generation | null = null;
     try {
       const res = await fetch("/api/generate-item", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ prompt: words }),
-      });
-      if (res.ok) {
-        const data = (await res.json()) as {
-          imageUrl?: string;
-          modelUrl?: string;
-        };
-        made = add({
+        body: JSON.stringify({
           prompt: words,
-          name,
-          category,
-          source: "fal",
-          ...(data.imageUrl ? { imageUrl: data.imageUrl } : {}),
-          ...(data.modelUrl ? { modelUrl: data.modelUrl } : {}),
-        });
-        if (!data.modelUrl)
-          setNote("The picture came, the mesh did not: it stands as a shape.");
-      } else
-        stand(
+          longest: Math.round(Math.max(...size) * 1000),
+        }),
+      });
+      if (!res.ok)
+        return shape(
           res.status === 503
             ? "No image or mesh provider is connected on this server"
             : res.status === 429
               ? "That is the hour's share of generations"
               : "The provider did not answer",
         );
+      const data = (await res.json()) as {
+        imageUrl?: string;
+        modelUrl?: string;
+        material?: StudioMaterial;
+      };
+      const why = data.modelUrl
+        ? await import("./mesh-check").then((m) =>
+            m.checkMesh(data.modelUrl!, Math.max(...size)),
+          )
+        : "the picture came, the mesh did not";
+      if (why)
+        setNote(`A concept, generated: ${why}, so it stands as a shape.`);
+      else setNote("A concept, generated from your words: not a real product.");
+      return add({
+        prompt: words,
+        name,
+        category,
+        source: "fal",
+        ...(data.imageUrl ? { imageUrl: data.imageUrl } : {}),
+        ...(data.modelUrl && !why ? { modelUrl: data.modelUrl } : {}),
+        ...(data.material ? { material: data.material } : {}),
+      });
     } catch {
-      stand("The provider could not be reached");
+      return shape("The provider could not be reached");
     }
+  };
+
+  const make = async () => {
+    const words = prompt.trim();
+    if (!words || busy) return;
+    setBusy(true);
+    setNote("");
+    setOffer(null);
+    const { name, category } = describeItem(words);
+    // a real model first: of its kind and design, near its size, its
+    // cloth in the colour asked for; generated only when none fits
+    const found = retrieve(
+      useProps.getState().models ?? [],
+      words,
+      usual(name, category),
+    );
+    let made: Generation | null;
+    if (found) {
+      made = add({
+        prompt: words,
+        name,
+        category,
+        source: "prop",
+        ...(found.colour ? { colour: found.colour } : {}),
+      });
+      setNote(
+        `A real ${found.kind.replace("-", " ")} fits${found.colour ? ", its cloth in the colour asked for" : ""}. Generate instead makes a concept from your words.`,
+      );
+      setOffer(words);
+    } else made = await generate(words, true);
     setBusy(false);
     setPrompt("");
+    if (made) onMade(made);
+  };
+
+  const instead = async () => {
+    if (!offer || busy) return;
+    setBusy(true);
+    const made = await generate(offer, false);
+    setOffer(null);
+    setBusy(false);
     if (made) onMade(made);
   };
 
@@ -390,10 +462,23 @@ function Generate({
           <span>{busy ? "Making…" : "Generate"}</span>
         </button>
       </form>
-      <p className="add-gen-hint">
+      <p className="add-gen-hint" role="status">
         {note ||
-          "Room items set the scene and are not for sale: a sofa, a plant, a lamp. A picture and a mesh come from fal.ai when it is connected."}
+          "Room items set the scene and are not for sale: a sofa, a plant, a lamp. A real model is found when one fits; otherwise a concept is generated by fal.ai when it is connected."}
       </p>
+      {offer && (
+        <div className="detail-acts">
+          <button
+            type="button"
+            className="main-btn"
+            disabled={busy}
+            aria-busy={busy}
+            onClick={() => void instead()}
+          >
+            <span>{busy ? "Generating…" : "Generate instead"}</span>
+          </button>
+        </div>
+      )}
       {generations.length > 0 && (
         <div className="add-gen-head">
           <span className="add-gen-label">
@@ -472,10 +557,10 @@ function Generate({
               {g.source === "shape"
                 ? "shape"
                 : g.source === "prop"
-                  ? "stock mesh"
+                  ? "real model"
                   : g.modelUrl
-                    ? "mesh"
-                    : "picture"}
+                    ? "concept"
+                    : "concept picture"}
             </span>
           </div>
         ))}

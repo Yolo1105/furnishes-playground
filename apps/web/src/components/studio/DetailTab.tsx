@@ -48,6 +48,7 @@ import {
   PLACE_SNAP,
   TEXTURES,
   turned,
+  isConcept,
   isSquare,
   normTurn,
   ROTATE_SNAP,
@@ -399,7 +400,10 @@ export function DetailTab() {
           <h3 className="detail-name">{piece.name}</h3>
           <p className="detail-meta">
             {CATEGORY_NAMES[piece.category]}
-            {item && " · room item"}
+            {item &&
+              (isConcept(piece)
+                ? " · concept, generated: not a real product"
+                : " · room item")}
             {piece.kind === "part" && " · custom, quoted on request"}
             {parts.length > 0 && ` · ${parts.length} parts`}
           </p>
@@ -950,7 +954,9 @@ export function DetailTab() {
                   className="main-btn"
                   onClick={() => setPanels(piece.id, undefined)}
                 >
-                  <span>Back to the recipe</span>
+                  <span>
+                    {piece.design ? "Back to the design" : "Back to the recipe"}
+                  </span>
                 </button>
               </div>
             </>

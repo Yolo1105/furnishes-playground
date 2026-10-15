@@ -18,6 +18,9 @@ import { propsOf } from "./scene-store";
  * says (`data-models`, `data-models-far`, `data-models-pending`) so a
  * test can wait on them.
  */
+/** where the Draco decoder the models are packed for is served */
+export const DRACO_PATH = "/draco/";
+
 export const useProps = create<{
   models: Variant[] | null;
   drawn: Record<string, number>;

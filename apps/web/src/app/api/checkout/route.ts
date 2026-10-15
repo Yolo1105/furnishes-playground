@@ -4,6 +4,7 @@ import { z } from "zod";
 import { userOf } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { orders } from "@/lib/db/schema";
+import { RecipeSchema } from "@/lib/design-piece";
 import { HOSTED } from "@/lib/env";
 import { randomId } from "@/lib/id";
 import { log } from "@/lib/log";
@@ -49,6 +50,8 @@ const Body = z.object({
         productId: z.string().min(1).max(40),
         name: z.string().max(80),
         price: z.number().nonnegative(),
+        /** a piece designed in the studio: its recipe, priced here */
+        design: RecipeSchema.optional(),
       }),
     )
     .min(1)
@@ -85,7 +88,11 @@ export async function POST(req: Request) {
     );
   const { address, total } = parsed.data;
   const priced = priceLines(parsed.data.lines);
-  if (!priced.ok) return bad(`${priced.unknown} is not in the catalogue.`, 400);
+  if (!priced.ok)
+    return bad(
+      `${priced.unknown} is not in the catalogue, or cannot be made.`,
+      400,
+    );
   // the browser's total and the catalogue's must agree: a stale price
   // is said, not charged
   if (priced.total !== total)

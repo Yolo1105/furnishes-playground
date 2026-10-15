@@ -2407,3 +2407,113 @@ owner's list (`public/sky/README.md`).
 Not done here, and why: the evening light of the bedside lamp (the
 bedside's lamp is not one of the lamps that light the evening); the
 backplate's near layer for parallax (it needs the photographed files).
+
+### Part 3: pieces designed from words; room items found before they are made (2026-10-15)
+
+**3a. A Furnishes piece is a recipe, never a mesh.** `design.ts` in the
+domain package holds the recipe (`DesignRecipe`: a name, width, height
+and depth in mm, bays, shelves a bay, doors from the left, drawers after
+them, a plinth or not, a finish) and the rules it must keep
+(`DESIGN_RULES`): the sizes a piece may be, one to six bays, up to eight
+shelves, an 18 mm shelf spanning no more than 800 mm, a door leaf no
+wider than 600 mm on its two hinges, 160 mm at least between shelves,
+shelves on the 32 mm system, and every panel cut from a 2440 × 1220
+sheet (`nest`). These are the domain's first span and leaf limits; the
+numbers are the shop's usual ones for 18 mm birch ply on two hinges.
+`checkRecipe` says what a recipe breaks in words a person (or the model)
+can act on; `designPanels` builds it with the same `carcassPanels` the
+catalogue's "Open as panels" uses, which now takes the shelves a bay, how
+many bays have doors, drawers at a bay's foot (a 160 mm front and a
+runner shelf over it) and no plinth, and sets each shelf on the 32 mm
+step up from its bay's floor. A back too big for one sheet either way
+round (a 2.4 m wardrobe) comes in strips one above another, each a sheet's
+width. `recipeFromWords` reads the words without a model ("a 1.6 m low
+bookcase with two doors, oak" is 1600 × 800 × 320, three bays, two
+doors, a shelf, oak) and always gives a recipe that passes. Tested in
+design.test.ts (the brief's example, sizes by the word that names them,
+each rule broken and said, the panels' box, the drawer and the 32 mm
+step, no plinth, the price and the cut).
+
+**Eva's `design_piece` tool** (`lib/design-piece.ts`,
+`api/design-piece`): the model is made to call the one tool
+(`tool_choice` names it), whose input schema is the recipe's zod schema
+as JSON Schema; the system prompt states the rules from `DESIGN_RULES`'
+own numbers. The input is read twice, by zod and by `checkRecipe`; what
+it breaks goes back as the tool's error (`is_error`), and the model tries
+again, at most three times. A recipe that passes is the answer; none,
+and the route says so with what the last one still broke (422), and the
+studio reads the words by its own rules, saying why. Without a key
+(503) or past the hour's share (`DESIGNS_PER_HOUR`, 20; each design may
+take four calls, counted as `design` in the cost log) the same. Tested
+in design-piece.test.ts with a scripted model (taken first time, repaired
+once, the shape read before the rules, stopped after three repairs).
+
+**2D first, then the piece** (`DesignPane.tsx`, the Add strip's Design
+chip). The recipe is drawn at once in three views, front, side and plan,
+from the very panels the piece is built of (`PanelView.tsx`: each panel a
+rectangle to scale, the nearer over the farther, doors and drawer fronts
+in the finish), with its size, its price (an estimate from its panels, as
+every piece's is), its cut list (the panels by size and the sheets they
+take) and anything it breaks. Its sizes can be typed and its bays,
+shelves, doors and drawers changed by a step, its plinth and finish
+chosen; fewer bays take the doors and drawers that no longer have one,
+and a recipe that breaks a rule cannot be placed until it is right. Place
+puts it in the room as a piece of panels (`addDesign`): the panels are the
+piece, so it gets everything Part 1 gives the catalogue pieces (the ply,
+its edges, joints, the bake and its footprint), and the 3D is the 2D.
+It takes the first clear spot the layout finds, with the same clash and
+walkway checks as any piece. Back to the design undoes edits to its
+panels; the shelf's card draws its front. The stage says `data-designs`.
+Checkout prices a designed piece from its recipe on the server, after
+checking it can be made, as it prices a catalogue piece from the
+catalogue. The brief named `Elevation2D.tsx` for the views; that draws a
+room's walls, so the piece's views are their own small component.
+
+Not done here, and why: the 3D does not crossfade in (a designed piece
+is a few dozen panels and stands at once, its bake following as any
+piece's does).
+
+**3b. Room items: a real model first, generated only when told.** The
+Generate pane looks in `index.json` before anything is generated
+(`retrieve`, prop-variants.ts): the kind and design the words name
+(`kindOf`, `styleOf`), a model within a tenth of the item's usual size,
+or for a kind that takes its model's size the nearest of its design, and
+the colour the words give (`COLOUR_WORDS`) on the model's cloth. "A green
+velvet armchair" is the curved armchair in green. The room then draws it
+from the same model by the same rules, so what is offered is what stands.
+"Generate instead" asks the provider for a concept; nothing fitting asks
+it too. The kinds kept to their built forms (`BUILT_KINDS`, moved here
+from Furniture3D) are never offered as models.
+
+The route (`api/generate-item`) now asks for the picture in even,
+shadowless studio light on pure white, the whole object in a
+three-quarter view; takes the PBR output first; uses the full Hunyuan
+model for anything over half a metre and the rapid one below (both names
+set by `FAL_MESH_RAPID` and `FAL_MESH_FULL`, as fal.ai was not reachable
+from here to confirm the full model's id); and, with a model connected,
+has Claude read the picture for what the object is mostly made of
+(fabric, leather, wood, metal, glass, ceramic, plant), so the studio's
+surface for it (`studio-materials.ts`) takes the place of the generated
+one with the generated colour kept as its tint. Per-region labelling
+would need the mesh split by region, which a generated mesh is not.
+
+The brief asks for glTF Transform on the server for the clean-up; it is a
+new dependency, so the same steps are done in the browser with three's
+own tools (`mesh-clean.ts`): the mesh is welded so its parts can be told
+apart and the strays a generator leaves (under 2 % of the triangles) are
+dropped; a mesh with more than 2 % of its edges open, or under 128
+texels a metre at the size it will stand, is turned away when it arrives
+(`mesh-check.ts`, loaded only then) and the item stands as a shape, saying
+why; its colour picture is de-lit, divided by a blurred luminance of
+itself and clamped (0.6–1.6), so the generator's shading does not lie
+over the room's light; it is turned a quarter when its long side runs the
+other way from the item's, stands on the floor and is scaled into the
+item's size; and the budget (12 000 triangles, 1024 px pictures) holds
+as for any model. Not done: a far copy for a generated mesh (the budget
+keeps it small enough), WebP re-encoding (the pictures are canvases once
+fitted). A generated item is labelled a concept: "concept" on its tile,
+"concept, generated: not a real product" in Detail. Tested in
+mesh-clean.test.ts (parts, strays dropped with their vertices, holes,
+texels a metre, the studio surface) and prop-variants.test.ts (the
+retrieval), and in studio.spec.ts (the armchair found and tinted with no
+generation, Generate instead, the concept label).

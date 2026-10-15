@@ -4261,7 +4261,7 @@ test("a room widened into its neighbour is a finding: both rooms flush red on th
   await expect(stage).toHaveAttribute("data-rooms-overlap", "0");
 });
 
-test("Generate makes a room item from a few words; without a provider a stock mesh stands in, or a shape", async ({
+test("Generate finds a real model first, its cloth in the colour asked; with nothing that fits and no provider, a shape", async ({
   page,
 }) => {
   await page.goto("/rounded");
@@ -4276,30 +4276,44 @@ test("Generate makes a room item from a few words; without a provider a stock me
     .click();
   const words = strip.getByRole("textbox", { name: "Describe a room item" });
   await expect(words).toBeVisible();
-  // no key on this server: the item still arrives, with a note; an
-  // armchair has a stock mesh to stand in for it
-  await words.fill("a rattan armchair");
+  // an armchair: a real model of it is found first, its cloth in the
+  // colour asked for, nothing generated until asked
+  let generated = 0;
+  await page.route("**/api/generate-item", async (route) => {
+    generated += 1;
+    await route.continue();
+  });
+  await words.fill("a green velvet armchair");
   await strip.locator("form").getByRole("button", { name: "Generate" }).click();
+  await expect(
+    strip.getByText("A real armchair fits, its cloth in the colour asked for"),
+  ).toBeVisible();
+  const tile = strip.locator(".add-tile-gen").filter({
+    hasText: "Green velvet armchair",
+  });
+  await expect(tile).toHaveCount(1);
+  await expect(tile.locator(".add-tile-price")).toHaveText("real model");
+  expect(generated).toBe(0);
+  // Generate instead asks the provider; with none on this server, the
+  // real model stays and nothing more is added
+  await strip.getByRole("button", { name: "Generate instead" }).click();
   // the first generation compiles its route under load
   await expect(
     strip.getByText("No image or mesh provider is connected"),
   ).toBeVisible({ timeout: 20_000 });
-  await expect(
-    strip.getByText("a stock rattan armchair stands in"),
-  ).toBeVisible();
-  const tile = strip.locator(".add-tile-gen").filter({
-    hasText: "Rattan armchair",
-  });
-  await expect(tile).toHaveCount(1);
-  await expect(tile.locator(".add-tile-price")).toHaveText("stock mesh");
+  await expect(strip.getByText("the real model stays")).toBeVisible();
+  expect(generated).toBe(1);
+  await expect(strip.locator(".add-tile-gen")).toHaveCount(1);
   // the room has it, as a room item (not for sale, no price), selected
-  const row = page.getByRole("treeitem", { name: "Rattan armchair" });
+  const row = page.getByRole("treeitem", { name: "Green velvet armchair" });
   await expect(row).toHaveAttribute("aria-selected", "true");
   await expect(saved).toHaveText(`Saved${n}`);
   // starred ones can be shown on their own
-  await tile.getByRole("button", { name: "Star Rattan armchair" }).click();
+  await tile
+    .getByRole("button", { name: "Star Green velvet armchair" })
+    .click();
   await expect(
-    tile.getByRole("button", { name: "Unstar Rattan armchair" }),
+    tile.getByRole("button", { name: "Unstar Green velvet armchair" }),
   ).toHaveAttribute("aria-pressed", "true");
   await words.fill("a brass orrery");
   await words.press("Enter");
@@ -4315,10 +4329,10 @@ test("Generate makes a room item from a few words; without a provider a stock me
   await expect(strip.locator(".add-tile-gen")).toHaveCount(1);
   await expect(strip.locator(".add-gen-label")).toHaveText("Starred · 1");
   // a tile click adds another of it and closes the strip
-  await tile.getByRole("button", { name: "Add Rattan armchair" }).click();
+  await tile.getByRole("button", { name: "Add Green velvet armchair" }).click();
   await expect(strip).toHaveCount(0);
   await expect(
-    page.getByRole("treeitem", { name: "Rattan armchair 2" }),
+    page.getByRole("treeitem", { name: "Green velvet armchair 2" }),
   ).toHaveAttribute("aria-selected", "true");
   // the generations survive a reload; one can be forgotten
   await page.reload();
@@ -4372,18 +4386,154 @@ test("a connected provider's picture shows on the tile and the item carries it",
   const tile = strip.locator(".add-tile-gen").filter({
     hasText: "Paper pendant",
   });
-  await expect(tile.locator(".add-tile-price")).toHaveText("picture");
+  // generated, so a concept: labelled so on its tile and in Detail
+  await expect(tile.locator(".add-tile-price")).toHaveText("concept picture");
   await expect(tile.locator(".add-tile-pic-btn")).toHaveCSS(
     "background-image",
     /^url\("data:image\/svg\+xml/,
   );
   await expect(
-    strip.getByText("The picture came, the mesh did not"),
+    strip.getByText(
+      "the picture came, the mesh did not, so it stands as a shape",
+    ),
   ).toBeVisible();
   // a lamp: it files under lighting in the room's list
   await expect(
     page.getByRole("treeitem", { name: "Paper pendant" }),
   ).toHaveAttribute("aria-selected", "true");
+  await page.getByRole("tab", { name: "Detail", exact: true }).click();
+  await expect(page.locator(".detail-meta")).toContainText(
+    "concept, generated: not a real product",
+  );
+});
+
+test("Design makes a Furnishes piece from words: drawn in 2D, priced, cut, changed and placed as panels", async ({
+  page,
+}) => {
+  await page.goto("/rounded");
+  const stage = page.locator(".shell-stage .stage-3d");
+  await expect(stage).toHaveAttribute("data-designs", "0");
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  const strip = page.getByRole("dialog", { name: "Add to the room" });
+  await strip
+    .getByRole("group", { name: "Category" })
+    .getByRole("button", { name: "Design", exact: true })
+    .click();
+  const pane = strip.locator(".add-design");
+  await expect(pane).toHaveAttribute("data-design-state", "empty");
+  await strip
+    .getByRole("textbox", { name: "Describe a piece to design" })
+    .fill("A 1.6 m low bookcase with two doors, oak");
+  await strip.locator("form").getByRole("button", { name: "Design" }).click();
+  // no key on this server: the studio reads the words by its rules
+  await expect(pane).toHaveAttribute("data-design-state", "ready", {
+    timeout: 20_000,
+  });
+  await expect(pane).toHaveAttribute("data-design-by", "rules");
+  await expect(strip.getByText("No model is connected")).toBeVisible();
+  await expect(pane.locator(".add-gen-label")).toHaveText(
+    "Low bookcase · 1600 × 800 × 320 mm",
+  );
+  // front, side and plan, to scale, from the panels the piece is built of
+  await expect(
+    pane.getByRole("img", { name: "Front: 1600 × 800 mm" }),
+  ).toBeVisible();
+  await expect(
+    pane.getByRole("img", { name: "Side: 320 × 800 mm" }),
+  ).toBeVisible();
+  await expect(
+    pane.getByRole("img", { name: "Plan: 1600 × 320 mm" }),
+  ).toBeVisible();
+  await expect(pane.locator(".design-made .add-tile-price")).toHaveText(
+    /^S\$[\d,]+ · estimate$/,
+  );
+  await expect(pane.locator(".design-cut summary")).toHaveText(
+    /^Cut list: \d+ panels from \d+ sheets? of 2440 × 1220 mm$/,
+  );
+  // one bay fewer: each is wider than a door leaf or a shelf's span
+  // holds, said, and it cannot be placed until it is right again
+  const made = pane.locator(".design-made");
+  await made.getByRole("button", { name: "Fewer bays" }).click();
+  await made.getByRole("button", { name: "Fewer bays" }).click();
+  await expect(made).not.toHaveAttribute("data-problems", "0");
+  await expect(
+    made.getByRole("list", { name: "What it breaks" }),
+  ).toContainText("more than an 18 mm shelf spans");
+  const place = made.getByRole("button", { name: "Place in the room" });
+  await expect(place).toBeDisabled();
+  // the doors went with the bays; back to three bays and two doors
+  await made.getByRole("button", { name: "More bays" }).click();
+  await made.getByRole("button", { name: "More bays" }).click();
+  await made.getByRole("button", { name: "More doors" }).click();
+  await expect(made).toHaveAttribute("data-problems", "0");
+  await expect(made.getByRole("group", { name: "Doors" })).toContainText("2");
+  await made.getByRole("radio", { name: "Walnut" }).click();
+  await place.click();
+  await expect(strip).toHaveCount(0);
+  await expect(stage).toHaveAttribute("data-designs", "1");
+  await expect(
+    page.getByRole("treeitem", { name: "Low bookcase" }),
+  ).toHaveAttribute("aria-selected", "true");
+  // the route itself: no key says so, a bad body is refused
+  const res = await page.request.post("/api/design-piece", {
+    data: { words: "a tall bookcase" },
+  });
+  expect(res.status()).toBe(503);
+  expect(await res.json()).toEqual({ fallback: true, reason: "no-key" });
+  const bad = await page.request.post("/api/design-piece", {
+    data: { words: "" },
+  });
+  expect(bad.status()).toBe(400);
+});
+
+test("Eva's design_piece recipe is the one drawn when a model answers", async ({
+  page,
+}) => {
+  await page.route("**/api/design-piece", async (route) => {
+    const body = route.request().postDataJSON() as {
+      words: string;
+      room?: { name: string };
+    };
+    expect(body.words).toBe("a sideboard with drawers");
+    expect(body.room?.name).toBeTruthy();
+    await route.fulfill({
+      json: {
+        recipe: {
+          name: "Oak sideboard",
+          width: 1500,
+          height: 760,
+          depth: 420,
+          bays: 3,
+          shelves: 1,
+          doors: 1,
+          drawers: 2,
+          plinth: true,
+          finish: "oak",
+        },
+        repairs: 1,
+      },
+    });
+  });
+  await page.goto("/rounded");
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  const strip = page.getByRole("dialog", { name: "Add to the room" });
+  await strip
+    .getByRole("group", { name: "Category" })
+    .getByRole("button", { name: "Design", exact: true })
+    .click();
+  await strip
+    .getByRole("textbox", { name: "Describe a piece to design" })
+    .fill("a sideboard with drawers");
+  await strip.locator("form").getByRole("button", { name: "Design" }).click();
+  const pane = strip.locator(".add-design");
+  await expect(pane).toHaveAttribute("data-design-by", "eva");
+  await expect(
+    strip.getByText("put right once to keep the rules"),
+  ).toBeVisible();
+  await expect(pane.locator(".add-gen-label")).toHaveText(
+    "Oak sideboard · 1500 × 760 × 420 mm",
+  );
+  await expect(pane.locator(".design-cut summary")).toContainText("panels");
 });
 
 test("the room's rules shape the planner: the walkway, what is kept clear, a bed against a wall, what the room must have; four layouts to apply", async ({

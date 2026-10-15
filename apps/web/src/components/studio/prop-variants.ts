@@ -209,12 +209,80 @@ export const snapFor = (
   return best;
 };
 
-/** the model that stands in for what a few words describe (a room item
-    asked for with no provider connected): the kind's first listed */
-export const modelFor = (variants: readonly Variant[], words: string) => {
+/** the kinds kept to their built forms whatever the list holds: a plain
+    chair (the room's are light and many, and the stock one is a heavy
+    dark leather), a cabinet (built of panels), and the tables (the
+    stone-topped coffee table and the oak ones are designs of their own) */
+export const BUILT_KINDS: readonly Kind[] = [
+  "chair",
+  "cabinet",
+  "coffee-table",
+  "side-table",
+];
+
+/** the colours a few words may give an item's cloth, as hex (the cloth
+    tint, albedo.ts's clothColour, tempers a pure one) */
+export const COLOUR_WORDS: Record<string, string> = {
+  green: "#5d7a55",
+  sage: "#9aa58a",
+  olive: "#6f6f45",
+  blue: "#4f6c8e",
+  navy: "#2f3d58",
+  teal: "#3f7570",
+  red: "#9a3f36",
+  rust: "#a0532f",
+  terracotta: "#b0623f",
+  pink: "#c99a98",
+  orange: "#c8763a",
+  mustard: "#c49a3a",
+  yellow: "#d1b24e",
+  brown: "#6e4f3a",
+  beige: "#cdbb9f",
+  cream: "#e6dcc6",
+  white: "#ece8e0",
+  grey: "#8d8a86",
+  gray: "#8d8a86",
+  black: "#2b2a29",
+};
+/** the colour the words name, or null */
+export const colourIn = (words: string) => {
+  const t = words.toLowerCase();
+  const found = Object.keys(COLOUR_WORDS).find((c) =>
+    new RegExp(`\\b${c}\\b`).test(t),
+  );
+  return found ? COLOUR_WORDS[found]! : null;
+};
+
+/**
+ * A real model for what a few words describe (round 8, Part 3b),
+ * looked for before anything is generated: of the kind and the design
+ * the words name, within FIT of the item's size, or, for a kind that
+ * takes its model's size, the nearest of its design; with the colour the
+ * words give, when the model has cloth to take it. The room draws an
+ * item named so from the same model (Furniture3D's modelOf), so what is
+ * offered is what stands. Null when none fits, or the kind keeps its
+ * built form.
+ */
+export const retrieve = (
+  variants: readonly Variant[],
+  words: string,
+  size: readonly [number, number, number],
+) => {
   const kind = kindOf(words);
-  const v = kind ? variants.find((m) => m.kind === kind) : undefined;
-  return v ? `/props/${v.file}.glb` : undefined;
+  if (!kind || BUILT_KINDS.includes(kind)) return null;
+  const style = styleOf(words, kind);
+  const fit = variantFor(variants, kind, size, style);
+  const snap = fit ? null : snapFor(variants, kind, style, size);
+  const v = fit?.v ?? snap?.v;
+  if (!v) return null;
+  return {
+    v,
+    kind,
+    style,
+    /** the size it stands at, m: the item's, or the model's own */
+    size: snap?.size ?? ([...size] as [number, number, number]),
+    colour: v.cloth ? colourIn(words) : null,
+  };
 };
 
 /** the near distance a model is drawn at in full, m: a room's far corner

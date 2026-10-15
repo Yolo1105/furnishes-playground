@@ -42,13 +42,21 @@ import { recipeOf } from "./catalogue";
 import { useEvent } from "./use-event";
 import {
   kindOf,
-  type Kind,
+  BUILT_KINDS,
   lodAt,
   styleOf,
   type Variant,
   variantFor,
 } from "./prop-variants";
-import { drawnModel, loadingModel, useModels, useProps } from "./props-store";
+import {
+  DRACO_PATH,
+  drawnModel,
+  loadingModel,
+  useModels,
+  useProps,
+} from "./props-store";
+import { asStudio, cleanModel } from "./mesh-clean";
+import type { StudioMaterial } from "./studio-materials";
 import {
   ACCENT_HEX,
   bodyOf,
@@ -185,18 +193,7 @@ type Props = {
 
 /** where the Draco decoder is served from: the studio's own copy, so a
     compressed mesh never reaches out to a third party for it */
-const DRACO = "/draco/";
 
-/** the kinds kept to their built forms whatever the list holds: a plain
-    chair (the room's are light and many, and the stock one is a heavy
-    dark leather), a cabinet (built of panels), and the tables (the
-    stone-topped coffee table and the oak ones are designs of their own) */
-const BUILT_KINDS: readonly Kind[] = [
-  "chair",
-  "cabinet",
-  "coffee-table",
-  "side-table",
-];
 /** the real model a room item is drawn from (public/props/index.json,
     prop-variants.ts): of its kind and its design, within a tenth of its
     size on every axis; and which of the model's materials take the
@@ -325,6 +322,10 @@ type ModelProps = {
       the same one again keeps the copy */
   cloth: { colour: string; names: string } | null;
   fit?: { file: string; turned: boolean } | undefined;
+  /** a generated mesh (a concept, Part 3b): cleaned once it loads
+      (mesh-clean.ts), turned so its long side runs as the item's does,
+      and given the studio's material for what it is made of */
+  generated?: { material?: StudioMaterial | undefined } | undefined;
 };
 
 function Model({
@@ -332,6 +333,7 @@ function Model({
   size,
   cloth,
   fit,
+  generated,
   dither,
   onShown,
   far = false,
@@ -346,16 +348,24 @@ function Model({
   /** the far copy (LodModel), counted for the stage */
   far?: boolean | undefined;
 }) {
-  const { scene } = useGLTF(src, DRACO);
+  const { scene } = useGLTF(src, DRACO_PATH);
   const colour = cloth?.colour;
   const names = cloth?.names;
-  const turned = !!fit?.turned;
   const dithered = dither !== undefined;
+  const made = generated !== undefined;
+  const material = generated?.material;
+  // the item's long side across or along: a generated mesh is turned a
+  // quarter when its own long side runs the other way
+  const across = size[0] >= size[2];
   const { object, box } = useMemo(() => {
     const pattern = names ? new RegExp(names, "i") : null;
-    // within what any model may cost, stock or generated, once for the
-    // loaded scene its copies share (model-budget.ts)
+    // a generated mesh's strays dropped and its picture de-lit, before
+    // it is brought within what any model may cost, stock or generated,
+    // once for the loaded scene its copies share (model-budget.ts)
+    if (made) cleanModel(scene);
     budgetModel(scene);
+    const raw = new Box3().setFromObject(scene).getSize(new Vector3());
+    const turned = made ? raw.x >= raw.z !== across : !!fit?.turned;
     const o = scene.clone(true);
     o.traverse((child) => {
       const mesh = child as Mesh;
@@ -368,6 +378,7 @@ function Model({
       const own = mesh.material as MeshStandardMaterial;
       if (colour && pattern?.test(own.name))
         mesh.material = clothOver(own, colour);
+      else if (material) mesh.material = asStudio(own, material);
       else if (dithered) {
         // its own copy, so its fade is not its twin's
         const m = own.clone();
@@ -379,7 +390,7 @@ function Model({
     o.rotation.y = turned ? Math.PI / 2 : 0;
     o.updateMatrixWorld(true);
     return { object: o, box: new Box3().setFromObject(o) };
-  }, [scene, colour, names, turned, dithered]);
+  }, [scene, colour, names, fit?.turned, made, material, across, dithered]);
   useEffect(
     () => () => {
       object.traverse((child) => {
@@ -634,7 +645,12 @@ export function Furniture3D(p: Props) {
   const stock = p.panels
     ? null
     : p.node.model
-      ? { src: p.node.model, cloth: null, fit: undefined }
+      ? {
+          src: p.node.model,
+          cloth: null,
+          fit: undefined,
+          generated: { material: p.node.material },
+        }
       : listed
         ? { src: listed.src, cloth: listed.cloth, fit: listed, lod: listed.lod }
         : null;
@@ -655,6 +671,7 @@ export function Furniture3D(p: Props) {
     size: p.size,
     cloth: s.cloth ? { colour: p.colour, names: s.cloth } : null,
     fit: s.fit,
+    generated: "generated" in s ? s.generated : undefined,
   });
   return (
     <group onClick={onClick}>

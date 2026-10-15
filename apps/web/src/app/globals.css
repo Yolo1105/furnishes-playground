@@ -11,6 +11,8 @@
 @theme static {
   --color-cream: #fff4ec;
   --color-paper: #fff4e3;
+  /* birch plywood's face, as ply.ts grows it, for flat drawings */
+  --color-birch: #e9d7b6;
   /* the brand orange, as the production studio sets it: a true orange,
      not the archive's red-leaning #ff5a1f */
   --color-accent: oklch(0.655 0.196 43);
