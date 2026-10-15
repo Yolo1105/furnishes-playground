@@ -4951,8 +4951,10 @@ test("the plan's tools: the wheel and the keys zoom it, a drag pans it, Fit brin
 test("Eva's extras: who answers, Brainstorm, a pinned answer, Refine, follow-ups, Insights, Stop", async ({
   page,
 }) => {
-  test.setTimeout(60_000);
+  // the room's first build holds the page a while on a software renderer
+  test.setTimeout(120_000);
   await page.goto("/rounded");
+  await built(page);
   const agent = page.locator(".agent");
   const box = page.getByRole("textbox", { name: "Message Eva" });
   const evaSaid = agent.locator(
