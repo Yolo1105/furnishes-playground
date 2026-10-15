@@ -4604,6 +4604,9 @@ test("the guided demo plays whatever is typed, changes the room for real, calls 
   await expect(bar).toContainText("1 of 12");
   // the room reloads under it: the stage says so once it is drawn again
   await expect(stage).toHaveAttribute("data-demo", "on", { timeout: 60_000 });
+  // and settled, before Eva is spoken to: her answer waits on a page
+  // that is still busy with the room
+  await built(page);
   // the first words are offered in the box; anything typed plays a scene
   const box = page.getByRole("textbox", { name: "Message Eva" });
   await expect(box).toHaveValue(/couple who read/);
