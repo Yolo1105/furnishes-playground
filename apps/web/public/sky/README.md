@@ -43,13 +43,15 @@ house, not a flat in Singapore.
 3. Put both here: `outlook-day-4k.hdr` and `outlook-day.hdr`, and so on.
 4. Add a line each to `LICENSES.md`: the asset's Poly Haven URL, CC0,
    and what was changed (resized).
-5. The window's view is drawn in the shader today (`OUTLOOK` in
-   `Room3D.tsx`: a sky from zenith to horizon, a sun, a ground and a
-   line of trees, linear light well above the room's). The backplate
-   replaces that node: sample the 4K map along the view direction
-   through the pane, with its near layer offset by the camera's
-   position for the parallax, and turn the map so its sun stands where
-   the studio's sun does (`sun-position.ts`).
+5. Name the 4K files in `BACKPLATES` (`src/components/studio/backplate.ts`,
+   a path under `public/` per look) and set `BACKPLATE_TURN` so the
+   picture's sun stands where the studio's does (`sun-position.ts`). Each
+   window then samples the picture along the eye's ray through its pane
+   in place of the drawn outlook, as bright over the room as the drawn
+   one; the stage says `data-backplate` (none, loading, ready, failed).
+   `?backplate=<url>` tries a file in development before it is named.
+   The near layer's parallax (offset by the camera's position) is still
+   to do once a pair of layers is in.
 
 Until then the windows show the drawn outlook: its sky, sun, ground
 and trees, at the brightness the studio draws them, with no parallax.

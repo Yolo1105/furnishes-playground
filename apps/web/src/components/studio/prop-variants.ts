@@ -29,6 +29,7 @@ export const KINDS = [
   "fridge",
   "toilet",
   "basin",
+  "tap",
   "bed",
   "dish-rack",
   "cabinet",
@@ -84,6 +85,7 @@ export const kindOf = (name: string, category = ""): Kind | null => {
   if (/throw|blanket/.test(n)) return "throw";
   if (/fridge|refrigerator/.test(n)) return "fridge";
   if (/\bwc\b|toilet/.test(n)) return "toilet";
+  if (/\btap\b|faucet|mixer/.test(n)) return "tap";
   if (/basin|sink|vanity/.test(n)) return "basin";
   if (/dish ?rack|drying rack/.test(n)) return "dish-rack";
   if (/\bbed\b/.test(n) && !/bedside/.test(n)) return "bed";

@@ -409,8 +409,11 @@ test("day, evening and day again: the floor's picture settles each time", async 
  *   table's top) spans at least 1.15 from its 10th to its 90th
  *   percentile, not one even tone;
  * - the top of the sofa's front catches the light, 4 % over its face;
- * - a bookwall bay's back is at least 35 % darker than the boards' front
- *   edges;
+ * - a bookwall bay's back is at least 25 % darker than the boards' front
+ *   edges (35 % until Part 4: with every shelf full of books the back was
+ *   seen only in the gaps between them; dressed, a shelf in three is left
+ *   spare and its back is seen whole, the sun reaching into a bay or two,
+ *   and reads about 29 % darker, as a real open bay in daylight does);
  * - the floor 3 cm off the sofa's base is at least 25 % darker than
  *   open floor;
  * - the coffee table's top and the floor differ by at least 15 %.
@@ -425,7 +428,7 @@ test("day, evening and day again: the floor's picture settles each time", async 
 const GLANCE = {
   spread: 1.15,
   edge: 0.04,
-  bays: 0.35,
+  bays: 0.25,
   contact: 0.25,
   table: 0.15,
   black: 0.15,

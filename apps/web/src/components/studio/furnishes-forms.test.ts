@@ -41,14 +41,16 @@ describe("the Furnishes forms", () => {
       const f = formOf(r.id);
       const [w, h, d] = [m(r.width), m(r.height), m(depthOf(r))];
       expect(f.parts.length, r.id).toBeGreaterThan(8);
-      // a turned part is measured by its longest reach, and an add-on
-      // may stand a little off a side, as a rail or a hook does
+      // a turned part is measured by its longest reach, an add-on may
+      // stand a little off a side, as a rail or a hook does, and a thing
+      // may stand on the top, as a bedside's lamp does
       const slack = 0.08;
+      const onTop = 0.45;
       for (const p of f.parts) {
         const [hx, hy, hz] = half(p);
         expect(Math.abs(p.at[0]) - hx, `${r.id} x`).toBeLessThan(w / 2 + slack);
         expect(p.at[1] - hy, `${r.id} y`).toBeGreaterThan(-0.001);
-        expect(p.at[1] + hy, `${r.id} top`).toBeLessThan(h + 0.3);
+        expect(p.at[1] + hy, `${r.id} top`).toBeLessThan(h + onTop);
         expect(Math.abs(p.at[2]) - hz, `${r.id} z`).toBeLessThan(d / 2 + slack);
       }
     }

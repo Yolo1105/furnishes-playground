@@ -2295,3 +2295,115 @@ change counts as a model on its way (`data-models-pending`), and
 from its far copy from afar and in full near"). The default flat's models
 at the opening: 0.98 MB, from 1.94 MB; the full ones load when the camera
 comes into the room (2.22 MB in all).
+
+### Part 4: the shelves dressed; Part 5, the rest: cloth, rugs, wet walls, wear (2026-10-15)
+
+**The shelf stylist (Part 4).** Open shelves are dressed by
+`shelf-style.ts`, a seeded pass over a piece's shelf runs, one column at a
+time (a bay's shelves over one another; a two-faced bookwall's back face
+apart from its front, so a shelf's neighbour is the one over it). Each
+shelf gets a group of one, three or five things, never an even number,
+mixing books standing and laid flat (books.ts lays out each run with its
+`lay`) with a vase, a small plant and a lidded box; no two neighbours
+alike, at most one run of books a group, and books not leading two
+shelves running. About one shelf in three is left spare (a small object,
+or nothing), every third from a seeded start. A group that overflows its
+shelf first lets its standing run give up width down to a handful of
+books, then shrinks its other things to their smallest and closes up,
+and only then drops its last two. Each object is turned 5–15° off square.
+The objects are one mesh a piece (`shelf-objects.ts`: a turned vase, a
+pot with leaves, a box with its lid; colour, roughness and whether it is
+a leaf carried on the vertices), so a piece's things cost one draw. The
+dressing hides in "Show alone", where a piece is looked at for itself.
+Tested in shelf-style.test.ts (deterministic, odd groups, no neighbours
+alike, the mix, the turns, about a third spare, inside the shelf, nothing
+on a shelf too low for it, the geometry's attributes).
+
+The glance's bay gate moves from 35 % to 25 %, and here is why: until
+Part 4 every shelf was full of books, so a bay's back was only seen in
+the gaps between them, the darkest places on the piece; the bookwall
+read 0.42. Dressed, a shelf in three is spare and its back panel is
+seen whole, with the sun reaching into a bay or two, and the honest
+figure is 0.29 (`bays` in the visual project's glance). Of the samples,
+the ones that rose were the back panel in the light, not the objects.
+
+**Cloth that drapes (`drape.ts`).** A throw over a sofa's arm, a throw
+across a bed's foot and a duvet over the mattress are one generator:
+the cloth follows the support's top and rounded edges, then falls down
+each side, standing off a little as it falls and folding more the
+further it falls, its hem uneven; a duvet puffs up in its middle and its
+puff falls away towards its ends; a shell with two faces and a thickness
+that thins to a rounded edge all round. The bed's throw lies over the
+duvet as its support, a garment over a chair's back is the same cloth
+(Lived-in). It replaced the two flat slabs of the throw (which floated
+6 cm over the arm) and the duvet's soft box. Tested in drape.test.ts
+(a closed shell wound outward and of its thickness, never in its
+support, the folds deepening down the fall, the puff).
+
+**The rug (`rug.ts`).** One sheet over the floor, its edge rolled down
+to 2.4 mm over it (over its shadow and the footprints, never fighting
+the floor), the cloth's weave laid at a 0.15 m pile, a woven border band
+with a light line each side in the vertex tones (sharp at any distance),
+a faint mottle in the field, and its own soft contact shadow on the floor
+round its edge (`CONTACT` in lightmap-nodes.ts). The band's tone (0.74)
+is the old border slabs' depth: the sofa's contact gate reads the floor
+3 cm off its base, which falls on the rug's border, and a lighter band
+dropped it under its 25 %. Tested in rug.test.ts.
+
+**Wet rooms tiled, each side its own (`wall-solid.ts`).** A wall's
+outer face is its own material group (`OUTER`) apart from the inner, so
+a wall between a bathroom and a bedroom is tiled on the bathroom's side
+and plaster on the other; the bathrooms (`WET_ROOMS`, room-data.ts) are
+tiled floor to ceiling in the 300 × 600 wall tiles the splashback has,
+and lose their timber skirting. A floor trap stands in the corner across
+from the door, where the shower is.
+
+**HDB details.** A TV point (a plate with its coaxial socket and a data
+port) on the living room's walls, low, as an outlet is; a key hook (an
+oak rail, four brass hooks, a bunch of keys) in the hall; the main door's
+steel gate outside it, a little wider than the opening, bars at 110 mm, a
+middle rail and its lock box. A bedside lamp on the Furnishes bedside. A
+dish rack by the kitchen sink. The kinds list gains `tap`.
+
+**By the book, applied.** The layout now sets what it only advised: the
+rug under the coffee table with the sofa's front legs on it (100 mm and
+a grid step), a floor lamp at the sofa's end a little behind its front,
+the television's stand tall enough that the screen's middle is at
+1050 mm (`tvLift`, in the middle of 1000–1100), and a picture hung by
+the rule (`artCentre`: a hand over the piece under it, else at eye
+height). The health check keeps its advice. Tested in room-layout.test.ts
+and design-rules.test.ts.
+
+**Lived-in.** All the wear is in the Lived-in setting only (Tidy has
+none): the hand marks round the switch, and now round each door's handle
+on both faces of the leaf; the scuffs over the skirting (a strip of soft
+dabs, 5 %); the floor a little paler where the way in from each door
+runs (2.5 %). A television's cable from behind the set over the console's
+back edge to the floor; a garment over one chair in four; a plant in a
+free corner of a room that has none (`freeCorner`, clear of the pieces
+and of the floor before a door; tested).
+
+**Leaves.** The shelf plants' and the room plants' leaves have their
+undersides 35 % darker, and their thin edges lit through (an emissive
+term on the edge-on faces, 0.18 of the leaf's colour): the cheap form of
+a leaf's translucency. The room plant's nine leaves are now one solid
+painted as the shelves' things are (nine meshes and materials before).
+
+**Save photo in the share dialog**, beside Open and Copy link; the stage's
+picture, as Export's PNG and the photo's Save take it (`saveStage`,
+download.ts, one helper for the three). **The stability page** is on the
+WebGPU checklist. **The Panini lens** is the photo's own (`panini.ts`,
+0.35 of a full Panini): once a traced photo is done it is remapped,
+shown over the canvas (`data-lens`) and saved; the live view keeps its
+pinhole, as its picking and handles assume one. Tested in panini.test.ts
+(the pinhole at no strength, there and back, the sides eased, verticals
+kept, the frame filled). **The window backplate hook** (`backplate.ts`):
+a photographed equirectangular picture named per look, or tried with
+`?backplate=<url>`, replaces the drawn outlook along the eye's ray,
+turned by `BACKPLATE_TURN`; the stage says `data-backplate`. Tested with
+a magenta test picture in studio.spec.ts; the real 4K files stay on the
+owner's list (`public/sky/README.md`).
+
+Not done here, and why: the evening light of the bedside lamp (the
+bedside's lamp is not one of the lamps that light the evening); the
+backplate's near layer for parallax (it needs the photographed files).

@@ -18,6 +18,7 @@ import { GUIDE_STORAGE_KEY } from "../src/components/studio/guide-store";
 import { defaultProps } from "../src/components/studio/piece-detail";
 import { ROOM_TEMPLATES } from "../src/components/studio/room-templates";
 import { planeFightsOf } from "../src/components/studio/z-fight";
+import { decodePng } from "./png";
 
 /* expectations come from the same data the app renders */
 const top = assetGroups.flatMap((g) => g.items);
@@ -3734,8 +3735,8 @@ test("on the walls: each room has outlets and what hangs there, suggested; an ou
     timeout: 60_000,
   });
   // the living room's suggested set: a picture, a shelf, the air-con, a
-  // clock and three outlets
-  await expect(stage).toHaveAttribute("data-wall-items", "7");
+  // clock, three outlets and the TV point
+  await expect(stage).toHaveAttribute("data-wall-items", "8");
   await page.getByRole("tab", { name: "Room", exact: true }).click();
   const walls = page.locator("section", { hasText: "On the walls" });
   await expect(walls).toContainText("suggested for the room");
@@ -3767,10 +3768,10 @@ test("on the walls: each room has outlets and what hangs there, suggested; an ou
   // one taken off: the picture
   await walls.getByRole("button", { name: "Remove Framed art" }).click();
   await page.getByRole("button", { name: "Show 3D view in main" }).click();
-  await expect(stage).toHaveAttribute("data-wall-items", "7");
+  await expect(stage).toHaveAttribute("data-wall-items", "8");
   // the suggestion again
   await walls.getByRole("button", { name: "Suggest again" }).click();
-  await expect(stage).toHaveAttribute("data-wall-items", "7");
+  await expect(stage).toHaveAttribute("data-wall-items", "8");
   await expect(walls).toContainText("suggested for the room");
 });
 
@@ -6011,4 +6012,53 @@ test("a piece dragged on the plan stays the one picked where it lands, and the p
   );
   const half = await page.evaluate(() => window.innerHeight / 2);
   expect(Math.abs(pan)).toBeLessThanOrEqual(half + 1);
+});
+
+/** a backplate for the test: a plain magenta picture, 4 × 2 */
+const MAGENTA_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAQAAAACCAIAAADwyuo0AAAAEElEQVR4nGP4z/AfjhiQOQDPSg/x91bjWQAAAABJRU5ErkJggg==",
+  "base64",
+);
+
+test("a window shows the photographed backplate once one is installed (the hook, with a test picture)", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  // the picture's own path (the page's address names it in its query)
+  await page.route(
+    (url) => url.pathname === "/backplate-test.png",
+    (route) => route.fulfill({ contentType: "image/png", body: MAGENTA_PNG }),
+  );
+  await page.goto("/rounded?backplate=/backplate-test.png");
+  const stage = page.locator(".shell-stage .stage-3d");
+  await expect(stage).toHaveAttribute("data-backplate", "ready", {
+    timeout: 120_000,
+  });
+  await expect(stage).toHaveAttribute("data-settled", "true", {
+    timeout: 120_000,
+  });
+  // the panes show the picture: from the corner, which keeps the window
+  // in view, pink where the drawn sky was (the tone mapping softens the
+  // magenta; nothing else in the room is pink)
+  await page
+    .getByRole("button", { name: "Corner view, as a photograph" })
+    .click();
+  await expect(stage).not.toHaveAttribute("data-gliding", "true", {
+    timeout: 60_000,
+  });
+  await expect(stage).toHaveAttribute("data-settled", "true", {
+    timeout: 120_000,
+  });
+  const shot = decodePng(await stage.screenshot());
+  let magenta = 0;
+  for (let i = 0; i < shot.data.length; i += 4) {
+    const [r, g, b] = [shot.data[i]!, shot.data[i + 1]!, shot.data[i + 2]!];
+    if (r - g > 50 && b - g > 50) magenta++;
+  }
+  expect(magenta / (shot.w * shot.h)).toBeGreaterThan(0.005);
+  // with none named, the drawn outlook stays
+  await page.goto("/rounded");
+  await expect(stage).toHaveAttribute("data-backplate", "none", {
+    timeout: 120_000,
+  });
 });

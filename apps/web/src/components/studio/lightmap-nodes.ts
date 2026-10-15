@@ -104,3 +104,16 @@ FOOTPRINT.colorNode = vec3(FOOT_TINT.r, FOOT_TINT.g, FOOT_TINT.b);
 FOOTPRINT.opacityNode = float(1)
   .sub(texture(LIGHTMAP, uv()).r)
   .mul(FOOT_STRENGTH);
+
+/** a soft shadow on the floor where a thing lying on it meets it (a
+    rug's edge, rug.ts): the footprint's tint, as dark as its geometry's
+    `shade` says, drawn over the floor as the footprint is */
+export const CONTACT = new MeshBasicNodeMaterial({
+  transparent: true,
+  depthWrite: false,
+  polygonOffset: true,
+  polygonOffsetFactor: 0,
+  polygonOffsetUnits: -4,
+});
+CONTACT.colorNode = vec3(FOOT_TINT.r, FOOT_TINT.g, FOOT_TINT.b);
+CONTACT.opacityNode = attribute("shade", "float");

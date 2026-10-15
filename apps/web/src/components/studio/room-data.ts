@@ -54,6 +54,9 @@ export const ROOM_NAMES: Record<RoomId, string> = {
   yard: "Service yard",
 };
 
+/** the rooms tiled floor to ceiling, as an HDB flat's bathrooms are */
+export const WET_ROOMS: readonly RoomId[] = ["bathroom", "ensuite"];
+
 /** mm: width along the window wall, depth into the room */
 type Size = { width: number; depth: number };
 

@@ -1,4 +1,5 @@
 import type { Product } from "@furnishes/domain";
+import { seeded } from "./seeded";
 
 /**
  * The Furnishes pieces in 3D, built as the assembly record builds them
@@ -163,15 +164,6 @@ const rod = (
   ...(rotation ? { rotation } : {}),
   ...(colour ? { colour } : {}),
 });
-
-/** a seeded run of numbers, the same every time for the same piece */
-const random = (seed: number) => {
-  let n = seed >>> 0 || 1;
-  return () => {
-    n = (n * 1664525 + 1013904223) >>> 0;
-    return n / 4294967296;
-  };
-};
 
 /** the box a bay's body fills, m */
 type Bay = {
@@ -373,6 +365,29 @@ const box = (
   d: number,
   colour: string,
 ) => slab("thing", [x, y + h / 2, z], [w, h, d], colour);
+
+/** a bedside lamp, m: its foot, its stem and its linen shade, a cone
+    narrower at the top */
+const LAMP = {
+  foot: [0.07, 0.022],
+  stem: [0.009, 0.25],
+  shade: [0.12, 0.17, 0.085],
+} as const;
+const lamp = (x: number, y: number, z: number): FormPart[] => {
+  const [fr, fh] = LAMP.foot;
+  const [sr, sh] = LAMP.stem;
+  const [r, h, top] = LAMP.shade;
+  return [
+    rod("metal", [x, y + fh / 2, z], fr, fh),
+    rod("metal", [x, y + fh + sh / 2, z], sr, sh),
+    {
+      role: "thing",
+      at: [x, y + fh + sh + h / 2 - 0.03, z],
+      rod: [r, h, top],
+      colour: THINGS.cream,
+    },
+  ];
+};
 
 /** a jar: a short round thing with its lid */
 const jar = (
@@ -600,7 +615,7 @@ export function furnishesForm(i: FormInput): FurnishesForm {
 function formOf(i: FormInput): FurnishesForm {
   const [w, h, d] = i.size;
   const r = i.recipe;
-  const rnd = random(i.seed);
+  const rnd = seeded(i.seed);
   const out: FormPart[] = [];
   const books: BookRun[] = [];
   const faces: DoorFace[] = [];
@@ -980,7 +995,8 @@ function fill(
     return;
   }
   if (id === "bedside") {
-    // a book or two in the cube
+    // a lamp on the top, to the back; a book or two in the cube
+    out.push(...lamp(b.x + b.w * 0.18, top, b.z0 - b.d * 0.12));
     if (o.open)
       out.push(
         box(b.x - 0.12, shelfY(0), b.z0 + 0.02, 0.17, 0.025, 0.23, THINGS.sage),

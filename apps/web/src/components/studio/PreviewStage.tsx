@@ -2,6 +2,7 @@
 
 import { useRef, type KeyboardEvent, type PointerEvent } from "react";
 import { CheckIcon, CompareIcon, ExpandIcon, ExportIcon } from "./icons";
+import { download, photoName, saveStage } from "./download";
 import { useStudio, type WorkStep } from "./studio-store";
 
 /** what each step of a render is called, and what it counts */
@@ -22,19 +23,15 @@ const NOTE: Record<"photo" | "render", string> = {
     "The room's own light is baked in, its floor pictured and its edges resolved on this device.",
 };
 
-/** the photo on the stage's canvas saved as a PNG, named by the day */
+/** the photo saved as a PNG, named by the day: through the lens once
+    it is made, else the stage's canvas */
 const savePhoto = () => {
-  const canvas = document.querySelector<HTMLCanvasElement>(
-    ".shell-stage .stage-3d canvas",
-  );
-  canvas?.toBlob((blob) => {
-    if (!blob) return;
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `furnishes-photo-${new Date().toISOString().slice(0, 10)}.png`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  }, "image/png");
+  const lens = useStudio.getState().photo?.lens;
+  if (!lens) return saveStage(photoName());
+  void fetch(lens)
+    .then((r) => r.blob())
+    .then((blob) => download(photoName(), blob));
+  return true;
 };
 
 /** the photo alone on the screen: the panels away and the window full
@@ -191,6 +188,11 @@ export function PreviewStage() {
           }}
         >
           <div className="preview-grade" />
+          {photo?.lens && (
+            // the photo through its lens, over the canvas's pinhole one
+            // eslint-disable-next-line @next/next/no-img-element
+            <img className="preview-lens" src={photo.lens} alt="" />
+          )}
           <span className="preview-tag preview-tag-after">Rendered</span>
         </div>
         <div className="preview-divider" style={{ left: `${split}%` }}>

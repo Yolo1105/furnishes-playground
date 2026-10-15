@@ -1,5 +1,6 @@
 "use client";
 
+import { unpickable } from "./no-pick";
 import { filtered } from "./spec-aa";
 import { useEffect, useMemo, useRef } from "react";
 import {
@@ -44,6 +45,7 @@ import {
   softGeometry,
 } from "./part-geometry";
 import { shade, WOOD_M } from "./textures";
+import { type Drape, drapeGeometry } from "./drape";
 
 export type { Part } from "./part-geometry";
 
@@ -366,8 +368,6 @@ export function Mat({
   );
 }
 
-const unpickable = () => null;
-
 /** a square-edged part: a panel, a plinth, a frame member. Its own
     copy of the board's geometry, as its piece's bake gives each board
     its own place in the light's atlas */
@@ -588,6 +588,42 @@ export function Cushion({
       receiveShadow
       geometry={geometry}
     >
+      <Mat f={f} colour={toned(f.colour, toneOf(at))} banded />
+    </mesh>
+  );
+}
+
+/** cloth laid over a support (drape.ts): a throw over an arm or across
+    a bed, a duvet; `at` is the support's top, at its middle */
+export function Draped({
+  at,
+  shape,
+  f,
+}: {
+  at: Vector3Tuple;
+  shape: Drape;
+  f: Finish;
+}) {
+  const geometry = drapeGeometry(shape);
+  const mesh = useRef<Mesh>(null);
+  const { over, wide, thick } = shape;
+  // to its piece's bake, the sheet over the support's top
+  useBakeMembers(
+    () =>
+      mesh.current
+        ? [
+            {
+              kind: "solid",
+              mesh: mesh.current,
+              box: { c: [0, thick / 2, 0], h: [over / 2, thick / 2, wide / 2] },
+              shared: true,
+            },
+          ]
+        : [],
+    [geometry],
+  );
+  return (
+    <mesh ref={mesh} position={at} castShadow receiveShadow geometry={geometry}>
       <Mat f={f} colour={toned(f.colour, toneOf(at))} banded />
     </mesh>
   );

@@ -1,4 +1,5 @@
 import { BufferGeometry, Float32BufferAttribute } from "three";
+import { seeded, within } from "./seeded";
 
 /**
  * Books on a shelf as a stylist leaves them, and as one mesh: each book
@@ -106,6 +107,9 @@ export type Run = {
   deep: number;
   room: number;
   seed: number;
+  /** standing, or laid flat in a stack (shelf-style.ts); left to the
+      seed when not said */
+  lay?: "standing" | "flat" | undefined;
 };
 
 /** sizes, m: heights, thicknesses and depths a shelf's books come in */
@@ -121,16 +125,6 @@ const FLAT_SHARE = 0.25;
 /** the last book's lean, radians: 3° to 8° */
 const LEAN = [(3 * Math.PI) / 180, (8 * Math.PI) / 180] as const;
 
-const rng = (seed: number) => {
-  let n = seed >>> 0 || 1;
-  return () => {
-    n = (n * 1664525 + 1013904223) >>> 0;
-    return n / 4294967296;
-  };
-};
-const within = (r: number, [a, b]: readonly [number, number]) =>
-  a + r * (b - a);
-
 /** a spine cell for a book this thick, from its class, picked by `r` */
 const spineFor = (t: number, r: number) => {
   const cls: SpineClass = t < 0.025 ? "thin" : t < 0.042 ? "medium" : "thick";
@@ -140,7 +134,7 @@ const spineFor = (t: number, r: number) => {
 
 /** a shelf's books, laid out from its run */
 export const bookLayout = (run: Run): Book[] => {
-  const next = rng(run.seed * 7919 + 17);
+  const next = seeded(run.seed * 7919 + 17);
   const maxH = run.room - 0.015;
   if (maxH < SIZE.h[0] - 0.02 || run.bayW < 0.2 || run.deep < 0.1) return [];
   const front = run.z + run.deep / 2;
@@ -148,11 +142,15 @@ export const bookLayout = (run: Run): Book[] => {
   const books: Book[] = [];
   const pages = () => Math.floor(next() * (PAGE_CELLS - 1));
   // a stack laid flat at one end, the rest of the bay left empty
-  if (next() < FLAT_SHARE) {
+  if (run.lay ? run.lay === "flat" : next() < FLAT_SHARE) {
     const n = 2 + Math.floor(next() * 4);
     const fromLeft = next() < 0.5;
     let y = run.y;
-    let len = Math.min(run.bayW * 0.6, within(next(), [0.24, 0.3]));
+    // a stack the stylist set out spans its run; one left to the seed
+    // takes some of the bay
+    let len = run.lay
+      ? run.bayW - 2 * SIDE
+      : Math.min(run.bayW * 0.6, within(next(), [0.24, 0.3]));
     for (let i = 0; i < n && y - run.y < maxH - 0.06; i++) {
       const t = within(next(), [0.015, 0.045]);
       const d = Math.min(deepest, within(next(), SIZE.d));
@@ -177,7 +175,10 @@ export const bookLayout = (run: Run): Book[] => {
     return books;
   }
   // books standing: a run along most of the bay, in sets of a height
-  const until = run.x0 + run.bayW * within(next(), [0.55, 0.85]);
+  // a run the stylist set out (shelf-style.ts) is filled; a bay left to
+  // the books alone keeps some of its width free
+  const until =
+    run.x0 + run.bayW * (run.lay ? 1 : within(next(), [0.55, 0.85]));
   let x = run.x0 + SIDE;
   let setH = 0;
   let setLeft = 0;

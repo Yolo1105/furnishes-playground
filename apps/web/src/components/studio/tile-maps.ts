@@ -5,6 +5,7 @@ import {
   RepeatWrapping,
   SRGBColorSpace,
 } from "three";
+import { seeded } from "./seeded";
 
 /**
  * Ceramic tiles as an HDB kitchen and bathroom have them: 300 × 600 mm
@@ -56,14 +57,6 @@ const PX_PER_M = 420;
 /** how far the tile's edge rolls into the joint, m */
 const ROLL = 0.003;
 
-const rng = (seed: number) => {
-  let n = seed >>> 0 || 1;
-  return () => {
-    n = (n * 1664525 + 1013904223) >>> 0;
-    return n / 4294967296;
-  };
-};
-
 const rgb = (hex: string) => {
   const v = parseInt(hex.slice(1), 16);
   return [(v >> 16) & 255, (v >> 8) & 255, v & 255] as const;
@@ -103,7 +96,7 @@ export const tileMaps = (spec: TileSpec, seed = 1): TileMaps => {
   const c = cg.createImageData(W, H);
   const n = ng.createImageData(W, H);
   const r = rg.createImageData(W, H);
-  const next = rng(seed * 7919 + 13);
+  const next = seeded(seed * 7919 + 13);
   // each tile's own tone and gloss
   const tones = Array.from({ length: REPEAT.across * REPEAT.up }, () => ({
     tone: 1 + (next() - 0.5) * 2 * spec.spread,

@@ -1,5 +1,6 @@
 import { BufferGeometry, Float32BufferAttribute } from "three";
 import { WOOD_M } from "./surface-paint";
+import { seeded } from "./seeded";
 
 /** a curtain's cloth, m: how deep a fold stands and how wide one is
     (a drawn-back panel's, and a sheer's finer ones), how much fuller
@@ -51,11 +52,11 @@ export const curtainGeometry = (
   const across = folds * STEPS;
   // each fold a little deeper or shallower than the next, the same every
   // time for the same seed
-  let n = seed >>> 0 || 1;
-  const depthOf = Array.from({ length: folds + 1 }, () => {
-    n = (n * 1664525 + 1013904223) >>> 0;
-    return 1 + CURTAIN.uneven * ((n / 4294967296) * 2 - 1);
-  });
+  const next = seeded(seed);
+  const depthOf = Array.from(
+    { length: folds + 1 },
+    () => 1 + CURTAIN.uneven * (next() * 2 - 1),
+  );
   const pos: number[] = [];
   const uv: number[] = [];
   const index: number[] = [];

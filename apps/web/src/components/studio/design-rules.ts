@@ -65,6 +65,8 @@ const TABLE = /coffee table/i;
 const RUG = /\brug\b|carpet/i;
 const SEAT = /\bsofa|couch|settee|arm ?chair|lounge|reading chair/i;
 const LAMP = /floor lamp|standing lamp/i;
+/** a floor lamp, which By the book stands at the sofa's end */
+export const isFloorLamp = (name: string) => LAMP.test(name);
 const BED = /\bbed\b/i;
 const BEDSIDE = /bedside|night ?stand/i;
 
@@ -171,9 +173,14 @@ export const designOf = (pieces: readonly Placed[], W: number, D: number) => {
   return out;
 };
 
-/** a television's middle, mm from the floor, on a console this tall */
-export const tvCentreOn = (consoleH: number, screenH: number, foot = 60) =>
-  consoleH + foot + screenH / 2;
+/** how tall a television's stand is, mm, so its middle stands in the
+    middle of DESIGN.tvCentre on a console this tall; never under the
+    stand's own `least` */
+export const tvLift = (consoleH: number, screenH: number, least: number) =>
+  Math.max(
+    least,
+    (DESIGN.tvCentre[0] + DESIGN.tvCentre[1]) / 2 - consoleH - screenH / 2,
+  );
 
 /** where a picture's middle goes, mm from the floor: over a piece, its
     foot a hand over the piece's top; on a bare wall, at eye height */

@@ -14,6 +14,10 @@ export const WHITE = 4;
 /** the white corner's middle, as a UV */
 export const WHITE_UV = WHITE / 2 / ATLAS_SIZE;
 
+/** how far above the floor a footprint (Bake.tsx) or a rug's shadow
+    (rug.ts) lies, m */
+export const FOOT_HEIGHT = 0.0012;
+
 export const withBakeDefaults = (g: BufferGeometry) => {
   const count = g.getAttribute("position").count;
   if (!g.getAttribute("uv1"))

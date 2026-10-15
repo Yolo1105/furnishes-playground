@@ -46,10 +46,19 @@ const spanOf = (
 };
 
 describe("suggested wall items", () => {
-  it("gives a living room its picture, shelf, air-con, clock and outlets, clear of the openings and each other", () => {
+  it("gives a living room its picture, shelf, air-con, clock, outlets and TV point, clear of the openings and each other", () => {
     const items = suggestItems(living, "living");
     expect(items.map((i) => i.kind).sort()).toEqual(
-      ["aircon", "art", "clock", "outlet", "outlet", "outlet", "shelf"].sort(),
+      [
+        "aircon",
+        "art",
+        "clock",
+        "outlet",
+        "outlet",
+        "outlet",
+        "shelf",
+        "tv-point",
+      ].sort(),
     );
     for (const it of items) {
       const [p, q] = spanOf(living, it);

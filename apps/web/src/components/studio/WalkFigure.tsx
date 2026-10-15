@@ -1,5 +1,6 @@
 "use client";
 
+import { unpickable } from "./no-pick";
 import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
 import {
@@ -72,7 +73,6 @@ const TORSO = new CapsuleGeometry(BODY.torsoR, BODY.torso, 8, 18);
 const HEAD = new SphereGeometry(BODY.head, 24, 18);
 const SHADOW = new CircleGeometry(0.3, 28);
 const MARK = new RingGeometry(0.34, 0.38, 40);
-const noPick = () => null;
 
 /** where the walker stands and which way it faces (yaw, as the camera's:
     0 faces −z) */
@@ -117,7 +117,7 @@ export function WalkFigure({ at }: { at: () => FigureAt }) {
         material={FOOTPRINT}
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, 0.004, 0]}
-        raycast={noPick}
+        raycast={unpickable}
         renderOrder={1}
       />
       <mesh
@@ -125,7 +125,7 @@ export function WalkFigure({ at }: { at: () => FigureAt }) {
         material={RING}
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, 0.005, 0]}
-        raycast={noPick}
+        raycast={unpickable}
         renderOrder={1}
       />
       {[-1, 1].map((side, i) => (
@@ -140,7 +140,7 @@ export function WalkFigure({ at }: { at: () => FigureAt }) {
             geometry={LEG}
             material={FIGURE}
             position={[0, -BODY.leg / 2, 0]}
-            raycast={noPick}
+            raycast={unpickable}
           />
         </group>
       ))}
@@ -157,7 +157,7 @@ export function WalkFigure({ at }: { at: () => FigureAt }) {
             geometry={ARM}
             material={FIGURE}
             position={[0, -BODY.arm / 2, 0]}
-            raycast={noPick}
+            raycast={unpickable}
           />
         </group>
       ))}
@@ -166,7 +166,7 @@ export function WalkFigure({ at }: { at: () => FigureAt }) {
         material={FIGURE}
         position={[0, (BODY.hip + BODY.shoulder) / 2 + 0.02, 0]}
         scale={[1.1, 1, 0.72]}
-        raycast={noPick}
+        raycast={unpickable}
       />
       {/* the head on its own, a hair above the shoulders: no neck, no
           face, as a pictogram has none */}
@@ -174,7 +174,7 @@ export function WalkFigure({ at }: { at: () => FigureAt }) {
         geometry={HEAD}
         material={FIGURE}
         position={[0, BODY.headY, 0]}
-        raycast={noPick}
+        raycast={unpickable}
       />
     </group>
   );

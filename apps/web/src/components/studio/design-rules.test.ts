@@ -5,7 +5,7 @@ import {
   designOf,
   mattressTop,
   type Placed,
-  tvCentreOn,
+  tvLift,
 } from "./design-rules";
 
 const at = (
@@ -60,10 +60,12 @@ describe("a room arranged by the book", () => {
     expect(rules([bed, tall])).toContain("bedside");
   });
   it("puts a television and a picture at the heights a seated eye wants", () => {
-    // a 65-inch screen on its stand on a 500 mm console
-    const c = tvCentreOn(500, 810, 100);
+    // a 65-inch screen on a 450 mm console: its stand lifts its middle
+    // into the band; on a tall console the stand's own height holds
+    const c = 450 + tvLift(450, 810, 80) + 810 / 2;
     expect(c).toBeGreaterThanOrEqual(DESIGN.tvCentre[0]);
     expect(c).toBeLessThanOrEqual(DESIGN.tvCentre[1]);
+    expect(tvLift(900, 810, 80)).toBe(80);
     expect(artCentre(600, null)).toBe(1500);
     expect(artCentre(600, 850)).toBe(850 + 225 + 300);
   });

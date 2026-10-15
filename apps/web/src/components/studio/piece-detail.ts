@@ -240,6 +240,9 @@ export const carcassOf = (
 /** a rug lies under things; a small item (a lamp, a vase) is no obstacle */
 export const isRug = (n: Pick<AssetNode, "name">) =>
   /rug|bath mat/i.test(n.name);
+/** a plant, a small tree or a fern, by its name */
+export const isPlant = (n: Pick<AssetNode, "name">) =>
+  /plant|tree|fig|palm|fern/i.test(n.name);
 export const isSmall = (p: Pick<PieceProps, "width" | "depth">) =>
   Math.max(p.width, p.depth) < 500;
 

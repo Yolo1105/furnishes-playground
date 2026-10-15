@@ -105,6 +105,8 @@ describe("choosing by design (round 8, Part 2)", () => {
     expect(kindOf("Queen bed")).toBe("bed");
     expect(kindOf("Bedside cabinet")).toBe("cabinet");
     expect(kindOf("Dish rack")).toBe("dish-rack");
+    expect(kindOf("Kitchen tap")).toBe("tap");
+    expect(kindOf("Basin mixer")).toBe("tap");
   });
   it("sizes a stand-in item to its model, within reason", () => {
     // the room's armchair, 0.8 × 0.85 × 0.8, takes the boxy armchair's size

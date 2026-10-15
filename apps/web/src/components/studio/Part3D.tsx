@@ -1,5 +1,6 @@
 "use client";
 
+import { unpickable } from "./no-pick";
 import type { ThreeEvent } from "@react-three/fiber";
 import { useEffect, useMemo } from "react";
 import { useEvent } from "./use-event";
@@ -26,8 +27,6 @@ import { shade, WOOD_M } from "./textures";
 const EDGE_LIFT = 0.0003;
 const EDGE_OPACITY = 0.45;
 const EDGE_SHADE = -0.35;
-
-const unpickable = () => null;
 
 /** the rule a face pick turns into: the plane it lies in when it is
     flat and square to an axis, else the box round it */

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { layoutPlans } from "./room-layout";
+import { CORNER_PLANT, freeCorner, layoutPlans } from "./room-layout";
 import { defaultProps } from "./piece-detail";
 import { rulesFor } from "./room-data";
 import { WALL_MM } from "./room-geometry";
 import type { Room } from "./room-health";
-import { designOf } from "./design-rules";
+import { DESIGN, designOf } from "./design-rules";
 
 /**
  * By the book: the archetype's anchors stand where the rules say. A
@@ -133,5 +133,65 @@ describe("by the book, the living room", () => {
     });
     const advice = designOf(placed, living.W, living.D);
     expect(advice.filter((a) => a.rule.startsWith("table"))).toEqual([]);
+  });
+  it("lays the rug under the sofa's front and the table, and stands the lamp at the sofa's end", () => {
+    const group = [
+      ...items,
+      piece("rug", "Rug", 2000, 1400, 12),
+      piece("lamp", "Floor lamp", 400, 400, 1600),
+    ];
+    const ids = ["sofa", "tv", "ct", "rug", "lamp"];
+    const plan = layoutPlans(
+      group,
+      living,
+      group.map(() => ({ x: 0, y: 0 })),
+      "living",
+    ).find((p) => p.id === "book")!;
+    const placed = plan.places.map((p, i) => {
+      const it = group[i]!;
+      const turned = p.rotation % 180 !== 0;
+      return {
+        id: ids[i]!,
+        name: it.name,
+        x: p.x,
+        y: p.y,
+        w: turned ? it.depth : it.width,
+        d: turned ? it.width : it.depth,
+        h: it.height,
+      };
+    });
+    const advice = designOf(placed, living.W, living.D).map((a) => a.rule);
+    expect(advice).not.toContain("rug-size");
+    expect(advice).not.toContain("lamp");
+    // the sofa's front over the rug, the table on it, the lamp beside
+    const [sofa, , table, rug, lamp] = placed;
+    const over = (a: typeof rug, b: typeof rug) =>
+      Math.min(
+        Math.min(a!.x + a!.w, b!.x + b!.w) - Math.max(a!.x, b!.x),
+        Math.min(a!.y + a!.d, b!.y + b!.d) - Math.max(a!.y, b!.y),
+      );
+    expect(over(sofa, rug)).toBeGreaterThanOrEqual(DESIGN.onRug);
+    expect(over(table, rug)).toBeGreaterThan(0);
+    expect(over(sofa, lamp)).toBeLessThan(0);
+    expect(over(sofa, lamp)).toBeGreaterThan(-DESIGN.lampReach);
+  });
+});
+
+describe("a lived-in room's plant", () => {
+  it("stands in a free corner, clear of the pieces and the door", () => {
+    const { size, inset } = CORNER_PLANT;
+    // the door in the south wall at 600: its corner is kept clear
+    const free = freeCorner(room, [], 3)!;
+    expect(free).not.toBeNull();
+    expect(free.w).toBe(size);
+    const nearDoor = free.y > room.D / 2 && free.x < room.W / 2;
+    expect(nearDoor).toBe(false);
+    // a piece in each other corner leaves none
+    const all = [
+      { x: inset, y: inset, w: size, d: size },
+      { x: room.W - inset - size, y: inset, w: size, d: size },
+      { x: room.W - inset - size, y: room.D - inset - size, w: size, d: size },
+    ];
+    expect(freeCorner(room, all, 0)).toBeNull();
   });
 });

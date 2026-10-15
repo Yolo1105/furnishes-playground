@@ -40,13 +40,16 @@ export const blocksOf = (
   return out;
 };
 
-/** which material a face of the solid takes: the plaster on the inner
-    and outer faces, the painted reveal inside an opening (its head,
-    sill and jambs), and the cap where the solid is cut (its top, and
-    its ends where the run stops) */
+/** which material a face of the solid takes: the inner face's (plaster,
+    or a wet room's tiles), the painted reveal inside an opening (its
+    head, sill and jambs), the cap where the solid is cut (its top, and
+    its ends where the run stops), and the outer face's, apart from the
+    inner's so a wall between a bathroom and a bedroom is tiled on the
+    one side and plaster on the other */
 export const PLASTER = 0;
 export const REVEAL = 1;
 export const CAP = 2;
+export const OUTER = 3;
 
 /** how a face is shaded by where it is on the wall: a colour for a
     point `x` along the wall and `y` up it, m, laid over the plaster
@@ -154,7 +157,7 @@ export const wallTriangles = (
   joints: readonly [boolean, boolean] = [false, false],
 ) => {
   type P = [number, number, number];
-  const parts = [PLASTER, REVEAL, CAP].map(() => ({
+  const parts = [PLASTER, REVEAL, CAP, OUTER].map(() => ({
     positions: [] as number[],
     normals: [] as number[],
     uvs: [] as number[],
@@ -268,7 +271,7 @@ export const wallTriangles = (
     // the inner face, seen from inside (−z), shaded; the outer face
     // (+z) plain, or shaded too where it is another room's inside
     face(PLASTER, x0, x1, b.y0, b.y1, 0, true, true);
-    face(PLASTER, x0, x1, b.y0, b.y1, oz, false, shading?.outer === true);
+    face(OUTER, x0, x1, b.y0, b.y1, oz, false, shading?.outer === true);
     // the top, or a head: its lines along the wall alone, drawn where
     // they are the solid's outline and not where it joins the wall
     // beside at a corner

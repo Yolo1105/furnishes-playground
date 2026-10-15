@@ -5,6 +5,7 @@ import {
   cornerEnd,
   CUT_END,
   OUTER_IN,
+  OUTER,
   PLASTER,
   REVEAL,
   wallTriangles,
@@ -93,9 +94,11 @@ describe("wallTriangles", () => {
     expect(
       ownerTop.some((l) => l[0]! > 4.29 && l[3]! > 4.29 && l[2] !== l[5]),
     ).toBe(true);
-    // its end is plaster, the corner's own face, not a cut
+    // its end is plaster, the corner's own face, not a cut (with the
+    // inner face; the outer face in its own group)
     const plaster = owner.groups.find((g) => g.materialIndex === PLASTER)!;
-    expect(plaster.count).toBe(3 * 6);
+    expect(plaster.count).toBe(2 * 6);
+    expect(owner.groups.find((g) => g.materialIndex === OUTER)!.count).toBe(6);
     // the other wall stops square at the inner corner and draws no line
     // across the joint; with the owner down, its end is seen
     const other = wallTriangles(
@@ -145,12 +148,13 @@ describe("wallTriangles", () => {
     const byGroup = Object.fromEntries(
       tri.groups.map((g) => [g.materialIndex, g.count]),
     );
-    // every block has two plaster faces; the window's head and sill,
+    // every block has an inner face and an outer; the window's head and sill,
     // the two jambs beside it and the four hidden faces where the
     // sill and head blocks meet their neighbours are reveals; the three
     // tops at the wall's height, the three bottoms and the wall's two
     // ends are caps
-    expect(byGroup[PLASTER]).toBe(blocks.length * 2 * 6);
+    expect(byGroup[PLASTER]).toBe(blocks.length * 6);
+    expect(byGroup[OUTER]).toBe(blocks.length * 6);
     expect(byGroup[REVEAL]).toBe(8 * 6);
     expect(byGroup[CAP]).toBe(8 * 6);
     expect(tri.colors.length).toBe(tri.positions.length);
@@ -198,8 +202,10 @@ describe("wallTriangles", () => {
       },
     );
     const plaster = tri.groups.find((g) => g.materialIndex === PLASTER)!;
+    const outer = tri.groups.find((g) => g.materialIndex === OUTER)!;
     // the inner face in six cells, the outer face in one
-    expect(plaster.count).toBe((6 + 1) * 6);
+    expect(plaster.count).toBe(6 * 6);
+    expect(outer.count).toBe(6);
     // a corner at the top takes the shading's colour there
     const reds = [...tri.colors].filter((_, i) => i % 3 === 0);
     expect(Math.max(...reds)).toBeCloseTo(1);

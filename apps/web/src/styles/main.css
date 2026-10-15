@@ -1025,8 +1025,10 @@
 }
 
 /* a photo: the view as it stood, a picture, fills the before side, and
-   the photo on the canvas needs no grade */
-.preview-was {
+   the photo on the canvas needs no grade; the photo through its lens
+   lies over the canvas on the after side */
+.preview-was,
+.preview-lens {
   position: absolute;
   inset: 0;
   width: 100%;

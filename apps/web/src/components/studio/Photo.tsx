@@ -2,9 +2,10 @@
 
 import { useThree } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
-import { type Scene, Vector2 } from "three";
+import { type PerspectiveCamera, type Scene, Vector2 } from "three";
 import type { WebGPURenderer } from "three/webgpu";
 import { devParam } from "./dev-flags";
+import { paniniPicture } from "./panini";
 import { photoPixels, type PhotoSize } from "./photo-size";
 import type { Tier } from "./Post";
 import { type Copy, copyForExport } from "./scene-copy";
@@ -46,6 +47,8 @@ import { useStudio } from "./studio-store";
  * `window.__photoBench`.
  */
 
+/** a camera's field when it says none, degrees (three's default) */
+const DEFAULT_FOV = 50;
 /** samples per pixel by tier: a desktop's GPU takes more in the time */
 const SAMPLES: Record<Tier, number> = { desktop: 512, laptop: 64, phone: 64 };
 /** the most one bounce may bring a pixel, direct and indirect (the
@@ -168,6 +171,31 @@ const trace = (
   });
 
 /** the view as it stands, for the before side of the compare */
+/** the photo through the Panini lens (panini.ts), as a PNG's URL: the
+    last one let go when the next is made; none where the canvas cannot
+    be read back */
+let lastLens: string | null = null;
+const lensOf = async (canvas: HTMLCanvasElement, fov: number) => {
+  const c = document.createElement("canvas");
+  c.width = canvas.width;
+  c.height = canvas.height;
+  const g = c.getContext("2d");
+  if (!g || c.width === 0) return null;
+  g.drawImage(canvas, 0, 0);
+  const img = g.getImageData(0, 0, c.width, c.height);
+  img.data.set(
+    paniniPicture(img.data, c.width, c.height, (fov * Math.PI) / 180),
+  );
+  g.putImageData(img, 0, 0);
+  const blob = await new Promise<Blob | null>((done) =>
+    c.toBlob(done, "image/png"),
+  );
+  if (!blob) return null;
+  if (lastLens) URL.revokeObjectURL(lastLens);
+  lastLens = URL.createObjectURL(blob);
+  return lastLens;
+};
+
 const snapshot = (canvas: HTMLCanvasElement) =>
   canvas.toDataURL("image/jpeg", 0.9);
 
@@ -274,6 +302,12 @@ export function Photo({ tier, stamp }: { tier: Tier; stamp: string }) {
         if (stopped) return;
         const ms = Math.round(performance.now() - t0);
         setPhoto({ state: "done", ms, samples: count });
+        // the photo through the lens, shown over it and saved
+        const lens = await lensOf(
+          gl.domElement,
+          (camera as PerspectiveCamera).fov ?? DEFAULT_FOV,
+        ).catch(() => null);
+        if (!stopped && lens) setPhoto({ lens });
         console.info(
           `photo ${px.width}x${px.height}, ${count} spp, ${ms} ms, denoise ${Math.round(denoiseMs)} ms`,
         );

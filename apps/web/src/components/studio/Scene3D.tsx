@@ -1,5 +1,8 @@
 "use client";
 
+import { seedOf } from "./seed";
+import { useBackplate } from "./backplate";
+import { unpickable } from "./no-pick";
 import { toMetres } from "@furnishes/scene";
 import { WebGPURenderer } from "three/webgpu";
 import { Html, OrbitControls } from "@react-three/drei";
@@ -39,7 +42,7 @@ import {
   type SpotLight,
 } from "three";
 import { CATEGORY_NAMES, type AssetNode } from "./assets-data";
-import { Furniture3D } from "./Furniture3D";
+import { Furniture3D, Plant } from "./Furniture3D";
 import { ArrowLeftIcon, LockIcon } from "./icons";
 import { CameraMotion, SlowFrames, sharpDpr } from "./camera-motion";
 import {
@@ -67,9 +70,22 @@ import {
   isRug,
   roomItemHex,
   type PieceProps,
+  isPlant,
 } from "./piece-detail";
-import { FLOOR_TONES, WALL_TONES, type Floor, widestWindow } from "./room-data";
-import { settle, wallGaps, type Rect } from "./room-layout";
+import {
+  FLOOR_TONES,
+  WALL_TONES,
+  type Floor,
+  widestWindow,
+  WET_ROOMS,
+} from "./room-data";
+import {
+  CORNER_PLANT,
+  freeCorner,
+  settle,
+  wallGaps,
+  type Rect,
+} from "./room-layout";
 import { edgesOf, WALL_MM } from "./room-geometry";
 import type { Point } from "./room-templates";
 import {
@@ -2271,9 +2287,6 @@ function PointerWhen({ on }: { on: boolean }) {
   return null;
 }
 
-/** drawn, never picked: a halo under the pointer leaves the pick to
-    the piece */
-const unpickable = () => null;
 /** the height the halo lies at above the floor, m */
 const HALO_Y = 0.006;
 /** the halo's margin round the footprint, m, and its picture's size */
@@ -2395,6 +2408,10 @@ function FlatRoom({
   const outline = useMemo(() => footprintOf(rm), [rm]);
   const openings = useMemo(() => openingsOf(st, rm), [st, rm]);
   const shared = useMemo(() => sharedOf(st, rm), [st, rm]);
+  const wet = useMemo(
+    () => st.rooms.filter((x) => WET_ROOMS.includes(x.room)).map((x) => x.id),
+    [st.rooms],
+  );
   // what hangs on its walls: its own list, or the suggestion for it
   const items = useWallItems(rm);
   const wallShape = useMemo(
@@ -2423,6 +2440,24 @@ function FlatRoom({
   const shown = focus && !working ? [] : a.shown;
   // the pieces on the sheet, for the walk to go round
   const rectsKey = JSON.stringify(rects.map((r) => [r.x, r.y, r.w, r.d]));
+  // a lived-in room with no plant of its own has one in a free corner
+  const lived = useStudio((s) => s.scene.livedIn);
+  const corner = useMemo(
+    () =>
+      lived && !a.shown.some(isPlant)
+        ? freeCorner(
+            { W: rm.width, D: rm.depth, outline, openings },
+            (JSON.parse(rectsKey) as number[][]).map(([x, y, rw, rd]) => ({
+              x: x!,
+              y: y!,
+              w: rw!,
+              d: rd!,
+            })),
+            seedOf(rm.id),
+          )
+        : null,
+    [lived, a.shown, rm.width, rm.depth, rm.id, outline, openings, rectsKey],
+  );
   useEffect(() => {
     const boxes = (JSON.parse(rectsKey) as number[][]).map(
       ([x, y, rw, rd]) => ({
@@ -2454,6 +2489,7 @@ function FlatRoom({
             sun,
             shared,
             order: st.rooms.findIndex((x) => x.id === rm.id),
+            wet,
           }}
           // any room's floor sends the walker there: the way is found
           // through the doorways
@@ -2466,6 +2502,22 @@ function FlatRoom({
         />
       )}
       {!focus && <WallItems3D r={wallShape} items={items} shared={shared} />}
+      {!focus && corner && (
+        <group
+          position={[
+            -w / 2 + toMetres(corner.x + corner.w / 2),
+            0,
+            -d / 2 + toMetres(corner.y + corner.d / 2),
+          ]}
+        >
+          <Plant
+            w={toMetres(CORNER_PLANT.size)}
+            h={toMetres(CORNER_PLANT.h)}
+            d={toMetres(CORNER_PLANT.size)}
+            seed={seedOf(rm.id)}
+          />
+        </group>
+      )}
       <group
         ref={working?.pieces ?? null}
         userData={working ? PIECES_TAG : NO_TAG}
@@ -2581,6 +2633,7 @@ export default function Scene3D() {
   // how many listed sets are still on their way (-1 before the index
   // is read): a picture taken before they land would be taken again
   const photo = useStudio((s) => s.photo);
+  const backplate = useBackplate((s) => s.state);
   const materialsTotal = useMaterials((s) => s.listed?.length ?? 0);
   const materialsPending = useMaterials((s) =>
     s.listed === null ? -1 : s.listed.length - Object.keys(s.loaded).length,
@@ -3108,6 +3161,8 @@ export default function Scene3D() {
       data-materials={photographed}
       data-materials-pending={materialsPending}
       data-photo={photo?.state ?? "idle"}
+      data-lens={photo?.lens ? "panini" : "none"}
+      data-backplate={backplate}
       data-photo-samples={photo?.samples ?? 0}
       data-photo-ms={photo?.ms ?? 0}
       data-photo-size={photo ? `${photo.width}x${photo.height}` : ""}

@@ -1,5 +1,6 @@
 import { CanvasTexture, LinearMipmapLinearFilter, SRGBColorSpace } from "three";
 import { ATLAS, type Cell, PAGE_CELLS, pageCell, SPINE_CELLS } from "./books";
+import { seeded } from "./seeded";
 
 /**
  * The picture a shelf's books are cut from (books.ts lays out its
@@ -35,14 +36,6 @@ const CLOTHS = [
 const INKS = ["#e9e0cc", "#b8955a", "#2b2724", "#f2ece0", "#8a6a3c"] as const;
 const PAPERS = ["#efe6d0", "#f6f3ec", "#e3d3b0", "#cfc6b6"] as const;
 
-const rng = (seed: number) => {
-  let n = seed >>> 0 || 1;
-  return () => {
-    n = (n * 1664525 + 1013904223) >>> 0;
-    return n / 4294967296;
-  };
-};
-
 const mix = (a: string, b: string, t: number) => {
   const pa = parseInt(a.slice(1), 16);
   const pb = parseInt(b.slice(1), 16);
@@ -52,7 +45,7 @@ const mix = (a: string, b: string, t: number) => {
 };
 
 const spine = (g: CanvasRenderingContext2D, c: Cell, i: number) => {
-  const next = rng(i * 104729 + 7);
+  const next = seeded(i * 104729 + 7);
   const base = CLOTHS[Math.floor(next() * CLOTHS.length)]!;
   g.fillStyle = base;
   g.fillRect(c.x, c.y, c.w, c.h);
@@ -129,7 +122,7 @@ const spine = (g: CanvasRenderingContext2D, c: Cell, i: number) => {
 
 /** page edges: the leaves as fine lines along, the paper's tone */
 const pages = (g: CanvasRenderingContext2D, c: Cell, i: number) => {
-  const next = rng(i * 7907 + 3);
+  const next = seeded(i * 7907 + 3);
   g.fillStyle = PAPERS[i]!;
   g.fillRect(c.x, c.y, c.w, c.h);
   for (let y = c.y; y < c.y + c.h; y += 1) {

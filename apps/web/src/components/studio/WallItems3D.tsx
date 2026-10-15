@@ -1,5 +1,6 @@
 "use client";
 
+import { unpickable } from "./no-pick";
 import { toMetres } from "@furnishes/scene";
 import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
@@ -223,6 +224,45 @@ const partsOf = (kind: WallItemKind, seed: number): Part[] => {
         },
       ];
     }
+    case "tv-point":
+      // the plate, its coaxial socket's ring and pin, a data port
+      return [
+        { box: [w, h, d * 0.8], at: [0, 0, d * 0.4], colour: WHITE },
+        { disc: [0.011, 0.003], at: [-0.018, 0, d * 0.8], colour: "#d9d5cc" },
+        {
+          disc: [0.002, 0.004],
+          at: [-0.018, 0, d * 0.8 + 0.001],
+          colour: CHROME,
+        },
+        {
+          box: [0.016, 0.014, 0.003],
+          at: [0.02, 0, d * 0.8],
+          colour: "#d9d5cc",
+        },
+      ];
+    case "key-hook": {
+      // an oak rail, four brass hooks, a bunch of keys on one of them
+      const hooks = [-0.105, -0.035, 0.035, 0.105];
+      const keys = hooks[seed % hooks.length]!;
+      return [
+        { box: [w, h, 0.018], at: [0, 0, 0.009], colour: OAK },
+        ...hooks.flatMap((x): Part[] => [
+          { box: [0.007, 0.007, 0.028], at: [x, -0.008, 0.032], colour: BRASS },
+          { box: [0.007, 0.014, 0.007], at: [x, -0.002, 0.043], colour: BRASS },
+        ]),
+        { disc: [0.012, 0.003], at: [keys, -0.03, 0.04], colour: CHROME },
+        {
+          box: [0.016, 0.048, 0.003],
+          at: [keys - 0.006, -0.062, 0.041],
+          colour: BRASS,
+        },
+        {
+          box: [0.014, 0.042, 0.003],
+          at: [keys + 0.008, -0.058, 0.044],
+          colour: CHROME,
+        },
+      ];
+    }
     case "clock":
       return [
         { disc: [w / 2, d], at: [0, 0, d / 2], colour: INK },
@@ -422,7 +462,6 @@ const PANE = new MeshStandardMaterial({
   metalness: 0,
   depthWrite: false,
 });
-const noPick = () => null;
 const ITEM_NAME = { name: "Wall item" } as const;
 
 export function WallItems3D({
@@ -528,7 +567,7 @@ function WallItem3D({
       <mesh
         geometry={g.body}
         material={BODY}
-        raycast={noPick}
+        raycast={unpickable}
         castShadow={lit}
         receiveShadow
         userData={ITEM_NAME}
@@ -537,7 +576,7 @@ function WallItem3D({
         <mesh
           geometry={g.glass}
           material={kind === "art" ? PANE : GLASS}
-          raycast={noPick}
+          raycast={unpickable}
           userData={ITEM_NAME}
         />
       )}

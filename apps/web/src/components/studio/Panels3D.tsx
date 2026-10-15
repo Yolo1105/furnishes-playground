@@ -1,5 +1,6 @@
 "use client";
 
+import { unpickable } from "./no-pick";
 import {
   axisField,
   featureMark,
@@ -58,9 +59,6 @@ import { useStudio } from "./studio-store";
 const MARK_HEX = "#3a3129";
 
 type Axis3 = 0 | 1 | 2;
-/** what is drawn but never picked: the guide, the outline, the ball's
-    body (its wider grab takes the pointer) */
-const unpickable = () => null;
 /** a press that travels less is a click, mm */
 const CLICK_MM = 3;
 /** how far a ball floats off its face, mm */

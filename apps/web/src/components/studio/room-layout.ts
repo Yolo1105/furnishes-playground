@@ -6,6 +6,7 @@ import {
   type PieceProps,
 } from "./piece-detail";
 import { ARCHETYPES, type Placement, type Rule } from "./archetypes";
+import { DESIGN, isFloorLamp } from "./design-rules";
 import { edgesOf, rectInside, type Edge } from "./room-geometry";
 import type { Point } from "./room-templates";
 import {
@@ -523,8 +524,90 @@ const bookAnchors = (
       if (seated === 1) anchors.set(rule.name, a);
     }
   }
+  // the seating group by the designer's numbers (design-rules.ts): the
+  // rug under the coffee table with the sofa's front legs on it, and a
+  // floor lamp at the sofa's end, a little behind its front
+  const sofa = anchors.get("sofa");
+  const table = anchors.get("coffee table");
+  const free = (test: (p: Item) => boolean) =>
+    items.findIndex((p, i) => !kept[i] && !out.has(i) && test(p));
+  if (sofa && table) {
+    const i = free(isRug);
+    const rect = i >= 0 ? rugUnder(items[i]!, sofa.rect, table.rect) : null;
+    if (rect && rectInside(rect, r.outline))
+      out.set(i, {
+        x: onGrid(rect.x),
+        y: onGrid(rect.y),
+        rotation: rect.rotation,
+      });
+  }
+  if (sofa && table) {
+    const i = free((p) => isFloorLamp(p.name));
+    if (i >= 0) {
+      const p = items[i]!;
+      const f = footprint({ ...p, rotation: 0 });
+      const avoid = keepOff({ h: p.height }, r, zones);
+      const rect = lampBeside(f, sofa.rect, table.rect).find((c) =>
+        clear(c, avoid),
+      );
+      if (rect) place(i, rect, 0, null);
+    }
+  }
   return out;
 };
+
+/** how far past a sofa's front a rug reaches under it, mm: the front
+    legs on it with a grid step to spare */
+const UNDER_SOFA = DESIGN.onRug + GRID;
+/** a floor lamp's gap to the sofa's end, mm */
+const LAMP_GAP = 100;
+
+/** the rug under the coffee table and the sofa's front: its long side
+    along the sofa, centred on the table across, from under the sofa's
+    front over to the table */
+const rugUnder = (
+  p: Item,
+  sofa: Rect,
+  table: Rect,
+): (Rect & { rotation: number }) | null => {
+  const deep = Math.abs(cy(table) - cy(sofa)) >= Math.abs(cx(table) - cx(sofa));
+  // its long side along the sofa's
+  const flat = footprint({ ...p, rotation: 0 });
+  const rotation = flat.w >= flat.d === deep ? 0 : 90;
+  const f = footprint({ ...p, rotation });
+  if (deep) {
+    const down = cy(table) > cy(sofa);
+    const front = down ? sofa.y + sofa.d : sofa.y;
+    const y = down ? front - UNDER_SOFA : front + UNDER_SOFA - f.d;
+    return { x: cx(table) - f.w / 2, y, ...f, rotation };
+  }
+  const right = cx(table) > cx(sofa);
+  const front = right ? sofa.x + sofa.w : sofa.x;
+  const x = right ? front - UNDER_SOFA : front + UNDER_SOFA - f.w;
+  return { x, y: cy(table) - f.d / 2, ...f, rotation };
+};
+
+/** where a floor lamp stands at a sofa's end, a little behind its
+    front: the end away from the room's middle first */
+const lampBeside = (f: Size, sofa: Rect, table: Rect): Rect[] => {
+  const deep = Math.abs(cy(table) - cy(sofa)) >= Math.abs(cx(table) - cx(sofa));
+  if (deep) {
+    const back = cy(table) > cy(sofa) ? sofa.y : sofa.y + sofa.d - f.d;
+    return [sofa.x - LAMP_GAP - f.w, sofa.x + sofa.w + LAMP_GAP].map((x) => ({
+      x,
+      y: back,
+      ...f,
+    }));
+  }
+  const back = cx(table) > cx(sofa) ? sofa.x : sofa.x + sofa.w - f.w;
+  return [sofa.y - LAMP_GAP - f.d, sofa.y + sofa.d + LAMP_GAP].map((y) => ({
+    x: back,
+    y,
+    ...f,
+  }));
+};
+const cx = (r: Rect) => r.x + r.w / 2;
+const cy = (r: Rect) => r.y + r.d / 2;
 
 /** by the book: the archetype's anchors where the rules put them, the
     rest along the walls */
@@ -581,6 +664,53 @@ export const layoutPlans = (
       places: bookPlan(items, r, kept, room),
     },
   ];
+};
+
+/** a lived-in room's plant, when it has none: its square and height, mm,
+    how far in from the walls it stands, and the room kept clear before
+    a door (its width and a reach either side, a step in) */
+export const CORNER_PLANT = { size: 420, h: 950, inset: 120 };
+const DOOR_CLEAR = { side: 300, deep: 1000 };
+
+/** the first free corner of a room for a plant (CORNER_PLANT), from a
+    seeded start: inside the room, clear of the pieces by a hand and of
+    the floor before a door; none when every corner is taken */
+export const freeCorner = (
+  r: Pick<Room, "W" | "D" | "outline" | "openings">,
+  taken: readonly Rect[],
+  seed: number,
+): Rect | null => {
+  const { size, inset } = CORNER_PLANT;
+  const corners: Rect[] = [
+    [inset, inset],
+    [r.W - inset - size, inset],
+    [r.W - inset - size, r.D - inset - size],
+    [inset, r.D - inset - size],
+  ].map(([x, y]) => ({ x: x!, y: y!, w: size, d: size }));
+  const doors: Rect[] = r.openings
+    .filter((o) => !isWindow(o))
+    .map((o) => {
+      const c = openingCentre(r, o).centre;
+      const half = o.width / 2 + DOOR_CLEAR.side;
+      const deep = DOOR_CLEAR.deep;
+      return o.wall === "north"
+        ? { x: c - half, y: 0, w: 2 * half, d: deep }
+        : o.wall === "south"
+          ? { x: c - half, y: r.D - deep, w: 2 * half, d: deep }
+          : o.wall === "west"
+            ? { x: 0, y: c - half, w: deep, d: 2 * half }
+            : { x: r.W - deep, y: c - half, w: deep, d: 2 * half };
+    });
+  for (let k = 0; k < 4; k++) {
+    const c = corners[(seed + k) % 4]!;
+    if (
+      rectInside(c, r.outline) &&
+      !taken.some((t) => meets(grown(c, GRID), t)) &&
+      !doors.some((t) => meets(c, t))
+    )
+      return c;
+  }
+  return null;
 };
 
 /** within this of a wall a moved piece goes flush to it, mm */

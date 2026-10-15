@@ -1,5 +1,7 @@
 "use client";
 
+import { FOOT_HEIGHT } from "./bake-defaults";
+import { unpickable } from "./no-pick";
 import { devFlag } from "./dev-flags";
 import { inward, WINDOW_LIGHT } from "./window-light";
 import { seedOf } from "./seed";
@@ -7,6 +9,7 @@ import { toMetres } from "@furnishes/scene";
 import { HDRLoader } from "three/examples/jsm/loaders/HDRLoader.js";
 import {
   cameraPosition,
+  equirectUV,
   float,
   mix,
   mx_fractal_noise_float,
@@ -15,10 +18,12 @@ import {
   positionWorld,
   pow,
   smoothstep,
+  texture,
   uniform,
   vec2,
   vec3,
 } from "three/tsl";
+import { askBackplate, BACKPLATE_TURN, useBackplate } from "./backplate";
 import {
   MeshBasicNodeMaterial,
   MeshPhysicalNodeMaterial,
@@ -33,10 +38,29 @@ import {
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useEvent } from "./use-event";
 import { ARCHITRAVE, architraveFor } from "./architrave";
-import { HAND_MARKS, handMarks } from "./wear";
+import {
+  HAND_MARKS,
+  HANDLE_MARKS,
+  handMarks,
+  pathWear,
+  SCUFFS,
+  scuffs,
+  WALKWAY,
+} from "./wear";
 import { LAMP_BULB } from "./white-balance";
 import { CURTAIN, curtainGeometry } from "./curtain";
-import { cloth, type Finish, Mat, Rod, Soft, wood } from "./finish";
+import {
+  Built,
+  cloth,
+  type Finish,
+  Mat,
+  metal,
+  type Part,
+  Rod,
+  Soft,
+  wood,
+} from "./finish";
+import { tileMaps, WALL_TILE } from "./tile-maps";
 import { slabGeometry } from "./part-geometry";
 import { useRoom } from "./room-store";
 import {
@@ -46,6 +70,8 @@ import {
   EquirectangularReflectionMapping,
   FrontSide,
   type Group,
+  MeshStandardMaterial,
+  PlaneGeometry,
   type Mesh,
   type LineSegments,
   type Object3D,
@@ -69,6 +95,7 @@ import {
   blocksOf,
   CAP,
   cornerEnd,
+  OUTER,
   PLASTER,
   REVEAL,
   type Shading,
@@ -280,6 +307,10 @@ function Outside({
 }) {
   const look = evening ? OUTLOOK.evening : OUTLOOK.day;
   const invalidate = useThree((s) => s.invalidate);
+  // a photographed backplate in place of the drawn outlook, once one is
+  // installed and in (backplate.ts)
+  useEffect(() => askBackplate(evening), [evening]);
+  const backplate = useBackplate((s) => s.map);
   const sunDir = useMemo(() => uniform(new Vector3()), []);
   sunDir.value.set(...sun).normalize();
   // the export's tag, kept while nothing in it changes: fiber reads a
@@ -290,7 +321,23 @@ function Outside({
   );
   const material = useMemo(() => {
     const m = new MeshBasicNodeMaterial();
+    m.side = DoubleSide;
     const ray = positionWorld.sub(cameraPosition).normalize();
+    if (backplate) {
+      // the picture along the eye's ray, turned so its sun stands where
+      // the studio's does, as bright over the room as the drawn one
+      const c = Math.cos(BACKPLATE_TURN);
+      const s = Math.sin(BACKPLATE_TURN);
+      const turned = vec3(
+        ray.x.mul(c).sub(ray.z.mul(s)),
+        ray.y,
+        ray.x.mul(s).add(ray.z.mul(c)),
+      );
+      m.colorNode = texture(backplate, equirectUV(turned)).rgb.mul(
+        float(look.light),
+      );
+      return m;
+    }
     const up = ray.y;
     // the sky, paler towards the horizon
     const haze = smoothstep(0.6, 0, up.max(0));
@@ -344,9 +391,8 @@ function Outside({
     const below = smoothstep(0.002, -0.002, up);
     const land = mix(heavens, foliage, trees);
     m.colorNode = mix(land, ground, below).mul(float(look.light));
-    m.side = DoubleSide;
     return m;
-  }, [look, sunDir]);
+  }, [look, sunDir, backplate]);
   useEffect(() => {
     invalidate();
     return () => material.dispose();
@@ -428,6 +474,10 @@ type RoomShape = {
   /** the room's place in the flat: where two rooms' walls run on into
       each other at a corner, the earlier room's faces are drawn */
   order?: number;
+  /** the flat's rooms tiled floor to ceiling (room-data's WET_ROOMS), by
+      id: this room's walls are tiled inside when it is one, a wall it
+      shares with one is tiled on that room's side */
+  wet?: readonly string[];
 };
 type Stretch = {
   wall: Wall;
@@ -594,9 +644,6 @@ const floorShape = (
   return s;
 };
 
-/** never under the pointer */
-const noPick = () => null;
-
 /** how far a room's floor may start into its tile, across and along,
     m: a few metres, past a board's length and a tile's run */
 const TILE_SPREAD = [7.3, 5.9] as const;
@@ -736,6 +783,52 @@ const wallGeometry = (
   return { geometry: g, lines };
 };
 
+/** a tiled wall's maps (tile-maps.ts), one repeat over the stretch it
+    covers, as a wall's uvs run in metres; made once, on the first tiled
+    wall drawn */
+let wetMaps: Omit<ReturnType<typeof tileMaps>, "size"> | null = null;
+const wallTiles = () => {
+  if (wetMaps) return wetMaps;
+  const m = tileMaps(WALL_TILE);
+  const own = {
+    map: m.map.clone(),
+    normalMap: m.normalMap.clone(),
+    roughnessMap: m.roughnessMap.clone(),
+  };
+  for (const t of Object.values(own))
+    t.repeat.set(1 / m.size[0], 1 / m.size[1]);
+  wetMaps = own;
+  return own;
+};
+
+/** a wear decal's material (wear.ts): its map's grey as its alpha, in
+    its tone, a hair proud of what it lies on and never fighting it;
+    one a map, tone and strength */
+const decals = new Map<string, MeshStandardMaterial>();
+const decalOf = (map: Texture, colour: string, opacity: number) => {
+  const key = `${map.uuid}|${colour}|${opacity}`;
+  let m = decals.get(key);
+  if (!m) {
+    m = new MeshStandardMaterial({
+      color: colour,
+      alphaMap: map,
+      transparent: true,
+      opacity,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
+      roughness: 0.7,
+    });
+    decals.set(key, m);
+  }
+  return m;
+};
+/** the greys of hands and shoes on paint, and the dust a floor's wear
+    lightens to */
+const GRIME = "#5e554b";
+const WORN = "#f3ece0";
+
 /** how near, m, a wall may stand to the line from the camera to the
     room being worked on before it goes to its foot */
 const SIGHT_CLEAR = 0.5;
@@ -817,6 +910,7 @@ function WallRun({
   both = false,
   shared,
   order = 0,
+  tiled = [false, false],
 }: {
   /** the run's id among every room's walls */
   id: string;
@@ -847,6 +941,8 @@ function WallRun({
   shared?: { room: string; other: string } | undefined;
   /** the room's place in the flat (RoomShape's `order`) */
   order?: number;
+  /** its inner face and its outer face tiled (a wet room's inside) */
+  tiled?: readonly [boolean, boolean];
 }) {
   // the walls' plaster, its maps repeated by its stretch over the
   // solid's metres
@@ -903,6 +999,16 @@ function WallRun({
     },
     [variants],
   );
+  // the skirting's scuffs, their map repeating along the wall
+  const lived = useStudio((s) => s.scene.livedIn);
+  const scuffed = useMemo(() => {
+    const g = new PlaneGeometry(len, SCUFFS.tall);
+    const uv = g.getAttribute("uv");
+    for (let i = 0; i < uv.count; i++)
+      uv.setX(i, (uv.getX(i) * len) / SCUFFS.repeat);
+    return g;
+  }, [len]);
+  useEffect(() => () => scuffed.dispose(), [scuffed]);
   const fullMesh = useRef<Mesh>(null);
   const fullLines = useRef<LineSegments>(null);
   const squared = useRef("false-false");
@@ -1008,11 +1114,21 @@ function WallRun({
     polygonOffsetFactor: 1,
     polygonOffsetUnits: 1 + order,
   } as const;
-  const materials = (
-    <>
+  // a face in plaster, or tiled where it is a wet room's inside: the
+  // tiles shaded by where they are on the wall as the plaster is
+  const face = (group: number, wet: boolean) =>
+    wet ? (
       <meshStandardMaterial
         {...behind}
-        attach={`material-${PLASTER}`}
+        attach={`material-${group}`}
+        {...tileFace}
+        roughness={1}
+        vertexColors
+      />
+    ) : (
+      <meshStandardMaterial
+        {...behind}
+        attach={`material-${group}`}
         color={wallColour}
         map={plasterMaps.map}
         normalMap={devFlag("noplaster") ? null : plasterMaps.normalMap}
@@ -1021,6 +1137,11 @@ function WallRun({
         roughness={PLASTER_ROUGH}
         vertexColors
       />
+    );
+  const tileFace = tiled[0] || tiled[1] ? wallTiles() : null;
+  const materials = (
+    <>
+      {face(PLASTER, tiled[0])}
       <meshStandardMaterial
         {...behind}
         attach={`material-${REVEAL}`}
@@ -1033,6 +1154,7 @@ function WallRun({
         color={CAP_HEX}
         roughness={1}
       />
+      {face(OUTER, tiled[1])}
     </>
   );
   return (
@@ -1069,6 +1191,7 @@ function WallRun({
           receiveShadow
           castShadow
           userData={SKIRTING_NAME}
+          visible={!tiled[0]}
         >
           <primitive
             object={slabGeometry([len, SKIRTING, 0.016] as Vector3Tuple)}
@@ -1077,6 +1200,17 @@ function WallRun({
           />
           <meshStandardMaterial color={FRAME_HEX} roughness={JOINERY_ROUGH} />
         </mesh>
+        {/* the scuffs of shoes and the vacuum over the skirting, in a
+            lived-in room (wear.ts) */}
+        {lived && !tiled[0] && (
+          <mesh
+            geometry={scuffed}
+            position={[0, SKIRTING + SCUFFS.tall / 2, 0.0016]}
+            raycast={unpickable}
+            renderOrder={1}
+            material={decalOf(scuffs(), GRIME, SCUFFS.opacity)}
+          />
+        )}
         {!devFlag("nocornice") && (
           <mesh
             // its top a few mm under the wall's cut: flush with it, the
@@ -1099,7 +1233,7 @@ function WallRun({
           geometry={stub.geometry}
           position={[-len / 2, 0, 0]}
           receiveShadow
-          raycast={noPick}
+          raycast={unpickable}
         >
           {materials}
         </mesh>
@@ -1276,7 +1410,7 @@ function Curtains({
       <mesh
         geometry={geometry.sheer}
         position={[0, 0, -PANEL.sheer]}
-        raycast={noPick}
+        raycast={unpickable}
       >
         {/* the voile: the outside through it softly, and glowing with
             the window's light behind it, never a grey stripe */}
@@ -1299,7 +1433,7 @@ function Curtains({
           position={[s * (width / 2 - panel / 2 + PANEL.over), 0, 0]}
           castShadow
           receiveShadow
-          raycast={noPick}
+          raycast={unpickable}
         >
           <Mat f={cloth(CURTAIN_HEX)} banded />
         </mesh>
@@ -1430,7 +1564,7 @@ function Window({ r, o }: { r: RoomShape; o: Opening }) {
                 <mesh
                   key={`e${k}`}
                   position={[ex!, ey!, glassAt]}
-                  raycast={noPick}
+                  raycast={unpickable}
                 >
                   <planeGeometry args={[ew!, eh!]} />
                   <meshStandardMaterial
@@ -1587,6 +1721,7 @@ function Door({ r, o }: { r: RoomShape; o: Opening }) {
   const key = o.join ?? `${r.id}:${o.id}`;
   const open = useStudio((s) => !!s.doorsOpen[key]);
   const toggleDoor = useStudio((s) => s.toggleDoor);
+  const lived = useStudio((s) => s.scene.livedIn);
   const toggle = useEvent(() => toggleDoor(key));
   // shared by every doorway of the size (architrave.ts keeps them)
   const moulding = architraveFor(width, tall);
@@ -1622,6 +1757,11 @@ function Door({ r, o }: { r: RoomShape; o: Opening }) {
             onToggle={toggle}
           />
         ))}
+        {/* the flat's way in has its steel gate outside, as an HDB
+            flat's main door does */}
+        {entrance && !sliding && (
+          <Built parts={gateParts(width, tall, t, handleSide)} />
+        )}
         {/* the lining: two jambs and a head board in the reveal */}
         {[-1, 1].map((s) => (
           <mesh
@@ -1709,29 +1849,19 @@ function Door({ r, o }: { r: RoomShape; o: Opening }) {
           </mesh>
         )}
         {/* the marks of hands round the switch (wear.ts), a hair off the
-            wall, under the plate */}
-        {leaves.length > 0 && (
+            wall, under the plate, in a lived-in room */}
+        {lived && leaves.length > 0 && (
           <mesh
             position={[
               handleSide * (width / 2 + architrave + 0.1),
               1.2 - HAND_MARKS.tall * 0.08,
               0.0015,
             ]}
-            raycast={noPick}
+            raycast={unpickable}
             renderOrder={1}
+            material={decalOf(handMarks(), GRIME, HAND_MARKS.opacity)}
           >
             <planeGeometry args={[HAND_MARKS.wide, HAND_MARKS.tall]} />
-            <meshStandardMaterial
-              color="#5e554b"
-              alphaMap={handMarks()}
-              transparent
-              opacity={HAND_MARKS.opacity}
-              depthWrite={false}
-              polygonOffset
-              polygonOffsetFactor={-1}
-              polygonOffsetUnits={-1}
-              roughness={0.7}
-            />
           </mesh>
         )}
       </group>
@@ -1789,6 +1919,7 @@ function DoorLeaf({
   const room = useRoomReflection((s) => s.node);
   const k = useRef(open ? 1 : 0);
   const invalidate = useThree((s) => s.invalidate);
+  const lived = useStudio((s) => s.scene.livedIn);
   useEffect(() => invalidate(), [open, invalidate]);
   // a sliding panel runs a little in from the wall's face, clear of the
   // lining's edge there
@@ -1932,6 +2063,25 @@ function DoorLeaf({
               const out = (d: number) => at + side * d;
               return (
                 <group key={side}>
+                  {/* the marks of hands round the handle (wear.ts), on
+                      the leaf's face, in a lived-in room */}
+                  {lived && (
+                    <mesh
+                      position={[l.handle - s * 0.03, HANDLE_Y, out(0.0008)]}
+                      rotation={[0, side > 0 ? 0 : Math.PI, 0]}
+                      raycast={unpickable}
+                      renderOrder={1}
+                      material={decalOf(
+                        handMarks(),
+                        GRIME,
+                        HANDLE_MARKS.opacity,
+                      )}
+                    >
+                      <planeGeometry
+                        args={[HANDLE_MARKS.wide, HANDLE_MARKS.tall]}
+                      />
+                    </mesh>
+                  )}
                   {/* the lever: its rose, a neck out from the leaf, and
                     its grip turning back along the leaf, rounded at
                     the end */}
@@ -2007,6 +2157,76 @@ function DoorLeaf({
 /** how far a press may travel and still be a click on the floor, px */
 const CLICK_TRAVEL = 6;
 
+/** a wet room's floor trap, m: its grate's radius, how far in from the
+    walls it lies, and its slots and how far apart */
+const TRAP = { r: 0.055, in: 0.3, slots: 5, pitch: 0.016 };
+const trapParts = ([x, z]: readonly [number, number]): Part[] => {
+  const chrome = metal("#c9ced2", 0.2);
+  const dark: Finish = { colour: "#3a3936", rough: 0.8 };
+  return [
+    { f: chrome, at: [x, 0.0015, z], rod: [TRAP.r, 0.003] },
+    ...Array.from({ length: TRAP.slots }, (_, i): Part => {
+      // each slot across the grate, a little short of its rim
+      const off = (i - (TRAP.slots - 1) / 2) * TRAP.pitch;
+      return {
+        f: dark,
+        at: [x, 0.0031, z + off],
+        dims: [1.6 * Math.sqrt(TRAP.r ** 2 - off ** 2), 0.0004, 0.006],
+      };
+    }),
+  ];
+};
+
+/** an HDB flat's entrance gate, m: a steel grille outside the main
+    door, a little wider than it, its frame's tube and its bars, the bars'
+    spacing, how far it stands off the wall's outer face, its middle rail
+    and its lock box */
+const GATE = {
+  tube: 0.04,
+  bar: 0.016,
+  gap: 0.11,
+  off: 0.06,
+  rail: 1.0,
+  over: 0.06,
+  colour: "#2f2e2c",
+};
+const gateParts = (
+  width: number,
+  tall: number,
+  t: number,
+  lockSide: number,
+) => {
+  const f = metal(GATE.colour, 0.55);
+  const z = -t - GATE.off;
+  const wide = width + GATE.over;
+  const parts: Part[] = [
+    ...[-1, 1].map((s): Part => ({
+      f,
+      at: [s * (wide / 2 - GATE.tube / 2), tall / 2, z],
+      dims: [GATE.tube, tall, GATE.tube],
+    })),
+    ...[tall - GATE.tube / 2, GATE.tube, GATE.rail].map((y): Part => ({
+      f,
+      at: [0, y, z],
+      dims: [wide, GATE.tube, GATE.tube],
+    })),
+  ];
+  const inner = wide - 2 * GATE.tube;
+  const n = Math.max(2, Math.round(inner / GATE.gap));
+  for (let i = 1; i < n; i++)
+    parts.push({
+      f,
+      at: [-inner / 2 + (inner * i) / n, tall / 2, z],
+      dims: [GATE.bar, tall - 2 * GATE.tube, GATE.bar],
+    });
+  parts.push({
+    f,
+    at: [lockSide * (wide / 2 - 0.12), GATE.rail, z - GATE.tube / 2 - 0.02],
+    dims: [0.1, 0.16, 0.04],
+  });
+  return parts;
+};
+
 export function RoomShell({
   r,
   walk,
@@ -2056,7 +2276,7 @@ export function RoomShell({
   // the wall runs with their mitres and holes: read once per shape, not
   // per frame, since a wall's geometry is
   // rebuilt when these change and a rebuild asks for another frame
-  const { W, D, outline, openings, thickness, shared } = r;
+  const { W, D, outline, openings, thickness, shared, wet = [] } = r;
   const runs = useMemo(() => {
     const shape = { W, D, outline, openings };
     const mitres = mitresOf(outline, thickness);
@@ -2110,6 +2330,43 @@ export function RoomShell({
     );
     return out;
   }, [W, D, outline, openings, thickness, shared, h, r.id]);
+  // the worn ways in, one from each door, a walk's length into the room:
+  // the decal's near end (its top, which lies to −z) towards the door
+  const lived = useStudio((s) => s.scene.livedIn);
+  const ways = useMemo(
+    () =>
+      openings
+        .filter((o) => !isWindow(o))
+        .map((o) => {
+          const [nx, nz] = inward(o.wall);
+          const along = o.wall === "north" || o.wall === "south";
+          const c = toMetres(openingCentre({ W, D, outline }, o).centre);
+          const x0 = along ? c - w / 2 : (-nx * w) / 2;
+          const z0 = along ? (-nz * d) / 2 : c - d / 2;
+          return {
+            at: [
+              x0 + (nx * WALKWAY.long) / 2,
+              z0 + (nz * WALKWAY.long) / 2,
+            ] as const,
+            yaw: Math.atan2(nx, nz),
+          };
+        }),
+    [openings, W, D, outline, w, d],
+  );
+  // a wet room's floor trap: in the corner across from its door, where
+  // the shower stands
+  const trap = useMemo(() => {
+    if (!wet.includes(r.id)) return null;
+    const door = openings.find((o) => !isWindow(o));
+    if (!door) return null;
+    const [nx, nz] = inward(door.wall);
+    const along = door.wall === "north" || door.wall === "south";
+    const c = openingCentre({ W, D, outline }, door).centre;
+    const side = c > (along ? W : D) / 2 ? -1 : 1;
+    const x = along ? side * (w / 2 - TRAP.in) : nx * (w / 2 - TRAP.in);
+    const z = along ? nz * (d / 2 - TRAP.in) : side * (d / 2 - TRAP.in);
+    return [x, z] as const;
+  }, [wet, r.id, openings, W, D, outline, w, d]);
   const onFloorClick = useEvent((e: ThreeEvent<MouseEvent>) => {
     // a drag that looked round and let go over the floor is not a step,
     // nor a tap
@@ -2167,9 +2424,31 @@ export function RoomShell({
             both={both}
             shared={other ? { room: r.id, other } : undefined}
             order={r.order ?? 0}
+            tiled={[
+              wet.includes(r.id),
+              other !== undefined && wet.includes(other),
+            ]}
           />
         ),
       )}
+      {trap && <Built parts={trapParts(trap)} />}
+      {lived &&
+        ways.map(({ at, yaw }, i) => (
+          <group
+            key={i}
+            position={[at[0], FOOT_HEIGHT / 2, at[1]]}
+            rotation={[0, yaw, 0]}
+          >
+            <mesh
+              rotation={[-Math.PI / 2, 0, 0]}
+              raycast={unpickable}
+              renderOrder={1}
+              material={decalOf(pathWear(), WORN, WALKWAY.opacity)}
+            >
+              <planeGeometry args={[WALKWAY.wide, WALKWAY.long]} />
+            </mesh>
+          </group>
+        ))}
       {/* the sun's stop: the ceiling as the sun's shadow alone sees it
           (its own layer, never the camera's), so the sun comes in by
           the openings and not over the open top */}
@@ -2178,7 +2457,7 @@ export function RoomShell({
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, h - 0.001, 0]}
         castShadow
-        raycast={noPick}
+        raycast={unpickable}
         userData={SUN_STOP_NAME}
       >
         <shapeGeometry args={[shape]} />
@@ -2214,7 +2493,7 @@ export function RoomShell({
           facing down and out, so an overhead view does not see them */}
       <mesh
         position={[lampAt[0], h - LAMP.drop / 2, lampAt[1]]}
-        raycast={noPick}
+        raycast={unpickable}
       >
         <cylinderGeometry
           args={[
@@ -2238,7 +2517,7 @@ export function RoomShell({
           h - LAMP.drop + LAMP.dome.r * Math.cos(LAMP.dome.cap),
           lampAt[1],
         ]}
-        raycast={noPick}
+        raycast={unpickable}
       >
         <sphereGeometry
           args={[

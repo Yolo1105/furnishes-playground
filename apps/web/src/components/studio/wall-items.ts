@@ -1,3 +1,4 @@
+import { artCentre } from "./design-rules";
 import { useMemo } from "react";
 import { footprint } from "./piece-detail";
 import type { Opening, RoomId, Wall } from "./room-data";
@@ -38,7 +39,9 @@ export type WallItemKind =
   | "towel-rail"
   | "mirror-cabinet"
   | "water-heater"
-  | "drying-rack";
+  | "drying-rack"
+  | "tv-point"
+  | "key-hook";
 
 export type WallItem = {
   id: string;
@@ -96,12 +99,23 @@ export const WALL_ITEMS: Record<
     depth: 520,
     y: 2150,
   },
+  "tv-point": { label: "TV point", width: 86, height: 86, depth: 12, y: 300 },
+  "key-hook": { label: "Key hook", width: 300, height: 70, depth: 45, y: 1450 },
 };
 export const WALL_ITEM_KINDS = Object.keys(WALL_ITEMS) as WallItemKind[];
 
 /** what a room of each kind has on its walls, the larger first */
 const SUGGESTED: Record<RoomId, WallItemKind[]> = {
-  living: ["art", "shelf", "aircon", "clock", "outlet", "outlet", "outlet"],
+  living: [
+    "art",
+    "shelf",
+    "aircon",
+    "clock",
+    "outlet",
+    "outlet",
+    "outlet",
+    "tv-point",
+  ],
   master: ["art", "mirror", "aircon", "outlet", "outlet"],
   "bedroom-1": ["art", "aircon", "outlet", "outlet"],
   "bedroom-2": ["art", "shelf", "aircon", "outlet", "outlet"],
@@ -109,10 +123,13 @@ const SUGGESTED: Record<RoomId, WallItemKind[]> = {
   kitchen: ["clock", "outlet", "outlet"],
   bathroom: ["mirror-cabinet", "towel-rail", "water-heater"],
   ensuite: ["mirror-cabinet", "towel-rail", "water-heater"],
-  hall: ["mirror", "outlet"],
+  hall: ["mirror", "key-hook", "outlet"],
   shelter: ["outlet"],
   yard: ["drying-rack", "outlet"],
 };
+/** the plates low on a wall, behind the furniture, near a stretch's
+    end: a power outlet and a TV point */
+const LOW: readonly WallItemKind[] = ["outlet", "tv-point"];
 /** a kitchen's and a yard's outlets stand over the worktop */
 const OUTLET_HIGH: RoomId[] = ["kitchen", "yard"];
 const OUTLET_HIGH_Y = 1150;
@@ -175,11 +192,11 @@ export const suggestItems = (
       .get(o.wall)!
       .push([c.centre - o.width / 2 - CLEAR, c.centre + o.width / 2 + CLEAR]);
   }
-  /** where a piece stands against a wall, below `top`, along it */
-  const against = (w: Wall, bottom: number): Span[] => {
+  /** the pieces standing against a wall: each its stretch along it
+      (with room round it) and its height */
+  const standing = (w: Wall) => {
     const s = spans.get(w)!;
     return blockers
-      .filter((b) => b.h > bottom)
       .filter((b) =>
         w === "north"
           ? b.y - s.at < AGAINST
@@ -189,12 +206,18 @@ export const suggestItems = (
               ? b.x - s.at < AGAINST
               : s.at - (b.x + b.w) < AGAINST,
       )
-      .map((b) =>
-        along(w)
+      .map((b) => ({
+        span: along(w)
           ? ([b.x - CLEAR, b.x + b.w + CLEAR] as const)
           : ([b.y - CLEAR, b.y + b.d + CLEAR] as const),
-      );
+        h: b.h,
+      }));
   };
+  /** where a piece taller than `bottom` stands against a wall, along it */
+  const against = (w: Wall, bottom: number): Span[] =>
+    standing(w)
+      .filter((p) => p.h > bottom)
+      .map((p) => p.span);
   const out: WallItem[] = [];
   const used = new Map<Wall, number>(walls.map((w) => [w, 0]));
   const kinds = SUGGESTED[room] ?? [];
@@ -209,7 +232,7 @@ export const suggestItems = (
       return free(s.from + CLEAR, s.to - CLEAR, [
         ...taken.get(w)!,
         // an outlet stands low behind furniture, as outlets do
-        ...(kind === "outlet" ? [] : against(w, bottom)),
+        ...(LOW.includes(kind) ? [] : against(w, bottom)),
       ])
         .filter(([p, q]) => q - p >= spec.width)
         .map(([p, q]) => ({ w, p, q }));
@@ -217,7 +240,7 @@ export const suggestItems = (
     if (stretches.length === 0) return;
     let pick: (typeof stretches)[number];
     let centre: number;
-    if (kind === "outlet") {
+    if (LOW.includes(kind)) {
       // an outlet near the end of a stretch, on the wall with the fewest
       // outlets yet, the longest stretch first
       pick = [...stretches].sort(
@@ -239,12 +262,23 @@ export const suggestItems = (
     taken
       .get(pick.w)!
       .push([centre - spec.width / 2 - CLEAR, centre + spec.width / 2 + CLEAR]);
+    // a picture over the piece standing under it, its foot a hand over
+    // the piece's top; on a bare wall, at eye height (design-rules.ts)
+    const under =
+      kind === "art"
+        ? (standing(pick.w).find(
+            ({ span }) =>
+              span[0] + CLEAR < centre + spec.width / 2 &&
+              centre - spec.width / 2 < span[1] - CLEAR,
+          )?.h ?? null)
+        : null;
+    const high = kind === "art" ? Math.round(artCentre(spec.height, under)) : y;
     out.push({
       id: `${kind}-${pick.w}-${i}`,
       kind,
       wall: pick.w,
       at: Math.round(centre),
-      ...(y !== spec.y ? { y } : {}),
+      ...(high !== spec.y ? { y: high } : {}),
     });
   });
   return out;

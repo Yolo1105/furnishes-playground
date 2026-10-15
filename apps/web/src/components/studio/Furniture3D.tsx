@@ -1,5 +1,6 @@
 "use client";
 
+import { unpickable } from "./no-pick";
 import { edgeLine } from "./edge-line";
 import { useGLTF } from "@react-three/drei";
 import { type ThreeEvent, useFrame, useThree } from "@react-three/fiber";
@@ -58,14 +59,20 @@ import {
   isRug,
   LIGHT_WOOD_HEX,
   ROOM_ITEM_HEX,
+  isPlant,
 } from "./piece-detail";
 import { spineAtlas } from "./book-spines";
-import { bookLayout, booksGeometry } from "./books";
+import { bookLayout, booksGeometry, type Run } from "./books";
+import { dressShelves, type ShelfObject } from "./shelf-style";
+import { plantLeaves, shelfObjectsGeometry } from "./shelf-objects";
+import type { Drape } from "./drape";
 import { shade } from "./textures";
+import { tvLift } from "./design-rules";
 import { type FormPart, furnishesForm, type Role } from "./furnishes-forms";
 import {
   cloth,
   Cushion,
+  Draped,
   type Finish,
   finishOf,
   Mat,
@@ -83,6 +90,9 @@ import { slabGeometry } from "./part-geometry";
 import { Panels3D } from "./Panels3D";
 import {
   BedTouches,
+  ChairClothes,
+  clothesOn,
+  TvCable,
   chairPose,
   LampCord,
   SeatTouches,
@@ -91,8 +101,10 @@ import {
 import { boxRaycast, budgetModel } from "./model-budget";
 import { BakeScope, useBakeMembers } from "./Bake";
 import { withBakeDefaults } from "./bake-defaults";
-import { bakedOcclusion } from "./lightmap-nodes";
+import { bakedOcclusion, CONTACT } from "./lightmap-nodes";
+import { RUG_H, rugContactGeometry, rugGeometry } from "./rug";
 import { MeshStandardNodeMaterial } from "three/webgpu";
+import { attribute, float, normalView, positionViewDirection } from "three/tsl";
 import { useStudio } from "./studio-store";
 import { useMaterial } from "./materials";
 import { LAMP_BULB } from "./white-balance";
@@ -672,8 +684,6 @@ export function Furniture3D(p: Props) {
   );
 }
 
-const unpickable = () => null;
-
 /** the box's twelve edges, a hair outside the piece, as the one-pixel
     lines the renderer draws */
 function Outline({
@@ -824,7 +834,12 @@ function Form(p: Props) {
       <Bed w={w} h={h} d={d} colour={p.colour} seed={lived ? seed : null} />
     );
   if (/tv console|media console/.test(name))
-    return <MediaConsole w={w} h={h} d={d} f={own} />;
+    return (
+      <group>
+        <MediaConsole w={w} h={h} d={d} f={own} />
+        {lived && <TvCable w={w} h={h} d={d} seed={seed} />}
+      </group>
+    );
   // a wardrobe is a carcass of two tall doors
   if (/wardrobe/.test(name))
     return (
@@ -869,7 +884,14 @@ function Form(p: Props) {
     case "seating":
       if (/stool/.test(name)) return <Stool w={w} h={h} d={d} />;
       if (/\bchair\b/.test(name)) {
-        const chair = <Chair w={w} h={h} d={d} colour={p.colour} />;
+        const chair = (
+          <group>
+            <Chair w={w} h={h} d={d} colour={p.colour} />
+            {lived && clothesOn(seed) && (
+              <ChairClothes w={w} h={h} d={d} back={CHAIR_BACK} seed={seed} />
+            )}
+          </group>
+        );
         if (!lived || !/dining/.test(name)) return chair;
         // a dining chair left pulled out and turned a little
         const pose = chairPose(seed);
@@ -922,8 +944,7 @@ function Form(p: Props) {
     default: {
       if (isRug({ name })) return <Rug w={w} d={d} colour={p.colour} />;
       if (/vase|jug|bottle/.test(name)) return <Vase w={w} h={h} d={d} />;
-      if (/plant|tree|fig|palm|fern/.test(name))
-        return <Plant w={w} h={h} d={d} seed={seed} />;
+      if (isPlant({ name })) return <Plant w={w} h={h} d={d} seed={seed} />;
       return <Soft f={cloth(p.colour)} at={[0, h / 2, 0]} dims={[w, h, d]} />;
     }
   }
@@ -1074,6 +1095,18 @@ function Carcass({
           rotation: [Math.PI / 2, 0, 0],
         });
   });
+  // each open bay's shelves, from the bottom up, for the stylist
+  const shelfRuns: Run[] = bays.flatMap((_, i) =>
+    [PLINTH + PANEL, ...rows].map((y, k) => ({
+      x0: -w / 2 + PANEL + i * (bayW + PANEL),
+      y: y + PANEL / 2,
+      bayW,
+      z: -d * 0.08,
+      deep: d * 0.7,
+      room: (k < rows.length ? rows[k]! : h - PANEL) - y - PANEL,
+      seed: seed + i * 13 + k * 7,
+    })),
+  );
   return (
     <group>
       <Built parts={parts} />
@@ -1091,22 +1124,10 @@ function Carcass({
                 />
               </Suspense>
             )}
-            {books &&
-              !doors &&
-              [PLINTH + PANEL, ...rows].map((y, k) => (
-                <Books
-                  key={k}
-                  x0={x0}
-                  y={y + PANEL / 2}
-                  bayW={bayW}
-                  depth={d}
-                  room={(k < rows.length ? rows[k]! : h - PANEL) - y - PANEL}
-                  seed={seed + i * 13 + k * 7}
-                />
-              ))}
           </group>
         );
       })}
+      {books && !doors && <Shelves runs={shelfRuns} seed={seed} />}
     </group>
   );
 }
@@ -1200,9 +1221,7 @@ function FurnishesPiece({
   return (
     <group>
       <Built parts={parts} />
-      {form.books.map((b, k) => (
-        <Books key={k} {...b} />
-      ))}
+      <Shelves runs={form.books} seed={seed} />
       {f.mirror &&
         form.doors.map((o, k) => (
           <Suspense key={k} fallback={null}>
@@ -1213,39 +1232,95 @@ function FurnishesPiece({
   );
 }
 
-/** a shelf's books as one mesh (books.ts lays them out as a stylist
-    leaves them, their spines, covers and page edges cut from one
-    painted picture, book-spines.ts), so a shelf costs one draw and not
-    two a book (a bookwall's books were a third of a furnished flat's
-    draws) */
+/**
+ * A piece's open shelves as a stylist leaves them (shelf-style.ts, round
+ * 8 Part 4): groups of one, three or five things, books standing or laid
+ * flat with a vase, a small plant or a box, and about one shelf in three
+ * left bare. A piece shown alone (Detail's "Show alone") stands as the
+ * product it is, its shelves bare.
+ */
+function Shelves({ runs, seed }: { runs: readonly Run[]; seed: number }) {
+  const alone = useStudio((s) => s.focusId !== null);
+  // read again only when the runs change, not on every draw of the piece
+  const key = JSON.stringify(runs);
+  const dressed = useMemo(
+    () => dressShelves(JSON.parse(key) as Run[], seed),
+    [key, seed],
+  );
+  if (alone) return null;
+  return dressed.map((d, i) => (
+    <group key={i}>
+      {d.books.map((b, k) => (
+        <Books key={k} {...b} />
+      ))}
+      {d.objects.length > 0 && <ShelfObjects objects={d.objects} />}
+    </group>
+  ));
+}
+
+/** a shelf's objects as one mesh (shelf-objects.ts), standing in the
+    piece's bake as each one's box, so the shelf darkens round them */
+function ShelfObjects({ objects }: { objects: readonly ShelfObject[] }) {
+  const geometry = useMemo(() => {
+    const g = shelfObjectsGeometry(objects);
+    return g && withBakeDefaults(g);
+  }, [objects]);
+  useEffect(() => () => geometry?.dispose(), [geometry]);
+  const mesh = useRef<Mesh>(null);
+  useBakeMembers(() => {
+    if (!mesh.current || !geometry) return [];
+    const m = mesh.current;
+    return objects.map((o) => ({
+      kind: "solid" as const,
+      mesh: m,
+      box: {
+        c: [o.x, o.y + o.h / 2, o.z] as [number, number, number],
+        h: [o.w * 0.4, o.h * 0.45, o.d * 0.4] as [number, number, number],
+      },
+      shared: false,
+      points: false,
+    }));
+  }, [geometry]);
+  if (!geometry) return null;
+  return (
+    <mesh ref={mesh} geometry={geometry} castShadow receiveShadow>
+      <primitive object={paintedMaterial()} attach="material" dispose={null} />
+    </mesh>
+  );
+}
+
+/** the painted things' one material (shelf-objects.ts): each vertex's
+    own colour and roughness, the piece's baked light on them, and a
+    leaf's thin edges lit through, as light comes through a leaf seen
+    edge on */
+let painted: MeshStandardNodeMaterial | null = null;
+const LEAF_GLOW = 0.18;
+const paintedMaterial = () => {
+  if (painted) return painted;
+  painted = new MeshStandardNodeMaterial({ vertexColors: true });
+  painted.roughnessNode = attribute("rough", "float");
+  painted.aoNode = bakedOcclusion;
+  const edgeOn = float(1).sub(normalView.dot(positionViewDirection).abs());
+  painted.emissiveNode = attribute("color", "vec3")
+    .mul(attribute("leaf", "float"))
+    .mul(edgeOn.mul(edgeOn))
+    .mul(LEAF_GLOW);
+  return painted;
+};
+
 /** cloth and paper bindings, matt */
 const BOOK_ROUGH = 0.8;
 
-function Books({
-  x0,
-  y,
-  bayW,
-  depth,
-  z = -(depth ?? 0) * 0.08,
-  deep = (depth ?? 0) * 0.7,
-  room,
-  seed,
-}: {
-  x0: number;
-  y: number;
-  bayW: number;
-  /** the shelf's depth: the books a little back of its middle */
-  depth?: number;
-  /** or where they stand in depth, and how deep they are */
-  z?: number;
-  deep?: number;
-  room: number;
-  seed: number;
-}) {
+/** a shelf's run of books as one mesh (books.ts lays them out as a
+    stylist leaves them, their spines, covers and page edges cut from one
+    painted picture, book-spines.ts), so a run costs one draw and not two
+    a book (a bookwall's books were a third of a furnished flat's draws) */
+function Books(run: Run) {
+  const key = JSON.stringify(run);
   const geometry = useMemo(() => {
-    const g = booksGeometry(bookLayout({ x0, y, bayW, z, deep, room, seed }));
+    const g = booksGeometry(bookLayout(JSON.parse(key) as Run));
     return g && withBakeDefaults(g);
-  }, [x0, y, bayW, z, deep, room, seed]);
+  }, [key]);
   useEffect(() => () => geometry?.dispose(), [geometry]);
   // to the piece's bake, the books as one block, a little inside their
   // run (their heights differ), their vertices taking its light
@@ -1478,6 +1553,8 @@ function Seat({
           w={w}
           d={d}
           seatTop={LEG + baseH + 0.14}
+          armTop={LEG + baseH + 0.28}
+          armRound={SEAT.arm}
           arm={arm}
           back={back + 0.16}
           seats={seats}
@@ -1750,7 +1827,7 @@ function Lamp({
   );
 }
 
-function Plant({
+export function Plant({
   w,
   h,
   d,
@@ -1763,7 +1840,11 @@ function Plant({
 }) {
   const r = Math.min(w, d) / 2;
   const potH = h * 0.36;
-  const leaves = 9;
+  const foliage = useMemo(
+    () => plantLeaves(r, potH, h, FOLIAGE_HEX, seed),
+    [r, potH, h, seed],
+  );
+  useEffect(() => () => foliage.dispose(), [foliage]);
   return (
     <group>
       <Rod
@@ -1785,26 +1866,10 @@ function Plant({
         r={0.012}
         h={(h - potH) * 0.7}
       />
-      {Array.from({ length: leaves }, (_, i) => {
-        const a = (i / leaves) * Math.PI * 2 + (seed % 7) * 0.3;
-        const lift = potH + (h - potH) * (0.45 + ((i * 37 + seed) % 10) / 22);
-        const len = r * (0.9 + ((i * 11 + seed) % 5) / 10);
-        return (
-          <mesh
-            key={i}
-            position={[Math.cos(a) * len * 0.5, lift, Math.sin(a) * len * 0.5]}
-            rotation={[0.35 + ((i * 5) % 3) * 0.12, -a, 0]}
-            scale={[len * 0.42, r * 0.16, len]}
-            castShadow
-          >
-            <sphereGeometry args={[0.5, 10, 8]} />
-            <meshStandardMaterial
-              color={shade(FOLIAGE_HEX, (((i * 3 + seed) % 5) - 2) * 0.03)}
-              roughness={0.85}
-            />
-          </mesh>
-        );
-      })}
+      {/* the leaves, one solid painted as the shelves' things are
+          (shelf-objects.ts), their undersides darker, their edges lit
+          through */}
+      <mesh geometry={foliage} material={paintedMaterial()} castShadow />
     </group>
   );
 }
@@ -1829,35 +1894,34 @@ function Vase({ w, h, d }: { w: number; h: number; d: number }) {
 }
 
 function Rug({ w, d, colour }: { w: number; d: number; colour: string }) {
-  const edge = 0.09;
-  const f = cloth(colour);
-  const border = cloth(shade(colour, -0.12));
+  const geometry = rugGeometry(w, d, seedOf(`${w},${d},${colour}`));
+  const contact = useMemo(() => rugContactGeometry(w, d), [w, d]);
+  useEffect(() => () => contact.dispose(), [contact]);
+  const mesh = useRef<Mesh>(null);
+  useBakeMembers(
+    () =>
+      mesh.current
+        ? [
+            {
+              kind: "solid",
+              mesh: mesh.current,
+              box: { c: [0, RUG_H / 2, 0], h: [w / 2, RUG_H / 2, d / 2] },
+              shared: true,
+            },
+          ]
+        : [],
+    [geometry],
+  );
   return (
     <group>
-      <Soft f={f} at={[0, 0.006, 0]} dims={[w, 0.012, d]} radius={0.004} />
-      <Built
-        parts={[
-          {
-            f: border,
-            at: [0, 0.0135, -d / 2 + edge / 2],
-            dims: [w, 0.003, edge],
-          },
-          {
-            f: border,
-            at: [0, 0.0135, d / 2 - edge / 2],
-            dims: [w, 0.003, edge],
-          },
-          {
-            f: border,
-            at: [-w / 2 + edge / 2, 0.0135, 0],
-            dims: [edge, 0.003, d],
-          },
-          {
-            f: border,
-            at: [w / 2 - edge / 2, 0.0135, 0],
-            dims: [edge, 0.003, d],
-          },
-        ]}
+      <mesh ref={mesh} geometry={geometry} receiveShadow>
+        <Mat f={cloth(colour)} banded />
+      </mesh>
+      <mesh
+        geometry={contact}
+        material={CONTACT}
+        renderOrder={1}
+        raycast={unpickable}
       />
     </group>
   );
@@ -1882,6 +1946,10 @@ const KITCHEN = {
   spout: 0.18,
   hood: { wide: 0.6, tall: 0.04 },
 };
+
+/** a dish rack by the sink, m: how far along from the sink's middle,
+    its tray's width and depth, and its plates' radius */
+const DISH_RACK = { off: 0.48, wide: 0.36, deep: 0.28, plate: 0.11 };
 
 /** the things that stand on a kitchen's worktop: a kettle beside the
     hob, a chopping board leaning on the splashback, three jars in a
@@ -1926,6 +1994,38 @@ const worktopThings = (
       dims: [0.38, 0.28, 0.018],
       rotation: [-0.12, 0, 0],
     });
+  // the dish rack on the sink's drainer side, away from the board: a
+  // tray, its wire rails, three plates on edge and a cup
+  const rack = sinkX + DISH_RACK.off;
+  if (free(rack, DISH_RACK.wide / 2)) {
+    const z = back + 0.2;
+    const wire = metal("#c9ced2", 0.3);
+    const plate: Finish = { colour: "#eeeae2", rough: 0.3, coat: 0.3 };
+    out.push(
+      {
+        f: { colour: "#d9d8d4", rough: 0.45 },
+        at: [rack, top + 0.006, z],
+        dims: [DISH_RACK.wide, 0.012, DISH_RACK.deep],
+      },
+      ...[-1, 1].map((s): Part => ({
+        f: wire,
+        at: [rack, top + 0.07, z + (s * DISH_RACK.deep) / 2.4],
+        rod: [0.0025, DISH_RACK.wide],
+        rotation: [0, 0, Math.PI / 2],
+      })),
+      ...[-0.1, -0.04, 0.02].map((dx, i): Part => ({
+        f: plate,
+        at: [rack + dx, top + 0.012 + DISH_RACK.plate, z],
+        rod: [DISH_RACK.plate, 0.012],
+        rotation: [Math.PI / 2, 0, (i - 1) * 0.08],
+      })),
+      {
+        f: plate,
+        at: [rack + 0.12, top + 0.052, z],
+        rod: [0.036, 0.08],
+      },
+    );
+  }
   const jars = (hobX + sinkX) / 2;
   if (free(jars, 0.16))
     [-0.1, 0, 0.1].forEach((dx, i) =>
@@ -2276,6 +2376,8 @@ function Stool({ w, h, d }: { w: number; h: number; d: number }) {
 }
 
 /** a dining chair: a seat on four legs with a back */
+/** a chair's back board, m thick */
+const CHAIR_BACK = 0.025;
 function Chair({
   w,
   h,
@@ -2313,7 +2415,7 @@ function Chair({
           {
             f,
             at: [0, seatH + (h - seatH) / 2, -d / 2 + 0.02],
-            dims: [w - 0.04, h - seatH, 0.025],
+            dims: [w - 0.04, h - seatH, CHAIR_BACK],
           },
         ]}
       />
@@ -2321,6 +2423,18 @@ function Chair({
   );
 }
 
+/** a duvet, m: how far it falls down the mattress's sides, the
+    mattress's edge's round, its thickness, its puff and how far in from
+    its ends the puff falls away, and its folds */
+const DUVET = {
+  fall: 0.2,
+  round: 0.04,
+  thick: 0.035,
+  puff: 0.03,
+  ends: 0.12,
+  folds: 5,
+  depth: 0.012,
+};
 function Bed({
   w,
   h,
@@ -2339,6 +2453,15 @@ function Bed({
   const mattress = Math.min(0.22, h - base);
   const linen = cloth(shade(colour, 0.06));
   const pw = (w - 0.2) / 2;
+  // the duvet over the mattress, down its sides, from below the
+  // pillows to near the foot
+  const duvet: Drape = {
+    ...DUVET,
+    over: w - 0.04,
+    wide: d * 0.62,
+    hang: [Math.min(DUVET.fall, mattress), Math.min(DUVET.fall, mattress)],
+    seed: seed ?? 0,
+  };
   return (
     <group>
       {/* the frame in the light wood the room's tables and the bunk
@@ -2369,14 +2492,18 @@ function Bed({
           radius={0.05}
         />
       ))}
-      <Soft
+      <Draped
         f={cloth(shade(colour, -0.04))}
-        at={[0, base + mattress + 0.045, d * 0.17]}
-        dims={[w - 0.02, 0.09, d * 0.62]}
-        radius={0.04}
+        at={[0, base + mattress, d * 0.17]}
+        shape={duvet}
       />
       {seed !== null && (
-        <BedTouches w={w} d={d} top={base + mattress + 0.09} seed={seed} />
+        <BedTouches
+          duvet={duvet}
+          top={base + mattress}
+          at={d / 2 - 0.4}
+          seed={seed}
+        />
       )}
     </group>
   );
@@ -2527,6 +2654,9 @@ function MediaConsole({
 }) {
   const tvW = Math.min(1.45, w * 0.8);
   const tvH = tvW * 0.57;
+  // the stand tall enough that the screen's middle is at a seated eye
+  // (design-rules.ts), m
+  const lift = tvLift(h * 1000, tvH * 1000, TV.lift * 1000) / 1000;
   // a carcass of three bays on a set-back plinth: two doors set in
   // with a reveal round them, the middle bay open for the boxes; its
   // back stands in from the back edge, as a cabinet maker fits it
@@ -2578,7 +2708,11 @@ function MediaConsole({
     ]),
     // the television's foot
     { f: metal(IRON), at: [0, h + 0.01, -d * 0.1], dims: [0.36, 0.02, 0.2] },
-    { f: metal(IRON), at: [0, h + 0.05, -d * 0.12], dims: [0.06, 0.08, 0.03] },
+    {
+      f: metal(IRON),
+      at: [0, h + 0.01 + lift / 2, -d * 0.12],
+      dims: [0.06, lift, 0.03],
+    },
   ];
   return (
     <group>
@@ -2588,13 +2722,13 @@ function MediaConsole({
           finish.tsx) */}
       <Slab
         f={metal(TV_BEZEL, 0.38)}
-        at={[0, h + TV.lift + tvH / 2, -d * 0.12]}
+        at={[0, h + lift + tvH / 2, -d * 0.12]}
         dims={[tvW, tvH, TV.depth]}
       />
       {/* the glass laid on the body's front, a hair proud of it */}
       <Slab
         f={{ colour: TV_GLASS, rough: 0.05, coat: 1 }}
-        at={[0, h + TV.lift + tvH / 2, -d * 0.12 + (TV.depth + TV.glass) / 2]}
+        at={[0, h + lift + tvH / 2, -d * 0.12 + (TV.depth + TV.glass) / 2]}
         dims={[tvW - 2 * TV.rim, tvH - 2 * TV.rim, TV.glass]}
       />
     </group>

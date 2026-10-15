@@ -178,6 +178,9 @@ export type PhotoStatus = {
   ms: number;
   width: number;
   height: number;
+  /** the photo through the Panini lens (panini.ts), a PNG's URL, once
+      it is made */
+  lens?: string | undefined;
 };
 /** a step of the work a render takes: the scene prepared and the light
     traced and denoised (a photo), or the light baked into the room, the

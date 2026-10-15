@@ -25,8 +25,8 @@ cabinets and tables are always built (`BUILT_KINDS` in Furniture3D).
 
 The kinds known (`KINDS`, prop-variants.ts): sofa, armchair,
 coffee-table, side-table, floor-lamp, desk-lamp, plant, vase, rug,
-basket, stool, pouf, chair, cushion, throw, fridge, toilet, basin, bed,
-dish-rack, cabinet, planter, books, box, laptop.
+basket, stool, pouf, chair, cushion, throw, fridge, toilet, basin, tap,
+bed, dish-rack, cabinet, planter, books, box, laptop.
 
 ## The sizes, checked (2026-10-14)
 

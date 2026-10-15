@@ -1,4 +1,4 @@
-import { download } from "./download";
+import { download, saveStage } from "./download";
 import { propsOf, useScene } from "./scene-store";
 import {
   activeOf,
@@ -65,14 +65,7 @@ export const exportPlanSvg = () => {
 };
 
 /** the 3D view as a .png; false when no 3D canvas is shown */
-export const exportScenePng = () => {
-  const canvas = document.querySelector<HTMLCanvasElement>(".stage-3d canvas");
-  if (!canvas || canvas.width === 0) return false;
-  canvas.toBlob((blob) => {
-    if (blob) download(`${stem()}-3d.png`, blob);
-  }, "image/png");
-  return true;
-};
+export const exportScenePng = () => saveStage(`${stem()}-3d.png`);
 
 /** the largest side a texture goes out at, px */
 const GLB_TEXTURE_PX = 2048;

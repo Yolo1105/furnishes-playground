@@ -1,5 +1,6 @@
 "use client";
 
+import { unpickable } from "./no-pick";
 import { useThree } from "@react-three/fiber";
 import {
   createContext,
@@ -32,7 +33,7 @@ import {
   layoutCharts,
   type V3,
 } from "./lightmap-bake";
-import { ATLAS_SIZE, WHITE_UV } from "./bake-defaults";
+import { ATLAS_SIZE, FOOT_HEIGHT, WHITE_UV } from "./bake-defaults";
 import {
   awaiting,
   bakeOf,
@@ -122,8 +123,6 @@ export const useBakeMembers = (
 
 /** how long the parts must hold still before the bake, ms */
 const SETTLE_MS = 150;
-/** how far above the floor the footprint lies, m */
-const FOOT_HEIGHT = 0.0012;
 /** a piece no taller than this lies flat on the floor (a rug), m */
 const FLAT = 0.05;
 
@@ -378,7 +377,7 @@ const apply = (g: Group, a: Assembled, r: BakeResult): Applied => {
       );
     }
     const foot = new Mesh(plane, FOOTPRINT);
-    foot.raycast = () => undefined;
+    foot.raycast = unpickable;
     foot.renderOrder = 1;
     foot.userData = { name: "Footprint" };
     g.add(foot);

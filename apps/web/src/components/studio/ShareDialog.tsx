@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { Dialog } from "./Dialog";
+import { photoName, saveStage } from "./download";
 
 /**
  * The link to a room just shared: shown in full, copied in one press,
- * opened in a new tab, with a word on where to take it down again.
+ * opened in a new tab, with a word on where to take it down again; and
+ * the view on the stage saved as a photo, to send along with it.
  */
 export function ShareDialog({
   url,
@@ -33,6 +35,13 @@ export function ShareDialog({
         />
       </label>
       <div className="shell-dialog-acts">
+        <button
+          type="button"
+          className="main-btn"
+          onClick={() => saveStage(photoName())}
+        >
+          Save photo
+        </button>
         <a className="main-btn" href={url} target="_blank" rel="noreferrer">
           Open
         </a>

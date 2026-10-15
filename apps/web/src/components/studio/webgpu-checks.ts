@@ -108,6 +108,12 @@ export const CHECKS: readonly Check[] = [
     },
   },
   {
+    id: "stability",
+    title: "The picture holds still",
+    look: "Open /rounded?check=stability on this GPU and run Still, Motion and Classify: no pixel moves at rest (still moved 0), the motion's shimmer stays low, and any hot region the report names cools with one of the flags; paste the report here.",
+    reads: ["stability", "still-moved", "still-worst", "shimmer"],
+  },
+  {
     id: "bench",
     title: "The frame bench",
     look: "Run the bench below (a twenty-second walk): every budget line passes for this tier.",
