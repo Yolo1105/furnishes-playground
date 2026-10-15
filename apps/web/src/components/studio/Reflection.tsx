@@ -18,6 +18,7 @@ import {
   float,
   getParallaxCorrectNormal,
   materialColor,
+  mix,
   mx_noise_float,
   pmremTexture,
   positionWorld,
@@ -58,14 +59,39 @@ const SETTLE_MS = 400;
 /** how near and how far the picture sees, m */
 const NEAR = 0.05;
 const FAR = 50;
+/** how long a new picture takes to fade in over the last, ms: one
+    landing all at once changed the floor in a frame */
+export const REFLECTION_FADE_MS = 400;
+
+/** the room's two pictures: the one shown and the one the next is taken
+    into, faded in over it once taken; how much of the second shows */
+type Pictures = readonly [CubeRenderTarget, CubeRenderTarget];
+const SECOND = uniform(0);
+/** the room as its pictures show it along `uv`, at a roughness level or
+    the material's own */
+const pictured = (pictures: Pictures, uv: Node, level?: Node) =>
+  mix(
+    level
+      ? pmremTexture(pictures[0].texture, uv, level)
+      : pmremTexture(pictures[0].texture, uv),
+    level
+      ? pmremTexture(pictures[1].texture, uv, level)
+      : pmremTexture(pictures[1].texture, uv),
+    SECOND,
+  );
 
 /** the floor's material and, when it reflects, the picture it reflects:
     the room's box (w, h, d) stands on the floor's plane about the origin;
     a floor that does not reflect takes the surroundings like the rest */
-/** the floor's picture of the room, for a mirror that is not the one
+/** the floor's pictures of the room, for a mirror that is not the one
     reflector in view (Mirror.tsx) to reflect */
-export const floorCube: { current: CubeRenderTarget | null } = {
+export const floorCube: { current: Pictures | null } = {
   current: null,
+};
+/** the room as a mirror sees it in the floor's pictures, or none */
+export const floorPicture = () => {
+  const pictures = floorCube.current;
+  return pictures ? pictured(pictures, reflectVector) : null;
 };
 
 /** the room's box the glossy things' reflection is projected on, m:
@@ -87,7 +113,7 @@ const ROOM_MID = uniform(new Vector3(0, 0.5, 0));
  * their shaders too.
  */
 class RoomReflectionNode extends TempNode {
-  constructor(private readonly picture: CubeRenderTarget["texture"]) {
+  constructor(private readonly pictures: Pictures) {
     super("vec3");
   }
   override setup(builder: NodeBuilder): Node {
@@ -101,9 +127,7 @@ class RoomReflectionNode extends TempNode {
       return vec3(0, 0, 0);
     const direction = context.getUV?.(this, builder) ?? reflectVector;
     const uv = getParallaxCorrectNormal(direction, ROOM_BOX, ROOM_MID);
-    return level
-      ? pmremTexture(this.picture, uv, level)
-      : pmremTexture(this.picture, uv);
+    return pictured(this.pictures, uv, level);
   }
 }
 
@@ -119,26 +143,29 @@ export const useFloorMaterial = (
   d: number,
   reflects: boolean,
 ) => {
-  const target = useMemo(() => {
+  const target = useMemo((): Pictures | null => {
     if (!reflects) return null;
-    const t = new CubeRenderTarget(CUBE, {
-      type: HalfFloatType,
-      generateMipmaps: true,
-      minFilter: LinearMipmapLinearFilter,
-      magFilter: LinearFilter,
-    });
-    t.texture.mapping = CubeReflectionMapping;
-    return t;
+    const make = () => {
+      const t = new CubeRenderTarget(CUBE, {
+        type: HalfFloatType,
+        generateMipmaps: true,
+        minFilter: LinearMipmapLinearFilter,
+        magFilter: LinearFilter,
+      });
+      t.texture.mapping = CubeReflectionMapping;
+      return t;
+    };
+    return [make(), make()];
   }, [reflects]);
   useEffect(() => {
     floorCube.current = target;
-    const node = target ? new RoomReflectionNode(target.texture) : null;
+    const node = target ? new RoomReflectionNode(target) : null;
     useRoomReflection.setState({ node });
     return () => {
       if (floorCube.current === target) floorCube.current = null;
       if (useRoomReflection.getState().node === node)
         useRoomReflection.setState({ node: null });
-      target?.dispose();
+      for (const t of target ?? []) t.dispose();
     };
   }, [target]);
   useEffect(() => {
@@ -164,8 +191,8 @@ export const useFloorMaterial = (
     // the room's box as the uniforms hold it (set above), so a change
     // of the room's size builds no shader
     if (target) {
-      m.envNode = pmremTexture(
-        target.texture,
+      m.envNode = pictured(
+        target,
         getParallaxCorrectNormal(reflectVector, ROOM_BOX, ROOM_MID),
       );
     }
@@ -202,7 +229,8 @@ export function FloorReflection({
   stamp,
   onState,
 }: {
-  target: CubeRenderTarget;
+  /** the two pictures (useFloorMaterial) */
+  target: Pictures;
   /** the floor, kept out of its own picture */
   floor: RefObject<Mesh | null>;
   /** the room's height: the picture is taken from mid-height */
@@ -213,7 +241,22 @@ export function FloorReflection({
   onState: (state: StillState) => void;
 }) {
   const invalidate = useThree((s) => s.invalidate);
-  const camera = useMemo(() => new CubeCamera(NEAR, FAR, target), [target]);
+  const cameras = useMemo(
+    () => target.map((t) => new CubeCamera(NEAR, FAR, t)),
+    [target],
+  );
+  // which picture shows (SECOND's end), whether any has been taken (the
+  // first is shown at once: there is none to fade from), and a fade
+  // under way: when it began and the picture it brings in
+  const shown = useRef<0 | 1>(0);
+  const taken = useRef(false);
+  const fade = useRef<{ from: number; into: 0 | 1 } | null>(null);
+  useEffect(() => {
+    shown.current = 0;
+    taken.current = false;
+    fade.current = null;
+    SECOND.value = 0;
+  }, [target]);
   const due = useRef(0);
   const wake = useRef(0);
   // the wake let go with the component: a stale one would keep wakeAt
@@ -230,8 +273,20 @@ export function FloorReflection({
     due.current = performance.now() + SETTLE_MS;
     onState("pending");
     invalidate();
-  }, [camera, stamp, invalidate, onState]);
+  }, [cameras, stamp, invalidate, onState]);
   useFrame((state) => {
+    // a new picture fading in: the share of the second follows the time
+    const f = fade.current;
+    if (f) {
+      const t = Math.min(1, (performance.now() - f.from) / REFLECTION_FADE_MS);
+      SECOND.value = f.into === 1 ? t : 1 - t;
+      if (t < 1) state.invalidate();
+      else {
+        fade.current = null;
+        shown.current = f.into;
+        onState("ready");
+      }
+    }
     // the surroundings arrive on their own time: a new map starts over
     if (state.scene.environment !== seen.current) {
       seen.current = state.scene.environment;
@@ -253,6 +308,16 @@ export function FloorReflection({
     // of it: the room stood still is drawn once
     if (wakeAt(wake, due.current, state.invalidate)) return;
     due.current = 0;
+    // a fade under way ends where it was going: the next comes over it
+    if (fade.current) {
+      shown.current = fade.current.into;
+      SECOND.value = shown.current;
+      fade.current = null;
+    }
+    // the first picture into the one shown; each after into the other,
+    // faded in over it
+    const into = (taken.current ? 1 - shown.current : shown.current) as 0 | 1;
+    const camera = cameras[into]!;
     camera.position.set(0, h / 2, 0);
     take(
       state.gl as unknown as WebGPURenderer,
@@ -260,7 +325,12 @@ export function FloorReflection({
       camera,
       floor.current,
     );
-    onState("ready");
+    if (taken.current) {
+      fade.current = { from: performance.now(), into };
+    } else {
+      taken.current = true;
+      onState("ready");
+    }
     state.invalidate();
   });
   return null;

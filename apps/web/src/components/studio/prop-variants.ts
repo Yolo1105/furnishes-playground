@@ -215,11 +215,12 @@ export const modelFor = (variants: readonly Variant[], words: string) => {
   return v ? `/props/${v.file}.glb` : undefined;
 };
 
-/** the near distance a hero model is drawn at in full, m; past it its
-    simplified copy (with a margin either way, so it does not flip back
-    and forth at the line) */
-export const LOD_NEAR = 4;
-export const LOD_HYSTERESIS = 0.4;
+/** the near distance a model is drawn at in full, m: a room's far corner
+    from its near one, so a room's own views draw it in full; past it,
+    from the flat's overviews, its simplified copy (with a margin either
+    way, so it does not flip back and forth at the line) */
+export const LOD_NEAR = 8;
+export const LOD_HYSTERESIS = 0.5;
 /** which copy to draw at a distance, given the one drawn now */
 export const lodAt = (distance: number, now: 0 | 1): 0 | 1 =>
   now === 0

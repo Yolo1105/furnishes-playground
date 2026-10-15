@@ -2,15 +2,17 @@
 
 import { edgeLine } from "./edge-line";
 import { useGLTF } from "@react-three/drei";
-import type { ThreeEvent } from "@react-three/fiber";
+import { type ThreeEvent, useFrame, useThree } from "@react-three/fiber";
 import {
   Component,
   lazy,
   type ReactNode,
+  type RefObject,
   Suspense,
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
 import type { Panel } from "@furnishes/domain";
 import {
@@ -26,6 +28,7 @@ import {
   type Mesh,
   MeshPhysicalMaterial,
   type MeshStandardMaterial,
+  type Object3D,
   Vector2,
   Vector3,
   type Vector3Tuple,
@@ -39,6 +42,7 @@ import { useEvent } from "./use-event";
 import {
   kindOf,
   type Kind,
+  lodAt,
   styleOf,
   type Variant,
   variantFor,
@@ -201,6 +205,7 @@ const modelOf = (
     file: pick.v.file,
     cloth: pick.v.cloth ?? null,
     turned: pick.fit.turned,
+    lod: pick.v.lod === true,
   };
 };
 
@@ -300,12 +305,7 @@ const clothOver = (own: MeshStandardMaterial, colour: string) => {
     (never past a tenth, prop-variants.ts); a generated one is scaled
     evenly to stand within the item. It tells the piece's bake its box,
     for its footprint on the floor */
-function Model({
-  src,
-  size,
-  cloth,
-  fit,
-}: {
+type ModelProps = {
   src: string;
   size: Vector3Tuple;
   /** the item's colour, and the pattern naming the model's cloth
@@ -313,11 +313,32 @@ function Model({
       the same one again keeps the copy */
   cloth: { colour: string; names: string } | null;
   fit?: { file: string; turned: boolean } | undefined;
+};
+
+function Model({
+  src,
+  size,
+  cloth,
+  fit,
+  dither,
+  onShown,
+  far = false,
+}: ModelProps & {
+  /** how much of it shows, 0 to 1, read each frame: its materials its
+      own, each pixel kept or dropped by a hash of its place (three's
+      `alphaHash`), so it fades in or out over another with no sorting
+      and the frames the picture settles over smooth it (LodModel) */
+  dither?: RefObject<number> | undefined;
+  /** told once it is drawn */
+  onShown?: (() => void) | undefined;
+  /** the far copy (LodModel), counted for the stage */
+  far?: boolean | undefined;
 }) {
   const { scene } = useGLTF(src, DRACO);
   const colour = cloth?.colour;
   const names = cloth?.names;
   const turned = !!fit?.turned;
+  const dithered = dither !== undefined;
   const { object, box } = useMemo(() => {
     const pattern = names ? new RegExp(names, "i") : null;
     // within what any model may cost, stock or generated, once for the
@@ -335,11 +356,18 @@ function Model({
       const own = mesh.material as MeshStandardMaterial;
       if (colour && pattern?.test(own.name))
         mesh.material = clothOver(own, colour);
+      else if (dithered) {
+        // its own copy, so its fade is not its twin's
+        const m = own.clone();
+        m.userData.own = true;
+        mesh.material = m;
+      }
+      if (dithered) (mesh.material as MeshStandardMaterial).alphaHash = true;
     });
     o.rotation.y = turned ? Math.PI / 2 : 0;
     o.updateMatrixWorld(true);
     return { object: o, box: new Box3().setFromObject(o) };
-  }, [scene, colour, names, turned]);
+  }, [scene, colour, names, turned, dithered]);
   useEffect(
     () => () => {
       object.traverse((child) => {
@@ -352,9 +380,17 @@ function Model({
   const file = fit?.file;
   useEffect(() => {
     if (!file) return;
-    drawnModel(file, true);
-    return () => drawnModel(file, false);
-  }, [file]);
+    drawnModel(file, true, far);
+    return () => drawnModel(file, false, far);
+  }, [file, far]);
+  useEffect(() => onShown?.(), [object, onShown]);
+  const shown = useRef(1);
+  useFrame(() => {
+    const k = dither?.current;
+    if (k === undefined || k === shown.current) return;
+    shown.current = k;
+    setOpacity(object, k);
+  });
   const dims = box.getSize(new Vector3());
   const even = Math.min(
     size[0] / (dims.x || 1),
@@ -399,6 +435,135 @@ function Model({
       >
         <primitive object={object} />
       </group>
+    </group>
+  );
+}
+
+/** each of a model's own materials as much shown as `k` of its own
+    opacity (Model's dither) */
+const setOpacity = (object: Object3D, k: number) =>
+  object.traverse((child) => {
+    const m = (child as Mesh).material as MeshStandardMaterial | undefined;
+    if (!m?.userData.own) return;
+    m.userData.opacity ??= m.opacity;
+    m.opacity = (m.userData.opacity as number) * k;
+  });
+
+/** how long a model's other copy takes to fade in, and the one it
+    replaces then to fade out, ms each; and how long the camera stays
+    past the line before the other is asked for, ms (a camera passing
+    through, the opening's flight among them, loads nothing) */
+const LOD_FADE_MS = 150;
+const LOD_DWELL_MS = 400;
+/** a listed model's far copy (index.json's `lod`), beside it */
+const farOf = (src: string) => src.replace(/\.glb$/, ".lod1.glb");
+const at = new Vector3();
+
+/**
+ * A listed model with a far copy: drawn from the copy past the near
+ * distance and in full within it, with a margin either way so it does
+ * not flip at the line (prop-variants.ts, `lodAt`). The copy comes
+ * first, as it is the quicker to load, and the full model when the
+ * camera comes near, so a view of the flat from afar never loads the
+ * full ones. The other copy loads behind the one shown, fades in over
+ * it, and the old one then fades out (dithered, Model), so a change of
+ * copy is neither a pop nor a hole.
+ */
+function LodModel({
+  stand,
+  ...model
+}: ModelProps & {
+  /** what stands in while the first copy loads (the built form) */
+  stand: ReactNode;
+}) {
+  const anchor = useRef<Group>(null);
+  const invalidate = useThree((s) => s.invalidate);
+  // the copy drawn, and the one it replaces while it fades in
+  const [level, setLevel] = useState<{ now: 0 | 1; was: 0 | 1 | null }>({
+    now: 1,
+    was: null,
+  });
+  const incoming = useRef(1);
+  const outgoing = useRef(1);
+  const fade = useRef<number | null>(null);
+  // the other copy wanted, and since when
+  const asked = useRef<{ at: number; timer: number } | null>(null);
+  useEffect(
+    () => () => {
+      if (asked.current) window.clearTimeout(asked.current.timer);
+    },
+    [],
+  );
+  useFrame(({ camera }) => {
+    const g = anchor.current;
+    if (!g) return;
+    if (fade.current !== null && level.was !== null) {
+      const t = (performance.now() - fade.current) / LOD_FADE_MS;
+      incoming.current = Math.min(1, t);
+      outgoing.current = Math.min(1, Math.max(0, 2 - t));
+      if (t >= 2) {
+        fade.current = null;
+        setLevel({ now: level.now, was: null });
+      }
+      invalidate();
+      return;
+    }
+    if (level.was !== null) return;
+    const far = g.getWorldPosition(at).distanceTo(camera.position);
+    const want = lodAt(far, level.now);
+    const now = performance.now();
+    if (want === level.now) {
+      if (asked.current) window.clearTimeout(asked.current.timer);
+      asked.current = null;
+      return;
+    }
+    // a frame when the dwell is over, to look again
+    asked.current ??= {
+      at: now,
+      timer: window.setTimeout(invalidate, LOD_DWELL_MS + 16),
+    };
+    if (now - asked.current.at < LOD_DWELL_MS) return;
+    asked.current = null;
+    incoming.current = 0;
+    outgoing.current = 1;
+    setLevel({ now: want, was: level.now });
+  });
+  // a frame once a change is done, to look again: the camera may have
+  // gone on while the new copy loaded and faded in
+  useEffect(() => invalidate(), [level, invalidate]);
+  // the fade begins once the new copy is drawn (it may have loaded first)
+  const shown = useEvent(() => {
+    if (level.was === null) return;
+    fade.current = performance.now();
+    invalidate();
+  });
+  const srcOf = (k: 0 | 1) => (k === 1 ? farOf(model.src) : model.src);
+  return (
+    <group ref={anchor}>
+      {level.was !== null && (
+        // the change under way counts as a model on its way, so a
+        // picture waits for it
+        <ModelLoading />
+      )}
+      {level.was !== null && (
+        <Model
+          key={level.was}
+          {...model}
+          src={srcOf(level.was)}
+          dither={outgoing}
+          far={level.was === 1}
+        />
+      )}
+      <Suspense fallback={level.was === null ? stand : null}>
+        <Model
+          key={level.now}
+          {...model}
+          src={srcOf(level.now)}
+          dither={incoming}
+          onShown={shown}
+          far={level.now === 1}
+        />
+      </Suspense>
     </group>
   );
 }
@@ -459,13 +624,26 @@ export function Furniture3D(p: Props) {
     : p.node.model
       ? { src: p.node.model, cloth: null, fit: undefined }
       : listed
-        ? { src: listed.src, cloth: listed.cloth, fit: listed }
+        ? { src: listed.src, cloth: listed.cloth, fit: listed, lod: listed.lod }
         : null;
   const onClick = useEvent((e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
     p.onPick();
   });
   const turn = looseTurn(p.node);
+  // a model on its way: the form stands in, counted for the stage
+  const standIn = (
+    <>
+      {form}
+      <ModelLoading />
+    </>
+  );
+  const model = (s: NonNullable<typeof stock>): ModelProps => ({
+    src: s.src,
+    size: p.size,
+    cloth: s.cloth ? { colour: p.colour, names: s.cloth } : null,
+    fit: s.fit,
+  });
   return (
     <group onClick={onClick}>
       {/* the piece within its bake (Bake.tsx): its light baked once it is
@@ -474,24 +652,12 @@ export function Furniture3D(p: Props) {
         <group rotation={[0, turn, 0]}>
           {stock ? (
             <ModelGuard fallback={form}>
-              <Suspense
-                fallback={
-                  <>
-                    {form}
-                    <ModelLoading />
-                  </>
-                }
-              >
-                <Model
-                  src={stock.src}
-                  size={p.size}
-                  cloth={
-                    stock.cloth
-                      ? { colour: p.colour, names: stock.cloth }
-                      : null
-                  }
-                  fit={stock.fit}
-                />
+              <Suspense fallback={standIn}>
+                {"lod" in stock && stock.lod ? (
+                  <LodModel {...model(stock)} stand={standIn} />
+                ) : (
+                  <Model {...model(stock)} />
+                )}
               </Suspense>
             </ModelGuard>
           ) : (

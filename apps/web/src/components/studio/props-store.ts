@@ -13,15 +13,17 @@ import { propsOf } from "./scene-store";
  * public/props/index.json lists them (prop-variants.ts picks one): read
  * once when the studio opens, so a model added to the list is drawn
  * with no change to the code. `drawn` counts the models on screen by
- * file and `loading` the ones still on their way (their built forms
- * standing in), which the stage says (`data-models`,
- * `data-models-pending`) so a test can wait on them.
+ * file, `far` those drawn from their far copy, and `loading` the ones
+ * still on their way (their built forms standing in), which the stage
+ * says (`data-models`, `data-models-far`, `data-models-pending`) so a
+ * test can wait on them.
  */
 export const useProps = create<{
   models: Variant[] | null;
   drawn: Record<string, number>;
+  far: number;
   loading: number;
-}>(() => ({ models: null, drawn: {}, loading: 0 }));
+}>(() => ({ models: null, drawn: {}, far: 0, loading: 0 }));
 
 let asked: Promise<void> | null = null;
 /** the list read, once; an unreadable list leaves every item built */
@@ -46,14 +48,14 @@ export const useModels = () => {
 export const loadingModel = (on: boolean) =>
   useProps.setState((s) => ({ loading: s.loading + (on ? 1 : -1) }));
 
-/** a model on screen, or gone from it */
-export const drawnModel = (file: string, on: boolean) =>
+/** a model on screen, or gone from it; drawn from its far copy or not */
+export const drawnModel = (file: string, on: boolean, far = false) =>
   useProps.setState((s) => {
     const n = (s.drawn[file] ?? 0) + (on ? 1 : -1);
     const drawn = { ...s.drawn };
     if (n > 0) drawn[file] = n;
     else delete drawn[file];
-    return { drawn };
+    return { drawn, far: s.far + (far ? (on ? 1 : -1) : 0) };
   });
 
 /** the size, mm, each room item of a kind whose built form only stands

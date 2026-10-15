@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo } from "react";
 import { Object3D, type Vector3Tuple } from "three";
-import { pmremTexture, reflector } from "three/tsl";
+import { reflector } from "three/tsl";
 import { MeshBasicNodeMaterial, MeshStandardNodeMaterial } from "three/webgpu";
 import { create } from "zustand";
-import { floorCube } from "./Reflection";
+import { floorPicture } from "./Reflection";
 
 /**
  * A mirror on a door or a panel face: a planar reflection drawn by
@@ -83,8 +83,8 @@ export function MirrorFace({
       metalness: 1,
       roughness: 0.06,
     });
-    const cube = floorCube.current;
-    if (cube) m.envNode = pmremTexture(cube.texture);
+    const picture = floorPicture();
+    if (picture) m.envNode = picture;
     return m;
   }, [mine, target]);
   useEffect(() => () => material.dispose(), [material]);

@@ -21,6 +21,8 @@ export const DEV_FLAGS = [
   // the sun's light, and the softness of its shadow's edge (Scene3D.tsx)
   "nosun",
   "nosoft",
+  // the sun's cascades on the desktop (Sun.tsx): one map again
+  "nocsm",
   // the windows' area lights (WindowLights.tsx), to weigh their cost
   "nowindowlights",
   // the stability page's layers (StabilityPanel.tsx): the screen-space

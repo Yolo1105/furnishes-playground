@@ -36,7 +36,6 @@ import {
   Vector3,
   type Vector3Tuple,
   type WebGLRenderer,
-  type DirectionalLight,
   type SpotLight,
 } from "three";
 import { CATEGORY_NAMES, type AssetNode } from "./assets-data";
@@ -54,6 +53,7 @@ import {
   within,
 } from "./gpu-fallback";
 import { ShadowsOnChange } from "./ShadowsOnChange";
+import { CASCADE_MAPS, SUN, Sun } from "./Sun";
 import { usePieceActions } from "./piece-actions";
 import { PieceActions } from "./PieceActions";
 import { GapReadout, PieceBar } from "./PieceBar";
@@ -103,7 +103,6 @@ import { Probes } from "./Probes";
 import { type StillState, wakeAt } from "./capture";
 import { loadMaterials, useMaterials } from "./materials";
 import { ceilingAt, RoomLight, RoomShell } from "./Room3D";
-import { SHADOW_LAYER } from "./walls-standing";
 import { usePartStore } from "./part-client";
 import {
   type Box,
@@ -124,7 +123,6 @@ import { shownNow } from "./last-frame";
 import { setLive } from "./scene-handle";
 import { recordFrame, recorder } from "./bench";
 import { devFlag, devParam } from "./dev-flags";
-import { settlingPCF } from "./shadow-filter";
 import { SUN_TIMES, sunDirection } from "./sun-position";
 import { type LitRoom, lightCount, panesOf } from "./window-light";
 import { WindowLights } from "./WindowLights";
@@ -529,9 +527,6 @@ const LIGHTS = {
     fill: LAMP_BULB,
   },
 } as const;
-/** how far from the flat's middle the sun's light stands, m, and the
-    evening's hour (the sun at dusk, a few degrees over the horizon) */
-const SUN = { distance: 30, dusk: 18.8, bias: 0.003 };
 /** what the floor gives back to the undersides: a light floor's tone,
     as a light floor bounces light up */
 const GROUND_HEX = "#d6cabb";
@@ -2595,6 +2590,7 @@ export default function Scene3D() {
   const partsPending = usePartStore((s) => s.pending);
   const bakesPending = useBakes((s) => s.pending);
   const modelsDrawn = useProps((s) => Object.keys(s.drawn).sort().join(","));
+  const modelsFar = useProps((s) => s.far);
   // the models still on their way: "list" until the list is read
   const modelsPending = useProps((s) =>
     s.models === null ? "list" : String(s.loading),
@@ -2931,32 +2927,11 @@ export default function Scene3D() {
     materialsPending > 0 ? "pending" : photographed,
   ]);
   const pieces = useRef<Group>(null);
-  // the sun's shadow sees the room's shadow layer too: the ceiling that
-  // stops it at the open top, and a near wall taken out of the picture
-  const sunLight = useRef<DirectionalLight>(null);
-  useLayoutEffect(() => {
-    sunLight.current?.shadow.camera.layers.enable(SHADOW_LAYER);
-  });
-  // the sun aims at the flat's middle, its shadow's box round the whole
-  // flat, and its shadow's edge settles smooth (shadow-filter.ts)
+  // the sun's one map round the whole flat (Sun.tsx)
   const sunReach = Math.hypot(box.w, box.h) / 2000 + 1;
-  useLayoutEffect(() => {
-    const l = sunLight.current;
-    if (!l) return;
-    l.target.position.set(centre[0], 0, centre[1]);
-    l.target.updateMatrixWorld();
-    const c = l.shadow.camera;
-    c.left = -sunReach;
-    c.right = sunReach;
-    c.top = sunReach;
-    c.bottom = -sunReach;
-    c.near = Math.max(0.5, SUN.distance - sunReach - 3);
-    c.far = SUN.distance + sunReach + 3;
-    c.updateProjectionMatrix();
-    l.shadow.bias = -SUN.bias / (c.far - c.near);
-    (l.shadow as { filterNode?: unknown }).filterNode = settlingPCF;
-    l.shadow.needsUpdate = true;
-  }, [centre, sunReach]);
+  // the desktop's sun in cascades; the sun is made afresh when this
+  // changes, so its shaders are built for it
+  const cascaded = tier === "desktop" && !devFlag("nocsm");
   // what the floor reflects: the shell and its light, the pieces as they
   // stand and look, and the ceiling that walking puts overhead
   const [probeState, setProbeState] = useState<StillState>("pending");
@@ -3112,6 +3087,7 @@ export default function Scene3D() {
       data-parts={partsPending}
       data-bakes={bakesPending}
       data-models={modelsDrawn}
+      data-models-far={modelsFar}
       data-models-pending={modelsPending}
       data-part-builds={partBuilds}
       data-walk={walk}
@@ -3120,6 +3096,7 @@ export default function Scene3D() {
       data-edges={edges}
       data-cuts={cutsOn ? "on" : "off"}
       data-shadows={shadows}
+      data-cascades={cascaded ? CASCADE_MAPS : 1}
       data-labels={labels}
       data-grid={grid}
       data-light={scene.light}
@@ -3237,15 +3214,15 @@ export default function Scene3D() {
           color={light.fill}
           groundColor={GROUND_HEX}
         />
-        <directionalLight
-          ref={sunLight}
-          position={sunFrom}
+        <Sun
+          key={cascaded ? "cascades" : "one map"}
+          from={sunFrom}
+          centre={centre}
+          reach={sunReach}
           intensity={devFlag("nosun") ? 0 : light.sun}
-          color={light.colour}
-          castShadow
-          shadow-mapSize={[2048, 2048]}
-          shadow-radius={devFlag("nosoft") ? 0 : 3}
-          shadow-normalBias={0.02}
+          colour={light.colour}
+          cascaded={cascaded}
+          soft={!devFlag("nosoft")}
         />
         <RoomLight evening={scene.light === "evening"} sky={scene.sky} />
         {!devFlag("nowindowlights") && (

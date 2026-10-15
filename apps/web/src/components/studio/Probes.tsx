@@ -63,6 +63,9 @@ const RETRY_MS = 250;
 /** the pause between two slices of a bake, ms: the page answers a hand
     in it */
 const SLICE_GAP_MS = 4;
+/** how long a fresh bake takes to fade in over the one it replaces, ms:
+    a bake landing all at once changed the room's light in a frame */
+export const PROBE_FADE_MS = 400;
 
 /** the renderer told how the grid lights a material, once, before any
     material is built with the grid in the scene */
@@ -72,16 +75,26 @@ const register = (renderer: WebGPURenderer) => {
   }
 };
 
-/** each room's grid, kept when the room is left: coming back to a room
+/** each room's grids, kept when the room is left: coming back to a room
     whose shell, light and surroundings are as they were when its probes
     were baked takes them as they stand, with no bake (a minute on a
     software renderer). The grids are small (a few dozen probes each);
-    past a handful the one left longest ago goes */
+    past a handful the room left longest ago goes. Two to a room: the one
+    lighting it, and the one a bake goes into while it does, faded in
+    over it once the bake is done */
 const KEPT = 8;
 type Kept = {
-  grid: LightProbeGrid;
-  /** what the grid was last baked under in full, or null mid-bake */
+  grids: [LightProbeGrid, LightProbeGrid];
+  /** which of the two lights the room */
+  live: 0 | 1;
+  /** what the live grid was last baked under in full, or null mid-bake */
   baked: string | null;
+  /** whether any bake has finished: the first goes into the live grid
+      (there is nothing to fade from) */
+  ever: boolean;
+  /** a finished bake fading in over the live grid: when it began, and
+      the grid it went into */
+  fade: { from: number; into: 0 | 1 } | null;
 };
 const kept = new Map<string, Kept>();
 const keyOf = (room: string, w: number, h: number, d: number) =>
@@ -94,28 +107,87 @@ const keptGrid = (key: string, w: number, h: number, d: number): Kept => {
     kept.set(key, found);
     return found;
   }
-  const grid = new LightProbeGrid(
-    w,
-    h,
-    d,
-    probesAlong(w),
-    probesAlong(h),
-    probesAlong(d),
-  );
-  grid.position.set(0, h / 2, 0);
-  // out of the lights until it has its first picture (the probes' first
-  // frame takes one): a shader built while the grid has none never
-  // samples it (LightProbeGridNode.setup), and the lights' key does not
-  // change when one comes, so the room drew without its bounce
-  grid.visible = false;
-  const made = { grid, baked: null };
+  const make = (intensity: number) => {
+    const grid = new LightProbeGrid(
+      w,
+      h,
+      d,
+      probesAlong(w),
+      probesAlong(h),
+      probesAlong(d),
+    );
+    grid.position.set(0, h / 2, 0);
+    grid.intensity = intensity;
+    // out of the lights until it has its first picture (the probes'
+    // first frame takes one): a shader built while the grid has none
+    // never samples it (LightProbeGridNode.setup), and the lights' key
+    // does not change when one comes, so the room drew without its bounce
+    grid.visible = false;
+    return grid;
+  };
+  const made: Kept = {
+    grids: [make(1), make(0)],
+    live: 0,
+    baked: null,
+    ever: false,
+    fade: null,
+  };
   kept.set(key, made);
   for (const [k, old] of kept) {
     if (kept.size <= KEPT) break;
     kept.delete(k);
-    old.grid.dispose();
+    for (const g of old.grids) g.dispose();
   }
   return made;
+};
+/** a bake from the start: into the grid not lighting the room once the
+    room has been baked, into the live one the first time */
+const freshBake = (k: Kept) => ({
+  at: 0,
+  pass: 0,
+  into: (k.ever ? 1 - k.live : k.live) as 0 | 1,
+});
+/** a fade under way finished at once (a new bake comes first), or at
+    its end: the grid it brought in lights the room alone */
+const endFade = (k: Kept) => {
+  const f = k.fade;
+  if (!f) return;
+  k.fade = null;
+  k.live = f.into;
+  k.grids[f.into].intensity = 1;
+  k.grids[1 - f.into]!.intensity = 0;
+};
+/** a finished bake: noted, and faded in over the live grid when it went
+    into the other (`true`: the fade begins), or standing at once when
+    it was the room's first (`false`) */
+const bakeDone = (k: Kept, into: 0 | 1) => {
+  k.ever = true;
+  if (into === k.live) return false;
+  k.fade = { from: performance.now(), into };
+  return true;
+};
+/** a fade's step: the two grids' shares at the time; whether it is over */
+const fadeStep = (k: Kept) => {
+  const f = k.fade;
+  if (!f) return true;
+  const t = Math.min(1, (performance.now() - f.from) / PROBE_FADE_MS);
+  k.grids[f.into].intensity = t;
+  k.grids[1 - f.into]!.intensity = 1 - t;
+  if (t < 1) return false;
+  endFade(k);
+  return true;
+};
+/** a slice of a bake into one of a room's grids, with both out of the
+    pictures as one grid was of its own (so the pictures are one shader
+    build, and the room's last bake never lights its next) */
+const bakeInto = (k: Kept, into: 0 | 1, bake: (g: LightProbeGrid) => void) => {
+  const shown = k.grids.map((g) => g.visible);
+  for (const g of k.grids) g.visible = false;
+  try {
+    bake(k.grids[into]);
+  } finally {
+    k.grids.forEach((g, i) => (g.visible = shown[i]!));
+  }
 };
 /** what a bake is of: the stamp and the surroundings it saw */
 const bakeOf = (stamp: string, environment: { uuid: string } | null) =>
@@ -177,7 +249,9 @@ export function Probes({
   const invalidate = useThree((s) => s.invalidate);
   const get = useThree((s) => s.get);
   const key = keyOf(room, w, h, d);
-  const grid = useMemo(() => keptGrid(key, w, h, d).grid, [key, w, h, d]);
+  // the room's two grids (Kept)
+  const pair = useMemo(() => keptGrid(key, w, h, d), [key, w, h, d]);
+  const grids = pair.grids;
   // the stamp as the frames see it, to note what a finished bake was of
   const stampNow = useRef(stamp);
   useLayoutEffect(() => {
@@ -185,7 +259,8 @@ export function Probes({
   }, [stamp]);
   // the bake under way: the next probe and pass, or none; and when the
   // last change happened, so a run of them is baked once
-  const job = useRef<{ at: number; pass: number } | null>(null);
+  const job = useRef<{ at: number; pass: number; into: 0 | 1 } | null>(null);
+
   const due = useRef(0);
   const wake = useRef(0);
   // the wake let go with the component: a stale one would keep wakeAt
@@ -215,10 +290,11 @@ export function Probes({
       return;
     }
     noteBake(key, null);
-    job.current = { at: 0, pass: 0 };
+    endFade(pair);
+    job.current = freshBake(pair);
     onState("pending");
     invalidate();
-  }, [grid, key, get, invalidate, onState]);
+  }, [pair, key, get, invalidate, onState]);
   // a change to what the probes see waits a moment, so a run of changes
   // is baked once
   useEffect(() => {
@@ -233,27 +309,31 @@ export function Probes({
     due.current = performance.now() + SETTLE_MS;
     onState("pending");
     invalidate();
-  }, [grid, key, stamp, get, invalidate, onState]);
-  /** probes `start` to `start + count` of a pass baked, with every wall
-      standing and, on the first pass, without the pieces */
+  }, [pair, key, stamp, get, invalidate, onState]);
+  /** probes `start` to `start + count` of a pass baked into a grid,
+      with every wall standing and, on the first pass, without the
+      pieces */
   const bakeSlice = (
     state: RootState,
+    into: 0 | 1,
     start: number,
     count: number,
     pass: number,
   ) =>
-    stillOf(state.scene, pass === 0 ? [pieces.current] : [], () =>
-      withWallsStanding(() =>
-        grid.bake(state.gl as unknown as WebGPURenderer, state.scene, {
-          cubemapSize: FAST
-            ? CUBEMAP.fast
-            : fine
-              ? CUBEMAP.fine
-              : CUBEMAP.plain,
-          start,
-          count,
-          pass,
-        }),
+    bakeInto(pair, into, (grid) =>
+      stillOf(state.scene, pass === 0 ? [pieces.current] : [], () =>
+        withWallsStanding(() =>
+          grid.bake(state.gl as unknown as WebGPURenderer, state.scene, {
+            cubemapSize: FAST
+              ? CUBEMAP.fast
+              : fine
+                ? CUBEMAP.fine
+                : CUBEMAP.plain,
+            start,
+            count,
+            pass,
+          }),
+        ),
       ),
     );
   // the bake runs between the frames, a slice at a time and a moment
@@ -290,11 +370,12 @@ export function Probes({
       later(RETRY_MS);
       return;
     }
-    const total = grid.resolution.x * grid.resolution.y * grid.resolution.z;
+    const r = grids[j.into].resolution;
+    const total = r.x * r.y * r.z;
     const t0 = performance.now();
     do {
       const count = Math.min(PER_CALL, total - j.at);
-      bakeSlice(state, j.at, count, j.pass);
+      bakeSlice(state, j.into, j.at, count, j.pass);
       j.at += count;
     } while (j.at < total && performance.now() - t0 < BAKE_MS);
     const passes = bounce && !FAST ? BOUNCES + 1 : 1;
@@ -303,11 +384,13 @@ export function Probes({
       if (j.pass >= passes - 1) {
         job.current = null;
         noteBake(key, bakeOf(stampNow.current, state.scene.environment));
-        onState("ready");
+        // into the live grid (the first bake): ready now; into the other:
+        // ready once it has faded in (the frames below)
+        if (!bakeDone(pair, j.into)) onState("ready");
         state.invalidate();
         return;
       }
-      job.current = { at: 0, pass: j.pass + 1 };
+      job.current = { at: 0, pass: j.pass + 1, into: j.into };
     }
     later(SLICE_GAP_MS);
   });
@@ -321,7 +404,15 @@ export function Probes({
     // chain builds next are built with it, once. Built before it had one
     // they would never sample it, and built again after it would cost
     // the whole room's shaders a second time
-    if (!grid.texture) firstPicture(grid, () => bakeSlice(state, 0, 1, 0));
+    grids.forEach((g, i) => {
+      if (!g.texture)
+        firstPicture(g, () => bakeSlice(state, i as 0 | 1, 0, 1, 0));
+    });
+    // a finished bake fading in: the two grids' shares follow the time
+    if (pair.fade) {
+      if (fadeStep(pair)) onState("ready");
+      else state.invalidate();
+    }
     // the room's shaders being built hold the renderer's outputs: the
     // bake goes on once they are; it looks again shortly, so it never
     // waits on a frame nothing asks for
@@ -340,10 +431,16 @@ export function Probes({
     if (due.current) {
       if (wakeAt(wake, due.current, state.invalidate)) return;
       due.current = 0;
-      job.current = { at: 0, pass: 0 };
+      endFade(pair);
+      job.current = freshBake(pair);
     }
     // a bake due: its slices go on between the frames (above)
     if (job.current && !pumping.current) later(0);
   });
-  return <primitive object={grid} />;
+  return (
+    <>
+      <primitive object={grids[0]} />
+      <primitive object={grids[1]} />
+    </>
+  );
 }

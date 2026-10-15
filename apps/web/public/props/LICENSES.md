@@ -42,3 +42,12 @@ The licences exclude logos and associated trademarks.
 
 CC-BY-4.0 requires the credit above to be shown where the work is used: the studio's Help dialog lists it under
 "3D model credits" (`MODEL_CREDITS`, help-data.ts).
+
+## Far copies (added 2026-10-15)
+
+`<name>.lod1.glb` is a far copy of `<name>.glb`, from the same source under the same licence and credit as above,
+drawn past 8 m (prop-variants.ts, `lodAt`; index.json's `lod`). What was changed: welded and simplified with
+glTF Transform's `weld` and `simplify` (meshoptimizer) to about a quarter of the model's triangles, at most 5% of
+its size out of place; textures re-encoded as WebP at 256 px at most; meshopt geometry compression. Made for
+leather_wood_sofa, silk_pouf, sheen_chair, chair_damask, glass_vase_flowers and potted_plant_tall (Khronos, above)
+and modern_arm_chair_01 and wicker_basket_01 (Poly Haven, CC0).

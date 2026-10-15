@@ -2228,3 +2228,70 @@ is a fight, and it found 52:
 The test was written to read the brief's list (wall caps and ceiling,
 skirting and cornice, lining and reveal, rug and floor, the hand marks,
 the footprints): none of those fought.
+
+### Part 5, then: the sun in cascades, the retakes faded, the motion checked, far copies (2026-10-15)
+
+**The sun in cascades** (desktop tier; Sun.tsx). One 2048 px map over the
+whole flat gave a vase or a book a shadow a few texels across. Two maps
+now split the first 12 m of the view (CSM's "practical" splits, each
+snapped to its texels) and a third stands over the flat as the one map
+did. three's `CSMShadowNode` (r186) picks a pixel's cascade by its depth
+from the camera the node was made for; the probes' captures, the floor's
+picture and a mirror are taken by cameras of their own, and in them it
+read cascades that never held those pixels: the sun came through the
+walls, and the probes carried it into the whole room (the glance's
+"black" went from 0.127 to 0.22). The subclass reads each pixel from the
+finest cascade whose map holds it (its place in the map, not its depth),
+so any camera is served with no light swapped and no shader built again
+for the pictures. Two lifecycle faults were found on the way and fixed:
+the cascades' depth range was the one map's (17–43 m from a stand 40 m
+behind the view), so most of each cascade lay past its far plane; and
+the node was made in an effect that ran again (a renderer's new identity,
+a suspended tree hidden and shown), while the light's shaders keep the
+node they were first built with, so the sun stood with no shadow. The
+node now lives as long as its light (`cascadesOf`, let go in the light's
+own `dispose`), and the sun's aim, map and cascades are set up in one
+component in that order (`Sun`). `?nocsm` draws the one map again;
+`data-cascades` says 3 or 1. Glance after: bays 42% darker, black 0.127,
+contact 31%, table 55%, sofa edge lift +6.5% (the one map's numbers,
+with a sharper table shadow).
+
+**Retakes faded in** (flicker 3b.6). A probe bake now goes into a second
+grid while the first lights the room, and fades in over it in 0.4 s
+(`PROBE_FADE_MS`, Probes.tsx); the room's first bake goes straight in.
+The floor's picture is two cube maps mixed by one uniform, a retake going
+into the one not shown and fading in over 0.4 s (`REFLECTION_FADE_MS`,
+Reflection.tsx; mirrors read the same pair). "Ready" is said when a fade
+ends, so a picture is never taken mid-fade.
+
+**TRAA's motion vectors** (flicker 3b.4, verified and reported). three's
+`velocity` (r186 VelocityNode) gives each pixel the motion of its mesh:
+the mesh's world matrix last frame against this one, and the camera's
+unjittered view-projection last frame against this one. It holds for
+anything moved by its matrix. Checked: no mesh in the scene is instanced
+or skinned (whose motion lives in attributes the node does not read); a
+moved piece keeps its meshes, so it has a last frame (e2e, "a piece moved
+keeps its meshes"); the probes' and the floor's captures do not write
+motion. A retake changes shading with no motion, which the resolve can
+only clamp toward; the fades above make that a 0.4 s blend. One gap left
+as is: a piece shown again after being hidden has the matrix it was last
+drawn with, one frame of motion that is not there. Seeing the vectors
+themselves needs a WebGPU device (`?check=stability`'s motion map), not
+this sandbox.
+
+**Far copies with a dithered change** (flicker 3b.9). Eight models over
+about 8,000 triangles have a far copy beside them (`<name>.lod1.glb`, a
+quarter of the triangles, 256 px textures; index.json's `lod`). Past 8 m
+(`LOD_NEAR`, a room's far corner from its near one, so a room's own
+views draw models in full) the copy is drawn, with 0.5 m either way
+before it changes back (`lodAt`), and only once the camera has stayed
+past the line for 0.4 s, so the opening's flight loads nothing on its
+way. The copy comes first, as it is the quicker to load. The other copy
+loads behind the one shown, fades in over it by three's hashed alpha (a
+dither the resolve smooths) and the old one then fades out, 150 ms each,
+so a change is neither a pop nor a hole (`LodModel`, Furniture3D.tsx). A
+change counts as a model on its way (`data-models-pending`), and
+`data-models-far` says how many copies are drawn (e2e, "a model is drawn
+from its far copy from afar and in full near"). The default flat's models
+at the opening: 0.98 MB, from 1.94 MB; the full ones load when the camera
+comes into the room (2.22 MB in all).

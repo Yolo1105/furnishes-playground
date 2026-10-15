@@ -8,6 +8,7 @@ import {
   modelFor,
   snapFor,
   styleOf,
+  LOD_HYSTERESIS,
   LOD_NEAR,
   lodAt,
   type Variant,
@@ -66,10 +67,11 @@ describe("a room item's real model", () => {
     expect(kindOf("Bookwall", "storage")).toBeNull();
   });
   it("switches to the far copy with a margin, so it never flickers", () => {
+    const past = LOD_HYSTERESIS + 0.1;
     expect(lodAt(LOD_NEAR + 0.1, 0)).toBe(0);
-    expect(lodAt(LOD_NEAR + 0.5, 0)).toBe(1);
+    expect(lodAt(LOD_NEAR + past, 0)).toBe(1);
     expect(lodAt(LOD_NEAR - 0.1, 1)).toBe(1);
-    expect(lodAt(LOD_NEAR - 0.5, 1)).toBe(0);
+    expect(lodAt(LOD_NEAR - past, 1)).toBe(0);
   });
 });
 

@@ -1761,6 +1761,127 @@ test("a model added to the props list is drawn with no change to the code", asyn
   );
 });
 
+/** a piece's meshes, its triangles and where it stands, by its name */
+const pieceMeshes = (page: Page, name: string) =>
+  page.evaluate((name) => {
+    type O = {
+      isMesh?: boolean;
+      visible: boolean;
+      uuid: string;
+      userData: { name?: string };
+      geometry?: {
+        index: { count: number } | null;
+        getAttribute: (n: string) => { count: number };
+      };
+      traverse: (f: (o: O) => void) => void;
+      getWorldPosition: (v: unknown) => { x: number; z: number };
+    };
+    const w = window as unknown as {
+      __scene: O;
+      __camera: { position: { clone: () => unknown } };
+    };
+    let piece: O | null = null;
+    w.__scene.traverse((o) => {
+      if (!piece && o.userData.name === name) piece = o;
+    });
+    const uuids: string[] = [];
+    let triangles = 0;
+    (piece as O | null)?.traverse((o) => {
+      if (!o.isMesh || !o.visible || !o.geometry) return;
+      uuids.push(o.uuid);
+      triangles +=
+        (o.geometry.index?.count ?? o.geometry.getAttribute("position").count) /
+        3;
+    });
+    const at = piece
+      ? (piece as O).getWorldPosition(w.__camera.position.clone())
+      : null;
+    return { uuids: uuids.sort(), triangles, x: at?.x ?? NaN, z: at?.z ?? NaN };
+  }, name);
+
+test("a piece moved keeps its meshes, so the picture's motion follows it", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  // the temporal resolve (TRAA) moves each pixel's history by the motion
+  // its mesh was drawn with, from the mesh's world matrix last frame: a
+  // mesh made again for a move has no last frame, and a moving piece
+  // would trail. A built piece and a model, each moved
+  await page.goto("/rounded");
+  await arrived(page);
+  await built(page);
+  const stage = page.locator(".shell-stage .stage-3d");
+  await expect(stage).toHaveAttribute("data-models-pending", "0", {
+    timeout: 180_000,
+  });
+  for (const [name, x, y] of [
+    ["Coffee table", "4100", "2500"],
+    ["Armchair", "3800", "900"],
+  ] as const) {
+    const before = await pieceMeshes(page, name);
+    expect(before.uuids.length).toBeGreaterThan(0);
+    await placeByMm(page, name, x, y);
+    await expect
+      .poll(async () => (await pieceMeshes(page, name)).x, { timeout: 30_000 })
+      .not.toBeCloseTo(before.x, 3);
+    // every one of its meshes kept (picked, it gains its halo's)
+    expect((await pieceMeshes(page, name)).uuids).toEqual(
+      expect.arrayContaining(before.uuids),
+    );
+  }
+});
+
+test("a model is drawn from its far copy from afar and in full near", async ({
+  page,
+}) => {
+  test.setTimeout(300_000);
+  const asked: string[] = [];
+  page.on("request", (r) => {
+    const m = /\/props\/([\w.]+)\.glb$/.exec(r.url());
+    if (m) asked.push(m[1]!);
+  });
+  await page.goto("/rounded");
+  await built(page);
+  const stage = page.locator(".shell-stage .stage-3d");
+  // the camera arrived and every model in: a copy changing counts as one
+  // on its way (LodModel)
+  const settledModels = async () => {
+    await expect(stage).not.toHaveAttribute("data-gliding", "true", {
+      timeout: 120_000,
+    });
+    await expect(stage).toHaveAttribute("data-settled", "true", {
+      timeout: 120_000,
+    });
+    await expect(stage).toHaveAttribute("data-models-pending", "0", {
+      timeout: 180_000,
+    });
+  };
+  await settledModels();
+  // the opening's view of the flat, past 8 m: the living room's armchair
+  // (listed with a far copy) drawn from the copy, about 2,200 triangles,
+  // and its full model not loaded at all
+  await expect(stage).not.toHaveAttribute("data-models-far", "0");
+  await expect
+    .poll(async () => (await pieceMeshes(page, "Armchair")).triangles, {
+      timeout: 60_000,
+    })
+    .toBeLessThan(3000);
+  expect(asked).toContain("modern_arm_chair_01.lod1");
+  expect(asked).not.toContain("modern_arm_chair_01");
+  // near, in the Corner view: in full, 8,916, once the copy has faded
+  // out (both stand while it does)
+  await page
+    .getByRole("button", { name: "Corner view, as a photograph" })
+    .click();
+  await settledModels();
+  await expect
+    .poll(async () => (await pieceMeshes(page, "Armchair")).triangles, {
+      timeout: 60_000,
+    })
+    .toBe(8916);
+  expect(asked).toContain("modern_arm_chair_01");
+});
+
 test("no two of the room's surfaces fight for a pixel", async ({ page }) => {
   test.setTimeout(240_000);
   await page.goto("/rounded");

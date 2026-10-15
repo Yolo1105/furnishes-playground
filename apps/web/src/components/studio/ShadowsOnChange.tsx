@@ -12,7 +12,8 @@ import type {
   Texture,
 } from "three";
 
-/** a light that casts, with its shadow */
+/** a light that casts, with its shadow; or one of the sun's cascades
+    (Sun.tsx), a stand-in with a shadow but no light of its own */
 type Caster = Light & { shadow: LightShadow };
 
 /** a number that changes when anything a shadow map shows changes:
@@ -20,7 +21,7 @@ type Caster = Light & { shadow: LightShadow };
     shown, the layers it is drawn on, its geometry and what its
     materials cut out of it; each casting light's place and its shadow
     camera's box */
-const signatureOf = (scene: Object3D, lights: Caster[]) => {
+const signatureOf = (scene: Object3D, lights: Caster[], camera: Object3D) => {
   let sum = 0;
   let n = 0;
   const add = (v: number) => {
@@ -63,6 +64,9 @@ const signatureOf = (scene: Object3D, lights: Caster[]) => {
       }
     }
   });
+  // the cascades follow the camera: their maps change as it moves
+  if (lights.some((l) => !l.isLight))
+    for (const e of camera.matrixWorld.elements) add(e * 1000);
   for (const l of lights) {
     add(l.id);
     add(l.castShadow ? 1 : 2);
@@ -106,7 +110,7 @@ export function ShadowsOnChange() {
       if (pending.current !== null) window.clearTimeout(pending.current);
     };
   }, []);
-  useFrame(({ scene, invalidate }) => {
+  useFrame(({ scene, camera, invalidate }) => {
     // under a drag the maps follow a few times a second, not every
     // frame: each drawing is every caster in the flat, and drawn on
     // every frame of a drag it was what made a drag heavy; the frame
@@ -125,13 +129,13 @@ export function ShadowsOnChange() {
     const lights: Caster[] = [];
     scene.traverse((o) => {
       const l = o as Caster;
-      if (l.isLight && l.shadow) {
+      if ((l.isLight || l.castShadow) && l.shadow) {
         l.shadow.autoUpdate = false;
         lights.push(l);
       }
     });
     scene.updateMatrixWorld();
-    const now = signatureOf(scene, lights);
+    const now = signatureOf(scene, lights, camera);
     if (now === last.current) return;
     last.current = now;
     drawnAt.current = at;
@@ -139,7 +143,8 @@ export function ShadowsOnChange() {
     // nothing, so its coming on builds no shader) keeps its map as it
     // stands: a lamp's is six pictures of every caster in the flat,
     // drawn for nothing at every change of the day
-    for (const l of lights) l.shadow.needsUpdate = l.intensity > 0;
+    for (const l of lights)
+      l.shadow.needsUpdate = !l.isLight || l.intensity > 0;
   });
   return null;
 }
