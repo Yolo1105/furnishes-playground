@@ -927,6 +927,10 @@ and lived-in flat work, loads 404.4 KB: those rounds added 2.6 KB. The
 387 KB above was of 2026-10-09; the rounds between took it to 404.4 KB.
 The landing is gone (the studio is the site's one page).
 
+Re-measured on 2026-10-15, after round 8 and the guided demo: /rounded
+loads 424.0 KB gzip in 18 files, under the 450 KB budget, 17.0 KB more
+than on 2026-10-14.
+
 ## KTX2 textures: measured, left as JPG
 
 KTX-Software 4.3.2's `toktx` was run on the wood set (1K, from the
@@ -2677,3 +2681,8 @@ the diffs show nothing else changed. The day–evening–day test was not
 stuck: timed on its own, each change of look took 200 to 284 seconds to
 give the floor its picture, four of them more than the test's fifteen
 minutes. It now has five of its own `LONG` waits.
+
+The visual project after the pictures were taken again: 10 of 10 (1.5
+hours with `VISUAL_SLOW=3`), the day–evening–day test within its new
+budget. `next build` passes; first-load JavaScript is 424.0 KB gzip,
+under the 450 KB budget.
