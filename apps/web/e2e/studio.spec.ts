@@ -5785,6 +5785,8 @@ test("an account: created with an email and a password, signed out, signed in ag
   )![0];
   await page.goto(confirm);
   await expect(page).toHaveURL(/\/rounded/);
+  // the link opens the studio again, and its room is built again
+  await built(page);
   // the studio says so at its foot, and the address is plain again
   await expect(page.locator(".user-line")).toContainText("confirmed");
   await expect(page).not.toHaveURL(/verified/);
@@ -5834,6 +5836,7 @@ test("an account: created with an email and a password, signed out, signed in ag
   ).toBeVisible();
   await page.getByRole("link", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/rounded$/);
+  await built(page);
   await account(page, email, "in", `${PASSWORD}-3`);
   await expect(dialog).toHaveCount(0, { timeout: 20_000 });
   await expect(page.locator(".user-bar")).toContainText("Mei Tan");
