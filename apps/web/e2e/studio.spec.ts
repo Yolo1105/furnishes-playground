@@ -2067,7 +2067,9 @@ test("the sketcher: an L-shaped shelf with a 20 mm round hole, fully held; one d
   await section.getByRole("button", { name: "Edit sketch" }).click();
   const dialog = page.getByRole("dialog", { name: /^Sketch of Shelf/ });
   const dof = dialog.locator(".sketch-dof");
-  await expect(dof).toHaveAttribute("data-held", "true");
+  // the first solve loads the solver in its worker ("solving…"
+  // meanwhile), as the kernel's first part did
+  await expect(dof).toHaveAttribute("data-held", "true", { timeout: 45_000 });
   await expect(dof).toHaveText("fully held");
   // a circle drawn in the middle is a round hole; its radius is typed
   // as 20 mm and its centre fixed, and the sketch is held again
