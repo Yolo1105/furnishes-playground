@@ -377,6 +377,9 @@ test("the window lights the wall beside it more than across the room", async ({
 test("day, evening and day again: the floor's picture settles each time", async ({
   page,
 }) => {
+  // four changes of look, each with its own wait for the floor's
+  // picture: three to four minutes apiece on a software renderer
+  test.setTimeout(5 * LONG);
   const look = async (name: "Evening" | "Daylight") => {
     await page.getByRole("button", { name: "View settings" }).click();
     await page

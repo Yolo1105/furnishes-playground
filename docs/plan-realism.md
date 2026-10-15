@@ -2664,3 +2664,16 @@ The last full desktop run after these changes passed 88 of 92. The
 four that did not (the sketcher's first solve, Eva's extras, the account
 test, the frame bench) are the last items above, and each passed when
 run again after its change.
+
+The visual project's seven pictures were taken again on purpose. Each
+differed from its kept copy only in the living room's furniture: the
+armchair and the plant now stand a walkway from the other pieces (the
+loose placement above), so the armchair sits by the window instead of
+100 mm from the TV unit and out of the Corner view's foreground; the
+plant is drawn at its real model's size; the bookwall carries its
+styling (Part 4); and the cushions and a dining chair's pad are the new
+ones. The walls, the light, the camera and the floor are as they were;
+the diffs show nothing else changed. The day–evening–day test was not
+stuck: timed on its own, each change of look took 200 to 284 seconds to
+give the floor its picture, four of them more than the test's fifteen
+minutes. It now has five of its own `LONG` waits.
