@@ -1,3 +1,4 @@
+import { hash01 } from "./seeded";
 /**
  * A colour as a real surface can carry it. A paint, a lacquer or a dyed
  * cloth reflects neither all the light nor none of it, and no dye is a
@@ -72,7 +73,8 @@ export const ALBEDO = { least: 0.035, most: 0.83 } as const;
 /** a cloth's dye is never as pure as a paint's: its most saturation */
 export const CLOTH_PUREST = 0.45;
 
-const linear = (c: number) =>
+/** an sRGB channel (0–1) as linear light */
+export const linear = (c: number) =>
   c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
 /** a hex's linear luminance */
 export const luminanceOf = (colour: string) => {
@@ -137,13 +139,7 @@ export const clothColour = (colour: string) => {
 export const WOOD_SPREAD = { hue: 3, value: 0.06 } as const;
 export const variedWood = (colour: string, seed: number) => {
   if (!/^#[0-9a-f]{6}$/i.test(colour)) return colour;
-  const u = (k: number) => {
-    let x = (seed * 2654435761 + k * 97) >>> 0;
-    x ^= x >>> 15;
-    x = Math.imul(x, 2246822519) >>> 0;
-    x ^= x >>> 13;
-    return (x >>> 0) / 4294967296;
-  };
+  const u = (k: number) => hash01(seed, k);
   const [h, s, l] = hsl(colour);
   const hue = (h + (u(1) * 2 - 1) * WOOD_SPREAD.hue + 360) % 360;
   return hex(hue, s, Math.min(1, l * (1 + (u(2) * 2 - 1) * WOOD_SPREAD.value)));

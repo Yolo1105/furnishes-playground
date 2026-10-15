@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  PANEL_THICKNESS,
   checkRecipe,
   DESIGN_RULES,
   designOf,
@@ -11,6 +12,8 @@ import {
 } from "@furnishes/domain";
 import { useMemo, useState } from "react";
 import { sgd } from "./assets-data";
+import { MESSAGE_MAX } from "@/lib/guard";
+import { inDemo } from "./demo-store";
 import { PanelView } from "./PanelView";
 import { COLOURS, colourHex } from "./piece-detail";
 import { roomLabel, useRoom } from "./room-store";
@@ -61,6 +64,17 @@ export function DesignPane({
       note: `${why}.`,
     });
     let next: Asked;
+    // the guided demo asks nothing of the server: Eva's recipe is the
+    // words read by the rules
+    if (inDemo()) {
+      setAsked({
+        recipe: recipeFromWords(text),
+        by: "eva",
+        note: "Eva's recipe.",
+      });
+      setBusy(false);
+      return;
+    }
     try {
       const res = await fetch("/api/design-piece", {
         method: "POST",
@@ -133,13 +147,13 @@ export function DesignPane({
           value={words}
           placeholder="A 1.6 m low bookcase with two doors, oak…"
           aria-label="Describe a piece to design"
-          maxLength={300}
+          maxLength={MESSAGE_MAX}
           onChange={(e) => setWords(e.target.value)}
         />
         <button
           type="submit"
           className="main-btn main-btn-primary"
-          disabled={busy || words.trim().length < 2}
+          disabled={busy || !words.trim()}
           aria-busy={busy}
         >
           <span>{busy ? "Designing…" : "Design"}</span>
@@ -147,7 +161,7 @@ export function DesignPane({
       </form>
       <p className="add-gen-hint" role="status">
         {asked?.note ??
-          "A Furnishes piece made to measure in 18 mm birch plywood: say what it is, how big, and its doors, drawers and finish."}
+          `A Furnishes piece made to measure in ${PANEL_THICKNESS} mm birch plywood: say what it is, how big, and its doors, drawers and finish.`}
       </p>
       {asked && (
         <Designed
@@ -161,8 +175,9 @@ export function DesignPane({
   );
 }
 
-/** a recipe drawn, priced, cut and open to change */
-function Designed({
+/** a recipe drawn, priced, cut and open to change: in the Design
+    pane, and in Eva's message when she designs one */
+export function Designed({
   start,
   onPlace,
 }: {

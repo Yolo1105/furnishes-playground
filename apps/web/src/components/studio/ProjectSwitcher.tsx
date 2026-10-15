@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { SITE } from "@/lib/site";
 import { ChevronDownIcon, PencilIcon, PlusIcon, TrashIcon } from "./icons";
+import { leaveDemo, startDemo } from "./demo";
+import { useDemo } from "./demo-store";
 import { useProjects } from "./project-store";
 import { useDismiss } from "./useDismiss";
 
@@ -12,8 +14,10 @@ import { useDismiss } from "./useDismiss";
  * project, Rename and Delete below. Renaming happens in place; Delete
  * asks once more in place (Delete for good) before the project goes,
  * and the last project cannot be deleted. Switching keeps the open
- * project first.
+ * project first. The guided demo opens from here too (demo.ts): while it
+ * is open its name stands in the bar, and picking a project leaves it.
  */
+const DEMO_NAME = "Sample flat · guided demo";
 /** the brand's words, the last one marked in the accent: "Furnishes
     Studio" is the house, in ink, and its studio, in orange */
 const brandOf = (name: string): [string, boolean][] => {
@@ -25,6 +29,7 @@ export function ProjectSwitcher() {
   const projects = useProjects((s) => s.projects);
   const activeId = useProjects((s) => s.activeId);
   const { open, create, rename, remove } = useProjects.getState();
+  const demo = useDemo((s) => s.on);
   const [menu, setMenu] = useState(false);
   /** Delete was pressed once: the row now asks for the second press */
   const [ending, setEnding] = useState(false);
@@ -46,6 +51,8 @@ export function ProjectSwitcher() {
   const pick = (go: () => void) => {
     setMenu(false);
     setEnding(false);
+    // the demo is left first: what is picked is done to a project
+    if (demo) leaveDemo();
     go();
   };
   return (
@@ -84,14 +91,17 @@ export function ProjectSwitcher() {
           className="shell-project-btn"
           aria-haspopup="menu"
           aria-expanded={menu}
-          aria-label={`Project, ${active.name}`}
+          aria-label={`Project, ${demo ? DEMO_NAME : active.name}`}
           onClick={() => setMenu((v) => !v)}
           onDoubleClick={() => {
+            if (demo) return;
             setMenu(false);
             setDraft(active.name);
           }}
         >
-          <span className="shell-project-name">{active.name}</span>
+          <span className="shell-project-name">
+            {demo ? DEMO_NAME : active.name}
+          </span>
           <span className="shell-project-caret">
             <ChevronDownIcon />
           </span>
@@ -104,7 +114,7 @@ export function ProjectSwitcher() {
               key={p.id}
               type="button"
               role="menuitemradio"
-              aria-checked={p.id === active.id}
+              aria-checked={!demo && p.id === active.id}
               className="shell-menu-row"
               onClick={() => pick(() => open(p.id))}
             >
@@ -112,6 +122,19 @@ export function ProjectSwitcher() {
             </button>
           ))}
           <div className="shell-menu-sep" role="separator" />
+          <button
+            type="button"
+            role="menuitemradio"
+            aria-checked={demo}
+            className="shell-menu-row"
+            onClick={() => {
+              setMenu(false);
+              setEnding(false);
+              startDemo();
+            }}
+          >
+            {DEMO_NAME}
+          </button>
           <button
             type="button"
             role="menuitem"
@@ -124,6 +147,7 @@ export function ProjectSwitcher() {
             type="button"
             role="menuitem"
             className="shell-menu-row"
+            disabled={demo}
             onClick={() => pick(() => setDraft(active.name))}
           >
             <PencilIcon /> Rename
@@ -132,7 +156,7 @@ export function ProjectSwitcher() {
             type="button"
             role="menuitem"
             className="shell-menu-row"
-            disabled={projects.length <= 1}
+            disabled={demo || projects.length <= 1}
             title={projects.length <= 1 ? "The last project stays" : undefined}
             onClick={() =>
               ending ? pick(() => remove(active.id)) : setEnding(true)

@@ -192,7 +192,7 @@ const sideOf = (tex: Texture | null | undefined): [number, number] => {
 };
 
 /** why a generated mesh is turned away, or null when it may stand: its
-    holes, or too few texels a metre on its largest part. Its size is as
+    holes, or too few texels a metre on any of its parts. Its size is as
     generated, so the texels are read at the size it is asked to stand */
 export const refuseMesh = (root: Object3D, longest: number) => {
   const meshes = meshesOf(root);

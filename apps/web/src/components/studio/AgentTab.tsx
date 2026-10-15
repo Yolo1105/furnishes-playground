@@ -13,6 +13,9 @@ import {
   ROOM_REVIEW,
 } from "./eva-data";
 import { useEva } from "./eva-store";
+import { DemoBar } from "./DemoBar";
+import { Designed } from "./DesignPane";
+import { useDemo } from "./demo-store";
 import {
   CheckIcon,
   CopyIcon,
@@ -136,8 +139,10 @@ export function AgentTab() {
 
   const started = thread !== undefined && thread.length > 0;
   const pinned = (thread ?? []).filter((m) => m.pinned);
+  const demo = useDemo((s) => s.on);
   return (
     <div className="agent">
+      {demo && <DemoBar />}
       <div className="agent-msg">
         <span className="agent-who">
           <span className="chat-eva-dot" aria-hidden="true" />
@@ -580,6 +585,11 @@ export function AgentTab() {
                         Make {x.words.toLowerCase()} as a room item
                       </li>
                     ))}
+                    {(m.changes.recolours ?? []).map((x) => (
+                      <li key={`colour-${x.id}`}>
+                        Finish the {x.name.toLowerCase()} in {x.label}
+                      </li>
+                    ))}
                     {m.changes.moves.map((x) => (
                       <li key={`move-${x.id}`} className="f-num">
                         Move the {x.name.toLowerCase()} to {metres(x.x)} ×{" "}
@@ -619,6 +629,17 @@ export function AgentTab() {
                     </span>
                   )}
                 </div>
+              )}
+              {m.design && (
+                <Designed
+                  start={m.design}
+                  onPlace={(recipe) =>
+                    select(
+                      useScene.getState().addDesign(recipe, room.id),
+                      false,
+                    )
+                  }
+                />
               )}
               {m.observations && (
                 <ul className="agent-cards" aria-label="What Eva noticed">
@@ -750,7 +771,7 @@ export function AgentTab() {
             </div>
           )}
           <ThreadEnd count={thread.length} thinking={thinking} />
-          {offline && (
+          {offline && !demo && (
             <p className="agent-offline">
               No model is connected on this server, so Eva answers from the
               room&apos;s facts and the catalogue.

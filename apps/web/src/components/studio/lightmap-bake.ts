@@ -1,3 +1,4 @@
+import { hash01 } from "./seeded";
 /**
  * A piece's light, baked (round 8, 1a): how much of the room each point
  * of the piece sees, worked out once for the piece as it is built and
@@ -46,8 +47,8 @@ export type BakeChart = {
 /** what a bake is given */
 export type BakeJob = {
   boxes: BakeBox[];
-  /** the floor's height in the piece's frame, or none (a wall cabinet
-      still sees the floor, far off: it is always there) */
+  /** the floor's height in the piece's frame (a wall cabinet still
+      sees the floor, far off: it is always there) */
   floor: number;
   /** the wall behind the piece: the plane z = `wall` (the piece's back
       is −z), when it stands within `WALL_NEAR` of one */
@@ -118,7 +119,7 @@ export const faceAxes = (face: number): [number, number] => {
 };
 
 /** a point of a box in the piece's frame */
-const toPiece = (b: BakeBox, l: V3): V3 => {
+export const toPiece = (b: BakeBox, l: V3): V3 => {
   if (!b.m) return [b.c[0] + l[0], b.c[1] + l[1], b.c[2] + l[2]];
   const m = b.m;
   return [
@@ -173,8 +174,9 @@ export const facePoint = (b: BakeBox, face: number, s: number, t: number) => {
   return { p: toPiece(b, l), n: dirToPiece(b, n) };
 };
 
-/** a face is out of sight: pressed against another box, or the floor,
-    or the wall, at its middle and its four corners */
+/** a face is out of sight: pressed against another box or the floor,
+    at its middle and its four corners (the wall behind is the rays'
+    to find, as it shades a face without hiding it) */
 const hidden = (boxes: BakeBox[], k: number, face: number, floor: number) => {
   const b = boxes[k]!;
   for (const [s, t] of [
@@ -209,7 +211,6 @@ export const layoutCharts = (
   floor: number,
 ) => {
   const faces: { box: number; face: number; m: [number, number] }[] = [];
-  let area = 0;
   for (const k of boards) {
     const b = boxes[k]!;
     for (let face = 0; face < 6; face++) {
@@ -217,7 +218,6 @@ export const layoutCharts = (
       const [u, v] = faceAxes(face);
       const m: [number, number] = [2 * b.h[u]!, 2 * b.h[v]!];
       faces.push({ box: k, face, m });
-      area += m[0] * m[1];
     }
   }
   // the density the piece can have within its texels, counting the
@@ -274,8 +274,6 @@ export const layoutCharts = (
   return {
     charts,
     size: [W, Math.max(1, y + row)] as [number, number],
-    density,
-    area,
   };
 };
 
@@ -345,13 +343,7 @@ const hitBox = (
 const GOLDEN = Math.PI * (3 - Math.sqrt(5));
 /** a texel's own turn of the rays, so neighbours sample differently and
     the blur evens them out */
-const spin = (i: number) => {
-  let x = (i * 2654435761) >>> 0;
-  x ^= x >>> 15;
-  x = Math.imul(x, 2246822519) >>> 0;
-  x ^= x >>> 13;
-  return ((x >>> 0) / 4294967296) * Math.PI * 2;
-};
+const spin = (i: number) => hash01(i) * Math.PI * 2;
 
 type Scene = {
   boxes: BakeBox[];

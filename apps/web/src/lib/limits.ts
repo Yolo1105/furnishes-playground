@@ -11,8 +11,8 @@ export const LIMITS = {
   chatTurnsPerHour: num("CHAT_TURNS_PER_HOUR", 40),
   /** room items drawn and modelled an hour, per caller */
   itemsPerHour: num("ITEMS_PER_HOUR", 12),
-  /** pieces designed from words an hour, per caller; each may take up
-      to four calls (lib/design-piece.ts) */
+  /** pieces designed from words an hour, per caller; each may take a
+      call and its repairs (lib/design-piece.ts's REPAIRS) */
   designsPerHour: num("DESIGNS_PER_HOUR", 20),
   /** Review this room by the model a day, per caller */
   reviewsPerDay: num("REVIEWS_PER_DAY", 8),

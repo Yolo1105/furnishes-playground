@@ -10,7 +10,7 @@ import {
 } from "react";
 import type { Group, Texture } from "three";
 import { cameraMoving } from "./camera-motion";
-import { type StillState, stillOf, wakeAt } from "./capture";
+import { PICTURE_FADE_MS, type StillState, stillOf, wakeAt } from "./capture";
 import { devParam } from "./dev-flags";
 import { warming } from "./shader-warm";
 import { useEvent } from "./use-event";
@@ -63,9 +63,6 @@ const RETRY_MS = 250;
 /** the pause between two slices of a bake, ms: the page answers a hand
     in it */
 const SLICE_GAP_MS = 4;
-/** how long a fresh bake takes to fade in over the one it replaces, ms:
-    a bake landing all at once changed the room's light in a frame */
-export const PROBE_FADE_MS = 400;
 
 /** the renderer told how the grid lights a material, once, before any
     material is built with the grid in the scene */
@@ -170,7 +167,7 @@ const bakeDone = (k: Kept, into: 0 | 1) => {
 const fadeStep = (k: Kept) => {
   const f = k.fade;
   if (!f) return true;
-  const t = Math.min(1, (performance.now() - f.from) / PROBE_FADE_MS);
+  const t = Math.min(1, (performance.now() - f.from) / PICTURE_FADE_MS);
   k.grids[f.into].intensity = t;
   k.grids[1 - f.into]!.intensity = 1 - t;
   if (t < 1) return false;

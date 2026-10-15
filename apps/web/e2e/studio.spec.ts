@@ -4458,7 +4458,7 @@ test("Design makes a Furnishes piece from words: drawn in 2D, priced, cut, chang
   await expect(made).not.toHaveAttribute("data-problems", "0");
   await expect(
     made.getByRole("list", { name: "What it breaks" }),
-  ).toContainText("more than an 18 mm shelf spans");
+  ).toContainText("more than 18 mm ply spans as a shelf");
   const place = made.getByRole("button", { name: "Place in the room" });
   await expect(place).toBeDisabled();
   // the doors went with the bays; back to three bays and two doors
@@ -4534,6 +4534,125 @@ test("Eva's design_piece recipe is the one drawn when a model answers", async ({
     "Oak sideboard · 1500 × 760 × 420 mm",
   );
   await expect(pane.locator(".design-cut summary")).toContainText("panels");
+});
+
+test("the guided demo plays whatever is typed, changes the room for real, calls no server and leaves the projects as they were", async ({
+  page,
+}) => {
+  // the room reloads twice (into the demo and out) and five scenes play
+  test.setTimeout(180_000);
+  const called: string[] = [];
+  page.on("request", (r) => {
+    const path = new URL(r.url()).pathname;
+    if (
+      /^\/api\/(chat|suggestions|generate-item|design-piece|checkout|share)/.test(
+        path,
+      )
+    )
+      called.push(path);
+  });
+  await page.goto("/rounded");
+  const stage = page.locator(".shell-stage .stage-3d");
+  const project = page.getByRole("button", { name: /^Project, / });
+  // the projects loaded: the flat's first arrangement is the open one
+  const name = "Project, HDB 5-room · Balanced";
+  await expect(project).toHaveAttribute("aria-label", name);
+  await project.click();
+  await page
+    .getByRole("menuitemradio", { name: "Sample flat · guided demo" })
+    .click();
+  await expect(project).toHaveAttribute(
+    "aria-label",
+    "Project, Sample flat · guided demo",
+  );
+  const bar = page.getByRole("group", { name: "Guided demo" });
+  await expect(bar).toContainText("1 of 12");
+  // the room reloads under it: the stage says so once it is drawn again
+  await expect(stage).toHaveAttribute("data-demo", "on", { timeout: 60_000 });
+  // the first words are offered in the box; anything typed plays a scene
+  const box = page.getByRole("textbox", { name: "Message Eva" });
+  await expect(box).toHaveValue(/couple who read/);
+  await box.fill("asdf");
+  await box.press("Enter");
+  await expect(stage).toHaveAttribute("data-demo-scene", "hello");
+  await expect(page.locator(".agent")).toContainText(
+    "a living room for reading in",
+  );
+  // the sofa named: Eva's changes, applied for real
+  await box.fill("hmm, the sofa");
+  await box.press("Enter");
+  await expect(stage).toHaveAttribute("data-demo-scene", "swap");
+  const changes = page.getByRole("group", { name: "Eva's changes" }).last();
+  await expect(changes).toContainText("Take out the sofa");
+  await changes.getByRole("button", { name: "Apply" }).click();
+  // the new sofa is picked and shown in Detail
+  await expect(page.locator(".detail-name")).toHaveText(
+    "Deep green velvet sofa",
+  );
+  await page.getByRole("tab", { name: "Assets", exact: true }).click();
+  await expect(
+    page.getByRole("treeitem", { name: "Deep green velvet sofa" }),
+  ).toHaveCount(1);
+  await expect(
+    page.getByRole("treeitem", { name: "Sofa", exact: true }),
+  ).toHaveCount(0);
+  // a piece designed in the thread, placed from it
+  await box.fill("design me something");
+  await box.press("Enter");
+  await expect(stage).toHaveAttribute("data-demo-scene", "design");
+  await page
+    .locator(".agent .design-made")
+    .getByRole("button", { name: "Place in the room" })
+    .click();
+  await expect(stage).toHaveAttribute("data-designs", "1");
+  // Next scene moves on without typing
+  await bar.getByRole("button", { name: "Next scene" }).click();
+  await expect(stage).toHaveAttribute("data-demo-scene", "brainstorm");
+  // nothing went to the server, and leaving goes back as it was
+  expect(called).toEqual([]);
+  await bar.getByRole("button", { name: "Leave" }).click();
+  await expect(stage).toHaveAttribute("data-demo", "off");
+  await expect(project).toHaveAttribute("aria-label", name);
+  await expect(
+    page.getByRole("treeitem", { name: "Deep green velvet sofa" }),
+  ).toHaveCount(0);
+  // opened again, it starts fresh
+  await project.click();
+  await page
+    .getByRole("menuitemradio", { name: "Sample flat · guided demo" })
+    .click();
+  await expect(bar).toContainText("1 of 12");
+  await expect(
+    page.getByRole("treeitem", { name: "Sofa", exact: true }),
+  ).toHaveCount(1);
+});
+
+test("Play the demo plays every scene through by itself", async ({ page }) => {
+  test.setTimeout(600_000);
+  await page.goto("/rounded");
+  const stage = page.locator(".shell-stage .stage-3d");
+  await page.getByRole("button", { name: /^Project, / }).click();
+  await page
+    .getByRole("menuitemradio", { name: "Sample flat · guided demo" })
+    .click();
+  const bar = page.getByRole("group", { name: "Guided demo" });
+  await bar.getByRole("button", { name: "Play the demo" }).click();
+  await expect(stage).toHaveAttribute("data-demo-playing", "true");
+  // it can be paused and resumed
+  await bar.getByRole("button", { name: "Pause" }).click();
+  await expect(bar.getByRole("button", { name: "Resume" })).toBeVisible();
+  await bar.getByRole("button", { name: "Resume" }).click();
+  await expect(stage).toHaveAttribute("data-demo-scene", "photo", {
+    timeout: 540_000,
+  });
+  await expect(stage).toHaveAttribute("data-demo-playing", "false", {
+    timeout: 60_000,
+  });
+  await expect(bar).toContainText("the end");
+  await expect(stage).toHaveAttribute("data-designs", "1");
+  await expect(
+    page.getByRole("button", { name: "Start your own project" }),
+  ).toBeVisible();
 });
 
 test("the room's rules shape the planner: the walkway, what is kept clear, a bed against a wall, what the room must have; four layouts to apply", async ({

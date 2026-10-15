@@ -1,3 +1,4 @@
+import type { DesignRecipe } from "@furnishes/domain";
 import { sgd } from "./assets-data";
 import type { Product } from "./catalogue";
 import type { ChatMode, Chip } from "./eva-brain";
@@ -40,6 +41,9 @@ export type Message = {
   changes?: Changes;
   /** what Eva noticed about the room as it stands */
   observations?: Observation[];
+  /** a piece Eva designed (design.ts): drawn, priced and placed from
+      the message */
+  design?: DesignRecipe;
   /** what can be said or done next */
   chips?: Chip[];
   /** whether a model answered, or the studio's own rules */
@@ -346,7 +350,20 @@ export type Changes = {
   moves: { id: string; name: string; x: number; y: number; rotation: number }[];
   removes: { id: string; name: string }[];
   adds: { id: string; name: string; x?: number; y?: number }[];
-  items: { words: string; name: string; x?: number; y?: number }[];
+  /** room items to make: the words, and where, at what size (mm) and in
+      what colour (hex) when Eva says */
+  items: {
+    words: string;
+    name: string;
+    x?: number;
+    y?: number;
+    rotation?: number;
+    size?: { width: number; depth: number; height: number };
+    colour?: string;
+  }[];
+  /** pieces given another finish: a colour id (piece-detail's COLOURS)
+      for a Furnishes piece, a hex for a room item, and its name said */
+  recolours?: { id: string; name: string; colour: string; label: string }[];
   layout?: PlanId;
   settled?: "applied" | "dismissed";
 };

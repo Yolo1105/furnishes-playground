@@ -31,8 +31,6 @@ export type GlancePoints = {
   bays: { back: UV[]; front: UV[] } | null;
   contact: { near: UV[]; open: UV[] } | null;
   table: { top: UV[]; floor: UV[] } | null;
-  /** what the points were found from, for a failing run */
-  debug: number[];
 };
 
 /** the pieces the glance looks at, by their names in the scene */
@@ -190,7 +188,6 @@ export const glancePoints = (page: Page) =>
       bays: null,
       contact: null,
       table: null,
-      debug: [],
     };
     /** a grid of points on a face of the box, inset 8 % */
     const grid = (
@@ -260,8 +257,6 @@ export const glancePoints = (page: Page) =>
       if (name !== "Bookwall" && edge.length >= 3)
         out.edges.push({ piece: name, edge, below });
       if (name === "Bookwall") {
-        // a bay's back: the back panel seen at bay middles; its front
-        // edge: the boards' front edges seen across the bays
         // the boards' front edges stand furthest forward; a bay's back
         // (its back panel, or the middle panel of a shelf open both
         // ways) is the face seen at least 8 cm behind them

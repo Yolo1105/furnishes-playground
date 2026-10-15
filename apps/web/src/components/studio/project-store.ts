@@ -12,6 +12,7 @@ import type { Point } from "./room-templates";
 import { type RoomSpec, useRoom } from "./room-store";
 import { useScene } from "./scene-store";
 import { useStudio } from "./studio-store";
+import { inDemo } from "./demo-store";
 import {
   ARRANGEMENTS,
   arrangementOf,
@@ -151,6 +152,20 @@ const arranged = (id: (typeof ARRANGEMENTS)[number]["id"]): Snapshot => {
     eva: { ...base.eva, preferences: useEva.getInitialState().preferences },
   };
 };
+/** the guided demo's room: the flat as it first opens, fresh each time
+    (demo.ts), into the stores; Eva's slate clean */
+export const loadDemo = () => {
+  const data = arranged(ARRANGEMENTS[0]!.id);
+  load({ ...data, eva: { ...data.eva, conversations: [], messages: {} } });
+};
+/** a project into the stores again, by id (the demo left) */
+export const reopen = (id: string) => {
+  const p = useProjects.getState().projects.find((x) => x.id === id);
+  const target = p ?? useProjects.getState().projects[0]!;
+  load(target.data ?? fresh());
+  useProjects.setState({ activeId: target.id });
+};
+
 /** the studio's own projects: the flat in each of its arrangements,
     the first the one that opens */
 type Arrangement = (typeof ARRANGEMENTS)[number]["id"];
@@ -532,6 +547,8 @@ export const useProjects = create<ProjectState>((set, get) => ({
   activeId: FIRST.id,
   gone: {},
   save: () => {
+    // the guided demo is no project: nothing of it is kept
+    if (inDemo()) return;
     const { projects, activeId } = get();
     const data = snapshot();
     const open = projects.find((p) => p.id === activeId);

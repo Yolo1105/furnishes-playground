@@ -94,8 +94,8 @@ export const scuffs = () => {
 };
 
 let pathMap: CanvasTexture | null = null;
-/** the worn way in from a door: an oval, strongest down its middle and
-    near the door, fading to nothing at its sides and its far end */
+/** the worn way in from a door: an oval, strongest near the door and
+    fading to nothing at its far end */
 export const pathWear = () => {
   if (pathMap) return pathMap;
   const { c, g } = canvasOf(64, 128);

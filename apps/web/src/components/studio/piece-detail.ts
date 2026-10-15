@@ -1,3 +1,4 @@
+import { kindOf, PROPS_DIR } from "./prop-variants";
 import {
   type Configuration,
   defaultConfig,
@@ -243,10 +244,13 @@ export const isRug = (n: Pick<AssetNode, "name">) =>
 /** a room item generated from words (Part 3b): a concept, not a real
     object, so labelled; a real model found for it is not one */
 export const isConcept = (n: Pick<AssetNode, "image" | "model">) =>
-  !!(n.image || (n.model && !n.model.startsWith("/props/")));
-/** a plant, a small tree or a fern, by its name */
-export const isPlant = (n: Pick<AssetNode, "name">) =>
-  /plant|tree|fig|palm|fern/i.test(n.name);
+  !!(n.image || (n.model && !n.model.startsWith(PROPS_DIR)));
+/** a plant, a small tree, a fern or a planter, by its name: the kinds
+    the models list knows them by (prop-variants.ts) */
+export const isPlant = (n: Pick<AssetNode, "name">) => {
+  const kind = kindOf(n.name);
+  return kind === "plant" || kind === "planter";
+};
 export const isSmall = (p: Pick<PieceProps, "width" | "depth">) =>
   Math.max(p.width, p.depth) < 500;
 

@@ -42,6 +42,8 @@ import {
 import { inRoom, propsOf, standingOf, useScene } from "./scene-store";
 import { newId } from "./ids";
 import { useStudio } from "./studio-store";
+import { useDemo, type DemoAct } from "./demo-store";
+import { colourIn } from "./prop-variants";
 
 type PreferenceValue = {
   /** chip ids, or the budget as a range: from and to, S$ */
@@ -58,6 +60,9 @@ type EvaState = {
   messages: Record<string, Message[]>;
   /** text a prompt chip hands to the input box */
   draft: string;
+  /** counts each ask to send what is in the input box (the demo, when
+      it plays itself, types there and sends) */
+  submitAt: number;
   /** exploration: Eva sets the preferences aside and stays open to
       anything, instead of narrowing to what they say */
   exploration: boolean;
@@ -85,6 +90,8 @@ type EvaState = {
   addCustom: (cat: PreferenceCategory, value: string, multi: boolean) => void;
   removeCustom: (cat: PreferenceCategory, value: string) => void;
   setDraft: (draft: string) => void;
+  /** send what is in the input box */
+  submit: () => void;
   setExploration: (on: boolean) => void;
   /** start a conversation and make it the open one */
   newConversation: () => string;
@@ -190,6 +197,10 @@ const contextOf = (
   };
 };
 
+/** the demo's thinking, ms: at least, at most, and a share for each
+    character of the answer */
+const DEMO_THINK = { least: 900, most: 2000, perChar: 3 };
+
 /** Shorter, answered by the rules from the thread when no model is
     connected: the latest answer's first sentence or two */
 const refined = (text: string, thread: Message[]): Reply | null => {
@@ -210,6 +221,7 @@ export const useEva = create<EvaState>((set, get) => ({
   conversations: [],
   messages: {},
   draft: "",
+  submitAt: 0,
   thinking: false,
   offline: false,
   persona: "eva",
@@ -221,6 +233,7 @@ export const useEva = create<EvaState>((set, get) => ({
   },
   custom: {},
   setDraft: (draft) => set({ draft }),
+  submit: () => set((s) => ({ submitAt: s.submitAt + 1 })),
   newConversation: () => {
     const c: Conversation = {
       id: newId("c"),
@@ -269,34 +282,50 @@ export const useEva = create<EvaState>((set, get) => ({
     // a review is its own route, with a day's share; past it, or
     // without a key, the rules review the room
     const review = asked === ROOM_REVIEW;
-    try {
-      const res = await fetch(review ? "/api/suggestions" : "/api/chat", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(
-          review
-            ? { context: ctx }
-            : { message: asked, thread, context: ctx, mode },
+    // the guided demo answers from its script, after a moment's thought
+    // as long as the answer, and asks nothing of the server
+    const demo = useDemo.getState().turn;
+    if (demo) {
+      r = demo(asked);
+      source = "model";
+      await new Promise((done) =>
+        setTimeout(
+          done,
+          Math.min(
+            DEMO_THINK.most,
+            DEMO_THINK.least + r.text.length * DEMO_THINK.perChar,
+          ),
         ),
-        signal: turn.signal,
-      });
-      if (res.ok) {
-        r = ((await res.json()) as { reply: Reply }).reply;
-        source = "model";
-      } else {
-        if (res.status === 503) set({ offline: true });
+      );
+    } else
+      try {
+        const res = await fetch(review ? "/api/suggestions" : "/api/chat", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(
+            review
+              ? { context: ctx }
+              : { message: asked, thread, context: ctx, mode },
+          ),
+          signal: turn.signal,
+        });
+        if (res.ok) {
+          r = ((await res.json()) as { reply: Reply }).reply;
+          source = "model";
+        } else {
+          if (res.status === 503) set({ offline: true });
+          r = own();
+          if (review && res.status === 429)
+            r = {
+              ...r,
+              text: `That is the day's share of reviews from the model; the studio's own rules looked instead. ${r.text}`,
+            };
+        }
+      } catch {
+        // stopped: nothing arrives
+        if (turn.signal.aborted) return;
         r = own();
-        if (review && res.status === 429)
-          r = {
-            ...r,
-            text: `That is the day's share of reviews from the model; the studio's own rules looked instead. ${r.text}`,
-          };
       }
-    } catch {
-      // stopped: nothing arrives
-      if (turn.signal.aborted) return;
-      r = own();
-    }
     if (turn.signal.aborted) return;
     // what might be said next, when the answer offers nothing itself; a
     // long answer offers itself shorter
@@ -315,6 +344,7 @@ export const useEva = create<EvaState>((set, get) => ({
       ...(r.cards.length ? { cards: r.cards } : {}),
       ...(r.changes ? { changes: r.changes } : {}),
       ...(r.observations?.length ? { observations: r.observations } : {}),
+      ...(r.design ? { design: r.design } : {}),
       chips,
     };
     set((s) => ({
@@ -337,6 +367,7 @@ export const useEva = create<EvaState>((set, get) => ({
     const ch = msg?.changes;
     if (!msg || !ch || ch.settled) return;
     if (take) {
+      let shown: string[] = [];
       const st = useRoom.getState();
       const r = activeOf(st);
       const roomId = r.id;
@@ -348,10 +379,17 @@ export const useEva = create<EvaState>((set, get) => ({
         {
           removes: ch.removes.map((x) => x.id),
           adds,
-          items: ch.items.map((it) => ({
-            item: describeItem(it.words),
-            roomId,
-          })),
+          items: ch.items.map((it) => {
+            // the colour Eva named, else one the words give
+            const colour = it.colour ?? colourIn(it.words);
+            return {
+              item: {
+                ...describeItem(it.words),
+                ...(colour ? { colour } : {}),
+              },
+              roomId,
+            };
+          }),
         },
         (added) => {
           // the spots Eva named, then the layout she asked for over
@@ -366,9 +404,22 @@ export const useEva = create<EvaState>((set, get) => ({
           });
           ch.items.forEach((it, i) => {
             const node = added[ch.adds.length + i];
-            if (node && it.x !== undefined && it.y !== undefined)
-              places[node.id] = { x: it.x, y: it.y };
+            if (!node) return;
+            places[node.id] = {
+              ...(it.x !== undefined && it.y !== undefined
+                ? { x: it.x, y: it.y }
+                : {}),
+              ...(it.rotation !== undefined ? { rotation: it.rotation } : {}),
+              ...(it.size ?? {}),
+            };
           });
+          for (const c of ch.recolours ?? [])
+            places[c.id] = { ...places[c.id], colour: c.colour };
+          // the demo shows what came in, or took a new finish
+          shown = [
+            ...added.map((n) => n.id),
+            ...(ch.recolours ?? []).map((c) => c.id),
+          ];
           if (ch.layout) {
             const sc = useScene.getState();
             const gone = new Set(ch.removes.map((x) => x.id));
@@ -401,6 +452,7 @@ export const useEva = create<EvaState>((set, get) => ({
           return places;
         },
       );
+      if (shown.length) useDemo.getState().applied?.(shown);
     }
     set((s) => ({
       messages: {
@@ -500,6 +552,8 @@ export const useEva = create<EvaState>((set, get) => ({
   },
   pickChip: (msgId, chip) => {
     if (chip.send) return get().send(chip.send);
+    if (chip.act?.startsWith("demo-"))
+      return useDemo.getState().chip?.(chip.act as DemoAct);
     if (chip.act === "room-tab")
       return useStudio.getState().setPanelTab("room");
     if (chip.act === "budget" && chip.budget) {

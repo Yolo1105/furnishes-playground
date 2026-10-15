@@ -124,12 +124,15 @@ export const carcassPanels = ({
       : []),
     make("bottom", "Bottom", "y", w - 2 * T, d, [0, P + T / 2, 0]),
     make("top", "Top", "y", w - 2 * T, d, [0, h - T / 2, 0]),
-    ...backs(w - 2 * T, inner).map((h, j, all) =>
-      make(all.length > 1 ? `back-${j}` : "back", "Back", "z", w - 2 * T, h, [
-        0,
-        P + T + h * (j + 0.5),
-        -d / 2 + T / 2,
-      ]),
+    ...backs(w - 2 * T, inner).map((strip, j, all) =>
+      make(
+        all.length > 1 ? `back-${j}` : "back",
+        "Back",
+        "z",
+        w - 2 * T,
+        strip,
+        [0, P + T + strip * (j + 0.5), -d / 2 + T / 2],
+      ),
     ),
     make("side-west", "Side", "x", d, h - P, [
       -w / 2 + T / 2,
@@ -147,7 +150,7 @@ export const carcassPanels = ({
     const x0 = -w / 2 + T + i * (bayW + T);
     const mid = x0 + bayW / 2;
     const door = i < doorBays;
-    const drawer = !door && i >= doorBays && i < doorBays + drawers;
+    const drawer = !door && i < doorBays + drawers;
     if (i > 0)
       out.push(
         make(`divider-${i}`, "Divider", "x", d - T, inner, [

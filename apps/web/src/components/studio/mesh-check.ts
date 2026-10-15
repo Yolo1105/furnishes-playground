@@ -11,13 +11,15 @@ import { DRACO_PATH } from "./props-store";
  * is generated.
  */
 export const checkMesh = async (url: string, longest: number) => {
-  const loader = new GLTFLoader().setDRACOLoader(
-    new DRACOLoader().setDecoderPath(DRACO_PATH),
-  );
+  const draco = new DRACOLoader().setDecoderPath(DRACO_PATH);
+  const loader = new GLTFLoader().setDRACOLoader(draco);
   try {
     const gltf = await loader.loadAsync(url);
     return refuseMesh(gltf.scene, longest);
   } catch {
     return "it could not be read";
+  } finally {
+    // its decoder's workers go with it
+    draco.dispose();
   }
 };

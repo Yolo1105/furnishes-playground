@@ -1,5 +1,6 @@
 "use client";
 
+import { hash01, within } from "./seeded";
 import { unpickable } from "./no-pick";
 import { edgeLine } from "./edge-line";
 import { useGLTF } from "@react-three/drei";
@@ -36,13 +37,14 @@ import {
 } from "three";
 import type { AssetNode } from "./assets-data";
 import { seedOf } from "./seed";
-import { clothColour, variedWood } from "./albedo";
+import { clothColour, linear, variedWood } from "./albedo";
 import { tileMaps, WALL_TILE } from "./tile-maps";
 import { recipeOf } from "./catalogue";
 import { useEvent } from "./use-event";
 import {
   kindOf,
   BUILT_KINDS,
+  propUrl,
   lodAt,
   styleOf,
   type Variant,
@@ -93,6 +95,7 @@ import {
   Soft,
   wood,
   Built,
+  CHROME,
 } from "./finish";
 import { slabGeometry } from "./part-geometry";
 import { Panels3D } from "./Panels3D";
@@ -105,6 +108,7 @@ import {
   LampCord,
   SeatTouches,
   TableTouches,
+  CERAMICS,
 } from "./LivedIn";
 import { boxRaycast, budgetModel } from "./model-budget";
 import { BakeScope, useBakeMembers } from "./Bake";
@@ -191,9 +195,6 @@ type Props = {
   onPick: () => void;
 };
 
-/** where the Draco decoder is served from: the studio's own copy, so a
-    compressed mesh never reaches out to a third party for it */
-
 /** the real model a room item is drawn from (public/props/index.json,
     prop-variants.ts): of its kind and its design, within a tenth of its
     size on every axis; and which of the model's materials take the
@@ -210,7 +211,7 @@ const modelOf = (
   const pick = variantFor(models, kind, [w, h, d], styleOf(node.name, kind));
   if (!pick) return null;
   return {
-    src: `/props/${pick.v.file}.glb`,
+    src: propUrl(pick.v.file),
     file: pick.v.file,
     cloth: pick.v.cloth ?? null,
     turned: pick.fit.turned,
@@ -225,8 +226,6 @@ const modelOf = (
     same share. Made once a map, on a canvas */
 const GREY_MEAN = 0.8;
 const greys = new Map<string, Texture>();
-const toLinear = (c: number) =>
-  c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
 const toSrgb = (c: number) =>
   c <= 0.0031308 ? c * 12.92 : 1.055 * c ** (1 / 2.4) - 0.055;
 const greyOf = (map: Texture) => {
@@ -249,9 +248,9 @@ const greyOf = (map: Texture) => {
   let sum = 0;
   for (let i = 0, k = 0; i < d.length; i += 4, k++) {
     const v =
-      0.2126 * toLinear(d[i]! / 255) +
-      0.7152 * toLinear(d[i + 1]! / 255) +
-      0.0722 * toLinear(d[i + 2]! / 255);
+      0.2126 * linear(d[i]! / 255) +
+      0.7152 * linear(d[i + 1]! / 255) +
+      0.0722 * linear(d[i + 2]! / 255);
     lum[k] = v;
     sum += v;
   }
@@ -627,12 +626,11 @@ const looseTurn = (node: AssetNode) => {
       !/sofa|couch|settee|bench|bed/.test(name)) ||
     (node.category === "tables" && /coffee|side|end|occasional/.test(name)) ||
     (node.category === "decor" &&
-      /vase|plant|fig|palm|fern|pouf|ottoman/.test(name));
+      (isPlant(node) || /vase|pouf|ottoman/.test(name)));
   if (!loose) return 0;
-  const u = ((seedOf(node.id) * 9301 + 49297) % 233280) / 233280;
-  const v = ((seedOf(node.id) * 7919 + 104729) % 65536) / 65536;
-  const deg = LOOSE_TURN.least + (LOOSE_TURN.most - LOOSE_TURN.least) * u;
-  return ((v < 0.5 ? -1 : 1) * deg * Math.PI) / 180;
+  const seed = seedOf(node.id);
+  const deg = within(hash01(seed, 1), [LOOSE_TURN.least, LOOSE_TURN.most]);
+  return ((hash01(seed, 2) < 0.5 ? -1 : 1) * deg * Math.PI) / 180;
 };
 
 export function Furniture3D(p: Props) {
@@ -658,7 +656,8 @@ export function Furniture3D(p: Props) {
     e.stopPropagation();
     p.onPick();
   });
-  const turn = looseTurn(p.node);
+  // one against a wall stays square to it
+  const turn = p.wall == null ? looseTurn(p.node) : 0;
   // a model on its way: the form stands in, counted for the stage
   const standIn = (
     <>
@@ -1573,7 +1572,7 @@ function Seat({
           armTop={LEG + baseH + 0.28}
           armRound={SEAT.arm}
           arm={arm}
-          back={back + 0.16}
+          back={back + PILLOWS.cushion}
           seats={seats}
           seed={seed}
           cushions={
@@ -1581,11 +1580,12 @@ function Seat({
               <Pillows
                 file={pillows.file}
                 size={pillows.size}
-                room={inner * 0.45}
+                room={inner * PILLOWS.share}
                 at={[
-                  (seed % 2 ? 1 : -1) * (inner / 2 - (inner * 0.45) / 2),
-                  LEG + baseH + 0.14,
-                  -d / 2 + back + 0.16 + 0.04,
+                  (seed % 2 ? 1 : -1) *
+                    (inner / 2 - (inner * PILLOWS.share) / 2),
+                  LEG + baseH + PILLOWS.up,
+                  -d / 2 + back + PILLOWS.cushion + PILLOWS.off,
                 ]}
               />
             ) : null
@@ -1596,6 +1596,17 @@ function Seat({
   );
 }
 
+/** the throw pillows on a sofa's seat, m: the share of the seat's width
+    they take at most, how high over the base they sit, the back
+    cushions' depth they lean on and a hair off them, and the deepest
+    they may stand */
+const PILLOWS = {
+  share: 0.45,
+  up: 0.14,
+  cushion: 0.16,
+  off: 0.04,
+  deepest: 0.45,
+};
 /** the listed cushions (a set of throw pillows, a real model) on a
     sofa's seat at one end, against its back cushions: in their own
     proportions, as wide as `room` at most; the built cushions stand in
@@ -1611,12 +1622,12 @@ function Pillows({
   room: number;
   at: Vector3Tuple;
 }) {
-  const k = Math.min(1, room / mw, 0.45 / md);
+  const k = Math.min(1, room / mw, PILLOWS.deepest / md);
   return (
     <group position={[at[0], at[1], at[2] + (md * k) / 2]}>
       <Suspense fallback={null}>
         <Model
-          src={`/props/${file}.glb`}
+          src={propUrl(file)}
           size={[mw * k, mh * k, md * k]}
           cloth={null}
           fit={{ file, turned: false }}
@@ -2016,8 +2027,8 @@ const worktopThings = (
   const rack = sinkX + DISH_RACK.off;
   if (free(rack, DISH_RACK.wide / 2)) {
     const z = back + 0.2;
-    const wire = metal("#c9ced2", 0.3);
-    const plate: Finish = { colour: "#eeeae2", rough: 0.3, coat: 0.3 };
+    const wire = metal(CHROME, 0.3);
+    const plate: Finish = { colour: CERAMICS[0], rough: 0.3, coat: 0.3 };
     out.push(
       {
         f: { colour: "#d9d8d4", rough: 0.45 },
@@ -2392,9 +2403,9 @@ function Stool({ w, h, d }: { w: number; h: number; d: number }) {
   );
 }
 
-/** a dining chair: a seat on four legs with a back */
 /** a chair's back board, m thick */
 const CHAIR_BACK = 0.025;
+/** a dining chair: a seat on four legs with a back */
 function Chair({
   w,
   h,
@@ -2651,7 +2662,8 @@ function BunkBed({
 
 /** the television: its body's satin metal, its screen's black glass;
     the rim of body round the screen, the body's and the glass's depth,
-    and how high the body stands over its foot's base, m */
+    and the least its body stands over its foot's base (tvLift sets it
+    for the eye), m */
 const TV_BEZEL = "#3a3b3f";
 const TV_GLASS = "#0d0e10";
 const TV = { rim: 0.009, depth: 0.03, glass: 0.002, lift: 0.08 };

@@ -90,17 +90,22 @@ export const FOOT_STRENGTH = 0.95;
     the piece covers the sky above the floor, read from its rectangle of
     the atlas; drawn over the floor, a hair above it and pulled a step
     forward in depth, so it never fights the floor for a pixel */
-export const FOOTPRINT = new MeshBasicNodeMaterial({
-  transparent: true,
-  depthWrite: false,
-  // pulled forward by a fixed step only: a slope-scaled offset grew so
-  // large at a grazing look that a footprint showed through a rug lying
-  // over it
-  polygonOffset: true,
-  polygonOffsetFactor: 0,
-  polygonOffsetUnits: -4,
-});
-FOOTPRINT.colorNode = vec3(FOOT_TINT.r, FOOT_TINT.g, FOOT_TINT.b);
+/** a shadow laid over the floor in the footprint's tint: a hair over
+    it, pulled forward by a fixed step only (a slope-scaled offset grew
+    so large at a grazing look that a footprint showed through a rug
+    lying over it) */
+const onFloor = () => {
+  const m = new MeshBasicNodeMaterial({
+    transparent: true,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: 0,
+    polygonOffsetUnits: -4,
+  });
+  m.colorNode = vec3(FOOT_TINT.r, FOOT_TINT.g, FOOT_TINT.b);
+  return m;
+};
+export const FOOTPRINT = onFloor();
 FOOTPRINT.opacityNode = float(1)
   .sub(texture(LIGHTMAP, uv()).r)
   .mul(FOOT_STRENGTH);
@@ -108,12 +113,5 @@ FOOTPRINT.opacityNode = float(1)
 /** a soft shadow on the floor where a thing lying on it meets it (a
     rug's edge, rug.ts): the footprint's tint, as dark as its geometry's
     `shade` says, drawn over the floor as the footprint is */
-export const CONTACT = new MeshBasicNodeMaterial({
-  transparent: true,
-  depthWrite: false,
-  polygonOffset: true,
-  polygonOffsetFactor: 0,
-  polygonOffsetUnits: -4,
-});
-CONTACT.colorNode = vec3(FOOT_TINT.r, FOOT_TINT.g, FOOT_TINT.b);
+export const CONTACT = onFloor();
 CONTACT.opacityNode = attribute("shade", "float");

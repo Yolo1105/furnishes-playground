@@ -126,6 +126,11 @@ export const cornerEnd = (
   };
 };
 
+/** how far a wall's outer face stands in from its full thickness where
+    another room's wall face lies on it, m (z-fight.ts's `FIGHT` apart,
+    and more) */
+export const OUTER_IN = 0.002;
+
 /** the triangles of a wall's blocks as one geometry: each block a box
     from the inner face (z 0) to the outer (z t, `OUTER_IN` less where it
     is no room's inside), its ends square and
@@ -140,11 +145,6 @@ export const cornerEnd = (
     joint where one run meets the next (`joints`, at its start and its
     end): no cut, so the end face there is no cap and carries no line,
     which lay on the next run's face and flickered through it. */
-/** how far a wall's outer face stands in from its full thickness where
-    another room's wall face lies on it, m (z-fight.ts's `FIGHT` apart,
-    and more) */
-export const OUTER_IN = 0.002;
-
 export const wallTriangles = (
   blocks: readonly Block[],
   len: number,

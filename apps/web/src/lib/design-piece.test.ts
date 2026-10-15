@@ -59,7 +59,7 @@ describe("design_piece", () => {
       tool_use_id: "t1",
       is_error: true,
     });
-    expect(String(back[0]!.content)).toMatch(/shelf spans/);
+    expect(String(back[0]!.content)).toMatch(/spans as a shelf/);
   });
   it("reads the shape before the rules", () => {
     const p = problemsOf({ ...GOOD, finish: "gold", bays: "three" });

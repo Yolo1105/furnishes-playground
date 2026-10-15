@@ -1,3 +1,4 @@
+import { hash01 } from "./seeded";
 import {
   BoxGeometry,
   BufferGeometry,
@@ -18,8 +19,8 @@ import {
   toCreasedNormals,
 } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { grainShiftOf, toneOf } from "./albedo";
-import { withBakeDefaults } from "./bake-defaults";
-import { type BakeBox, faceAxes, inside } from "./lightmap-bake";
+import { ROD_SQUARE, withBakeDefaults } from "./bake-defaults";
+import { type BakeBox, faceAxes, inside, toPiece } from "./lightmap-bake";
 import type { Finish } from "./finish";
 import { WOOD_M } from "./textures";
 
@@ -284,7 +285,11 @@ export const boxOfPart = (p: Part): BakeBox => {
   const half: [number, number, number] =
     "dims" in p
       ? [p.dims[0] / 2, p.dims[1] / 2, p.dims[2] / 2]
-      : [p.rod[0], p.rod[1] / 2, p.rod[0]];
+      : (() => {
+          // a rod as the bake takes it (Bake.tsx): a square inside it
+          const s = Math.max(p.rod[0], p.rod[2] ?? p.rod[0]) * ROD_SQUARE;
+          return [s, p.rod[1] / 2, s] as [number, number, number];
+        })();
   if (!p.rotation || p.rotation.every((r) => r === 0))
     return { c: [...p.at], h: half };
   const e = new Matrix4().makeRotationFromEuler(
@@ -304,15 +309,6 @@ export const boxOfPart = (p: Part): BakeBox => {
 export const coveredEdges = (k: number, boxes: BakeBox[]) => {
   const b = boxes[k]!;
   const out: boolean[] = [];
-  const toPiece = (l: [number, number, number]) => {
-    if (!b.m) return [b.c[0] + l[0], b.c[1] + l[1], b.c[2] + l[2]] as const;
-    const m = b.m;
-    return [
-      b.c[0] + m[0]! * l[0] + m[1]! * l[1] + m[2]! * l[2],
-      b.c[1] + m[3]! * l[0] + m[4]! * l[1] + m[5]! * l[2],
-      b.c[2] + m[6]! * l[0] + m[7]! * l[1] + m[8]! * l[2],
-    ] as const;
-  };
   for (let face = 0; face < 6; face++) {
     const a = face >> 1;
     const sign = face & 1 ? 1 : -1;
@@ -328,7 +324,7 @@ export const coveredEdges = (k: number, boxes: BakeBox[]) => {
         l[a] = sign * (b.h[a]! + ROUND_LOOK);
         l[along] = end * (b.h[along]! + ROUND_LOOK);
         l[across] = (2 * f - 1) * b.h[across]!;
-        const q = toPiece(l);
+        const q = toPiece(b, l);
         if (
           q[1] < -ROUND_LOOK / 2 ||
           boxes.some((o, i) => i !== k && inside(o, [q[0], q[1], q[2]], 0))
@@ -508,13 +504,6 @@ export type CushionShape = {
   /** the sag and the creases' seed, or null for none */
   seed: number | null;
 };
-const seeded = (seed: number, k: number) => {
-  let x = (seed * 2654435761 + k * 40503) >>> 0;
-  x ^= x >>> 16;
-  x = Math.imul(x, 0x45d9f3b) >>> 0;
-  x ^= x >>> 16;
-  return (x >>> 0) / 4294967296;
-};
 export const cushionGeometry = (c: CushionShape) => {
   const key = [...c.dims, c.radius, c.crown, c.facing, c.seed ?? "-"].join(",");
   const had = cushions.get(key);
@@ -570,14 +559,14 @@ export const cushionGeometry = (c: CushionShape) => {
   const tone = new Float32Array(n * 3);
   const up = c.facing === "up" ? 1 : 2;
   const [ax, bx] = c.facing === "up" ? [0, 2] : [0, 1];
-  const sag = c.seed === null ? 0 : 0.006 + 0.008 * seeded(c.seed, 1);
-  const sagAt = c.seed === null ? 0 : (seeded(c.seed, 2) - 0.5) * 0.4;
+  const sag = c.seed === null ? 0 : 0.006 + 0.008 * hash01(c.seed, 1);
+  const sagAt = c.seed === null ? 0 : (hash01(c.seed, 2) - 0.5) * 0.4;
   const creases =
     c.seed === null
       ? []
-      : [0, 1, 2].slice(0, 2 + Math.floor(seeded(c.seed, 3) * 2)).map((k) => ({
-          at: (seeded(c.seed!, 10 + k) - 0.5) * 1.4,
-          turn: (seeded(c.seed!, 20 + k) - 0.5) * 0.8,
+      : [0, 1, 2].slice(0, 2 + Math.floor(hash01(c.seed, 3) * 2)).map((k) => ({
+          at: (hash01(c.seed!, 10 + k) - 0.5) * 1.4,
+          turn: (hash01(c.seed!, 20 + k) - 0.5) * 0.8,
         }));
   for (let i = 0; i < n; i++) {
     const p = [pos[i * 3]!, pos[i * 3 + 1]!, pos[i * 3 + 2]!];

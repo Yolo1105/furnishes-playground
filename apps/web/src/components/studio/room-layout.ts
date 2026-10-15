@@ -540,17 +540,15 @@ const bookAnchors = (
         y: onGrid(rect.y),
         rotation: rect.rotation,
       });
-  }
-  if (sofa && table) {
-    const i = free((p) => isFloorLamp(p.name));
-    if (i >= 0) {
-      const p = items[i]!;
+    const j = free((p) => isFloorLamp(p.name));
+    if (j >= 0) {
+      const p = items[j]!;
       const f = footprint({ ...p, rotation: 0 });
       const avoid = keepOff({ h: p.height }, r, zones);
-      const rect = lampBeside(f, sofa.rect, table.rect).find((c) =>
+      const spot = lampBeside(f, sofa.rect, table.rect).find((c) =>
         clear(c, avoid),
       );
-      if (rect) place(i, rect, 0, null);
+      if (spot) place(j, spot, 0, null);
     }
   }
   return out;

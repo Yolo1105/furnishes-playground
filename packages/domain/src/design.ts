@@ -116,7 +116,7 @@ export const checkRecipe = (r: DesignRecipe): DesignProblem[] => {
   if (bay > DESIGN_RULES.span)
     out.push({
       field: "bays",
-      message: `a bay ${Math.round(bay)} mm wide is more than an 18 mm shelf spans (${DESIGN_RULES.span} mm): use at least ${Math.ceil((r.width - PANEL_THICKNESS) / (DESIGN_RULES.span + PANEL_THICKNESS))} bays`,
+      message: `a bay ${Math.round(bay)} mm wide is more than ${PANEL_THICKNESS} mm ply spans as a shelf (${DESIGN_RULES.span} mm): use at least ${Math.ceil((r.width - PANEL_THICKNESS) / (DESIGN_RULES.span + PANEL_THICKNESS))} bays`,
     });
   if (r.doors > 0 && bay > DESIGN_RULES.leaf)
     out.push({
@@ -131,7 +131,7 @@ export const checkRecipe = (r: DesignRecipe): DesignProblem[] => {
   if (room < DESIGN_RULES.gap)
     out.push({
       field: "shelves",
-      message: `${r.shelves} shelves leave ${Math.round(room)} mm between them; ${DESIGN_RULES.gap} mm at least: fewer shelves or a taller piece`,
+      message: `${r.shelves} ${r.shelves === 1 ? "shelf leaves" : "shelves leave"} ${Math.round(room)} mm between them; ${DESIGN_RULES.gap} mm at least: fewer shelves or a taller piece`,
     });
   if (r.drawers > 0 && inner < DRAWER_MM + PANEL_THICKNESS + DESIGN_RULES.gap)
     out.push({
@@ -204,6 +204,9 @@ const lengths = (text: string) =>
       named,
     };
   });
+/** a shelf for about every this much of a piece's inside height, mm,
+    when the words name no number: a book's height and a hand over it */
+const SHELF_EVERY = 340;
 const snap = (v: number, step: number) => Math.round(v / step) * step;
 const clamp = (v: number, [lo, hi]: readonly [number, number]) =>
   Math.min(hi, Math.max(lo, v));
@@ -272,9 +275,11 @@ export const recipeFromWords = (text: string): DesignRecipe => {
     bays - doors,
     count(t, /drawers?/) ?? (/drawer/.test(t) ? 1 : 0),
   );
-  const inner = height - PLINTH_MM - 2 * PANEL_THICKNESS;
+  const plinth = !/no plinth|on legs|floating/.test(t);
+  const inner = height - (plinth ? PLINTH_MM : 0) - 2 * PANEL_THICKNESS;
   const shelves = clamp(
-    count(t, /shelf|shelves/) ?? Math.max(0, Math.floor(inner / 340) - 1),
+    count(t, /shelf|shelves/) ??
+      Math.max(0, Math.floor(inner / SHELF_EVERY) - 1),
     DESIGN_RULES.shelves,
   );
   const finish =
@@ -299,7 +304,7 @@ export const recipeFromWords = (text: string): DesignRecipe => {
     shelves,
     doors,
     drawers,
-    plinth: !/no plinth|on legs|floating/.test(t),
+    plinth,
     finish,
   };
   // too many shelves for the height: as many as leave room between

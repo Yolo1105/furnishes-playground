@@ -1,5 +1,6 @@
 "use client";
 
+import { ROD_SQUARE } from "./bake-defaults";
 import { unpickable } from "./no-pick";
 import { filtered } from "./spec-aa";
 import { useEffect, useMemo, useRef } from "react";
@@ -61,6 +62,11 @@ export type { Part } from "./part-geometry";
 /** an 18 mm panel, m */
 export const PANEL = 0.018;
 export const METAL = "#8d8780";
+/** a rounded body's bake box stands this share of its rounding inside
+    its box, as the rounds take the corners away */
+const ROUND_IN = 0.3;
+/** polished chrome: taps, traps, wire racks, a towel rail */
+export const CHROME = "#c9ced2";
 
 /** how a finish catches the light */
 export const roughnessOf = (texture: string) =>
@@ -525,7 +531,11 @@ export function Soft({
               mesh: mesh.current,
               box: {
                 c: [0, 0, 0],
-                h: [w / 2 - r * 0.3, h / 2 - r * 0.3, d / 2 - r * 0.3],
+                h: [
+                  w / 2 - r * ROUND_IN,
+                  h / 2 - r * ROUND_IN,
+                  d / 2 - r * ROUND_IN,
+                ],
               },
               shared: true,
             },
@@ -564,7 +574,7 @@ export function Cushion({
   const geometry = cushionGeometry(shape);
   const mesh = useRef<Mesh>(null);
   const [w, h, d] = shape.dims;
-  const r = shape.radius * 0.3;
+  const r = shape.radius * ROUND_IN;
   useBakeMembers(
     () =>
       mesh.current
@@ -646,7 +656,7 @@ export function Rod({
   rotation?: Vector3Tuple | undefined;
 }) {
   const mesh = useRef<Mesh>(null);
-  const s = Math.max(r, top ?? r) * 0.85;
+  const s = Math.max(r, top ?? r) * ROD_SQUARE;
   useBakeMembers(
     () =>
       mesh.current

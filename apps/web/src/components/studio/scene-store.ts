@@ -158,15 +158,21 @@ type SceneState = {
   removeRoomPieces: (roomId: string, firstId: string) => void;
 };
 
+/** a new thing's name: numbered after the ones of its name already in
+    the flat (a second sofa is "Sofa 2") */
+const numbered = (groups: AssetGroup[], name: string) => {
+  const n = groups
+    .flatMap((g) => g.items)
+    .filter((a) => a.name === name).length;
+  return { n, name: n === 0 ? name : `${name} ${n + 1}` };
+};
 /** a catalogue product as a new node: numbered after the ones of its
     name already there */
 const productNode = (groups: AssetGroup[], p: Product): AssetNode => {
-  const n = groups
-    .flatMap((g) => g.items)
-    .filter((a) => a.name === p.name).length;
+  const { n, name } = numbered(groups, p.name);
   return {
     id: `${p.id}-${n + 1}`,
-    name: n === 0 ? p.name : `${p.name} ${n + 1}`,
+    name,
     kind: "piece",
     category: p.category,
     price: p.price,
@@ -185,12 +191,9 @@ type ItemIn = {
 };
 /** a room item as a new node, numbered the same way */
 const itemNode = (groups: AssetGroup[], item: ItemIn): AssetNode => {
-  const n = groups
-    .flatMap((g) => g.items)
-    .filter((a) => a.name === item.name).length;
   return {
     id: newId("item"),
-    name: n === 0 ? item.name : `${item.name} ${n + 1}`,
+    name: numbered(groups, item.name).name,
     kind: "decor",
     category: item.category,
     ...(item.image ? { image: item.image } : {}),
@@ -364,13 +367,10 @@ export const useScene = create<SceneState>((set, get) => {
       return node.id;
     },
     addDesign: (recipe, roomId) => {
-      const n = get()
-        .groups.flatMap((g) => g.items)
-        .filter((a) => a.name === recipe.name).length;
       const settled = settledPanels(designPanels(recipe));
       const node: AssetNode = {
         id: newId("design"),
-        name: n === 0 ? recipe.name : `${recipe.name} ${n + 1}`,
+        name: numbered(get().groups, recipe.name).name,
         kind: "piece",
         category: "storage",
         price: priceOfPanels(settled.panels),
@@ -392,12 +392,9 @@ export const useScene = create<SceneState>((set, get) => {
       return node.id;
     },
     addPart: (part, roomId) => {
-      const n = get()
-        .groups.flatMap((g) => g.items)
-        .filter((a) => a.name === part.name).length;
       const node: AssetNode = {
         id: newId("part"),
-        name: n === 0 ? part.name : `${part.name} ${n + 1}`,
+        name: numbered(get().groups, part.name).name,
         kind: "part",
         category: "components",
         part,
@@ -461,12 +458,19 @@ export const useScene = create<SceneState>((set, get) => {
         for (const it of c.items) {
           const node = itemNode(groups, it.item);
           groups = into(groups, node);
-          overrides[node.id] = { roomId: it.roomId };
+          overrides[node.id] = {
+            roomId: it.roomId,
+            ...(it.item.colour ? { colour: it.item.colour } : {}),
+          };
           added.push(node);
         }
+        // a patch for any piece standing: one placed or given a finish
+        // before, or not (its defaults then stand under the patch)
+        const standing = new Set(
+          groups.flatMap((g) => g.items).map((n) => n.id),
+        );
         for (const [id, patch] of Object.entries(placesFor(added)))
-          if (overrides[id] || added.some((n) => n.id === id))
-            overrides[id] = { ...overrides[id], ...patch };
+          if (standing.has(id)) overrides[id] = { ...overrides[id], ...patch };
         return {
           groups,
           overrides,

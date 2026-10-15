@@ -66,3 +66,8 @@ export const wakeAt = (
     }, left);
   return true;
 };
+
+/** how long a fresh picture (the probes' light, the floor's reflection)
+    takes to fade in over the one it replaces, ms: one landing all at
+    once changed the room in a frame */
+export const PICTURE_FADE_MS = 400;

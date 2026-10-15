@@ -170,7 +170,6 @@ const trace = (
     tick();
   });
 
-/** the view as it stands, for the before side of the compare */
 /** the photo through the Panini lens (panini.ts), as a PNG's URL: the
     last one let go when the next is made; none where the canvas cannot
     be read back */
@@ -196,6 +195,7 @@ const lensOf = async (canvas: HTMLCanvasElement, fov: number) => {
   return lastLens;
 };
 
+/** the view as it stands, for the before side of the compare */
 const snapshot = (canvas: HTMLCanvasElement) =>
   canvas.toDataURL("image/jpeg", 0.9);
 

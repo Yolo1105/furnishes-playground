@@ -12,6 +12,7 @@ import {
   startTileDrag,
 } from "./dnd";
 import { DesignPane } from "./DesignPane";
+import { inDemo } from "./demo-store";
 import { OpeningGlyph } from "./opening-glyphs";
 import { ComponentGlyph } from "./component-glyphs";
 import { OPENING_KINDS } from "./room-data";
@@ -97,6 +98,7 @@ export function AddStrip({ onAdded }: { onAdded: (id: string) => void }) {
     );
     select(id, false);
     if (close) onAdded(id);
+    return id;
   };
   return (
     <div
@@ -147,6 +149,10 @@ export function AddStrip({ onAdded }: { onAdded: (id: string) => void }) {
       ) : category === "generate" ? (
         <Generate
           onMade={(g) => place(g, false)}
+          onReplace={(id, g) => {
+            useScene.getState().removeNode(id);
+            place(g, false);
+          }}
           onPlace={(g) => place(g, true)}
         />
       ) : (
@@ -306,9 +312,12 @@ function ModelPane({ onPlace }: { onPlace: (part: Part) => void }) {
 
 function Generate({
   onMade,
+  onReplace,
   onPlace,
 }: {
-  onMade: (g: Generation) => void;
+  onMade: (g: Generation) => string;
+  /** a concept made instead of the real model placed (its node's id) */
+  onReplace: (placed: string, g: Generation) => void;
   onPlace: (g: Generation) => void;
 }) {
   const generations = useGenerations((s) => s.generations);
@@ -326,7 +335,9 @@ function Generate({
     : generations;
 
   // what a found model can be swapped for: the words, to generate from
-  const [offer, setOffer] = useState<string | null>(null);
+  const [offer, setOffer] = useState<{ words: string; placed: string } | null>(
+    null,
+  );
 
   /** a room item's usual size from its name, m (w, h, d), as the room
       will first stand it */
@@ -340,6 +351,17 @@ function Generate({
   const generate = async (words: string, keep: boolean) => {
     const { name, category } = describeItem(words);
     const size = usual(name, category);
+    // the guided demo generates nothing: the item stands as a shape
+    if (inDemo()) {
+      setNote(
+        keep
+          ? "It stands as a shape in the sample flat; in a project of your own a model of it is made."
+          : "The real model stays in the sample flat.",
+      );
+      return keep
+        ? add({ prompt: words, name, category, source: "shape" })
+        : null;
+    }
     const shape = (why: string) => {
       setNote(
         keep
@@ -377,6 +399,11 @@ function Generate({
             m.checkMesh(data.modelUrl!, Math.max(...size)),
           )
         : "the picture came, the mesh did not";
+      // a concept asked for instead of a real model is kept only whole
+      if (why && !keep) {
+        setNote(`A concept was generated, but ${why}; the real model stays.`);
+        return null;
+      }
       if (why)
         setNote(`A concept, generated: ${why}, so it stands as a shape.`);
       else setNote("A concept, generated from your words: not a real product.");
@@ -420,20 +447,21 @@ function Generate({
       setNote(
         `A real ${found.kind.replace("-", " ")} fits${found.colour ? ", its cloth in the colour asked for" : ""}. Generate instead makes a concept from your words.`,
       );
-      setOffer(words);
     } else made = await generate(words, true);
     setBusy(false);
     setPrompt("");
-    if (made) onMade(made);
+    if (!made) return;
+    const placed = onMade(made);
+    if (found) setOffer({ words, placed });
   };
 
   const instead = async () => {
     if (!offer || busy) return;
     setBusy(true);
-    const made = await generate(offer, false);
+    const made = await generate(offer.words, false);
     setOffer(null);
     setBusy(false);
-    if (made) onMade(made);
+    if (made) onReplace(offer.placed, made);
   };
 
   return (

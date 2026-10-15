@@ -59,6 +59,7 @@ import {
   Rod,
   Soft,
   wood,
+  CHROME,
 } from "./finish";
 import { tileMaps, WALL_TILE } from "./tile-maps";
 import { slabGeometry } from "./part-geometry";
@@ -2161,7 +2162,7 @@ const CLICK_TRAVEL = 6;
     walls it lies, and its slots and how far apart */
 const TRAP = { r: 0.055, in: 0.3, slots: 5, pitch: 0.016 };
 const trapParts = ([x, z]: readonly [number, number]): Part[] => {
-  const chrome = metal("#c9ced2", 0.2);
+  const chrome = metal(CHROME, 0.2);
   const dark: Finish = { colour: "#3a3936", rough: 0.8 };
   return [
     { f: chrome, at: [x, 0.0015, z], rod: [TRAP.r, 0.003] },
@@ -2188,6 +2189,13 @@ const GATE = {
   off: 0.06,
   rail: 1.0,
   over: 0.06,
+  /** the lock box: its size, how far in from the gate's side and how
+      far out from the bars */
+  lock: {
+    dims: [0.1, 0.16, 0.04] as [number, number, number],
+    in: 0.12,
+    out: 0.02,
+  },
   colour: "#2f2e2c",
 };
 const gateParts = (
@@ -2221,8 +2229,12 @@ const gateParts = (
     });
   parts.push({
     f,
-    at: [lockSide * (wide / 2 - 0.12), GATE.rail, z - GATE.tube / 2 - 0.02],
-    dims: [0.1, 0.16, 0.04],
+    at: [
+      lockSide * (wide / 2 - GATE.lock.in),
+      GATE.rail,
+      z - GATE.tube / 2 - GATE.lock.out,
+    ],
+    dims: GATE.lock.dims,
   });
   return parts;
 };

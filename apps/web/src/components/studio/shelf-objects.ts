@@ -98,7 +98,7 @@ const vase = (w: number, h: number) => {
   return new LatheGeometry(points, 20);
 };
 
-/** a small plant: a tapered pot a third of its height, soil, and a few
+/** a small plant: a tapered pot a third of its height and a few
     leaves, flattened blobs, about the stem's top */
 const plant = (o: ShelfObject) => {
   const potH = o.h * 0.38;

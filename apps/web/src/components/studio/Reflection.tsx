@@ -35,7 +35,7 @@ import {
   type WebGPURenderer,
 } from "three/webgpu";
 import { create } from "zustand";
-import { type StillState, stillOf, wakeAt } from "./capture";
+import { PICTURE_FADE_MS, type StillState, stillOf, wakeAt } from "./capture";
 import { devFlag } from "./dev-flags";
 import { useScene } from "./scene-store";
 import { warming } from "./shader-warm";
@@ -59,9 +59,6 @@ const SETTLE_MS = 400;
 /** how near and how far the picture sees, m */
 const NEAR = 0.05;
 const FAR = 50;
-/** how long a new picture takes to fade in over the last, ms: one
-    landing all at once changed the floor in a frame */
-export const REFLECTION_FADE_MS = 400;
 
 /** the room's two pictures: the one shown and the one the next is taken
     into, faded in over it once taken; how much of the second shows */
@@ -85,12 +82,12 @@ const pictured = (pictures: Pictures, uv: Node, level?: Node) =>
     a floor that does not reflect takes the surroundings like the rest */
 /** the floor's pictures of the room, for a mirror that is not the one
     reflector in view (Mirror.tsx) to reflect */
-export const floorCube: { current: Pictures | null } = {
+const floorPictures: { current: Pictures | null } = {
   current: null,
 };
 /** the room as a mirror sees it in the floor's pictures, or none */
 export const floorPicture = () => {
-  const pictures = floorCube.current;
+  const pictures = floorPictures.current;
   return pictures ? pictured(pictures, reflectVector) : null;
 };
 
@@ -158,11 +155,11 @@ export const useFloorMaterial = (
     return [make(), make()];
   }, [reflects]);
   useEffect(() => {
-    floorCube.current = target;
+    floorPictures.current = target;
     const node = target ? new RoomReflectionNode(target) : null;
     useRoomReflection.setState({ node });
     return () => {
-      if (floorCube.current === target) floorCube.current = null;
+      if (floorPictures.current === target) floorPictures.current = null;
       if (useRoomReflection.getState().node === node)
         useRoomReflection.setState({ node: null });
       for (const t of target ?? []) t.dispose();
@@ -278,7 +275,7 @@ export function FloorReflection({
     // a new picture fading in: the share of the second follows the time
     const f = fade.current;
     if (f) {
-      const t = Math.min(1, (performance.now() - f.from) / REFLECTION_FADE_MS);
+      const t = Math.min(1, (performance.now() - f.from) / PICTURE_FADE_MS);
       SECOND.value = f.into === 1 ? t : 1 - t;
       if (t < 1) state.invalidate();
       else {

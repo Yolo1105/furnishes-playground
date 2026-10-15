@@ -90,7 +90,12 @@ export function ChatInput() {
     r.start();
   };
 
-  // a prompt picked in the Agent tab lands here, ready to send or edit
+  // a prompt picked in the Agent tab lands here, ready to send or edit;
+  // an ask to send (the demo playing itself) sends what is here
+  const submitNow = useRef(submit);
+  useEffect(() => {
+    submitNow.current = submit;
+  });
   useEffect(
     () =>
       useEva.subscribe((s, prev) => {
@@ -99,6 +104,7 @@ export function ChatInput() {
           area.current?.focus();
           useEva.getState().setDraft("");
         }
+        if (s.submitAt !== prev.submitAt) submitNow.current();
       }),
     [],
   );

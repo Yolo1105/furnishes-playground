@@ -52,7 +52,7 @@ export function priceLines(
         return { ok: false, unknown: l.name };
       out.push({
         productId: DESIGN_LINE,
-        name: l.design.name,
+        name: l.name,
         sgd: designOf(l.design).price,
       });
       continue;

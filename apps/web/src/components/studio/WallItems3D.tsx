@@ -1,5 +1,6 @@
 "use client";
 
+import { CHROME } from "./finish";
 import { unpickable } from "./no-pick";
 import { toMetres } from "@furnishes/scene";
 import { useFrame } from "@react-three/fiber";
@@ -60,7 +61,6 @@ const FRAME_TONES = ["#2d2925", "#b8956a", "#efece5"];
 const AIRCON = { trunk: { run: 0.7, tall: 0.06, deep: 0.04 } };
 const OAK = "#c9a77c";
 const BRASS = "#b8996a";
-const CHROME = "#c9ced2";
 const INK = "#2d2925";
 /** a picture's colours, one set per room so the flat is not one print */
 const PRINTS = [

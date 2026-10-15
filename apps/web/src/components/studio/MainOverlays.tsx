@@ -11,6 +11,7 @@ import {
 } from "react";
 import { AddStrip } from "./AddStrip";
 import { ShareDialog } from "./ShareDialog";
+import { inDemo } from "./demo-store";
 import { shareable, useProjects } from "./project-store";
 import { useSession } from "@/lib/auth-client";
 import { toast } from "./account-sync";
@@ -128,6 +129,11 @@ export function MainTopBar({ leading }: { leading?: ReactNode }) {
     null,
   );
   const shareRoom = async (signedIn = Boolean(session)) => {
+    // the guided demo's room is no one's to share
+    if (inDemo())
+      return toast(
+        "The sample flat is not shared; start a project of your own to share a room.",
+      );
     if (!signedIn) return setSharing("sign-in");
     setSharing("busy");
     const name = useProjects
@@ -1001,7 +1007,14 @@ export function MainShelf() {
               type="button"
               className="main-btn main-btn-primary"
               aria-haspopup="dialog"
-              onClick={() => setCheckout(true)}
+              onClick={() =>
+                // the guided demo's pieces are not ordered
+                inDemo()
+                  ? toast(
+                      "The sample flat's cart is for trying out; start a project of your own to order.",
+                    )
+                  : setCheckout(true)
+              }
             >
               <CartIcon size={14} />
               <span>Checkout</span>

@@ -495,13 +495,44 @@ an outline and a hand (or a finger, when it can only be picked). The
 small plan in the view panel is the plan itself: a piece is picked and
 dragged there too, and the 3D room follows.
 
+Add's Design chip makes a Furnishes piece from words ("a 1.6 m low
+bookcase with two doors, oak"): with `ANTHROPIC_API_KEY` set Eva's
+`design_piece` tool writes it as a recipe (size, bays, shelves, doors,
+drawers, plinth, finish; `/api/design-piece`), checked against how the
+pieces are made (18 mm ply, the 32 mm system, an 800 mm shelf span, a
+600 mm door leaf, the 2440 × 1220 sheet) and sent back to be put right
+up to three times; without a key the studio reads the words by the same
+rules (`packages/domain/src/design.ts`). The piece is drawn first in 2D,
+front, side and plan from its own panels, with its price, its cut list
+and anything it breaks; its sizes, bays, shelves, doors and drawers can
+be changed, and Place stands it in the room as a piece of panels, priced
+at checkout from its recipe.
+
 Add also makes room items: things that set the scene and are not for
-sale (an armchair, a plant, a pendant) from a few words. With `FAL_KEY`
-set, `/api/generate-item` has Flux draw a product shot and Hunyuan 3D
-turn it into a mesh that stands in the room; without a key a real model
-of the thing stands in when there is one, and otherwise the item
-stands as a shape and the strip says so. Generations are kept in the
-browser, can be starred, and a tile puts another into the room.
+sale (an armchair, a plant, a pendant) from a few words. A real model is
+looked for first, of the kind and design the words name and near the
+item's size, its cloth in the colour asked for ("a green velvet
+armchair"); Generate instead, or nothing fitting, asks `/api/generate-item`
+(with `FAL_KEY`) for a concept: Flux draws it in studio light, Hunyuan 3D
+makes the mesh (the full model past half a metre), and Claude names what
+it is mostly made of. The mesh is checked and cleaned in the browser
+(strays dropped, holes and coarse pictures turned away, the picture
+de-lit) and labelled a concept; without a key the item stands as a shape
+and the strip says so. Generations are kept in the browser, can be
+starred, and a tile puts another into the room.
+
+The project menu's "Sample flat · guided demo" opens the flat fresh with
+Eva walking through what the studio does in twelve scenes: preferences
+to keep, three directions, a sofa swapped for a green velvet one, the
+sideboard refinished, a reading corner added, a bookcase designed and
+placed, the plan and an elevation, the room checked, the evening and the
+lived-in look, the walk, the cart and the photograph. Whatever is typed
+plays the scene it names, else the next, and the next words wait in the
+box; Play the demo plays it through by itself (Pause, Next scene, Leave).
+What Eva says is scripted and nothing goes to the server; what happens
+in the room is the studio's own doing. The demo is never saved, starts
+fresh each time, and Leave goes back to the project that was open
+(`demo.ts`).
 
 The real models are listed in `public/props/index.json` (23 of them:
 fifteen CC0 Poly Haven models and eight CC-BY Khronos sample models,

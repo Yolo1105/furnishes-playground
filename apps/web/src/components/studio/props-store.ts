@@ -5,7 +5,13 @@ import { create } from "zustand";
 import type { AssetNode } from "./assets-data";
 import { recipeOf } from "./catalogue";
 import type { PieceProps } from "./piece-detail";
-import { kindOf, snapFor, styleOf, type Variant } from "./prop-variants";
+import {
+  kindOf,
+  PROPS_DIR,
+  snapFor,
+  styleOf,
+  type Variant,
+} from "./prop-variants";
 import { propsOf } from "./scene-store";
 
 /**
@@ -18,7 +24,9 @@ import { propsOf } from "./scene-store";
  * says (`data-models`, `data-models-far`, `data-models-pending`) so a
  * test can wait on them.
  */
-/** where the Draco decoder the models are packed for is served */
+/** where the Draco decoder the models are packed for is served from:
+    the studio's own copy, so a compressed mesh never reaches out to a
+    third party for it */
 export const DRACO_PATH = "/draco/";
 
 export const useProps = create<{
@@ -31,7 +39,7 @@ export const useProps = create<{
 let asked: Promise<void> | null = null;
 /** the list read, once; an unreadable list leaves every item built */
 export const loadProps = () =>
-  (asked ??= fetch("/props/index.json")
+  (asked ??= fetch(`${PROPS_DIR}index.json`)
     .then((r) => (r.ok ? r.json() : { models: [] }))
     .then((j: { models?: Variant[] }) =>
       useProps.setState({ models: j.models ?? [] }),

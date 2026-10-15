@@ -63,10 +63,12 @@ const send = () => {
 /* ---------- the atlas's room: free rectangles, split as taken ---------- */
 
 export type Rect = { x: number; y: number; w: number; h: number };
-let free: Rect[] = [
+/** the atlas's room as new: all of it but the white corner */
+const unused = (): Rect[] => [
   { x: WHITE, y: 0, w: ATLAS_SIZE - WHITE, h: WHITE },
   { x: 0, y: WHITE, w: ATLAS_SIZE, h: ATLAS_SIZE - WHITE },
 ];
+let free: Rect[] = unused();
 /** a rectangle of the atlas, or null when it is full: the smallest free
     one it fits, the rest split off along its longer leftover */
 export const take = (w: number, h: number): Rect | null => {
@@ -115,15 +117,12 @@ export const giveBack = (r: Rect) => {
 };
 /** the atlas as new: for the tests */
 export const resetAtlas = () => {
-  free = [
-    { x: WHITE, y: 0, w: ATLAS_SIZE - WHITE, h: WHITE },
-    { x: 0, y: WHITE, w: ATLAS_SIZE, h: ATLAS_SIZE - WHITE },
-  ];
+  free = unused();
 };
 
-/** a bake's pixels written into its rectangle; `fill` gives each texel
-    from a source of `w` across: RGBA rows, or one channel (the
-    footprint) spread into R with the rest white */
+/** a bake's pixels written into its rectangle, from a source as wide:
+    RGBA rows (`rgba`), or one channel (the footprint) spread into R with
+    the rest white */
 export const paint = (r: Rect, src: Uint8Array, rgba: boolean) => {
   for (let y = 0; y < r.h; y++) {
     const o = ((r.y + y) * ATLAS_SIZE + r.x) * 4;
@@ -158,14 +157,14 @@ if (typeof window !== "undefined" && process.env.NODE_ENV !== "production")
   Object.assign(window, { __bakes: useBakes });
 
 /** the pieces waiting on their light, by a key of their own */
-const waiting_ = new Set<object>();
+const awaitingPieces = new Set<object>();
 /** a piece's bake asked for, or landed (or the piece gone) */
 export const awaiting = (who: object, yes: boolean) => {
-  const had = waiting_.has(who);
+  const had = awaitingPieces.has(who);
   if (yes === had) return;
-  if (yes) waiting_.add(who);
-  else waiting_.delete(who);
-  useBakes.setState({ pending: waiting_.size });
+  if (yes) awaitingPieces.add(who);
+  else awaitingPieces.delete(who);
+  useBakes.setState({ pending: awaitingPieces.size });
 };
 
 const kept = new Map<string, BakeResult>();
@@ -216,7 +215,7 @@ const toDisk = async (key: string, r: BakeResult) => {
 
 let worker: Worker | null | undefined;
 let next = 1;
-const waiting = new Map<number, (r: BakeResult) => void>();
+const workerReplies = new Map<number, (r: BakeResult) => void>();
 /** the bakes queued, nearest first when asked with a distance */
 const queue: { job: BakeJob; near: number; go: () => void }[] = [];
 let running = false;
@@ -237,8 +236,8 @@ const inWorker = (job: BakeJob) =>
           type: "module",
         });
         w.onmessage = (e: MessageEvent<{ id: number; result: BakeResult }>) => {
-          waiting.get(e.data.id)?.(e.data.result);
-          waiting.delete(e.data.id);
+          workerReplies.get(e.data.id)?.(e.data.result);
+          workerReplies.delete(e.data.id);
         };
         worker = w;
       } catch {
@@ -250,7 +249,7 @@ const inWorker = (job: BakeJob) =>
       return;
     }
     const id = next++;
-    waiting.set(id, resolve);
+    workerReplies.set(id, resolve);
     worker.postMessage({ id, job });
   });
 

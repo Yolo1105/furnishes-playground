@@ -59,6 +59,10 @@ export type Variant = {
   note?: string;
 };
 
+/** where the models are served from, and a model's file there */
+export const PROPS_DIR = "/props/";
+export const propUrl = (file: string) => `${PROPS_DIR}${file}.glb`;
+
 /** how far an axis may be scaled */
 export const FIT = 0.1;
 

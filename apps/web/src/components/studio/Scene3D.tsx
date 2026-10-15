@@ -155,6 +155,7 @@ import { useBakes } from "./lightmap";
 import { useProps } from "./props-store";
 import { WALL_NEAR } from "./lightmap-bake";
 import { balanceGain, EVENING_LIGHT, LAMP_BULB } from "./white-balance";
+import { useDemo } from "./demo-store";
 import { propsOf, useScene } from "./scene-store";
 import { type GestureEvent, readWheel, useCoarse } from "./input";
 import {
@@ -1893,6 +1894,11 @@ const samePieceMidDrag = (a: PieceArgs, b: PieceArgs) =>
   a.room.D === b.room.D &&
   a.room.outline === b.room.outline &&
   !a.actions === !b.actions;
+/** how near a quarter turn a piece is square to a wall, radians, and how
+    far into a wall its back may stand (a hair past the face) and still
+    count as against it, mm */
+const SQUARE_WITHIN = 0.03;
+const INTO_WALL = 5;
 /** the wall a piece stands against, as its bake takes it (Bake.tsx):
     the plane behind its back, z in its own frame (its back is −z), when
     a wall facing its back stands within `WALL_NEAR` of it across its
@@ -1904,7 +1910,7 @@ const wallBehind = (
   room: PieceArgs["room"],
 ): number | null => {
   const quarter = Math.round(turn / (Math.PI / 2));
-  if (Math.abs(turn - (quarter * Math.PI) / 2) > 0.03) return null;
+  if (Math.abs(turn - (quarter * Math.PI) / 2) > SQUARE_WITHIN) return null;
   const k = ((quarter % 4) + 4) % 4;
   // its back's way on the plan (y down, as +z): local −z turned by turn
   const [bx, by] = (
@@ -1931,7 +1937,7 @@ const wallBehind = (
     const mid = along ? cx : cy;
     if (hi < mid - half || lo > mid + half) continue;
     const g = along ? (e.a[1] - by0) * by : (e.a[0] - bx0) * bx;
-    if (g > -5) gap = Math.min(gap, Math.max(0, g));
+    if (g > -INTO_WALL) gap = Math.min(gap, Math.max(0, g));
   }
   return gap <= WALL_NEAR * 1000 ? -(size[2]! / 2 + gap / 1000) : null;
 };
@@ -2837,6 +2843,10 @@ export default function Scene3D() {
     !devFlag("noshadows") &&
     (rendered || (scene.shadows === "auto" ? !coarse : scene.shadows === "on"));
   const labels = scene.labels && !readOnly && !rendered;
+  // the guided demo: open, its scene, playing itself
+  const demoOn = useDemo((s) => s.on);
+  const demoScene = useDemo((s) => s.scene);
+  const demoPlaying = useDemo((s) => s.playing);
   // the pieces designed in the studio that stand in the flat
   const designs = useScene((s) =>
     s.groups.reduce((n, g) => n + g.items.filter((a) => a.design).length, 0),
@@ -3142,6 +3152,9 @@ export default function Scene3D() {
       data-rooms-overlap={roomsOver}
       data-wall-items={wallItems.length}
       data-designs={designs}
+      data-demo={demoOn ? "on" : "off"}
+      data-demo-scene={demoScene ?? ""}
+      data-demo-playing={demoPlaying}
       data-parts={partsPending}
       data-bakes={bakesPending}
       data-models={modelsDrawn}

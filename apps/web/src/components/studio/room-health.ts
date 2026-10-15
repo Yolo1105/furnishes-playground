@@ -451,7 +451,7 @@ export const blendsIntoFloor = (
     )
     .map((p) => ({
       kind: "blends" as const,
-      text: `${p.name} is within a tenth of the floor's tone: from across the room it melts into the floor. A lighter or darker finish, a painted one, or a rug under it keeps it apart.`,
+      text: `${p.name} is within ${Math.round(BLEND_WITHIN * 100)} % of the floor's tone: from across the room it melts into the floor. A lighter or darker finish, a painted one, or a rug under it keeps it apart.`,
       pieceId: p.id,
     }));
 };

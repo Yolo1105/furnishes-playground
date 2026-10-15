@@ -33,7 +33,7 @@ import {
   layoutCharts,
   type V3,
 } from "./lightmap-bake";
-import { ATLAS_SIZE, FOOT_HEIGHT, WHITE_UV } from "./bake-defaults";
+import { ATLAS_SIZE, FOOT_HEIGHT, WHITE_UV, ROD_SQUARE } from "./bake-defaults";
 import {
   awaiting,
   bakeOf,
@@ -44,7 +44,7 @@ import {
   useBakes,
 } from "./lightmap";
 import { FOOTPRINT } from "./lightmap-nodes";
-import type { Part } from "./part-geometry";
+import { faceOfNormal, type Part } from "./part-geometry";
 
 /**
  * A piece's bake, in the scene (round 8, 1a): `BakeScope` stands round
@@ -145,8 +145,6 @@ const partMatrix = (p: Part) =>
     new Quaternion().setFromEuler(new Euler(...(p.rotation ?? [0, 0, 0]))),
     new Vector3(1, 1, 1),
   );
-/** a rod's box: a square a little inside its circle, to stand for it */
-const ROD_SQUARE = 0.85;
 
 type Assembled = {
   job: BakeJob;
@@ -303,11 +301,7 @@ const apply = (g: Group, a: Assembled, r: BakeResult): Applied => {
     for (let i = b.range[0]; i < b.range[0] + b.range[1]; i++) {
       v.fromBufferAttribute(pos, i).applyMatrix4(b.inv);
       n.fromBufferAttribute(nor, i).applyMatrix4(turn);
-      const ax = [Math.abs(n.x), Math.abs(n.y), Math.abs(n.z)];
-      const axis =
-        ax[0]! >= ax[1]! && ax[0]! >= ax[2]! ? 0 : ax[1]! >= ax[2]! ? 1 : 2;
-      const sign = [n.x, n.y, n.z][axis]! > 0 ? 1 : 0;
-      const face = axis * 2 + sign;
+      const face = faceOfNormal(n.x, n.y, n.z);
       const c = rect ? chartOf.get(b.box * 6 + face) : undefined;
       if (!c || !rect) {
         uv1.setXY(i, WHITE_UV, WHITE_UV);

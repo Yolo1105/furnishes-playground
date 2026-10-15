@@ -37,3 +37,7 @@ export const withBakeDefaults = (g: BufferGeometry) => {
     );
   return g;
 };
+
+/** a rod's box: a square a little inside its circle, to stand for it in
+    the bake and in the edges it covers */
+export const ROD_SQUARE = 0.85;

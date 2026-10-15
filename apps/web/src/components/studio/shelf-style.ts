@@ -1,5 +1,6 @@
 import type { Run } from "./books";
 import { seeded, within } from "./seeded";
+import { FINISHES } from "./shelf-objects";
 
 /**
  * Open shelves dressed as a stylist leaves them (round 8, Part 4): not
@@ -26,11 +27,15 @@ export type ShelfObject = {
   tone: number;
 };
 /** a thing in a group: books standing, books laid flat, or an object */
-export type Kind = "books" | "stack" | ShelfObject["kind"];
+export type ShelfKind = "books" | "stack" | ShelfObject["kind"];
 /** a shelf as dressed: its group's things in order along it, the runs
     its books take (books.ts lays each out, standing or flat) and the
     objects beside them */
-export type Dressed = { group: Kind[]; books: Run[]; objects: ShelfObject[] };
+export type Dressed = {
+  group: ShelfKind[];
+  books: Run[];
+  objects: ShelfObject[];
+};
 
 /** the stylist's measures, m: how far in from the bay's sides a group
     keeps, the gap between two of its things, the room an object needs
@@ -56,14 +61,14 @@ const STACK_W = [0.2, 0.28] as const;
 /** the narrowest a standing run is let shrink to fit its group, m */
 const BOOKS_FEWEST = 0.12;
 /** the narrowest each thing is let shrink to fit its group */
-const fewest = (k: Kind) =>
+const fewest = (k: ShelfKind) =>
   k === "books" ? BOOKS_FEWEST : k === "stack" ? STACK_W[0] : SIZES[k].w[0];
 /** the least room a shelf needs for books, m (a paperback and a hair) */
 const BOOK_ROOM = 0.19;
 /** an object's turn off square, radians: 5° to 15° either way */
 const TURN = [(5 * Math.PI) / 180, (15 * Math.PI) / 180] as const;
-/** the finishes of each kind (Furniture3D's palette) */
-export const TONES = 3;
+/** the finishes each kind comes in (shelf-objects.ts's palette) */
+const TONES = Math.min(...Object.values(FINISHES).map((f) => f.length));
 /** the share of shelves left empty or nearly so */
 export const SPARE_SHARE = 1 / 3;
 
@@ -83,7 +88,7 @@ export const dressShelves = (shelves: Run[], seed: number): Dressed[] => {
     // about a third of a column's shelves left spare, spread through it:
     // every third, from a place of the seed's choosing
     const from = Math.floor(next() * 3);
-    let above: Kind | null = null;
+    let above: ShelfKind | null = null;
     [...column]
       .sort((a, b) => shelves[a]!.y - shelves[b]!.y)
       .forEach((i, k) => {
@@ -105,14 +110,14 @@ export const dressShelves = (shelves: Run[], seed: number): Dressed[] => {
 const groupOf = (
   run: Run,
   spare: boolean,
-  above: Kind | null,
+  above: ShelfKind | null,
   next: () => number,
-): Kind[] => {
+): ShelfKind[] => {
   const books = run.room >= BOOK_ROOM;
   const objects = (["vase", "plant", "box"] as const).filter(
     (k) => run.room >= SIZES[k].h[0] + HEADROOM,
   );
-  const kinds: Kind[] = [
+  const kinds: ShelfKind[] = [
     ...(books ? (["books", "stack"] as const) : []),
     ...objects,
   ];
@@ -132,10 +137,10 @@ const groupOf = (
       : wide > GROUP_WIDE.three
         ? 3
         : 1;
-  const out: Kind[] = [];
+  const out: ShelfKind[] = [];
   // books lead most groups, standing or laid flat, and not the same as
   // the shelf above's lead
-  const lead: Kind[] = books
+  const lead: ShelfKind[] = books
     ? (["books", "books", "stack"] as const).filter((k) => k !== above)
     : objects;
   out.push(lead[Math.floor(next() * lead.length)] ?? kinds[0]!);
@@ -151,18 +156,18 @@ const groupOf = (
   if (out.length % 2 === 0) out.pop();
   return out;
 };
-const isBooks = (k: Kind) => k === "books" || k === "stack";
+const isBooks = (k: ShelfKind) => k === "books" || k === "stack";
 
 const dressShelf = (
   run: Run,
   spare: boolean,
-  above: Kind | null,
+  above: ShelfKind | null,
   next: () => number,
 ): Dressed => {
   let group = groupOf(run, spare, above, next);
   const wide = run.bayW - 2 * SIDE;
   // each thing's width; the group shortened by two while it overflows
-  const widthOf = (k: Kind) =>
+  const widthOf = (k: ShelfKind) =>
     k === "books"
       ? within(next(), BOOKS_W)
       : k === "stack"

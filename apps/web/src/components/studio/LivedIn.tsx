@@ -27,7 +27,7 @@ const TEXTILES = [
   "#c9a24f", // mustard
   "#a9878f", // rose-grey
 ] as const;
-const CERAMICS = ["#eeeae2", "#d8cbb6", "#a9b8b0", "#3f3b38"] as const;
+export const CERAMICS = ["#eeeae2", "#d8cbb6", "#a9b8b0", "#3f3b38"] as const;
 const COVERS = ["#6b3a32", "#3d4a5c", "#e2d9c6", "#6f7a63"] as const;
 
 /** a throw, m: how wide it is, how far it falls down an outer side,
@@ -247,7 +247,7 @@ export function TvCable({
   seed: number;
 }) {
   const x = (wobble(seed, 21) > 0 ? 1 : -1) * w * 0.12;
-  const f = metal("#1e1d1c", 0.6);
+  const f = metal(CORD, 0.6);
   const from = -d * 0.12 - 0.03;
   return (
     <group>
@@ -264,6 +264,8 @@ export function TvCable({
 }
 /** a cable's radius, m */
 const CABLE_R = 0.0035;
+/** a cable's or a cord's black */
+const CORD = "#2a2928";
 
 /** a garment left over a chair's back: a shirt or a cardigan, folded
     over the back board, falling further behind than in front; on one
@@ -323,9 +325,9 @@ export function LampCord({ seed }: { seed: number }) {
   return (
     <group rotation={[0, Math.PI + turn, 0]}>
       <Rod
-        f={metal("#2a2928", 0.6)}
+        f={metal(CORD, 0.6)}
         at={[0, 0.004, len / 2 + 0.1]}
-        r={0.0035}
+        r={CABLE_R}
         h={len}
         rotation={[Math.PI / 2, 0, 0]}
       />

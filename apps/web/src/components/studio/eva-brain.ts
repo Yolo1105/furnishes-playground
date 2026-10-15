@@ -1,3 +1,5 @@
+import type { DesignRecipe } from "@furnishes/domain";
+import type { DemoAct } from "./demo-store";
 import { hasWord } from "./text";
 import {
   CATEGORY_NAMES,
@@ -453,7 +455,7 @@ export type Chip = {
   label: string;
   /** what the chip says to Eva, or what it does instead */
   send?: string;
-  act?: "room-tab" | "budget" | "more" | "cheaper";
+  act?: "room-tab" | "budget" | "more" | "cheaper" | DemoAct;
   budget?: [number, number];
 };
 
@@ -466,6 +468,8 @@ export type Reply = {
   changes?: Changes;
   /** what Eva noticed, from Review this room */
   observations?: Observation[];
+  /** a piece Eva designed (design.ts) */
+  design?: DesignRecipe;
 };
 
 const roomLine = (c: Context) =>
