@@ -2158,21 +2158,30 @@ function DoorLeaf({
 /** how far a press may travel and still be a click on the floor, px */
 const CLICK_TRAVEL = 6;
 
-/** a wet room's floor trap, m: its grate's radius, how far in from the
-    walls it lies, and its slots and how far apart */
-const TRAP = { r: 0.055, in: 0.3, slots: 5, pitch: 0.016 };
+/** a wet room's floor trap, m: its grate's radius and height, how far
+    in from the walls it lies, its slots, how far apart and how far they
+    stand proud of the grate (more than a depth step, so the two never
+    share a pixel) */
+const TRAP = {
+  r: 0.055,
+  h: 0.003,
+  in: 0.3,
+  slots: 5,
+  pitch: 0.016,
+  proud: 0.0012,
+};
 const trapParts = ([x, z]: readonly [number, number]): Part[] => {
   const chrome = metal(CHROME, 0.2);
   const dark: Finish = { colour: "#3a3936", rough: 0.8 };
   return [
-    { f: chrome, at: [x, 0.0015, z], rod: [TRAP.r, 0.003] },
+    { f: chrome, at: [x, TRAP.h / 2, z], rod: [TRAP.r, TRAP.h] },
     ...Array.from({ length: TRAP.slots }, (_, i): Part => {
       // each slot across the grate, a little short of its rim
       const off = (i - (TRAP.slots - 1) / 2) * TRAP.pitch;
       return {
         f: dark,
-        at: [x, 0.0031, z + off],
-        dims: [1.6 * Math.sqrt(TRAP.r ** 2 - off ** 2), 0.0004, 0.006],
+        at: [x, TRAP.h + TRAP.proud / 2, z + off],
+        dims: [1.6 * Math.sqrt(TRAP.r ** 2 - off ** 2), TRAP.proud, 0.006],
       };
     }),
   ];

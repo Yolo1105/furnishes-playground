@@ -607,7 +607,9 @@ export const useProjects = create<ProjectState>((set, get) => ({
     const before = get().projects.find((p) => p.id === activeId);
     const active = projects.find((p) => p.id === activeId) ?? projects[0]!;
     set({ projects, gone, activeId: active.id });
-    const reload = !before || active.id !== activeId || active.at > before.at;
+    // the guided demo stays on screen: leaving it opens what came
+    const reload =
+      !inDemo() && (!before || active.id !== activeId || active.at > before.at);
     if (reload) load(active.data ?? fresh());
     return reload;
   },

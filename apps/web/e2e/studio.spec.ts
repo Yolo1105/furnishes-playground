@@ -451,8 +451,13 @@ test("the shelf's tab counts the pieces and folds the cards away", async ({
 test("the right rail holds the other view, and the swap trades them", async ({
   page,
 }) => {
+  // the room drawn first, on a software renderer, then the swap
+  test.setTimeout(120_000);
   await page.goto("/rounded");
   await arrived(page);
+  // the room drawn and settled: the picture the plan keeps of it is of
+  // the room, not of the frames before it is drawn
+  await built(page);
   const view = page.locator(".shell-panel-view");
   const eva = page.locator(".shell-panel-eva");
   const v = (await view.boundingBox())!;
@@ -1501,17 +1506,20 @@ test("a piece opens as panels: picked, typed in millimetres, added to, priced, c
   expect((await csv).suggestedFilename()).toMatch(/cut-list\.csv$/);
   // a shape: a corner cut off and the corners rounded; the part worker
   // makes the solid (the stage counts its work) and hands over a STEP
+  // (the summary reads "making the part" while the worker drills the
+  // side's pins, so it is read once the stage says the work is done)
   const shape = section.getByRole("radiogroup", { name: "Shape" });
+  const stage3d = page.locator(".stage-3d");
+  const made = () =>
+    expect(stage3d).toHaveAttribute("data-parts", "0", { timeout: 90_000 });
   await shape.getByRole("radio", { name: "Cut corner" }).click();
+  await made();
   await expect(section).toContainText("5 corners");
   await page
     .getByRole("spinbutton", { name: "Side corner radius in millimetres" })
     .fill("20");
+  await made();
   await expect(section).toContainText("5 corners, rounded");
-  const stage3d = page.locator(".stage-3d");
-  await expect(stage3d).toHaveAttribute("data-parts", "0", {
-    timeout: 90_000,
-  });
   await expect(section).not.toContainText("could not be made");
   const step = page.waitForEvent("download");
   await section.getByRole("button", { name: "Side as STEP" }).click();
@@ -1637,7 +1645,9 @@ test("machining cut for real: shelf pins, a groove and a cup show as holes in th
 test("the desktop extras: Reflections and Bounce light stand behind View settings on the Full picture and the stage says which draw; a Mirror finish puts a reflector on a door, one at a time", async ({
   page,
 }) => {
-  test.setTimeout(480_000);
+  // the bounce light's settle alone is minutes on a software renderer,
+  // and the furnished flat has grown since this was measured
+  test.setTimeout(720_000);
   await page.goto("/rounded");
   const stage3d = page.locator(".stage-3d");
   await expect(stage3d).toHaveAttribute("data-drawn", "true", {
@@ -1789,6 +1799,9 @@ const pieceMeshes = (page: Page, name: string) =>
     let triangles = 0;
     (piece as O | null)?.traverse((o) => {
       if (!o.isMesh || !o.visible || !o.geometry) return;
+      // the shadow laid on the floor under it once its bake lands is the
+      // floor's, not the piece's own
+      if (o.userData.name === "Footprint") return;
       uuids.push(o.uuid);
       triangles +=
         (o.geometry.index?.count ?? o.geometry.getAttribute("position").count) /
@@ -2820,8 +2833,8 @@ test("projects: a new one starts clean, the first keeps its room, rename and del
 }) => {
   // six switches of the whole flat and a reload under a software
   // renderer: most of a minute before the flat had its windows, doors
-  // and lived-in touches, past it since
-  test.setTimeout(120_000);
+  // and lived-in touches, two and more since it was furnished
+  test.setTimeout(240_000);
   await page.goto("/rounded");
   const name = page.locator(".shell-project-name");
   const saved = page.getByRole("tab", { name: /^Saved/ });
@@ -2850,15 +2863,21 @@ test("projects: a new one starts clean, the first keeps its room, rename and del
   await expect(name).toHaveText("Study corner");
   // back to the first: its cart is as it was; and it survives a reload
   await page.getByRole("button", { name: /^Project, / }).click();
+  // the switch is counted on the stage (its line lasts half a second,
+  // and on a software renderer the rebuild behind it can take longer)
+  const switches = Number(
+    await page.locator(".stage-3d").getAttribute("data-switched"),
+  );
   await page
     .getByRole("menuitemradio", { name: "HDB 5-room · Balanced" })
     .click();
   await expect(page.getByRole("tab", { name: /^Cart/ })).toHaveText("Cart1");
   // the switch is shown: the line names it, the 3D view lifts over the
   // flat and comes back into the room
-  await expect(
-    page.getByRole("progressbar", { name: "Opening the project" }),
-  ).toHaveCount(1);
+  await expect(page.locator(".stage-3d")).toHaveAttribute(
+    "data-switched",
+    String(switches + 1),
+  );
   await expect(page.locator(".stage-3d")).toHaveAttribute(
     "data-switching",
     /true|false/,
@@ -2867,9 +2886,9 @@ test("projects: a new one starts clean, the first keeps its room, rename and del
   await page.reload();
   await expect(name).toHaveText("HDB 5-room · Balanced");
   await expect(page.getByRole("tab", { name: /^Cart/ })).toHaveText("Cart1");
-  // the flat's three arrangements and the new one
+  // the flat's three arrangements and the new one, then the guided demo
   await page.getByRole("button", { name: /^Project, / }).click();
-  await expect(page.getByRole("menuitemradio")).toHaveCount(4);
+  await expect(page.getByRole("menuitemradio")).toHaveCount(5);
   // delete the others; the last one cannot go
   for (const other of [
     "Study corner",
@@ -2887,6 +2906,7 @@ test("projects: a new one starts clean, the first keeps its room, rename and del
   }
   await expect(page.getByRole("menuitemradio")).toHaveText([
     "HDB 5-room · Balanced",
+    "Sample flat · guided demo",
   ]);
   await expect(page.getByRole("menuitem", { name: "Delete" })).toBeDisabled();
 });
@@ -2928,6 +2948,7 @@ test("a browser that kept projects from an earlier studio keeps them: the 5-room
     "HDB 5-room · Study-focused",
     "HDB 5-room · Leisure",
     "My flat",
+    "Sample flat · guided demo",
   ]);
   await page.keyboard.press("Escape");
   // nothing of the visitor's is noted gone: an account's copy stays too
@@ -2941,7 +2962,8 @@ test("a browser that kept projects from an earlier studio keeps them: the 5-room
   await page.waitForTimeout(900);
   await page.reload();
   await page.getByRole("button", { name: /^Project, / }).click();
-  await expect(page.getByRole("menuitemradio")).toHaveCount(5);
+  // the four, the new one and the guided demo
+  await expect(page.getByRole("menuitemradio")).toHaveCount(6);
 });
 
 test("a project kept by an earlier studio comes up to the catalogue as it is read", async ({
@@ -3112,7 +3134,9 @@ test("in 3D a piece is dragged over the floor, the camera glides between angles,
   const stage = page.locator(".stage-3d");
   await expect(stage.locator("canvas")).toHaveCount(1);
   await arrived(page);
-  // the camera reports where it stands; Top takes it high, in a glide
+  // the room's first frame drawn: the camera reports where it stands;
+  // Top takes it high, in a glide
+  await built(page);
   await expect
     .poll(async () => (await stage.getAttribute("data-cam")) ?? "", {
       timeout: 20_000,
@@ -3223,7 +3247,8 @@ test("in 3D a piece is dragged over the floor, the camera glides between angles,
     .toBeGreaterThan(1.9);
   const walker = async () =>
     ((await stage.getAttribute("data-walker")) ?? "0,0").split(",").map(Number);
-  await expect.poll(async () => (await walker()).length).toBe(2);
+  // the figure placed (until it stands, the attribute is not there)
+  await expect(stage).toHaveAttribute("data-walker", /^-?[\d.]+,-?[\d.]+$/);
   const z0 = (await walker())[1]!;
   // W held until the figure has gone north (a software renderer gives
   // few frames a second, so this is read, not timed)
@@ -3247,7 +3272,11 @@ test("in 3D a piece is dragged over the floor, the camera glides between angles,
 test("the quizzes work a result out and hand it to Eva as proposals", async ({
   page,
 }) => {
+  // the room built first: on a software renderer its first build holds
+  // the page for half a minute, and a click meanwhile waits on it
+  test.setTimeout(150_000);
   await page.goto("/rounded");
+  await built(page);
   await page.getByRole("tab", { name: "Preference" }).click();
   const quizzes = page.getByRole("group", { name: "Quizzes" });
   await expect(quizzes.getByRole("button")).toHaveCount(3);
@@ -3552,12 +3581,16 @@ test("the planner's rules: the door's swing, the window, a walkway, each with a 
 }) => {
   await page.goto("/rounded");
   await page.getByRole("button", { name: "Show 2D plan in main" }).click();
-  // the room plan, opened: its health is empty to start
+  // the room plan, opened: its health is empty to start, and the room
+  // items sized to their real models are told as notes, not findings
   await page.locator(".agent-plan > summary").click();
   const health = page
     .locator(".agent")
     .getByRole("list", { name: "Room health" });
   await expect(health).toHaveCount(0);
+  await expect(
+    page.locator(".agent").getByRole("list", { name: "Notes" }),
+  ).toContainText("Potted plant takes the size of its real model");
   const first = top.filter((a) => a.kind === "piece")[0]!;
   await page.getByRole("treeitem", { name: first.name, exact: true }).click();
   await page.getByRole("tab", { name: "Detail", exact: true }).click();
@@ -4631,10 +4664,16 @@ test("Play the demo plays every scene through by itself", async ({ page }) => {
   test.setTimeout(600_000);
   await page.goto("/rounded");
   const stage = page.locator(".shell-stage .stage-3d");
-  await page.getByRole("button", { name: /^Project, / }).click();
+  const project = page.getByRole("button", { name: /^Project, / });
+  await expect(project).toHaveAttribute(
+    "aria-label",
+    "Project, HDB 5-room · Balanced",
+  );
+  await project.click();
   await page
     .getByRole("menuitemradio", { name: "Sample flat · guided demo" })
     .click();
+  await expect(stage).toHaveAttribute("data-demo", "on", { timeout: 60_000 });
   const bar = page.getByRole("group", { name: "Guided demo" });
   await bar.getByRole("button", { name: "Play the demo" }).click();
   await expect(stage).toHaveAttribute("data-demo-playing", "true");
@@ -5160,7 +5199,11 @@ test("the room is its outline: a notch is a wall, the layouts keep out of it, th
   // the L's notch: x past 0.6 of the width, y under 0.45 of the depth
   await place("Entry organiser", "5000", "500");
   await expect(health).toContainText("Entry organiser stands past the wall");
-  await health.getByRole("button", { name: /^Fix: Entry organiser/ }).click();
+  // (it lands on the corner's plant too, at the plant's real size: that
+  // finding is the overlap's, not the wall's)
+  await health
+    .getByRole("button", { name: "Fix: Entry organiser stands past the wall" })
+    .click();
   await expect(health.getByText(/Entry organiser stands past/)).toHaveCount(0);
   // the layouts keep out of the notch too
   const layouts = page
@@ -5201,9 +5244,8 @@ test("in 3D a picked piece carries its bar: its name, a turn, To wall, Duplicate
 }) => {
   await page.goto("/rounded");
   const stage = page.locator(".shell-stage .stage-3d");
-  await expect(stage).toHaveAttribute("data-settled", "true", {
-    timeout: 60_000,
-  });
+  // drawn, then settled: the stage reads settled before its first frame
+  await built(page);
   // nothing picked: no names, no bar
   await expect(stage.locator(".stage-3d-name")).toHaveCount(0);
   await expect(stage.locator(".piece-bar")).toHaveCount(0);
@@ -5371,6 +5413,7 @@ test("the walk: a click on the small plan sends the figure there, the way drawn 
   page,
 }) => {
   test.setTimeout(240_000);
+  await page.goto("/rounded");
   await built(page);
   const stage = page.locator(".shell-stage .stage-3d");
   await page.getByRole("button", { name: "Walk the room" }).click();
@@ -5710,8 +5753,8 @@ test("an account: created with an email and a password, signed out, signed in ag
   page,
 }) => {
   // the room built first (most of a minute on a software renderer),
-  // then the account's walk
-  test.setTimeout(120_000);
+  // then the account's walk, which opens the studio twice more
+  test.setTimeout(240_000);
   await page.goto("/rounded");
   await built(page);
   const bar = page.locator(".user-bar");
@@ -5788,7 +5831,7 @@ test("an account: created with an email and a password, signed out, signed in ag
   await page.getByRole("link", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/rounded$/);
   await account(page, email, "in", `${PASSWORD}-3`);
-  await expect(dialog).toHaveCount(0);
+  await expect(dialog).toHaveCount(0, { timeout: 20_000 });
   await expect(page.locator(".user-bar")).toContainText("Mei Tan");
   // a link that has lapsed is said
   await page.goto("/rounded?error=INVALID_TOKEN");
@@ -5800,6 +5843,8 @@ test("an account: created with an email and a password, signed out, signed in ag
 test("signed in, the projects follow the account to another browser; deleting the account takes the mirror", async ({
   browser,
 }) => {
+  // two browsers, each opening the furnished flat, on a software renderer
+  test.setTimeout(180_000);
   const email = `two-${Date.now()}@example.com`;
   // the first browser: an account, a second project with a name
   const ctxA = await browser.newContext({
@@ -5877,6 +5922,8 @@ test("signed in, the projects follow the account to another browser; deleting th
 test("a room shared by link: read-only for anyone at the studio's address, taken into a studio as a project, listed and taken down in Account", async ({
   browser,
 }) => {
+  // two browsers, each opening the furnished flat, on a software renderer
+  test.setTimeout(180_000);
   const ctxA = await browser.newContext({
     viewport: { width: 1440, height: 900 },
   });
@@ -5923,7 +5970,8 @@ test("a room shared by link: read-only for anyone at the studio's address, taken
     "HDB 5-room · Balanced (shared)",
   );
   await b.getByRole("button", { name: /^Project, / }).click();
-  await expect(b.getByRole("menuitemradio")).toHaveCount(4);
+  // the flat's three, the shared one and the guided demo
+  await expect(b.getByRole("menuitemradio")).toHaveCount(5);
   // the gear's Account lists it under Shared rooms; taking it down ends
   // the link
   await a.getByRole("button", { name: "Settings", exact: true }).click();
@@ -6025,7 +6073,9 @@ test("Eva furnishes the room by the book, reviews it, applies her changes as one
   // furnished: the living room lacks nothing, so By the book over it all
   await eva.getByRole("button", { name: "Furnish this room for me" }).click();
   const changes = eva.getByRole("group", { name: "Eva's changes" }).last();
-  await expect(changes).toContainText("By the book");
+  // (with no model on the server she asks it first, then answers from
+  // the room's facts: seconds on a busy machine)
+  await expect(changes).toContainText("By the book", { timeout: 20_000 });
   const undo = page.getByRole("button", { name: "Undo", exact: true });
   await expect(undo).toBeDisabled();
   await changes.getByRole("button", { name: "Apply" }).click();
@@ -6158,13 +6208,14 @@ test("Export hands the room over as a glTF binary: the shell, the pieces, camera
 test("the frame bench walks the room and reports its percentiles against the tier's budget", async ({
   page,
 }) => {
-  // a twenty-second walk, after the room's first frames
-  test.setTimeout(120_000);
+  // a twenty-second walk, after the room's first frames (which take
+  // most of a minute on a software renderer)
+  test.setTimeout(240_000);
   await page.goto("/rounded?bench=walk");
   await arrived(page);
   const panel = page.getByRole("status", { name: "Frame bench" });
   await expect(panel).toBeVisible();
-  await expect(panel).toContainText("Walking the room", { timeout: 30_000 });
+  await expect(panel).toContainText("Walking the room", { timeout: 120_000 });
   await expect(panel.getByRole("button", { name: "Copy JSON" })).toBeVisible({
     timeout: 60_000,
   });

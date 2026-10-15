@@ -1067,9 +1067,14 @@ body > .shell-menu {
   position: relative;
   background: var(--glass-float);
   width: min(420px, calc(100% - 32px));
-  max-height: calc(100% - 32px);
-  display: grid;
-  grid-template-rows: auto 1fr;
+  /* the window's height, not a percentage: the dialog's grid row is
+     sized by the card, so a percentage of it held nothing */
+  max-height: calc(100dvh - 32px);
+  /* a column held to the window's height: the head stands, the body
+     takes what is left and scrolls (a grid row sized to its content
+     would run past the window) */
+  display: flex;
+  flex-direction: column;
   border-radius: var(--r-panel);
   outline: none;
   animation: dialog-in 0.3s var(--ease) both;
@@ -1090,6 +1095,7 @@ body > .shell-menu {
   }
 }
 .shell-dialog-head {
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1104,6 +1110,8 @@ body > .shell-menu {
   color: var(--color-ink);
 }
 .shell-dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
   padding: 0 18px 18px;
   font-size: 12.5px;

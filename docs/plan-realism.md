@@ -2517,3 +2517,133 @@ mesh-clean.test.ts (parts, strays dropped with their vertices, holes,
 texels a metre, the studio surface) and prop-variants.test.ts (the
 retrieval), and in studio.spec.ts (the armchair found and tinted with no
 generation, Generate instead, the concept label).
+
+### The guided demo, and the round's closing audit (2026-10-15)
+
+The owner asked for a project that shows everything planned, to a
+customer, without the customer seeing that nothing goes to a server or
+that the chat does not read what is typed. The project menu's "Sample
+flat · guided demo" is that: the flat's first arrangement opened fresh,
+with Eva's turns taken from a script (`demo.ts`) instead of the model or
+the rules. Each of the twelve scenes (hello, brainstorm, swap, finish,
+add, design, plan, check, evening, walk, cart, photo) has words it
+answers to; whatever is typed plays the scene it names, or else the
+next, so a visitor who types anything sees a sensible conversation. Her
+reply waits as long as a real one would (`DEMO_THINK` in eva-store: 0.9
+to 2 s by length), and the box offers the visitor's next line.
+
+What happens in the room is never faked. The swap is Eva's changes,
+applied by the same Apply as anywhere (one undo step): the sofa out, a
+deep green velvet one in, at the velvet model's own size so the real
+model draws it, then picked and shown in Detail. The finish scene
+re-colours the sideboard. Add brings in pieces. Design makes a recipe
+from words with the domain's own `recipeFromWords` (no call to Claude)
+and places it from the thread, so its panels, 2D views and price are
+real. Plan shows the plan, then the wall the sofa faces as an
+elevation, then the room again; check says what the planner finds and,
+if it finds anything, offers the room laid out by the book; evening
+turns the light and the lived-in look on; walk plays the tour round the
+flat; cart puts the room's Furnishes pieces in the cart against the
+budget; photo renders the room in the Review stage. Play the demo plays it all by itself, typing the visitor's
+side and pressing Apply and Place for them; Pause, Next scene and Leave
+sit in a bar at the top of Eva's thread, kept there while the thread
+scrolls under it so they are always in reach.
+
+Decisions:
+
+- The script lives on the client and the demo has its own small store
+  (`demo-store.ts`), so the chat and the projects read whether the demo
+  is open without importing the script. While it is open nothing is
+  saved (`project-store.save` returns early), and chat, generation,
+  design, share and checkout do not call the server: share and checkout
+  say a project of one's own is needed, Design makes its recipe from the
+  words on the client, and Generate places the model found or a shape.
+- Leaving goes back to the project that was open before, as it was, and
+  to the look the View settings had; the demo starts fresh every time.
+- The stage carries `data-demo`, `data-demo-scene` and
+  `data-demo-playing`. Tested in demo.test.ts (a scene by its words, the
+  next when none, the script complete) and studio.spec.ts (typing plays
+  scenes and changes the room, no server calls, leaving restores the
+  project; Play the demo runs all twelve scenes).
+
+The closing audit then went through the round's code for repetition,
+stray values and stale words:
+
+- Shared once: the seeded hash (`hash01`), the picture fade, the square
+  rod, chrome, the cord, the floor contact, face-of-normal, piece
+  conversion, the linear colour and numbered names.
+- Fixed: "Generate instead" now replaces the found model instead of
+  adding a second; a loose piece no longer turns when it stands against
+  a wall; the Draco loader is disposed; shelf-span wording.
+- Stale or stranded comments corrected; the unused glance debug field
+  and the lightmap's unused density are gone.
+- Left as they are, as merging them would cost more than it saves:
+  - the few crossfades, each with its own timing;
+  - two canvas helpers that differ in their colour handling;
+  - the seat cushion's model, picked without style or size, since the
+    seat draws it at its own size;
+  - some tuning values kept exported for the checks;
+  - the cushion numbers, which stay beside the cushion code.
+
+The loose-turn change and the cushion hash move a few pieces by a few
+degrees; the visual baselines are retaken for that (below).
+
+### The desktop suite, back to green (2026-10-15)
+
+The full desktop run after the demo had 20 of 92 tests red. Run again on
+a clean copy of `42fadaa` (before Part 3), 12 of them failed there too,
+so most came from earlier parts and had not been seen because the suite
+had only been run in pieces since. Each was traced to its cause. What
+was wrong in the studio:
+
+- **A room item sized to its real model was a finding.** The note that
+  the plant or the armchair "takes the size of its real model" (Part 2)
+  stood in Room health, counted in the plan's findings, and was what Eva
+  read out as the planner's first concern. It is a note, not a fault:
+  `fittedToModels` now gives notes, the stage carries them apart from
+  the issues (`notes`), and the Room plan lists them under Notes,
+  uncounted. The decision to tell it stays; where it is told moved.
+- **A piece the walls had no room for stood a grid step from the
+  next.** Along the walls, the pieces that did not fit a wall were set
+  loose 100 mm from anything, so a room with the plant at its real size
+  left two walkways too narrow. `loose` now keeps the room's walkway
+  from the big pieces where the floor has such a spot, and a grid step
+  only where it has none; a lamp or a vase keeps its grid step
+  (room-layout.test.ts: the armchair pushed off the walls stands a
+  walkway from everything, and does not without the change).
+- **The floor trap's slots and grate shared a pixel.** The slots' tops
+  stood 0.3 mm over the grate's, under the 1 mm the stage needs; they
+  now stand 1.2 mm proud (`TRAP.proud`).
+- **The stage said settled before its first picture.** `data-settled`
+  was true while nothing had been drawn, so what waited on it went
+  early; it now needs the room drawn (`shown`).
+- **The rug's list of the pieces on it opened under the shelf.** Near
+  the bottom of the stage the list now opens upward (`data-up`).
+- **A long dialog did not scroll.** The Account dialog with its
+  sections ran past the window with Delete account out of reach: the
+  card's height limit was a percentage of a row sized by the card
+  itself, so it held nothing. The card is now held to the window's
+  height and its body scrolls under its head.
+- **Account sync could load a project over the guided demo** while it
+  was open; it now waits for the demo to be left.
+- **A finished loading line could end the next one.** The progress line
+  ends the loading when its fade is over; a fade that ran out after the
+  next switch had begun ended that one too. `endLoading` now takes the
+  switch it belongs to and leaves a newer one alone.
+- **A project switch left no mark a test could wait on.** The stage now
+  carries `data-switched` (how many switches so far), so a test
+  sees the switch happen rather than racing a half-second line.
+
+What was wrong in the tests: waits read before the thing waited on was
+there (the walker's position read as 0 before the figure stood; a
+project's name read before the projects loaded; the small-plan walk
+never opened the page; a picture of the room taken before the room was
+drawn), a half-second line looked for after it had gone (now the stage's
+`data-switched` is waited on instead), the floor's footprint counted as
+part of the armchair's model, the demo's entry in the project menu not
+counted, and time budgets set before the flat was furnished (the bounce
+light, the two-browser account tests, the frame bench, the projects,
+quiz and right-rail tests, which each build several rooms on a software
+renderer). None of these changes what a test asks of the studio. The dev
+server's kept data (`.data/`) from many runs had also hit its hourly
+limits; the runs here start from a clean one.

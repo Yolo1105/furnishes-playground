@@ -99,31 +99,34 @@ const rows = (
   return out;
 };
 
-/** the first clear spot on the grid, reading the room like a page; a
-    rug keeps no gap from its neighbours, the rest a grid step */
+/** the first clear spot on the grid, reading the room like a page: a
+    walkway (`want`, mm) from its neighbours where the room has one, else
+    a grid step; a rug keeps no gap, it lies under things (a small thing,
+    a lamp or a vase, is no obstacle: its callers ask a grid step) */
 const loose = (
   f: Size,
   rug: boolean,
   room: Pick<Room, "W" | "D" | "outline">,
   taken: Rect[],
   avoid: Zone[],
+  want = GRID,
 ): Spot => {
-  const gap = rug ? 0 : GRID;
-  for (let gy = MARGIN; gy + f.d <= room.D - MARGIN; gy += GRID)
-    for (let gx = MARGIN; gx + f.w <= room.W - MARGIN; gx += GRID) {
-      const r = {
-        x: gx - gap,
-        y: gy - gap,
-        w: f.w + 2 * gap,
-        d: f.d + 2 * gap,
-      };
-      if (
-        rectInside({ x: gx, y: gy, ...f }, room.outline) &&
-        !taken.some((t) => meets(r, t)) &&
-        !avoid.some((z) => meets(r, z))
-      )
-        return { x: gx, y: gy };
-    }
+  for (const gap of rug ? [0] : [...new Set([Math.max(want, GRID), GRID])])
+    for (let gy = MARGIN; gy + f.d <= room.D - MARGIN; gy += GRID)
+      for (let gx = MARGIN; gx + f.w <= room.W - MARGIN; gx += GRID) {
+        const r = {
+          x: gx - gap,
+          y: gy - gap,
+          w: f.w + 2 * gap,
+          d: f.d + 2 * gap,
+        };
+        if (
+          rectInside({ x: gx, y: gy, ...f }, room.outline) &&
+          !taken.some((t) => meets(r, t)) &&
+          !avoid.some((z) => meets(r, z))
+        )
+          return { x: gx, y: gy };
+      }
   return { x: MARGIN, y: MARGIN };
 };
 
@@ -154,7 +157,7 @@ export const layoutRoom = (
   items.forEach((p, i) => {
     if (spots[i]) return;
     const f = footprint(p);
-    spots[i] = loose(f, isRug(p), room, taken, []);
+    spots[i] = loose(f, isRug(p), room, taken, [], big(p) ? gap : GRID);
     taken.push({ ...spots[i]!, ...f });
   });
   return spots as Spot[];
@@ -210,7 +213,14 @@ const rowsPlan = (
     if (kept[i]) return kept[i]!;
     const s =
       placed[i] ??
-      loose(size[i]!, isRug(p), r, taken, keepOff({ h: p.height }, r, zones));
+      loose(
+        size[i]!,
+        isRug(p),
+        r,
+        taken,
+        keepOff({ h: p.height }, r, zones),
+        big(p) ? gapOf(r.rules) : GRID,
+      );
     if (!placed[i]) taken.push({ ...s, ...size[i]! });
     return { ...s, rotation: turn[i]! };
   });
@@ -305,7 +315,14 @@ const wallsPlan = (
     const s =
       isRug(p) && rectInside({ ...middle, ...f }, r.outline)
         ? middle
-        : loose(f, isRug(p), r, taken, keepOff({ h: p.height }, r, zones));
+        : loose(
+            f,
+            isRug(p),
+            r,
+            taken,
+            keepOff({ h: p.height }, r, zones),
+            big(p) ? gap : GRID,
+          );
     taken.push({ ...s, ...f });
     return { ...s, rotation };
   });

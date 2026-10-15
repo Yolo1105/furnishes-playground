@@ -158,10 +158,11 @@ const readRoom = (
       })),
       FLOOR_TONES[spec.floor as Floor] ?? "",
     ),
-    ...fittedToModels(
-      pieces.map((n) => ({ id: n.id, name: n.name, ...props.get(n.id)! })),
-    ),
   ];
+  // what changed size to its real model: told, not counted against it
+  const notes = fittedToModels(
+    pieces.map((n) => ({ id: n.id, name: n.name, ...props.get(n.id)! })),
+  );
   const clashes = new Set(
     issues
       .filter((i) => i.kind === "overlap")
@@ -223,6 +224,7 @@ const readRoom = (
     props,
     spots,
     issues,
+    notes,
     clashes,
     get advice() {
       return (advising ??= designOf(boxes(now), spec.width, spec.depth));
@@ -321,7 +323,7 @@ export function usePieceActions(
     () => readingOf(spec, rooms, joins, groups, overrides, builtParts),
     [spec, rooms, joins, groups, overrides, builtParts],
   );
-  const { pieces, room, props, spots, issues, clashes } = reading;
+  const { pieces, room, props, spots, issues, notes, clashes } = reading;
   // the store holds the laid-out pieces here before any one of them is
   // changed, so a move never shifts the rest
   useEffect(() => {
@@ -444,6 +446,8 @@ export function usePieceActions(
     clashes,
     /** the planner's findings, each with a Fix or an Add where one exists */
     issues,
+    /** what the planner tells beside them: not findings, nothing to fix */
+    notes,
     /** move a piece to its Fix, or add what is missing: one undo step */
     fix: (i: Issue) => {
       if (i.kind === "rooms") useRoom.getState().settleRoom(spec.id);

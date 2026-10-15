@@ -195,3 +195,66 @@ describe("a lived-in room's plant", () => {
     expect(freeCorner(room, all, 0)).toBeNull();
   });
 });
+
+/**
+ * Along the walls, a room with more pieces than its walls take: the one
+ * left over stands loose in the middle a walkway from everything else,
+ * as the pieces along the walls stand from each other (a grid step only
+ * when the room has no such spot).
+ */
+describe("along the walls, more pieces than the walls take", () => {
+  const big: Room = {
+    ...room,
+    W: 4500,
+    D: 4200,
+    outline: [
+      [0, 0],
+      [4500, 0],
+      [4500, 4200],
+      [0, 4200],
+    ],
+  };
+  const items = [
+    piece("w1", "Wardrobe", 2400, 600, 2000),
+    piece("w2", "Wardrobe 2", 2400, 600, 2000),
+    piece("desk", "Desk", 2000, 700, 750),
+    piece("chest", "Chest of drawers", 1800, 500, 900),
+    piece("chair", "Armchair", 850, 850, 800),
+  ];
+  const now = items.map(() => ({ x: 0, y: 0 }));
+  const walls = layoutPlans(items, big, now, "master").find(
+    (p) => p.id === "walls",
+  )!;
+  const boxes = walls.places.map((p, i) => {
+    const it = items[i]!;
+    const turned = p.rotation % 180 !== 0;
+    return {
+      x: p.x,
+      y: p.y,
+      w: turned ? it.depth : it.width,
+      d: turned ? it.width : it.depth,
+    };
+  });
+  /** the clear distance between two boxes on the plan, mm */
+  const apart = (a: (typeof boxes)[number], b: (typeof boxes)[number]) =>
+    Math.max(
+      b.x - (a.x + a.w),
+      a.x - (b.x + b.w),
+      b.y - (a.y + a.d),
+      a.y - (b.y + b.d),
+    );
+  it("stands the armchair loose, away from the walls", () => {
+    const c = boxes[4]!;
+    expect(
+      Math.min(c.x, c.y, big.W - c.x - c.w, big.D - c.y - c.d),
+    ).toBeGreaterThan(0);
+  });
+  it("keeps a walkway between every two of them", () => {
+    for (let i = 0; i < boxes.length; i++)
+      for (let j = i + 1; j < boxes.length; j++)
+        expect(
+          apart(boxes[i]!, boxes[j]!),
+          `${items[i]!.name} and ${items[j]!.name}`,
+        ).toBeGreaterThanOrEqual(big.rules.walkway);
+  });
+});

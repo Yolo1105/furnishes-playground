@@ -11,6 +11,12 @@ import {
 } from "./icons";
 import { normTurn } from "./piece-detail";
 
+/** the list of the pieces here, px: its gap from the bar, a row, and
+    its padding and border (main.css, .piece-bar-menu) */
+const MENU_GAP = 6;
+const MENU_ROW = 30;
+const MENU_PAD = 10;
+
 /**
  * The picked piece's bar, under the piece's outline in the plan and in
  * 3D alike (above it where there is no room below), so it never covers
@@ -50,6 +56,19 @@ export function PieceBar({
 }) {
   const [typing, setTyping] = useState(false);
   const [listing, setListing] = useState(false);
+  /** the list opens upward when below it the shelf (or the window's
+      edge) would cover it */
+  const [up, setUp] = useState(false);
+  const toggleList = (button: HTMLElement) => {
+    if (!listing) {
+      const below = button.getBoundingClientRect().bottom;
+      const floor =
+        document.querySelector(".main-shelf")?.getBoundingClientRect().top ??
+        window.innerHeight;
+      setUp(below + MENU_GAP + MENU_ROW * stack.length + MENU_PAD > floor);
+    }
+    setListing(!listing);
+  };
   const commit = (raw: string) => {
     setTyping(false);
     const v = Number(raw);
@@ -79,7 +98,7 @@ export function PieceBar({
             aria-haspopup="menu"
             aria-expanded={listing}
             aria-label={`${node.name}: pick another piece here`}
-            onClick={() => setListing(!listing)}
+            onClick={(e) => toggleList(e.currentTarget)}
           >
             {node.name}
             <ChevronDownIcon size={12} />
@@ -87,6 +106,7 @@ export function PieceBar({
           {listing && (
             <span
               className="glass piece-bar-menu"
+              data-up={up}
               role="menu"
               aria-label="Pieces here"
             >

@@ -67,9 +67,7 @@ export type Issue = {
     /** the room itself stands into another room of the flat */
     | "rooms"
     /** a piece's colour so near the floor's that it reads as part of it */
-    | "blends"
-    /** a room item sized to its real model, so it is drawn as one */
-    | "fitted";
+    | "blends";
   text: string;
   /** the piece it is about; none when the room is missing something,
       or stands into another room */
@@ -456,6 +454,10 @@ export const blendsIntoFloor = (
     }));
 };
 
+/** what the planner tells without it being wrong: a note beside the
+    findings, not one of them */
+export type Note = { text: string; pieceId: string };
+
 /** the room items sized to their real models (fit-models.tsx): a note
     each, so the planner knows why one changed size */
 export const fittedToModels = (
@@ -466,11 +468,10 @@ export const fittedToModels = (
     width: number;
     depth: number;
   }[],
-): Issue[] =>
+): Note[] =>
   pieces
     .filter((p) => p.fitted)
     .map((p) => ({
-      kind: "fitted" as const,
       text: `${p.name} takes the size of its real model (${p.width} × ${p.depth} mm), so it is drawn as the real thing, not a stand-in.`,
       pieceId: p.id,
     }));

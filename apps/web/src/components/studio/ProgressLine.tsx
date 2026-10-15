@@ -65,7 +65,7 @@ export function ProgressLine() {
       }
       aria-valuenow={width === null ? undefined : Math.round(width * 100)}
       style={width === null ? undefined : { width: `${width * 100}%` }}
-      onAnimationEnd={making ? undefined : end}
+      onAnimationEnd={making ? undefined : () => end(at)}
     />
   );
 }

@@ -321,8 +321,9 @@ type StudioState = {
   setPanelTab: (tab: PanelTab) => void;
   setEvaTab: (tab: EvaTab) => void;
   setShelfTab: (tab: ShelfTab) => void;
-  /** the line reached the end */
-  endLoading: () => void;
+  /** the line reached the end; given the line's own `loadingAt`, a
+      line that has since been replaced ends nothing */
+  endLoading: (at?: number) => void;
   /** the sweep reached the end */
   revealed: () => void;
   /** bring the divider to the middle and let it be dragged */
@@ -548,8 +549,9 @@ export const useStudio = create<StudioState>((set, get) => ({
   setPanelTab: (panelTab) => set({ panelTab }),
   setEvaTab: (evaTab) => set({ evaTab }),
   setShelfTab: (shelfTab) => set({ shelfTab }),
-  endLoading: () => {
+  endLoading: (at) => {
     const s = get();
+    if (at !== undefined && at !== s.loadingAt) return;
     set(
       (s.loading === "render" || s.loading === "photo") &&
         s.preview === "generating"

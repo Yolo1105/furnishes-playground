@@ -1741,6 +1741,11 @@
   border: 1px solid rgb(from var(--color-line) r g b / 0.18);
   box-shadow: 0 8px 22px -10px rgb(from var(--color-shadow) r g b / 0.45);
 }
+/* where the shelf would cover it, the list opens above the bar */
+.piece-bar-menu[data-up="true"] {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
 .piece-bar-menu-item {
   appearance: none;
   border: 0;

@@ -260,6 +260,15 @@ export function AgentTab() {
               )}
             </ul>
           )}
+          {stage.notes.length > 0 && (
+            <ul className="agent-issues" aria-label="Notes">
+              {stage.notes.map((n) => (
+                <li key={n.pieceId} className="agent-plan-advice">
+                  <span>{n.text}</span>
+                </li>
+              ))}
+            </ul>
+          )}
           {at !== "intake" && stage.advice.length > 0 && (
             <ul className="agent-issues" aria-label="Design advice">
               {stage.advice.slice(0, 3).map((a) => (

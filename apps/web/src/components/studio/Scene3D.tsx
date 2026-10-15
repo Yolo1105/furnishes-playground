@@ -3106,6 +3106,7 @@ export default function Scene3D() {
     (s) => s.mode === "preview" && s.loading === "render",
   );
   const loadingAt = useStudio((s) => s.loadingAt);
+  const switchedAt = useStudio((s) => s.switchedAt);
   const gradingFrom = useRef(0);
   useEffect(() => {
     if (grading) gradingFrom.current = performance.now();
@@ -3191,10 +3192,14 @@ export default function Scene3D() {
         backend && backend !== "webgpu" ? (fellBackFor() ?? "none") : "none"
       }
       data-drawn={shown}
+      // how many times a project has been switched to in this visit
+      data-switched={switchedAt}
       data-shaders={post === null ? "ready" : shaders}
       // the picture shown is not the room's while its shaders are being
       // built: the last frame stands until they are
-      data-settled={!settling && (post === null || shaders === "ready")}
+      data-settled={
+        shown && !settling && (post === null || shaders === "ready")
+      }
       data-post={post ?? "off"}
       data-ssr={post === "desktop" ? fx.ssr : "off"}
       data-ssgi={post === "desktop" ? fx.ssgi : "off"}
