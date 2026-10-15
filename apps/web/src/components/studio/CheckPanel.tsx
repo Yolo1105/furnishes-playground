@@ -8,13 +8,14 @@ import {
   watchLongTasks,
 } from "./bench";
 import { whereOf } from "./BenchPanel";
+import { mainStage } from "./stage";
 import { CHECKS } from "./webgpu-checks";
 
 type Result = { pass: boolean | null; note: string };
 
 /** the stage's attributes named, as they stand */
 const readStage = (reads: readonly string[]) => {
-  const el = document.querySelector<HTMLElement>(".shell-stage .stage-3d");
+  const el = mainStage();
   return Object.fromEntries(
     reads.map((k) => [
       k,

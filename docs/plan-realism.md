@@ -2630,6 +2630,14 @@ was wrong in the studio:
   ends the loading when its fade is over; a fade that ran out after the
   next switch had begun ended that one too. `endLoading` now takes the
   switch it belongs to and leaves a newer one alone.
+- **The frame bench timed the room's build.** `?bench=walk` began its
+  twenty-second walk four seconds after the renderer was chosen, so on
+  a slow machine the walk ran while the room was still being built and
+  counted one frame. It now waits for the stage to be settled, then
+  gives the probes their four seconds. The panels and the demo that
+  read the main stage's attributes now find it in one place
+  (`stage.ts`), where the bench's `whereOf` had looked for any stage's
+  canvas.
 - **A project switch left no mark a test could wait on.** The stage now
   carries `data-switched` (how many switches so far), so a test
   sees the switch happen rather than racing a half-second line.
@@ -2638,12 +2646,21 @@ What was wrong in the tests: waits read before the thing waited on was
 there (the walker's position read as 0 before the figure stood; a
 project's name read before the projects loaded; the small-plan walk
 never opened the page; a picture of the room taken before the room was
-drawn), a half-second line looked for after it had gone (now the stage's
-`data-switched` is waited on instead), the floor's footprint counted as
-part of the armchair's model, the demo's entry in the project menu not
-counted, and time budgets set before the flat was furnished (the bounce
-light, the two-browser account tests, the frame bench, the projects,
-quiz and right-rail tests, which each build several rooms on a software
-renderer). None of these changes what a test asks of the studio. The dev
-server's kept data (`.data/`) from many runs had also hit its hourly
-limits; the runs here start from a clean one.
+drawn), clicks made while a room was being built and the page held
+(Eva's extras, and the account test after each link that opens the
+studio again), a half-second line looked for after it had gone (now the
+stage's `data-switched` is waited on instead), the floor's footprint
+counted as part of the armchair's model, the demo's entry in the project
+menu not counted, and time budgets set before the flat was furnished
+(the bounce light, the two-browser account tests, the frame bench, the
+projects, quiz and right-rail tests, which each build several rooms on a
+software renderer, and the sketcher's first solve, which loads its
+solver as the first part loads the kernel). None of these changes what a
+test asks of the studio. The dev server's kept data (`.data/`) from many
+runs had also hit its hourly limits; the runs here start from a clean
+one.
+
+The last full desktop run after these changes passed 88 of 92. The
+four that did not (the sketcher's first solve, Eva's extras, the account
+test, the frame bench) are the last items above, and each passed when
+run again after its change.

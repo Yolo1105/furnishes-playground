@@ -8,12 +8,18 @@ import {
   watchLongTasks,
 } from "./bench";
 import { tierOf } from "./Post";
+import { mainStage } from "./stage";
 import { useStudio } from "./studio-store";
+
+/** how often the stage is looked at while the room is being built */
+const SETTLE_POLL_MS = 250;
+/** the probes' time once the room has settled, before the walk */
+const PROBES_MS = 4000;
 
 /** where the frames are drawn, read from the stage and the store */
 export const whereOf = () => {
   const s = useStudio.getState();
-  const canvas = document.querySelector<HTMLCanvasElement>(".stage-3d canvas");
+  const canvas = mainStage()?.querySelector("canvas");
   return {
     backend: s.backend,
     tier: s.backend ? tierOf(s.scene.quality, false, s.backend) : null,
@@ -36,14 +42,24 @@ export function BenchPanel() {
   useEffect(watchLongTasks, []);
   useEffect(() => {
     if (!backend || state !== "waiting") return;
-    // the room's first frame and its probes get a few seconds first
-    const id = window.setTimeout(() => {
-      setState("running");
-      void runWalkBench(whereOf).then((r) => {
-        setReport(r);
-        setState("done");
-      });
-    }, 4000);
+    // the room drawn and settled (most of a minute on a software
+    // renderer), then a few seconds for its probes: a walk timed while
+    // the room is still being built would measure the build
+    let id = 0;
+    const wait = () => {
+      if (mainStage()?.dataset.settled !== "true") {
+        id = window.setTimeout(wait, SETTLE_POLL_MS);
+        return;
+      }
+      id = window.setTimeout(() => {
+        setState("running");
+        void runWalkBench(whereOf).then((r) => {
+          setReport(r);
+          setState("done");
+        });
+      }, PROBES_MS);
+    };
+    wait();
     return () => window.clearTimeout(id);
   }, [backend, state]);
   const copy = () => {

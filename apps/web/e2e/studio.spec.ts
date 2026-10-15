@@ -5785,11 +5785,12 @@ test("an account: created with an email and a password, signed out, signed in ag
   )![0];
   await page.goto(confirm);
   await expect(page).toHaveURL(/\/rounded/);
-  // the link opens the studio again, and its room is built again
-  await built(page);
-  // the studio says so at its foot, and the address is plain again
+  // the studio says so at its foot for a moment, and the address is
+  // plain again
   await expect(page.locator(".user-line")).toContainText("confirmed");
   await expect(page).not.toHaveURL(/verified/);
+  // the link opened the studio again, and its room is built again
+  await built(page);
   await gear.click();
   await menu.getByRole("menuitem", { name: "Account" }).click();
   const profile = page.getByRole("dialog", { name: "Account" });

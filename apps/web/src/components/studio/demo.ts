@@ -9,6 +9,7 @@ import { loadDemo, reopen, useProjects } from "./project-store";
 import { COLOUR_WORDS } from "./prop-variants";
 import { activeOf, useRoom } from "./room-store";
 import { propsOf, standingOf, useScene } from "./scene-store";
+import { mainStage } from "./stage";
 import { useStudio } from "./studio-store";
 
 /**
@@ -399,7 +400,7 @@ const wait = async (ms: number) => {
 /** the room drawn and settled, or the longest wait */
 const settled = async () => {
   for (let t = 0; t < DEMO_TURN.longest; t += 250) {
-    const stage = document.querySelector<HTMLElement>(".shell-stage .stage-3d");
+    const stage = mainStage();
     if (!stage || stage.dataset.settled === "true") return;
     await sleep(250);
   }

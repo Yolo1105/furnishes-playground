@@ -5,6 +5,7 @@ import { type RefObject, useEffect, useRef, useState } from "react";
 import { Vector3 } from "three";
 import { DEV_FLAGS, type DevFlag, devFlag } from "./dev-flags";
 import { liveScene } from "./scene-handle";
+import { mainStage } from "./stage";
 import {
   type Frame,
   heatImage,
@@ -53,9 +54,6 @@ type Run = {
   motionHot: ReturnType<typeof hotRegions>;
 };
 
-const stage = () =>
-  document.querySelector<HTMLElement>(".shell-stage .stage-3d");
-
 /** the frames drawn while `drive` runs, read back at READ_W wide: each
     taken straight after its draw (a WebGL canvas keeps nothing after) */
 const readFrames = (
@@ -63,7 +61,7 @@ const readFrames = (
   drive?: (k: number) => void,
 ): Promise<Frame[]> =>
   new Promise((resolve) => {
-    const canvas = stage()?.querySelector("canvas");
+    const canvas = mainStage()?.querySelector("canvas");
     if (!canvas) return resolve([]);
     const w = READ_W;
     const h = Math.max(1, Math.round((canvas.height / canvas.width) * w));
@@ -188,7 +186,7 @@ export function StabilityPanel() {
   const motionRef = useRef<HTMLCanvasElement>(null);
   // the page's state on the stage, for a test to wait on
   useEffect(() => {
-    const el = stage();
+    const el = mainStage();
     if (!el) return;
     el.dataset.stability = state;
     if (run) {
@@ -211,7 +209,7 @@ export function StabilityPanel() {
   const start = async () => {
     // the room settled first: the probes, the reflection, the shaders
     for (let i = 0; i < 240; i++) {
-      if (stage()?.dataset.settled === "true") break;
+      if (mainStage()?.dataset.settled === "true") break;
       await new Promise((r) => setTimeout(r, 500));
     }
     setState("still");
