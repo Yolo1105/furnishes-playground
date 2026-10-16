@@ -125,10 +125,13 @@ export const glancePoints = (page: Page) =>
       const hit = w.__ray
         .intersectObject(w.__scene, true)
         .find((h) => shown(h.object));
-      if (!hit?.face) return null;
-      const n = hit
-        .face!.normal.clone()
-        .transformDirection(hit.object.matrixWorld);
+      if (!hit) return null;
+      // a model's hit has no face, and so no facing: it is still what
+      // the point shows (a model sofa counts as the sofa), but no face
+      // of it is measured
+      const n = hit.face
+        ? hit.face.normal.clone().transformDirection(hit.object.matrixWorld)
+        : v3(0, 0, 0);
       return { hit, n };
     };
     /** where the camera sees a piece through a point, on a surface facing
