@@ -17,6 +17,7 @@ import {
 import { explainPlan, travel } from "./plan-explain";
 import {
   blendsIntoFloor,
+  sofaOnRug,
   fittedToModels,
   healthOf,
   type Issue,
@@ -157,6 +158,13 @@ const readRoom = (
         colour: props.get(n.id)!.colour,
       })),
       FLOOR_TONES[spec.floor as Floor] ?? "",
+    ),
+    ...sofaOnRug(
+      pieces.map((n) => ({
+        id: n.id,
+        name: n.name,
+        colour: props.get(n.id)!.colour,
+      })),
     ),
   ];
   // what changed size to its real model: told, not counted against it

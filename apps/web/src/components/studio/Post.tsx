@@ -42,6 +42,8 @@ import {
   screenCoordinate,
   screenUV,
   smoothstep,
+  sRGBTransferEOTF,
+  sRGBTransferOETF,
   toneMappingExposure,
   uniform,
   vec2,
@@ -265,6 +267,13 @@ const VIGNETTE = { depth: 0.065, from: 0.4, to: 0.72 };
     fixed to the pixel so a still frame stays still (it does not crawl;
     TRAA's jitter moves the scene under it, not it) */
 const GRAIN = 0.012;
+/** the picture's black point, linear (round 9, Part 3): the deepest
+    shade under a sofa or in a bookshelf's back read a milky grey (the
+    darkest 1 % of a day picture at 0.13 of white); a photograph's
+    darkest is near black. Taken off after the tone mapping and the rest
+    spread back to white, so the midtones barely move (0.5 stays 0.49)
+    and the exposure and the light are as they were */
+const BLACK_POINT = 0.009;
 /** the picture's white balance, a gain on each channel before the tone
     mapping (white-balance.ts): the scene sets it for its look */
 export const WHITE_BALANCE = uniform(new Vector3(1, 1, 1));
@@ -326,11 +335,13 @@ const frameOf = (
       VIGNETTE.depth,
     ),
   );
-  const toned = renderOutput(
-    vec4(withGlow, 1),
-    TONE_MAPPING,
-    SRGBColorSpace,
-  ).rgb.mul(lens);
+  const mapped = renderOutput(vec4(withGlow, 1), TONE_MAPPING, SRGBColorSpace)
+    .rgb as unknown as Node<"vec3">;
+  const deep = (sRGBTransferEOTF(mapped) as unknown as Node<"vec3">)
+    .sub(BLACK_POINT)
+    .max(0)
+    .div(1 - BLACK_POINT);
+  const toned = (sRGBTransferOETF(deep) as unknown as Node<"vec3">).mul(lens);
   const luma = toned.dot(vec3(0.2126, 0.7152, 0.0722)).clamp(0, 1);
   const speck = hash(
     screenCoordinate.x.floor().add(screenCoordinate.y.floor().mul(4099)),

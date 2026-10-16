@@ -10,6 +10,8 @@ import {
   variedWood,
   WOOD_SPREAD,
   PUREST,
+  rugColour,
+  RUG_PUREST,
   TONE_SPREAD,
   toned,
   toneOf,
@@ -107,5 +109,24 @@ describe("every finish within a real surface's albedo (round 8, 1c)", () => {
       // ±6 % of lightness is a little more of luminance: within a fifth
       expect(Math.abs(y / y0 - 1)).toBeLessThan(WOOD_SPREAD.value * 3);
     }
+  });
+});
+
+describe("a rug's calmer dye (round 9, Part 3)", () => {
+  it("holds a rug's saturation under a cloth's", () => {
+    // a loud terracotta: a cloth keeps more of it than a rug does
+    const loud = "#c0502a";
+    const sat = (hex: string) => {
+      const n = parseInt(hex.slice(1), 16);
+      const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => v / 255);
+      const hi = Math.max(...c);
+      const lo = Math.min(...c);
+      const l = (hi + lo) / 2;
+      return hi === lo ? 0 : (hi - lo) / (1 - Math.abs(2 * l - 1));
+    };
+    expect(sat(rugColour(loud))).toBeLessThanOrEqual(RUG_PUREST + 0.01);
+    expect(sat(clothColour(loud))).toBeGreaterThan(sat(rugColour(loud)));
+    // a calm one comes back as it was
+    expect(rugColour("#8a8178")).toBe("#8a8178");
   });
 });

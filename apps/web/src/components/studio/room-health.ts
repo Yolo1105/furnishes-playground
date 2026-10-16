@@ -454,6 +454,37 @@ export const blendsIntoFloor = (
     }));
 };
 
+/** how near in value (linear luminance, a share of the lighter's) a
+    sofa may stand to the rug under it before the two read as one shape
+    from across the room (round 9, Part 3) */
+export const SOFA_RUG_WITHIN = 0.3;
+/** a sofa on a rug of nearly its own tone: a note, with what sets the
+    sofa off (a rug a step lighter or darker) */
+export const sofaOnRug = (
+  pieces: readonly { id: string; name: string; colour: string }[],
+): Issue[] => {
+  const sofas = pieces.filter(
+    (p) =>
+      /\bsofa|couch|settee/i.test(p.name) && /^#[0-9a-f]{6}$/i.test(p.colour),
+  );
+  const rugs = pieces.filter(
+    (p) => isRug({ name: p.name }) && /^#[0-9a-f]{6}$/i.test(p.colour),
+  );
+  return sofas.flatMap((s) =>
+    rugs
+      .filter((r) => {
+        const a = luminanceOf(s.colour);
+        const b = luminanceOf(r.colour);
+        return Math.abs(a - b) / Math.max(a, b, 1e-4) < SOFA_RUG_WITHIN;
+      })
+      .map((r) => ({
+        kind: "blends" as const,
+        text: `${s.name} and ${r.name.toLowerCase()} are within ${Math.round(SOFA_RUG_WITHIN * 100)} % of each other's tone: from across the room the sofa sinks into the rug. A rug a step lighter or darker sets it off.`,
+        pieceId: s.id,
+      })),
+  );
+};
+
 /** what the planner tells without it being wrong: a note beside the
     findings, not one of them */
 export type Note = { text: string; pieceId: string };

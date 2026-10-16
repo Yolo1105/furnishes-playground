@@ -120,8 +120,8 @@ const KEEP = 32;
 /** the bake by tier: texels a metre, rays a texel a gather, gathers,
     and the texture's side */
 export const TIERS = {
-  fine: { density: 10, rays: 64, bounces: 2, side: GI_SIDE.fine },
-  plain: { density: 5, rays: 32, bounces: 1, side: GI_SIDE.plain },
+  fine: { density: 8, rays: 32, bounces: 2, side: GI_SIDE.fine },
+  plain: { density: 4, rays: 24, bounces: 1, side: GI_SIDE.plain },
 } as const;
 /** a room's first, quick look */
 const COARSE = { rays: 12, bounces: 1 } as const;
@@ -151,42 +151,37 @@ export const windowsOf = (r: LitRoom): GiWindow[] =>
     };
   });
 
-/** a room's signature: its meshes' places and colours and its lamps,
-    as numbers hashed (FNV-1a) */
+/** a room's signature: where its meshes stand and their colours, and
+    its lamps, each once (a model's near and far copies stand in the same
+    place, so a change of copy as the camera comes nearer, or the two
+    seen at once while one fades to the other, bakes nothing again), as
+    one hash (FNV-1a) over them in order */
 const signatureOf = (group: Object3D, from: V3, extra: number) => {
-  let h = 0x811c9dc5;
-  const mix = (x: number) => {
-    const n = Math.round(x * 200) | 0;
-    for (let s = 0; s < 32; s += 8) {
-      h ^= (n >>> s) & 0xff;
-      h = Math.imul(h, 0x01000193) >>> 0;
-    }
-  };
+  const seen = new Set<string>();
+  const r = (x: number) => Math.round(x * 100);
   group.traverse((o) => {
     const l = o as Object3D & { isLight?: boolean; intensity?: number };
+    const e = o.matrixWorld.elements;
+    const at = `${r(e[12]! + from[0])},${r(e[13]! + from[1])},${r(e[14]! + from[2])}`;
     if (l.isLight) {
-      mix(l.intensity ?? 0);
-      const e = o.matrixWorld.elements;
-      mix(e[12]! + from[0]);
-      mix(e[13]! + from[1]);
-      mix(e[14]! + from[2]);
+      seen.add(`L${at},${r(l.intensity ?? 0)}`);
       return;
     }
     const m = o as Mesh;
     if (!m.isMesh) return;
-    const e = m.matrixWorld.elements;
-    mix(m.geometry.id);
-    mix(e[0]!);
-    mix(e[2]!);
-    mix(e[12]! + from[0]);
-    mix(e[13]! + from[1]);
-    mix(e[14]! + from[2]);
     const mat = Array.isArray(m.material) ? m.material[0] : m.material;
     const c = (mat as { color?: Color } | undefined)?.color;
-    if (c) mix(c.getHex());
+    seen.add(`${at},${r(e[0]!)},${r(e[2]!)},${c ? c.getHex() : -1}`);
   });
-  mix(extra);
-  return h;
+  let h = 0x811c9dc5;
+  for (const k of [...seen].sort()) {
+    for (let i = 0; i < k.length; i++) {
+      h ^= k.charCodeAt(i);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+  }
+  h ^= Math.round(extra * 100) | 0;
+  return Math.imul(h, 0x01000193) >>> 0;
 };
 
 type Room = {

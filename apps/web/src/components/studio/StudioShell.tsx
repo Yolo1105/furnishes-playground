@@ -64,6 +64,10 @@ const CheckPanel = dynamic(
   () => import("./CheckPanel").then((m) => m.CheckPanel),
   { ssr: false },
 );
+const GiCheckPanel = dynamic(
+  () => import("./GiCheckPanel").then((m) => m.GiCheckPanel),
+  { ssr: false },
+);
 const StabilityPanel = dynamic(
   () => import("./StabilityPanel").then((m) => m.StabilityPanel),
   { ssr: false },
@@ -226,6 +230,7 @@ export function StudioShell({
       {devParam("bench") === "walk" && <BenchPanel />}
       {devParam("check") === "webgpu" && <CheckPanel />}
       {devParam("check") === "stability" && <StabilityPanel />}
+      {devParam("check") === "gi" && <GiCheckPanel />}
 
       {/* ---- left: the project ---- */}
       <aside className="shell-rail shell-rail-left" aria-label="Project">

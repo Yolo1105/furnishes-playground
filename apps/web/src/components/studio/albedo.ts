@@ -72,6 +72,10 @@ const hex = (h: number, s: number, l: number) => {
 export const ALBEDO = { least: 0.035, most: 0.83 } as const;
 /** a cloth's dye is never as pure as a paint's: its most saturation */
 export const CLOTH_PUREST = 0.45;
+/** a rug's, lower still (round 9, Part 3): the largest cloth in the
+    room, lying in the light, its colour reads the loudest of anything
+    in it (on screen a rug may carry 0.4 of saturation, a cloth 0.5) */
+export const RUG_PUREST = 0.3;
 
 /** an sRGB channel (0–1) as linear light */
 export const linear = (c: number) =>
@@ -131,6 +135,13 @@ export const clothColour = (colour: string) => {
   if (!/^#[0-9a-f]{6}$/i.test(colour)) return colour;
   const [h, s, l] = hsl(colour);
   return s > CLOTH_PUREST ? hex(h, CLOTH_PUREST, l) : colour;
+};
+
+/** a rug's colour: its dye held under `RUG_PUREST` */
+export const rugColour = (colour: string) => {
+  if (!/^#[0-9a-f]{6}$/i.test(colour)) return colour;
+  const [h, s, l] = hsl(colour);
+  return s > RUG_PUREST ? hex(h, RUG_PUREST, l) : colour;
 };
 
 /** a piece's own wood: its hue turned up to ±3° and its value up to

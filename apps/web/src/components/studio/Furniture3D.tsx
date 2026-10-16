@@ -38,7 +38,7 @@ import {
 } from "three";
 import type { AssetNode } from "./assets-data";
 import { seedOf } from "./seed";
-import { clothColour, linear, variedWood } from "./albedo";
+import { clothColour, linear, rugColour, variedWood } from "./albedo";
 import { tileMaps, WALL_TILE } from "./tile-maps";
 import { recipeOf } from "./catalogue";
 import { useEvent } from "./use-event";
@@ -2005,7 +2005,7 @@ function Rug({ w, d, colour }: { w: number; d: number; colour: string }) {
   return (
     <group>
       <mesh ref={mesh} geometry={geometry} receiveShadow>
-        <Mat f={cloth(colour)} banded />
+        <Mat f={cloth(rugColour(colour))} banded />
       </mesh>
       <mesh
         geometry={contact}
