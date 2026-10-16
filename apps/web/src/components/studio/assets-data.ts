@@ -206,7 +206,9 @@ const SHOWCASE: [AssetNode, Place][] = [
   ],
   [
     decor("sofa", "Sofa", "seating"),
-    { x: 2500, y: 1850, rotation: 270, width: 2400 },
+    // as deep as the velvet sofa it is drawn with (1.02 m), so the model
+    // stands at its own depth
+    { x: 2400, y: 1850, rotation: 270, width: 2400, depth: 1000 },
   ],
   [
     decor("rug", "Rug", "decor"),

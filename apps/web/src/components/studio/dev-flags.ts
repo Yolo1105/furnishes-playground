@@ -33,6 +33,9 @@ export const DEV_FLAGS = [
   "notraa",
   "noshadows",
   "flatnormals",
+  // the bounced light baked over the shell (GiBake.tsx): the live
+  // fills back
+  "nogi",
 ] as const;
 export type DevFlag = (typeof DEV_FLAGS)[number];
 

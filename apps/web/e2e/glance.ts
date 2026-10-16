@@ -31,6 +31,17 @@ export type GlancePoints = {
   bays: { back: UV[]; front: UV[] } | null;
   contact: { near: UV[]; open: UV[] } | null;
   table: { top: UV[]; floor: UV[] } | null;
+  /** round 9, Part 0: the surfaces as a grid over the picture finds
+      them (the first thing seen through each point), the sofa's seat
+      cushions and all of it seen, and the floor within 20 cm of the
+      sofa's base against open floor */
+  walls: UV[];
+  floor: UV[];
+  ceiling: UV[];
+  rug: UV[];
+  sofa: UV[];
+  seat: UV[];
+  bleed: { near: UV[]; open: UV[] } | null;
 };
 
 /** the pieces the glance looks at, by their names in the scene */
@@ -56,6 +67,7 @@ export const glancePoints = (page: Page) =>
       distanceTo: (v: V) => number;
       set: (x: number, y: number, z: number) => V;
       project: (c: unknown) => V;
+      unproject: (c: unknown) => V;
       applyMatrix4: (m: unknown) => V;
       transformDirection: (m: unknown) => V;
       sub: (v: V) => V;
@@ -188,7 +200,35 @@ export const glancePoints = (page: Page) =>
       bays: null,
       contact: null,
       table: null,
+      walls: [],
+      floor: [],
+      ceiling: [],
+      rug: [],
+      sofa: [],
+      seat: [],
+      bleed: null,
     };
+    // the surfaces through a grid over the picture: what each point
+    // shows first, by its name and its facing
+    const sofaPiece = find("Sofa");
+    for (let i = 0; i < 64; i++)
+      for (let j = 0; j < 40; j++) {
+        const uv: UV = [(i + 0.5) / 64, (j + 0.5) / 40];
+        const far = v3(uv[0] * 2 - 1, 1 - uv[1] * 2, 0.5).unproject(camera);
+        const l = look(far);
+        if (!l) continue;
+        let o: O | null = l.hit.object;
+        let kind: "walls" | "floor" | "ceiling" | "rug" | "sofa" | null = null;
+        for (; o && !kind; o = o.parent) {
+          const n = o.userData?.name ?? "";
+          if (n === "Wall" && Math.abs(l.n.y) < 0.3) kind = "walls";
+          else if (n === "Floor" && l.n.y > 0.9) kind = "floor";
+          else if (n === "Ceiling" && l.n.y < -0.9) kind = "ceiling";
+          else if (/^rug/i.test(n)) kind = "rug";
+          else if (o === sofaPiece) kind = "sofa";
+        }
+        if (kind && onScreen(uv)) out[kind].push(uv);
+      }
     /** a grid of points on a face of the box, inset 8 % */
     const grid = (
       p: O,
@@ -307,6 +347,57 @@ export const glancePoints = (page: Page) =>
           near: near.filter(onScreen),
           open: open.filter(onScreen),
         };
+        // the seat cushions: the sofa seen from above between its arms,
+        // in front of its back, up to a hand over the seat's height
+        const up = dirOf(p, 0, 1, 0);
+        const seatTop = lo[1]! + (hi[1]! - lo[1]!) * 0.55;
+        const seat: V[] = [];
+        for (let i = 0; i < 11; i++)
+          for (let j = 0; j < 5; j++) {
+            const x = lo[0]! + (hi[0]! - lo[0]!) * (0.18 + (0.64 * i) / 10);
+            const z = lo[2]! + (hi[2]! - lo[2]!) * (0.45 + (0.45 * j) / 4);
+            const q = onPiece(p.localToWorld(v3(x, seatTop, z)), p, up);
+            if (q && p.worldToLocal(q.clone()).y < seatTop + 0.1) seat.push(q);
+          }
+        out.seat = seat.map(at).filter(onScreen);
+        // the floor 5 to 20 cm off the sofa's base, front and sides,
+        // against open floor 0.8 m and more away
+        const bleedNear: UV[] = [];
+        for (const off of [0.05, 0.1, 0.15, 0.2]) {
+          for (let i = 0; i < 9; i++) {
+            const x = lo[0]! + (hi[0]! - lo[0]!) * (0.1 + (0.8 * i) / 8);
+            const q = onFloor(p.localToWorld(v3(x, 0.002, hi[2]! + off)));
+            if (q) bleedNear.push(at(q));
+          }
+          for (const sx of [lo[0]! - off, hi[0]! + off])
+            for (let j = 0; j < 5; j++) {
+              const z = lo[2]! + (hi[2]! - lo[2]!) * (0.1 + (0.8 * j) / 4);
+              const q = onFloor(p.localToWorld(v3(sx, 0.002, z)));
+              if (q) bleedNear.push(at(q));
+            }
+        }
+        // open floor all round it, 0.8 to 1.4 m off its base (in front
+        // of a sofa stands its rug, which is not the floor)
+        const bleedOpen: UV[] = [];
+        for (const off of [0.8, 1.1, 1.4])
+          for (let i = 0; i <= 10; i++) {
+            const k = i / 10;
+            const x = lo[0]! - off + (hi[0]! - lo[0]! + 2 * off) * k;
+            const z = lo[2]! - off + (hi[2]! - lo[2]! + 2 * off) * k;
+            for (const w of [
+              v3(x, 0.002, lo[2]! - off),
+              v3(x, 0.002, hi[2]! + off),
+              v3(lo[0]! - off, 0.002, z),
+              v3(hi[0]! + off, 0.002, z),
+            ]) {
+              const q = onFloor(p.localToWorld(w));
+              if (q) bleedOpen.push(at(q));
+            }
+          }
+        out.bleed = {
+          near: bleedNear.filter(onScreen),
+          open: bleedOpen.filter(onScreen),
+        };
       }
       if (name === "Coffee table") {
         const up = dirOf(p, 0, 1, 0);
@@ -381,6 +472,114 @@ const quantile = (xs: number[], q: number) => {
   return (
     s[Math.min(s.length - 1, Math.max(0, Math.floor(q * (s.length - 1))))] ?? 0
   );
+};
+
+/** the screenshot brought down to `GLANCE_W` across in colour (sRGB,
+    0–1 a channel), for the saturation and the colour bleed */
+export const glanceColour = (shot: Pixels) => {
+  const k = shot.w / GLANCE_W;
+  const w = GLANCE_W;
+  const h = Math.max(1, Math.round(shot.h / k));
+  const c = new Float32Array(w * h * 3);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const s = [0, 0, 0];
+      let n = 0;
+      for (
+        let yy = Math.floor(y * k);
+        yy < Math.min(shot.h, Math.floor((y + 1) * k));
+        yy++
+      )
+        for (
+          let xx = Math.floor(x * k);
+          xx < Math.min(shot.w, Math.floor((x + 1) * k));
+          xx++
+        ) {
+          const i = (yy * shot.w + xx) * 4;
+          for (let ch = 0; ch < 3; ch++) s[ch]! += shot.data[i + ch]! / 255;
+          n++;
+        }
+      for (let ch = 0; ch < 3; ch++)
+        c[(y * w + x) * 3 + ch] = n ? s[ch]! / n : 0;
+    }
+  return { w, h, c };
+};
+type Colour = ReturnType<typeof glanceColour>;
+const rgbAt = (img: Colour, [u, v]: UV) => {
+  const i =
+    (Math.min(img.h - 1, Math.max(0, Math.round(v * img.h))) * img.w +
+      Math.min(img.w - 1, Math.max(0, Math.round(u * img.w)))) *
+    3;
+  return [img.c[i]!, img.c[i + 1]!, img.c[i + 2]!] as const;
+};
+/** HSV: hue in degrees, saturation and value 0–1 */
+export const hsv = ([r, g, b]: readonly [number, number, number]) => {
+  const mx = Math.max(r, g, b);
+  const mn = Math.min(r, g, b);
+  const d = mx - mn;
+  let hue = 0;
+  if (d > 1e-6)
+    hue =
+      mx === r
+        ? 60 * (((g - b) / d + 6) % 6)
+        : mx === g
+          ? 60 * ((b - r) / d + 2)
+          : 60 * ((r - g) / d + 4);
+  return { h: hue, s: mx > 1e-6 ? d / mx : 0, v: mx };
+};
+/** a hue's mean round the circle, degrees */
+const meanHue = (hs: number[]) => {
+  const x = mean(hs.map((h) => Math.cos((h * Math.PI) / 180)));
+  const y = mean(hs.map((h) => Math.sin((h * Math.PI) / 180)));
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+};
+const sd = (xs: number[]) => {
+  const m = mean(xs);
+  return Math.sqrt(mean(xs.map((x) => (x - m) ** 2)));
+};
+
+/** round 9, Part 0: how flat the faces read (luminance's standard
+    deviation within a face and its 90th over 10th percentile), the sofa's
+    and the rug's saturation on screen, and the floor's hue and
+    saturation within 20 cm of the sofa against open floor (record only) */
+export const glanceColourNumbers = (
+  img: Grey,
+  colour: Colour,
+  p: GlancePoints,
+) => {
+  const flat = (uvs: UV[]) => {
+    const vs = uvs.map((uv) => read(img, uv));
+    return vs.length < 6
+      ? null
+      : {
+          n: vs.length,
+          mean: mean(vs),
+          sd: sd(vs),
+          spread: quantile(vs, 0.9) / Math.max(1e-4, quantile(vs, 0.1)),
+        };
+  };
+  const sat = (uvs: UV[]) =>
+    uvs.length < 6 ? null : mean(uvs.map((uv) => hsv(rgbAt(colour, uv)).s));
+  const tone = (uvs: UV[]) =>
+    uvs.length < 6
+      ? null
+      : {
+          hue: meanHue(uvs.map((uv) => hsv(rgbAt(colour, uv)).h)),
+          sat: sat(uvs),
+          value: mean(uvs.map((uv) => hsv(rgbAt(colour, uv)).v)),
+        };
+  return {
+    flatness: {
+      seat: flat(p.seat),
+      wall: flat(p.walls),
+      floor: flat(p.floor),
+      ceiling: flat(p.ceiling),
+    },
+    saturation: { sofa: sat(p.sofa), rug: sat(p.rug) },
+    bleed: p.bleed
+      ? { near: tone(p.bleed.near), open: tone(p.bleed.open) }
+      : null,
+  };
 };
 
 /** the glance's numbers: each face's spread (90th over 10th

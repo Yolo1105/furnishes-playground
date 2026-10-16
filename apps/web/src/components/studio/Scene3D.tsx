@@ -119,6 +119,7 @@ import {
   WHITE_BALANCE,
 } from "./Post";
 import { Probes } from "./Probes";
+import { GiBake, useGi } from "./GiBake";
 import { type StillState, wakeAt } from "./capture";
 import { loadMaterials, useMaterials } from "./materials";
 import { ceilingAt, RoomLight, RoomShell } from "./Room3D";
@@ -2614,7 +2615,7 @@ function FlatRoom({
   }, [rm.id, rm.pos, rectsKey]);
   useEffect(() => () => forgetBlocks(rm.id), [rm.id]);
   return (
-    <group position={[dx, 0, dz]}>
+    <group position={[dx, 0, dz]} userData={{ giRoom: rm.id }}>
       {!focus && (
         <RoomShell
           r={{
@@ -3121,8 +3122,18 @@ export default function Scene3D() {
   // phone, and not for a piece looked at on its own
   const probes =
     tier !== null && tier !== "phone" && !a.focus && !devFlag("noprobes");
-  // what the probes see: the shell, its finish and its light
+  // the bounced light baked over the shell (GiBake.tsx): on every tier,
+  // not for a piece looked at on its own
+  const gi = tier !== null && !a.focus && !devFlag("nogi");
+  const giState = useGi((s) => s.state);
+  const giVersion = useGi((s) => s.version);
+  const giFirst = useGi((s) => s.first);
+  const giFull = useGi((s) => s.full);
+  const giWork = useGi((s) => s.work);
+  // what the probes see: the shell, its finish and its light (and its
+  // bounce, once baked)
   const probeStamp = JSON.stringify([
+    gi ? giVersion : -1,
     room.id,
     w,
     d,
@@ -3359,6 +3370,14 @@ export default function Scene3D() {
       data-ssgi={post === "desktop" ? fx.ssgi : "off"}
       data-probes={probes ? probeState : "off"}
       data-reflection={probes ? reflectState : "off"}
+      data-gi={gi ? giState : "off"}
+      // the bake's times, ms: to its first light and to every room's
+      // whole bake (the report reads them)
+      data-gi-ms={gi ? `${giFirst ?? "-"}/${giFull ?? "-"}` : "off"}
+      // the workers' own time, ms: the first bake, the longest, all
+      data-gi-work={
+        gi ? `${giWork.first ?? "-"}/${giWork.most}/${giWork.all}` : "off"
+      }
     >
       <Canvas
         // a frame only when something moves: the orbit, a glide, a walk, a
@@ -3469,6 +3488,25 @@ export default function Scene3D() {
           y={h - CEILING_LIGHT.drop}
           z={ceilingZ}
           lit={scene.light === "evening"}
+        />
+        <GiBake
+          rooms={litRooms}
+          active={room.id}
+          tier={tier}
+          evening={scene.light === "evening"}
+          sun={{
+            dir: sunDir,
+            colour: light.colour,
+            intensity: devFlag("nosun") ? 0 : light.sun,
+          }}
+          fill={{ colour: light.fill, intensity: light.sky }}
+          downlight={{
+            at: [ceilingX, h - CEILING_LIGHT.drop, ceilingZ],
+            colour: CEILING_LIGHT.colour,
+            intensity: scene.light === "evening" ? CEILING_LIGHT.evening : 0,
+            angle: CEILING_LIGHT.angle,
+          }}
+          on={gi}
         />
         {probes && (
           <Probes

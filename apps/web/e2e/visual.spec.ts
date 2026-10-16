@@ -2,7 +2,14 @@ import { expect, test, type Page } from "@playwright/test";
 import { GUIDE_STORAGE_KEY } from "../src/components/studio/guide-store";
 import { LOOK_STORAGE_KEY } from "../src/components/studio/useArrival";
 import { changedShare, decodePng } from "./png";
-import { glanceGrey, glanceNumbers, glancePoints, squintPng } from "./glance";
+import {
+  glanceColour,
+  glanceColourNumbers,
+  glanceGrey,
+  glanceNumbers,
+  glancePoints,
+  squintPng,
+} from "./glance";
 
 /**
  * The room as it looks: six fixed views of the first project, each
@@ -77,6 +84,11 @@ const settled = async (page: Page) => {
     /webgpu|webgl|software/,
     { timeout: LONG },
   );
+  // the bounce baked over the shell (GiBake.tsx) first: the probes are
+  // taken again with the shell lit by it
+  await expect(stage(page)).toHaveAttribute("data-gi", /ready|off/, {
+    timeout: LONG,
+  });
   await expect(stage(page)).toHaveAttribute("data-probes", /ready|off/, {
     timeout: LONG,
   });
@@ -104,6 +116,10 @@ const still = async (page: Page) => {
   // the pieces' light baked (lightmap.ts): until then each is drawn
   // without it, and the picture would change when it lands
   await expect(stage(page)).toHaveAttribute("data-bakes", "0", {
+    timeout: LONG,
+  });
+  // the shell's bounce baked and faded in
+  await expect(stage(page)).toHaveAttribute("data-gi", /ready|off/, {
     timeout: LONG,
   });
   await expect(stage(page)).toHaveAttribute("data-settled", "true", {
@@ -447,9 +463,19 @@ test("the glance: the boxes read as built, lit and used", async ({
   await page.mouse.move(2, 2);
   await still(page);
   const points = await glancePoints(page);
-  const grey = glanceGrey(
-    decodePng(await stage(page).screenshot({ animations: "disabled" })),
+  const shot = decodePng(
+    await stage(page).screenshot({ animations: "disabled" }),
   );
+  const grey = glanceGrey(shot);
+  // round 9, Part 0: flatness, saturation and colour bleed, recorded
+  await info.attach("glance-colour.json", {
+    body: JSON.stringify(
+      glanceColourNumbers(grey, glanceColour(shot), points),
+      null,
+      1,
+    ),
+    contentType: "application/json",
+  });
   await info.attach("squint.png", {
     body: squintPng(grey),
     contentType: "image/png",

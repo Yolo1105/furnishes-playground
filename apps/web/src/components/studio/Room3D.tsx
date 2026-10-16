@@ -1,5 +1,6 @@
 "use client";
 
+import { useGi } from "./GiBake";
 import { FOOT_HEIGHT } from "./bake-defaults";
 import { unpickable } from "./no-pick";
 import { devFlag } from "./dev-flags";
@@ -1131,6 +1132,8 @@ function WallRun({
         {...behind}
         attach={`material-${group}`}
         color={wallColour}
+        // the paint's own tone under the plaster, for the bounce bake
+        userData={{ giAlbedo: wallHex }}
         map={plasterMaps.map}
         normalMap={devFlag("noplaster") ? null : plasterMaps.normalMap}
         normalScale={PLASTER_RELIEF}
@@ -2388,6 +2391,13 @@ export function RoomShell({
     const z = along ? nz * (d / 2 - TRAP.in) : side * (d / 2 - TRAP.in);
     return [x, z] as const;
   }, [wet, r.id, openings, W, D, outline, w, d]);
+  // the floor's tone under its photograph, for the bounce bake
+  const floorTag = useMemo(
+    () => ({ ...FLOOR_NAME, giAlbedo: r.floorHex }),
+    [r.floorHex],
+  );
+  // the ceiling's own trace of light goes once the bake lights it
+  const baked = useGi((s) => s.first !== null);
   const onFloorClick = useEvent((e: ThreeEvent<MouseEvent>) => {
     // a drag that looked round and let go over the floor is not a step,
     // nor a tap
@@ -2400,7 +2410,7 @@ export function RoomShell({
     <group userData={ROOM_TAG}>
       <mesh
         ref={floorMesh}
-        userData={FLOOR_NAME}
+        userData={floorTag}
         rotation={[-Math.PI / 2, 0, 0]}
         receiveShadow
         onClick={onFloorClick}
@@ -2504,7 +2514,7 @@ export function RoomShell({
         <meshStandardMaterial
           color={CEILING_HEX}
           emissive={CEILING_HEX}
-          emissiveIntensity={CEILING_GLOW}
+          emissiveIntensity={baked ? 0 : CEILING_GLOW}
           roughness={1}
           side={FrontSide}
         />

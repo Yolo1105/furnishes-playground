@@ -45,11 +45,11 @@ import { useEvent } from "./use-event";
 import {
   kindOf,
   BUILT_KINDS,
+  modelFor,
   propUrl,
   lodAt,
   styleOf,
   type Variant,
-  variantFor,
 } from "./prop-variants";
 import {
   DRACO_PATH,
@@ -212,7 +212,7 @@ const modelOf = (
   if (!models || node.part || recipeOf(node)) return null;
   const kind = kindOf(node.name, node.category);
   if (!kind || BUILT_KINDS.includes(kind)) return null;
-  const pick = variantFor(models, kind, [w, h, d], styleOf(node.name, kind));
+  const pick = modelFor(models, kind, [w, h, d], styleOf(node.name, kind));
   if (!pick) return null;
   return {
     src: propUrl(pick.v.file),
