@@ -311,12 +311,32 @@ const shelf = (
   hw: "shelf",
 });
 
+/** what a door's gap shows: the dark of the cabinet behind it. A gap
+    a few millimetres wide and a board deep is in its own shadow, so a
+    real cabinet's doors are drawn by dark lines round them; drawn, it
+    showed the lit carcass edge behind and the doors melted into one
+    flat front, the box. A dark leaf a millimetre thick just behind the
+    door, as large as the door and its gap, so it shows in the gap
+    alone and never past the piece */
+export const gapShadow = (at: V3, [w, h]: [number, number]): FormPart => ({
+  role: "dark",
+  at,
+  dims: [w, h, 0.001],
+});
+
 /** a door over a bay, a gap round it, with its finger pull at the top
-    of the opening edge; it stands a board proud of the front */
+    of the opening edge; it stands a board proud of the front, on its
+    bumpers, and its gap looks into the dark behind it (`gapShadow`) */
 function door(out: FormPart[], faces: DoorFace[], b: Bay, hinge: 1 | -1) {
   const w = b.w - 2 * T - 2 * GAP;
   const h = b.y1 - b.y0 - T - 2 * GAP;
   const z = b.z0 + b.d / 2 + T / 2 + 0.002;
+  out.push(
+    gapShadow(
+      [b.x, b.y0 + T + GAP + h / 2, b.z0 + b.d / 2 + 0.001],
+      [w + 2 * GAP, h + 2 * GAP],
+    ),
+  );
   out.push(slab("body", [b.x, b.y0 + T + GAP + h / 2, z], [w, h, T], b.colour));
   faces.push({ at: [b.x, b.y0 + T + GAP + h / 2, z + T / 2], size: [w, h] });
   out.push(

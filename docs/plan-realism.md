@@ -2910,17 +2910,22 @@ drawing on the same cores): the first light 0.69 s of a worker's time (the livin
 workers free of the renderer; the first light under 3 s and the whole
 flat under 15 s are to be checked there.
 
-**The velvet sofa by default.** The living room's sofa is drawn with
-the glam velvet sofa (Khronos, CC-BY-4.0, already in the pack): a sofa
-with no model of its own design that fits is drawn with it when it fits
-within a tenth (`DEFAULT_MODEL`, `modelFor`). This reverses round 8's
-rule that a boxy sofa is never drawn as a curved one, for the sofa
-alone and only as the default, because the soft box built for a sofa
-read as a cartoon of one among real models; the box now stands in only
-while the model comes. The showcase sofa is 1.0 m deep (the model's
-1.02) and stands 0.1 m further back, so its walkway to the coffee table
-stays 600 mm. The models' sources and the steps to fetch them again are
-in public/props/README.md.
+**The sofa: the studio's own, rebuilt.** For a while the living room's
+sofa was drawn with the glam velvet sofa model by default; the owner
+asked for their own built sofa back, so that is reverted (`variantFor`
+again, the showcase sofa back at 2.4 m wide in its old place, and round
+8's rule that a boxy sofa is never drawn as a curved one stands). What
+made the built sofa read as a box was found in its build, not its idea,
+and changed there (`Seat`, Furniture3D.tsx): a thin padded base on legs
+with the cushions sat on top of it and short arms standing on the base,
+so it read as a crate with pads. Now the arms are one padded piece each
+from the legs to 160 mm over the seat, the base is low and padded on
+every face (`CushionShape` facing `all`: each face crowned by a share
+of the smaller of its two sides, no welt), the seat cushions are 170 mm
+thick and sit down between the arms on a dark deck, the back frame is
+padded and the back cushions lean on it, and the seat is never over
+440 mm. The models' sources and the steps to fetch them again are still
+in public/props/README.md, should the owner choose one.
 
 **Calm colour.** A rug's dye is held under 0.3 saturation, a cloth's
 under 0.45 as before; the room's health notes a sofa and its rug within
@@ -2929,8 +2934,9 @@ taken off after the tone mapping and the rest spread back to white
 (Post.tsx, `BLACK_POINT`): the darkest 1 % of a day picture read 0.13
 of white, a photograph's is near black; the midtones barely move and
 the exposure (2.15, the owner's) and the light are unchanged. The
-evening's white balance is set for the ceiling light's colour (#ffc48a,
-was #ffd1ab): with the bounce baked the walls are lit by the lamps'
+evening's white balance is set halfway to the ceiling light's colour
+(#ffcb9a, was #ffd1ab; the light's own #ffc48a turned the shaded side of
+the cloth blue): with the bounce baked the walls are lit by the lamps'
 light come back off the room, and read tan under the old gain (a wall's
 red to green 1.55, blue to green 0.45).
 
@@ -2952,12 +2958,13 @@ model comes from.
 the ceiling's flatness 1.20 before, 1.47 after (to reach: 1.25). The
 floor beside the sofa tinted by it: a little, 0.34 of saturation 5 to
 20 cm off the sofa against 0.30 on open floor, and darker (0.60 against
-0.67); the velvet sofa is a pale grey, so there is little colour to
+0.67); these readings were taken with the velvet model (since put
+back to the built sofa), a pale grey, so there was little colour to
 carry. The evening's walls and ceilings read far from flat (11.4, 3.42):
 lamp-lit, they fall away from the lamps as a lamp-lit room does. The
 evening's darkest 1 % is black (0.000).
 
-**Open.** The velvet sofa's shaded side reads blue in the evening (blue
+**Open.** The velvet model's shaded side read blue in the evening (blue
 to green 1.6 under the ceiling light's balance; the balance is set
 halfway, #ffcb9a, after the pictures above were taken): the dusk outside
 lights its sheen through the surroundings; a lamp-lit room's own
@@ -2966,3 +2973,63 @@ evening is the next step. The Walk view was not taken again in this
 round's pictures (the Corner view's were); the pieces take the bounce
 through the probes alone; the photo's copy of the room does not force
 the models' near copies for a piece past 8 m.
+
+## Box construction that reads as built, not as boxes (2026-10-16)
+
+The owner: the straight-box furniture still reads box-like, every
+piece built so and not the sofa alone, and the cure is to be found in
+how it is built, not in swapping the pieces for models. Close-ups of
+thirteen pieces at eye height, a metre or two off, on the full tier
+(the TV console, the three-bay sideboard, the entry organiser, the
+bookwall, the coffee and dining tables, the homework and study desks,
+the wardrobe, the queen and single beds, the kitchen counter, a
+bedside cabinet), read for what tells a box from a built thing:
+
+- **The wood (the largest tell).** Every wooden board carried the
+  photographed set (Wood049, a rough-sawn, wire-brushed plank) at sd
+  0.137 about a mean of 0.80 and at 1.2 m a tile: rings 15 mm apart,
+  half the board's tone at their darkest, and, at the cloth's relief
+  scale (0.6), each ring a ridge catching the window. A sideboard read
+  as a cartoon of rustic pine. Now the map's spread is 0.55 of what it
+  was (sd 0.075, mean 0.83, 0.62–0.96; LICENSES.md), its tile 0.75 m
+  (rings about 9 mm apart, a veneer's), and a wood's relief 0.2 (a
+  sanded and finished board's pores; a cloth keeps 0.6). This walks
+  back half of 2026-10-13's spreading of the grain (sd 0.065 to 0.137):
+  that cured a flat painted sheet and overshot into a drawing.
+- **The plies, a dotted outline.** The plies of every Furnishes board's
+  edge were drawn one by one to 2.5 m; thirteen across 18 mm are under
+  two pixels each from a metre or two, so they fell between the pixels
+  as a speckled, hatched line round every board. They now give way to
+  their mean tone as they shrink on the screen (`PLY_BLUR`, ply.ts:
+  from 0.35 of a ply a pixel to 0.8, by the derivative of where a point
+  stands across the board), and still to the face's colour with
+  distance as before.
+- **Doors that melt into one front.** A real cabinet is read by the
+  dark lines round its doors: a gap a few millimetres wide and a board
+  deep is in its own shadow. Drawn, the gap showed the lit carcass edge
+  behind it, and doors and carcass read as one flat block. Every door
+  now has a dark leaf a millimetre thick just behind it, as large as
+  the door and its gap and never past the piece (`gapShadow` in
+  furnishes-forms.ts, `gapLeaf` in Furniture3D.tsx): the Furnishes
+  doors, the carcass's overlay doors (now on 2 mm bumpers, as they hang),
+  the media console's inset doors (the opening behind the reveal), and
+  the kitchen's base and wall cupboards.
+- **Pieces drawn as one block.** Two were a single solid box: the
+  kitchen's wall cabinets (one block with handles on it) and every
+  bed's base (a solid block of wood under the mattress). The wall
+  cabinets are now a carcass with full-overlay doors on bumpers, a gap
+  between each into the dark, a handle low on each. A bed's base is a
+  frame: four rails 30 mm thick round a deck on the recessed plinth,
+  standing 50 mm over the deck so the mattress sits down in the frame
+  (`BED_FRAME`), the duvet falling to just over the rails.
+- **Painted faces like plaster.** A plain finish (paint, laminate)
+  carried the plaster's relief at the plaster's own 2 m a tile, so a
+  wardrobe door or a console's side read as a rendered wall, blotches a
+  hand across. It is now a paint's orange peel: the plaster's maps at
+  0.25 m a tile and 0.12 of the relief, fine near and gone from a step
+  back (`STIPPLE_M`, finish.tsx).
+
+Kept, and why: the boards' 1.8 mm round (a real arris on panel
+furniture, 1b above), the Furnishes family's flush tops and bay-by-bay
+sides (the assembly record's own design), and the forms of the tables,
+desks and chairs, whose tell was their wood alone.

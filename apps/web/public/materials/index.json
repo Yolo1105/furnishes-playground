@@ -1,7 +1,7 @@
 {
   "materials": {
     "wood": {
-      "tile": 1.2,
+      "tile": 0.75,
       "color": "color.jpg",
       "normal": "normal.jpg",
       "roughness": "roughness.jpg"

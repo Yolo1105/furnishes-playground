@@ -4,6 +4,7 @@ import {
   float,
   floor,
   fract,
+  fwidth,
   hash,
   materialColor,
   mix,
@@ -89,7 +90,33 @@ const stain = mix(
     .min(vec3(1.15)),
   PLY_TINT,
 );
-const plies = edge().mul(stain);
+/** the plies seen from too far to draw one by one: the veneers' mean
+    tone with the glue lines' share of it */
+const GLUE_LINEAR = new Color(GLUE);
+const PLY_MEAN = mix(color(BIRCH), color(BIRCH_DEEP), 0.3).mul(
+  mix(
+    vec3(1),
+    vec3(
+      GLUE_LINEAR.r / BIRCH_LINEAR.r,
+      GLUE_LINEAR.g / BIRCH_LINEAR.g,
+      GLUE_LINEAR.b / BIRCH_LINEAR.b,
+    ),
+    0.09,
+  ),
+);
+/** how many plies a pixel spans at which the plies give way to their
+    mean, from all of them to none: thirteen across 18 mm are under two
+    pixels each from a metre or two, and drawn one by one there they
+    fell between the pixels as a speckled, dotted line round every
+    board, a drawing's hatching (the distance alone, `PLY_FADE`, let
+    them through to 2.5 m whatever the screen) */
+export const PLY_BLUR = { from: 0.35, to: 0.8 } as const;
+const blur = smoothstep(
+  PLY_BLUR.from,
+  PLY_BLUR.to,
+  fwidth(ply.x.mul(PLIES)),
+);
+const plies = mix(edge(), PLY_MEAN, blur).mul(stain);
 const far = smoothstep(PLY_FADE.from, PLY_FADE.to, positionView.z.negate());
 // an edge far off: the face's colour a shade down, as end grain is
 const edgeFar = mix(plies, face.rgb.mul(0.9), far);

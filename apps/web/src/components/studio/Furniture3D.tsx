@@ -1016,6 +1016,8 @@ const backOf = (
     stands proud of the carcass's front */
 const REVEAL = 0.0025;
 const FRONT_PROUD = 0.0015;
+/** an overlay door stands this far off the carcass, on its bumpers */
+const BUMPER = 0.002;
 /** a D-pull at real size: a 12 mm bar 160 mm long on two posts 128 mm
     apart, 28 mm off the front, in brushed steel (upright on a door, flat
     on a drawer) */
@@ -1044,6 +1046,15 @@ const pull = (x: number, y: number, z: number, upright: boolean): Part[] => {
   }));
   return [bar, ...posts];
 };
+
+/** what a door's gap shows: the dark of the cabinet behind it, a leaf a
+    millimetre thick just behind the door and as large as the door and
+    its gap (furnishes-forms.ts says why) */
+const gapLeaf = (at: Vector3Tuple, w: number, h: number): Part => ({
+  f: { colour: RUBBER, rough: 0.9 },
+  at,
+  dims: [w, h, 0.001],
+});
 
 /* ---------- the Furnishes pieces: 18 mm panels ---------- */
 
@@ -1106,19 +1117,24 @@ function Carcass({
       });
     if (i === bays.length - 1) parts.push(side(x0 + bayW + PANEL / 2));
     if (doors)
-      // an overlay door stands a board proud of the carcass, a gap to
-      // its neighbours, and throws its own line of shadow
+      // an overlay door stands a board proud of the carcass on its
+      // bumpers, a gap to its neighbours that looks into the dark
       parts.push(
+        gapLeaf(
+          [mid, PLINTH + PANEL + inner / 2, d / 2 + 0.001],
+          bayW + PANEL,
+          inner + PANEL,
+        ),
         {
           f,
           colour,
-          at: [mid, PLINTH + PANEL + inner / 2, d / 2 + PANEL / 2],
+          at: [mid, PLINTH + PANEL + inner / 2, d / 2 + BUMPER + PANEL / 2],
           dims: [bayW + PANEL - DOOR_GAP, inner + PANEL - DOOR_GAP, PANEL],
         },
         ...pull(
           x0 + bayW - 0.05,
           PLINTH + PANEL + inner * 0.5,
-          d / 2 + PANEL,
+          d / 2 + BUMPER + PANEL,
           true,
         ),
       );
@@ -1159,7 +1175,7 @@ function Carcass({
               <Suspense fallback={null}>
                 <MirrorFace
                   id={`${id}-door-${i}`}
-                  at={[mid, PLINTH + PANEL + inner / 2, d / 2 + PANEL]}
+                  at={[mid, PLINTH + PANEL + inner / 2, d / 2 + BUMPER + PANEL]}
                   size={[bayW + PANEL - DOOR_GAP, inner + PANEL - DOOR_GAP]}
                 />
               </Suspense>
@@ -2203,6 +2219,13 @@ function Counter({ w, h, d }: { w: number; h: number; d: number }) {
     { length: doors },
     (_, i) => -w / 2 + PANEL + i * (doorW + PANEL) + doorW / 2,
   );
+  // the wall cabinets' body, behind their doors on bumpers, and the
+  // middles of their doors, full overlay
+  const upperBody = upperD - PANEL - BUMPER;
+  const ux = Array.from(
+    { length: doors },
+    (_, i) => -w / 2 + ((i + 0.5) * w) / doors,
+  );
   const across: Vector3Tuple = [0, 0, Math.PI / 2];
   return (
     <group>
@@ -2219,6 +2242,8 @@ function Counter({ w, h, d }: { w: number; h: number; d: number }) {
             at: [0, PLINTH + baseH / 2, -PANEL],
             dims: [w, baseH, d - PANEL * 2],
           },
+          // the doors' gaps look into the dark of the cupboards
+          gapLeaf([0, PLINTH + baseH / 2, d / 2 - 2 * PANEL + 0.001], w, baseH),
           ...xs.flatMap((x): Part[] => [
             {
               f,
@@ -2297,18 +2322,36 @@ function Counter({ w, h, d }: { w: number; h: number; d: number }) {
           // what stands on the worktop: a kettle by the hob, a board
           // leaning on the splashback, three jars in a row
           ...worktopThings(w, d, hobX, sinkX),
-          // the wall cabinets and their handles
+          // the wall cabinets: a carcass and its overlay doors on their
+          // bumpers, a gap between each into the dark, a handle low on
+          // each (one block with handles on it was a box, not cupboards)
           {
             f,
-            at: [0, CABINET_FROM + upperH / 2, -d / 2 + upperD / 2],
-            dims: [w, upperH, upperD],
+            at: [0, CABINET_FROM + upperH / 2, -d / 2 + upperBody / 2],
+            dims: [w, upperH, upperBody],
           },
-          ...xs.map((x): Part => ({
-            f: handle,
-            at: [x, CABINET_FROM + 0.1, -d / 2 + upperD + 0.015],
-            rod: [0.005, 0.12],
-            rotation: across,
-          })),
+          gapLeaf(
+            [0, CABINET_FROM + upperH / 2, -d / 2 + upperBody + 0.001],
+            w,
+            upperH,
+          ),
+          ...ux.flatMap((x): Part[] => [
+            {
+              f,
+              at: [
+                x,
+                CABINET_FROM + upperH / 2,
+                -d / 2 + upperD - PANEL / 2,
+              ],
+              dims: [w / doors - DOOR_GAP, upperH - DOOR_GAP, PANEL],
+            },
+            {
+              f: handle,
+              at: [x, CABINET_FROM + 0.1, -d / 2 + upperD + 0.015],
+              rod: [0.005, 0.12],
+              rotation: across,
+            },
+          ]),
         ]}
       />
       {/* the worktop stands 20 mm past the doors, as a stone one is
@@ -2578,6 +2621,9 @@ function Chair({
 /** a duvet, m: how far it falls down the mattress's sides, the
     mattress's edge's round, its thickness, its puff and how far in from
     its ends the puff falls away, and its folds */
+/** a bed's frame, m: its rails' thickness, and how far they stand over
+    the deck, the mattress sitting down in them */
+const BED_FRAME = { rail: 0.03, lip: 0.05 };
 const DUVET = {
   fall: 0.2,
   round: 0.04,
@@ -2605,34 +2651,59 @@ function Bed({
   const mattress = Math.min(0.22, h - base);
   const linen = cloth(shade(colour, 0.06));
   const pw = (w - 0.2) / 2;
-  // the duvet over the mattress, down its sides, from below the
-  // pillows to near the foot
+  // the mattress inside the frame's rails, a hair off them
+  const mw = w - 2 * BED_FRAME.rail - 0.01;
+  const md = d - 2 * BED_FRAME.rail - 0.01;
+  // the duvet over the mattress, down its sides to just over the
+  // rails, from below the pillows to near the foot
+  const fall = Math.min(DUVET.fall, mattress - BED_FRAME.lip - 0.01);
   const duvet: Drape = {
     ...DUVET,
-    over: w - 0.04,
+    over: mw,
     wide: d * 0.62,
-    hang: [Math.min(DUVET.fall, mattress), Math.min(DUVET.fall, mattress)],
+    hang: [fall, fall],
     seed: seed ?? 0,
   };
+  const frame = wood(LIGHT_WOOD);
+  const { rail, lip } = BED_FRAME;
+  const railH = base - PLINTH + lip;
+  const railY = PLINTH + railH / 2;
   return (
     <group>
       {/* the frame in the light wood the room's tables and the bunk
           are, on a darker recessed plinth, as the Furnishes pieces
-          stand on their base */}
-      <Slab
-        f={{ colour: shade(LIGHT_WOOD, -0.3), rough: 0.8 }}
-        at={[0, 0.03, 0]}
-        dims={[w - 0.1, 0.06, d - 0.1]}
-      />
-      <Slab
-        f={wood(LIGHT_WOOD)}
-        at={[0, 0.06 + (base - 0.06) / 2, 0]}
-        dims={[w, base - 0.06, d]}
+          stand on their base: four rails round a deck, standing a lip
+          over it so the mattress sits down in the frame (one solid
+          block of wood under the mattress was a box, not a bed) */}
+      <Built
+        parts={[
+          {
+            f: { colour: shade(LIGHT_WOOD, -0.3), rough: 0.8 },
+            at: [0, PLINTH / 2, 0],
+            dims: [w - 0.1, PLINTH, d - 0.1],
+          },
+          ...[-1, 1].map((s): Part => ({
+            f: frame,
+            at: [(s * (w - rail)) / 2, railY, 0],
+            dims: [rail, railH, d],
+          })),
+          ...[-1, 1].map((s): Part => ({
+            f: frame,
+            at: [0, railY, (s * (d - rail)) / 2],
+            dims: [w - 2 * rail, railH, rail],
+          })),
+          // the deck the mattress lies on, inside the rails
+          {
+            f: wood(shade(LIGHT_WOOD, -0.1), false),
+            at: [0, base - PANEL / 2, 0],
+            dims: [w - 2 * rail, PANEL, d - 2 * rail],
+          },
+        ]}
       />
       <Soft
         f={linen}
         at={[0, base + mattress / 2, 0]}
-        dims={[w - 0.04, mattress, d - 0.04]}
+        dims={[mw, mattress, md]}
         radius={0.04}
       />
       {[-1, 1].map((s) => (
@@ -2847,6 +2918,8 @@ function MediaConsole({
     },
     // the two doors, set in a reveal and a hair proud, each with its pull
     ...[xs[0]!, xs[2]!].flatMap((x, i): Part[] => [
+      // the opening behind the door's reveal, dark as a shut cabinet is
+      gapLeaf([x, midY, d / 2 - PANEL + FRONT_PROUD - 0.001], bayW, inner),
       {
         f,
         at: [x, midY, d / 2 - PANEL / 2 + FRONT_PROUD],

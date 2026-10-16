@@ -356,6 +356,7 @@ function LiveHandle({
   const scene = useThree((s) => s.scene);
   const camera = useThree((s) => s.camera);
   const gl = useThree((s) => s.gl);
+  const get = useThree((s) => s.get);
   useEffect(() => {
     setLive({
       scene,
@@ -379,9 +380,11 @@ function LiveHandle({
         __camera: camera,
         __gl: gl,
         __ray: new Raycaster(),
+        // the canvas's own state (its controls, a redraw) at the time
+        __three: get,
       });
     return () => setLive(null);
-  }, [scene, camera, gl, w, d, h, spanW, spanD, centre, corner, shot, sun]);
+  }, [scene, camera, gl, get, w, d, h, spanW, spanD, centre, corner, shot, sun]);
   return null;
 }
 

@@ -150,8 +150,12 @@ export const finishOf = (colour: string, texture: string): Finish => ({
           : {}),
 });
 
-/** how strongly a grain's relief bends the light */
+/** how strongly a grain's relief bends the light: a cloth's weave in
+    full, and a wood's faintly, as a sanded and finished board's pores
+    are (at the cloth's 0.6 every board's rings stood up as ridges, a
+    wire-brushed plank's, each catching the window along its length) */
 const RELIEF_SCALE = new Vector2(0.6, 0.6);
+const WOOD_RELIEF = new Vector2(0.2, 0.2);
 
 /** a grain's maps repeated by its tile over a part whose texture lies
     in wood tiles (slabGeometry lays a slab's so; a rounded part's runs
@@ -164,8 +168,13 @@ const useGrainMaps = (grain: Grain | undefined) => {
   return repeated(m, m.tile / WOOD_M);
 };
 
-/** how strongly a plain finish's stipple bends the light */
-const STIPPLE_SCALE = new Vector2(0.25, 0.25);
+/** how strongly a plain finish's stipple bends the light, and the
+    stretch, m, the plaster's tile is shrunk to on it: a paint's orange
+    peel is millimetres across, so near it breaks the light finely and
+    from a step back it is gone (at the plaster's own 2 m a tile a door
+    or a carcass side read as a rendered wall, blotches a hand across) */
+const STIPPLE_SCALE = new Vector2(0.12, 0.12);
+const STIPPLE_M = 0.25;
 type Stipple = { normalMap: Texture; roughnessMap: Texture };
 const stipples = new WeakMap<object, Stipple>();
 /** a plain finish (a paint, a lacquer, a laminate with no grain) is
@@ -179,7 +188,7 @@ const useStipple = (on: boolean): Stipple | null => {
   if (!on) return null;
   let s = stipples.get(m.surface);
   if (!s) {
-    const r = WOOD_M / m.tile;
+    const r = WOOD_M / STIPPLE_M;
     const copy = (t: Texture) => {
       const c = t.clone();
       c.repeat.set(r, r);
@@ -365,7 +374,11 @@ export function Mat({
           normalMap: maps?.normalMap ?? stipple?.normalMap ?? null,
           roughnessMap: maps?.roughnessMap ?? stipple?.roughnessMap ?? null,
         },
-        normalScale: maps ? RELIEF_SCALE : STIPPLE_SCALE,
+        normalScale: maps
+          ? f.grain === "wood"
+            ? WOOD_RELIEF
+            : RELIEF_SCALE
+          : STIPPLE_SCALE,
         banded,
       })}
       attach="material"
