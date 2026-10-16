@@ -12,6 +12,7 @@ import type { Group, Texture } from "three";
 import { cameraMoving } from "./camera-motion";
 import { PICTURE_FADE_MS, type StillState, stillOf, wakeAt } from "./capture";
 import { devParam } from "./dev-flags";
+import { gaveUp, givenUp } from "./gpu-fallback";
 import { warming } from "./shader-warm";
 import { useEvent } from "./use-event";
 import { withWallsStanding } from "./walls-standing";
@@ -197,6 +198,11 @@ const noteBake = (key: string, bake: string | null) => {
   if (k) k.baked = bake;
 };
 
+/** a room's grids taken out of the lights (a bake given up on) */
+const outOfLights = (k: Kept) => {
+  for (const g of k.grids) g.visible = false;
+};
+
 /** a grid's first picture taken (`bake`), and the grid let into the
     lights with it */
 const firstPicture = (grid: LightProbeGrid, bake: () => void) => {
@@ -279,6 +285,12 @@ export function Probes({
   useLayoutEffect(() => {
     register(get().gl as unknown as WebGPURenderer);
     due.current = 0;
+    // a GPU that could not bake them: the room is lit without them
+    if (givenUp("probes")) {
+      job.current = null;
+      onState("ready");
+      return;
+    }
     if (bakedFor(key, bakeOf(stampNow.current, get().scene.environment))) {
       // a room come back to as it was baked: its probes stand
       seen.current = get().scene.environment;
@@ -296,8 +308,9 @@ export function Probes({
   // is baked once
   useEffect(() => {
     if (
-      job.current === null &&
-      bakedFor(key, bakeOf(stampNow.current, get().scene.environment))
+      givenUp("probes") ||
+      (job.current === null &&
+        bakedFor(key, bakeOf(stampNow.current, get().scene.environment)))
     )
       return;
     if (process.env.NODE_ENV !== "production")
@@ -333,6 +346,15 @@ export function Probes({
         ),
       ),
     );
+  // a bake that threw (a pipeline the GPU would not build): the grids
+  // out of the lights, the bake given up on for the page, and the stage
+  // told there is nothing more to wait for
+  const fail = useEvent((e: unknown) => {
+    job.current = null;
+    outOfLights(pair);
+    gaveUp("probes", e);
+    onState("ready");
+  });
   // the bake runs between the frames, a slice at a time and a moment
   // apart, not in them: each slice in a frame of its own drew the whole
   // view again with every pass (a picture that had not moved) on top of
@@ -354,7 +376,7 @@ export function Probes({
   const pump = useEvent(() => {
     pumping.current = 0;
     const j = job.current;
-    if (!j) return;
+    if (!j || givenUp("probes")) return;
     const state = get();
     // the room's shaders being built hold the renderer's outputs, a
     // moving camera is drawn first, and the floor's picture is taken
@@ -370,11 +392,16 @@ export function Probes({
     const r = grids[j.into].resolution;
     const total = r.x * r.y * r.z;
     const t0 = performance.now();
-    do {
-      const count = Math.min(PER_CALL, total - j.at);
-      bakeSlice(state, j.into, j.at, count, j.pass);
-      j.at += count;
-    } while (j.at < total && performance.now() - t0 < BAKE_MS);
+    try {
+      do {
+        const count = Math.min(PER_CALL, total - j.at);
+        bakeSlice(state, j.into, j.at, count, j.pass);
+        j.at += count;
+      } while (j.at < total && performance.now() - t0 < BAKE_MS);
+    } catch (e) {
+      fail(e);
+      return;
+    }
     const passes = bounce && !FAST ? BOUNCES + 1 : 1;
     onProgress?.(j.pass * total + j.at, total * passes);
     if (j.at >= total) {
@@ -396,15 +423,21 @@ export function Probes({
   }, [pump]);
   // the probes' frame comes before the chain's (Post draws after)
   useFrame((state) => {
+    if (givenUp("probes")) return;
     // a grid without its picture takes one at once, of its first probe
     // alone (a moment's work), and joins the lights: the shaders the
     // chain builds next are built with it, once. Built before it had one
     // they would never sample it, and built again after it would cost
     // the whole room's shaders a second time
-    grids.forEach((g, i) => {
-      if (!g.texture)
+    for (const [i, g] of grids.entries()) {
+      if (g.texture) continue;
+      try {
         firstPicture(g, () => bakeSlice(state, i as 0 | 1, 0, 1, 0));
-    });
+      } catch (e) {
+        fail(e);
+        return;
+      }
+    }
     // a finished bake fading in: the two grids' shares follow the time
     if (pair.fade) {
       if (fadeStep(pair)) onState("ready");

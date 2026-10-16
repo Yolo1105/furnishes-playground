@@ -81,11 +81,16 @@ export const TONE_MAPPING = NeutralToneMapping;
 const MEMORY_UNSAID = 8;
 /** a fine pointer with WebGPU and this much memory is a desktop */
 const DESKTOP_GB = 8;
+/** a device that says it has this much memory or less gets the phone's
+    tier wherever it is: the laptop's passes and the probes' bake are
+    what an old machine runs out of first (Chrome and Edge say; Safari
+    and Firefox do not, and are judged by their frames, SlowFrames) */
+const LOW_GB = 4;
 
 /** the tier a device gets on its own: a finger means a phone or a
-    tablet, and so does a software GPU; WebGPU with enough memory a
-    desktop; the rest a laptop. View settings can pick one instead, or
-    none (plain: the room as drawn) */
+    tablet, and so does a software GPU or a device short of memory;
+    WebGPU with enough memory a desktop; the rest a laptop. View
+    settings can pick one instead, or none (plain: the room as drawn) */
 export const tierOf = (
   quality: Quality,
   coarse: boolean,
@@ -94,10 +99,10 @@ export const tierOf = (
   if (quality === "full") return "desktop";
   if (quality === "light") return "laptop";
   if (quality === "plain") return null;
-  if (coarse || backend === "software") return "phone";
   const memory =
     (navigator as Navigator & { deviceMemory?: number }).deviceMemory ??
     MEMORY_UNSAID;
+  if (coarse || backend === "software" || memory <= LOW_GB) return "phone";
   return backend === "webgpu" && memory >= DESKTOP_GB ? "desktop" : "laptop";
 };
 

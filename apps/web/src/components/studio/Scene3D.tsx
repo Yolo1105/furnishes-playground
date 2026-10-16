@@ -193,7 +193,10 @@ const SHOT_ASPECT = 1;
     can read the canvas as a picture; on WebGPU it is kept by the
     platform. Anti-aliasing is the hardware's on a mouse and off under a
     finger. The tone mapping (Post.tsx) rolls the window's highlights off. */
-const hasWebGPU = () => typeof navigator !== "undefined" && "gpu" in navigator;
+// the API itself, not its name: a browser can list it with nothing in it
+const hasWebGPU = () =>
+  typeof navigator !== "undefined" &&
+  !!(navigator as Navigator & { gpu?: unknown }).gpu;
 type RendererProps = Parameters<
   Extract<NonNullable<CanvasProps["gl"]>, (...args: never[]) => unknown>
 >[0];
@@ -248,6 +251,18 @@ const makeRenderer = async (
         }
       : {}),
   });
+  if (webgl)
+    // a context the browser takes back (a device short of memory, a
+    // driver reset) leaves the canvas black: the view stops instead,
+    // offers the room again (StageGuard) and draws it a tier lighter
+    canvas.addEventListener(
+      "webglcontextlost",
+      (e) => {
+        e.preventDefault();
+        useStudio.getState().loseContext();
+      },
+      { once: true },
+    );
   if (!webgl) {
     // a device lost starts the page over on WebGL, once
     const lost = renderer.onDeviceLost.bind(renderer);
@@ -2957,10 +2972,15 @@ export default function Scene3D() {
   // the auto picture alone: a picture asked for is kept
   const [slower, setSlower] = useState(0);
   const onSlow = useEvent(() => setSlower((n) => n + 1));
+  // a context lost since this view was made stops it (StageGuard offers
+  // it again); each one lost draws the next a tier lighter
+  const lost = useStudio((s) => s.contextLost);
+  const [lostBefore] = useState(lost);
+  if (lost > lostBefore) throw new Error("the 3D view lost its WebGL context");
   const tier = backend
     ? tierBelow(
         tierOf(scene.quality, coarse, backend),
-        scene.quality === "auto" ? slower : 0,
+        scene.quality === "auto" ? slower + lost : 0,
       )
     : null;
   // the studio reads the tier too (the machining's cuts follow it)
@@ -3107,6 +3127,7 @@ export default function Scene3D() {
   );
   const loadingAt = useStudio((s) => s.loadingAt);
   const switchedAt = useStudio((s) => s.switchedAt);
+  const faults = useStudio((s) => s.faults);
   const gradingFrom = useRef(0);
   useEffect(() => {
     if (grading) gradingFrom.current = performance.now();
@@ -3194,6 +3215,9 @@ export default function Scene3D() {
       data-drawn={shown}
       // how many times a project has been switched to in this visit
       data-switched={switchedAt}
+      // the effects the GPU could not draw, which the room goes without
+      data-faults={faults.join(" ") || "none"}
+      data-context-lost={lost}
       data-shaders={post === null ? "ready" : shaders}
       // the picture shown is not the room's while its shaders are being
       // built: the last frame stands until they are

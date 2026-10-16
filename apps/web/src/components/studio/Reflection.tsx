@@ -36,6 +36,7 @@ import {
 } from "three/webgpu";
 import { create } from "zustand";
 import { PICTURE_FADE_MS, type StillState, stillOf, wakeAt } from "./capture";
+import { gaveUp, givenUp } from "./gpu-fallback";
 import { devFlag } from "./dev-flags";
 import { useScene } from "./scene-store";
 import { warming } from "./shader-warm";
@@ -267,11 +268,18 @@ export function FloorReflection({
   );
   const seen = useRef<Texture | null>(null);
   useEffect(() => {
+    // a GPU that could not take it: the floor goes without, and nothing
+    // waits on it
+    if (givenUp("reflection")) {
+      onState("ready");
+      return;
+    }
     due.current = performance.now() + SETTLE_MS;
     onState("pending");
     invalidate();
   }, [cameras, stamp, invalidate, onState]);
   useFrame((state) => {
+    if (givenUp("reflection")) return;
     // a new picture fading in: the share of the second follows the time
     const f = fade.current;
     if (f) {
@@ -316,12 +324,18 @@ export function FloorReflection({
     const into = (taken.current ? 1 - shown.current : shown.current) as 0 | 1;
     const camera = cameras[into]!;
     camera.position.set(0, h / 2, 0);
-    take(
-      state.gl as unknown as WebGPURenderer,
-      state.scene,
-      camera,
-      floor.current,
-    );
+    try {
+      take(
+        state.gl as unknown as WebGPURenderer,
+        state.scene,
+        camera,
+        floor.current,
+      );
+    } catch (e) {
+      gaveUp("reflection", e);
+      onState("ready");
+      return;
+    }
     if (taken.current) {
       fade.current = { from: performance.now(), into };
     } else {

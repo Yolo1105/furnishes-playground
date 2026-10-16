@@ -8,6 +8,7 @@
  * remembers for a day, so the next visit starts on WebGL at once and
  * the one after tries WebGPU again.
  */
+import { type Fault, useStudio } from "./studio-store";
 
 const KEY = "furnishes.gpu";
 /** the page started over on WebGL in this tab already: not again */
@@ -90,4 +91,22 @@ export const startOverOnWebGL = (why: string) => {
   }
   window.location.reload();
   return true;
+};
+
+/** whether an effect has been given up on in this page */
+export const givenUp = (what: Fault) =>
+  useStudio.getState().faults.includes(what);
+
+/**
+ * An effect the GPU could not draw (the probes' bake, the floor's
+ * picture), said once and given up on for the page. Each runs in the
+ * frame loop, and a throw there ends the frame before the room is drawn
+ * (fiber's loop has no catch): one that threw every frame left the
+ * picture stuck where it was and the pieces still on their way never
+ * drawn. The room goes on without the effect instead.
+ */
+export const gaveUp = (what: Fault, e: unknown) => {
+  if (givenUp(what)) return;
+  console.warn(`${what}: given up on, the GPU could not draw it`, e);
+  useStudio.getState().fault(what);
 };

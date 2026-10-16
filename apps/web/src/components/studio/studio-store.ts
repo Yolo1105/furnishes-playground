@@ -198,6 +198,8 @@ export type Work = {
 };
 /** WebGPU, WebGL 2, or WebGL 2 on a software GPU (SwiftShader, llvmpipe) */
 export type Backend = "" | "webgpu" | "webgl" | "software";
+/** an effect drawn by passes of its own, which the room can go without */
+export type Fault = "probes" | "reflection";
 
 type StudioState = {
   mode: Mode;
@@ -251,6 +253,14 @@ type StudioState = {
   preview: PreviewStatus;
   /** the renderer's backend once it is up */
   backend: Backend;
+  /** effects the GPU could not draw, given up on for the page (the room
+      is drawn without them, gpu-fallback.ts `gaveUp`) */
+  faults: readonly Fault[];
+  fault: (what: Fault) => void;
+  /** how many times the browser took the 3D view's WebGL context back
+      (a device short of memory, a driver reset), this visit */
+  contextLost: number;
+  loseContext: () => void;
   /** the picture's tier as the scene decided it (Post.tsx), once drawn */
   tier: "desktop" | "laptop" | "phone" | null;
   /** whether the machining is cut for real: the setting, or on the
@@ -388,6 +398,13 @@ export const useStudio = create<StudioState>((set, get) => ({
   loadingAt: 0,
   preview: "idle",
   backend: "",
+  faults: [],
+  contextLost: 0,
+  loseContext: () => set((s) => ({ contextLost: s.contextLost + 1 })),
+  fault: (what) =>
+    set((s) =>
+      s.faults.includes(what) ? {} : { faults: [...s.faults, what] },
+    ),
   tier: null,
   cutsOn: () => {
     const s = get();

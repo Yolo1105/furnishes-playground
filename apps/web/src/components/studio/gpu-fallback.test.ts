@@ -1,5 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fellBackFor, shun, shunnedFor, SHUN_MS, within } from "./gpu-fallback";
+import {
+  fellBackFor,
+  gaveUp,
+  givenUp,
+  shun,
+  shunnedFor,
+  SHUN_MS,
+  within,
+} from "./gpu-fallback";
+import { useStudio } from "./studio-store";
 
 /** the browser's storage, as the module reads it */
 const store = new Map<string, string>();
@@ -35,5 +44,16 @@ describe("a GPU that does not answer", () => {
     await expect(
       within(Promise.reject(new Error("no")), 4000, "late"),
     ).rejects.toThrow("no");
+  });
+  it("gives an effect it could not draw up once, says so once, and leaves the others", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    expect(givenUp("probes")).toBe(false);
+    gaveUp("probes", new Error("no vertex format"));
+    gaveUp("probes", new Error("no vertex format"));
+    expect(givenUp("probes")).toBe(true);
+    expect(givenUp("reflection")).toBe(false);
+    expect(useStudio.getState().faults).toEqual(["probes"]);
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
   });
 });
