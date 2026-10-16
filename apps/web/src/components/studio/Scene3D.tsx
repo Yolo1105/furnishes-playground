@@ -58,6 +58,7 @@ import {
   within,
 } from "./gpu-fallback";
 import { ShadowsOnChange } from "./ShadowsOnChange";
+import { toast } from "./account-sync";
 import { CASCADE_MAPS, SUN, Sun } from "./Sun";
 import { usePieceActions } from "./piece-actions";
 import { PieceActions } from "./PieceActions";
@@ -498,10 +499,30 @@ function Backend() {
   const gl = useThree((s) => s.gl);
   const setBackend = useStudio((s) => s.setBackend);
   useEffect(() => {
-    setBackend(backendOf(gl), textureSideOf(gl), bytesPerSampleOf(gl));
+    const backend = backendOf(gl);
+    setBackend(backend, textureSideOf(gl), bytesPerSampleOf(gl));
+    if (backend === "software") softwareNote();
   }, [gl, setBackend]);
   return null;
 }
+
+/** the browser drawing the room without the graphics card (hardware
+    acceleration off, or a driver it does not trust): every frame is drawn
+    by the processor, many times slower, and nothing in the studio can
+    make up for it. Said once a session, not to a test's browser */
+const SOFTWARE_NOTE = "furnishes.software-note";
+const softwareNote = () => {
+  if (navigator.webdriver) return;
+  try {
+    if (sessionStorage.getItem(SOFTWARE_NOTE)) return;
+    sessionStorage.setItem(SOFTWARE_NOTE, "1");
+  } catch {
+    return;
+  }
+  toast(
+    "This browser is drawing 3D without your graphics card, so the room will be slow. Turn on hardware acceleration in the browser's settings and restart it.",
+  );
+};
 
 /** no frame until the backend is known: the canvas would otherwise draw
     the scene itself (a frame subscriber at a priority takes the drawing
@@ -1976,6 +1997,14 @@ const pieceOf = (o: Object3D | null) => {
   while (o && o.userData.piece === undefined) o = o.parent;
   return o;
 };
+/** whether a hit is on a face turned up, in the world */
+const UP_FACING = 0.7;
+const facesUp = (i: {
+  object: Object3D;
+  face?: { normal: Vector3 } | null | undefined;
+}) =>
+  !!i.face &&
+  i.face.normal.clone().transformDirection(i.object.matrixWorld).y > UP_FACING;
 /** how far past a piece's footprint one smaller beneath its top still
     counts as tucked under it, m: a chair's seat under a table's edge */
 const TUCK_M = 0.3;
@@ -1989,7 +2018,13 @@ const TUCK_M = 0.3;
  * one further off, keeps to itself.
  */
 const tuckedUnder = (
-  e: { intersections: { object: Object3D; point: Vector3 }[] },
+  e: {
+    intersections: {
+      object: Object3D;
+      point: Vector3;
+      face?: { normal: Vector3 } | null | undefined;
+    }[];
+  },
   self: Object3D | null,
   size: Vector3Tuple,
 ) => {
@@ -1998,6 +2033,9 @@ const tuckedUnder = (
   for (const i of e.intersections) {
     const owner = pieceOf(i.object);
     if (owner === self) {
+      // only a press on a top (a table's, seen from above) gives way: one
+      // on a sofa's back went to the lamp standing behind it
+      if (!past && !facesUp(i)) return false;
       past = true;
       continue;
     }
@@ -2070,6 +2108,7 @@ function PieceDrawn({
   const [dragging, setDragging] = useState(false);
   const drag = useRef<{
     hit: Vector3;
+    plane: Plane;
     x0: number;
     y0: number;
     moved: boolean;
@@ -2090,9 +2129,13 @@ function PieceDrawn({
       f,
       room.outline,
     );
-  const hitFloor = (e: ThreeEvent<PointerEvent>) => {
+  /** where the pointer meets the drag's plane: the floor, or, when the
+      press was above the horizon (the top of a wardrobe in an eye-level
+      view, which no ray to the floor reaches, and the press did
+      nothing), a level plane at the height it was taken by */
+  const hitPlane = (e: ThreeEvent<PointerEvent>, plane: Plane) => {
     const p = new Vector3();
-    return e.ray.intersectPlane(FLOOR, p) ? p : null;
+    return e.ray.intersectPlane(plane, p) ? p : null;
   };
   // every handler on a three object is held stable: fiber takes a
   // re-created handler as a changed prop and asks for a frame, and a
@@ -2101,8 +2144,12 @@ function PieceDrawn({
   const onDown = useEvent((e: ThreeEvent<PointerEvent>) => {
     if (!canDrag || e.button !== 0) return;
     if (tuckedUnder(e, self.current, size)) return;
-    const hit = hitFloor(e);
-    if (!hit) return;
+    let plane = FLOOR;
+    let hit = hitPlane(e, plane);
+    if (!hit) {
+      plane = new Plane(new Vector3(0, 1, 0), -e.point.y);
+      hit = e.point.clone();
+    }
     e.stopPropagation();
     (e.target as Element).setPointerCapture(e.pointerId);
     moved.current = false;
@@ -2112,6 +2159,7 @@ function PieceDrawn({
     // the spot is kept in mm from the room's north-west corner
     drag.current = {
       hit,
+      plane,
       x0: (at[0] + room.w / 2) * 1000 - f.w / 2,
       y0: (at[2] + room.d / 2) * 1000 - f.d / 2,
       moved: false,
@@ -2120,7 +2168,7 @@ function PieceDrawn({
   const onMove = useEvent((e: ThreeEvent<PointerEvent>) => {
     const dr = drag.current;
     if (!dr) return;
-    const hit = hitFloor(e);
+    const hit = hitPlane(e, dr.plane);
     if (!hit) return;
     const dx = hit.x - dr.hit.x;
     const dz = hit.z - dr.hit.z;

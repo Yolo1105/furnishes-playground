@@ -2816,3 +2816,21 @@ picture again, now a face a frame) and the rails test's five-second wait
 for the canvas to widen. Budgets of two minutes and twenty seconds; both
 pass (46 s and 56 s). `next build` passes; first-load JavaScript 424.2
 KB gzip, under the 450 KB budget.
+
+**A drag that did nothing (2026-10-16).** Reported: sometimes a drag is
+ineffective. Two causes. A press began a drag only where the ray from
+the camera met the floor: in an eye-level view (Corner, Walk) a press
+on the upper half of a tall piece looks above the horizon, never meets
+the floor, and did nothing. Such a press now drags on a level plane at
+the height it was taken by. And the chair rule above gave way to any
+smaller piece the ray met past the piece's top: a press on a sofa's
+back could go to the lamp behind it. A piece now gives way only when
+the press is on a face turned up (a table's top). Checked: the drag
+tests, and the chairs, the table, the armchair and the sofa each drag.
+
+**Saying when the room is drawn without the graphics card.** Asked
+whether the slowness is the GPU: when the browser draws WebGL in
+software (hardware acceleration off, or a driver it refuses;
+`data-backend="software"`), every frame is drawn by the processor and
+nothing in the studio can make up for it. The studio now says so once
+a session, with what to turn on (not to a test's browser).
