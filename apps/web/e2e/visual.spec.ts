@@ -450,7 +450,13 @@ const GLANCE = {
   bays: 0.25,
   contact: 0.25,
   table: 0.15,
-  black: 0.15,
+  // the darkest 1 %, of white (round 9: a photograph's is near black)
+  black: 0.06,
+  // round 9: the ceiling's 90th over 10th percentile, and the most
+  // saturation a cloth and a rug show on screen
+  ceiling: 1.25,
+  cloth: 0.5,
+  rug: 0.4,
 };
 test("the glance: the boxes read as built, lit and used", async ({
   page,
@@ -493,11 +499,25 @@ test("the glance: the boxes read as built, lit and used", async ({
     expect(f.spread, `${f.piece} ${f.face}`).toBeGreaterThanOrEqual(
       GLANCE.spread,
     );
+  // the sofa's edge and its seat's contact are the built soft box's
+  // (round 8): a sofa drawn by its model (round 9, the velvet sofa) has
+  // no faces to read, and stands on legs
   const sofa = n.edges.find((e) => e.piece === "Sofa");
-  expect(sofa).toBeTruthy();
-  expect(sofa!.lift).toBeGreaterThanOrEqual(GLANCE.edge);
+  if (sofa) {
+    expect(sofa.lift).toBeGreaterThanOrEqual(GLANCE.edge);
+    expect(n.contact).toBeGreaterThanOrEqual(GLANCE.contact);
+  }
   expect(n.bays).toBeGreaterThanOrEqual(GLANCE.bays);
-  expect(n.contact).toBeGreaterThanOrEqual(GLANCE.contact);
   expect(n.table).toBeGreaterThanOrEqual(GLANCE.table);
   expect(n.black).toBeLessThanOrEqual(GLANCE.black);
+  // round 9: the ceiling lit by the room's bounce, not flat; colour
+  // held calm on screen
+  const c = glanceColourNumbers(grey, glanceColour(shot), points);
+  expect(c.flatness.ceiling?.spread ?? 0).toBeGreaterThanOrEqual(
+    GLANCE.ceiling,
+  );
+  if (c.saturation.sofa !== null)
+    expect(c.saturation.sofa).toBeLessThanOrEqual(GLANCE.cloth);
+  if (c.saturation.rug !== null)
+    expect(c.saturation.rug).toBeLessThanOrEqual(GLANCE.rug);
 });

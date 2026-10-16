@@ -273,7 +273,7 @@ const GRAIN = 0.012;
     darkest is near black. Taken off after the tone mapping and the rest
     spread back to white, so the midtones barely move (0.5 stays 0.49)
     and the exposure and the light are as they were */
-const BLACK_POINT = 0.009;
+const BLACK_POINT = 0.01;
 /** the picture's white balance, a gain on each channel before the tone
     mapping (white-balance.ts): the scene sets it for its look */
 export const WHITE_BALANCE = uniform(new Vector3(1, 1, 1));

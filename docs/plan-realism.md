@@ -2924,7 +2924,7 @@ in public/props/README.md.
 
 **Calm colour.** A rug's dye is held under 0.3 saturation, a cloth's
 under 0.45 as before; the room's health notes a sofa and its rug within
-30 % of each other's tone. The picture's black point: 0.009 (linear)
+30 % of each other's tone. The picture's black point: 0.010 (linear)
 taken off after the tone mapping and the rest spread back to white
 (Post.tsx, `BLACK_POINT`): the darkest 1 % of a day picture read 0.13
 of white, a photograph's is near black; the midtones barely move and
