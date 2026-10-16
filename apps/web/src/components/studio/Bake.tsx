@@ -399,13 +399,19 @@ const undo = (a: Applied) => {
 export function BakeScope({
   name,
   wall,
+  lift = 0,
   children,
 }: {
   name: string;
   wall: number | null;
+  /** how far over the floor its footprint lies, m: a rug's height when
+      it stands on one (under a 12 mm rug a footprint at the floor was
+      covered, and a sofa on its rug stood with no shadow) */
+  lift?: number;
   children: ReactNode;
 }) {
   const group = useRef<Group>(null);
+  const lifted = useRef(lift);
   const registry = useMemo(() => new Registry(), []);
   const camera = useThree((s) => s.camera);
   const invalidate = useThree((s) => s.invalidate);
@@ -434,6 +440,7 @@ export function BakeScope({
       if (mine !== turn || !group.current) return;
       if (done) undo(done);
       done = apply(g, a, r);
+      if (done.foot) done.foot.position.y = lifted.current;
       awaiting(me, false);
       invalidate();
     };
@@ -459,6 +466,16 @@ export function BakeScope({
       if (done) undo(done);
     };
   }, [registry, wall, name, camera, invalidate]);
+  // a move on or off a rug lifts the footprint there, with no new bake
+  useEffect(() => {
+    lifted.current = lift;
+    const foot = group.current?.children.find(
+      (c) => c.userData.name === "Footprint",
+    );
+    if (!foot || foot.position.y === lift) return;
+    foot.position.y = lift;
+    invalidate();
+  }, [lift, invalidate]);
   return (
     <group ref={group}>
       <BakeContext.Provider value={registry}>{children}</BakeContext.Provider>

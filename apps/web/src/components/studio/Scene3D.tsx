@@ -1845,6 +1845,8 @@ const sendWalker = (x: number, z: number) => {
 const figureAt = () => ({ x: WALK.x, z: WALK.z, yaw: WALK.face });
 
 type PieceArgs = {
+  /** it stands on a rug: its footprint lies on the rug, not under it */
+  onRug: boolean;
   /* every overlay goes into the scene's own layer: drei's default target,
      the canvas's parent, is not there yet for the first piece's labels */
   portal: RefObject<HTMLDivElement>;
@@ -1912,6 +1914,7 @@ const samePieceMidDrag = (a: PieceArgs, b: PieceArgs) =>
   a.clash === b.clash &&
   a.label === b.label &&
   a.canDrag === b.canDrag &&
+  a.onRug === b.onRug &&
   a.hoverable === b.hoverable &&
   a.labels === b.labels &&
   a.edges === b.edges &&
@@ -2024,6 +2027,7 @@ function PieceDrawn({
   clash,
   label,
   canDrag,
+  onRug,
   room,
   others,
   actions,
@@ -2193,6 +2197,7 @@ function PieceDrawn({
         editable={selected && !props.locked}
         selected={selected}
         clash={clash}
+        onRug={onRug}
         onPick={(e) => {
           if (tuckedUnder(e, self.current, size)) return false;
           // the click after a drag is the drag's end, not a pick
@@ -2521,6 +2526,13 @@ function FlatRoom({
       ...footprint(a.props.get(n.id)!),
     }));
   const shown = focus && !working ? [] : a.shown;
+  // the rugs on this room's floor, mm: a piece whose middle stands on one
+  // has its footprint laid on it (Bake.tsx)
+  const rugs = shown.filter(isRug).map((n) => {
+    const at = a.spots.get(n.id)!;
+    const f = footprint(a.props.get(n.id)!);
+    return { x0: at.x, y0: at.y, x1: at.x + f.w, y1: at.y + f.d };
+  });
   // the pieces on the sheet, for the walk to go round
   const rectsKey = JSON.stringify(rects.map((r) => [r.x, r.y, r.w, r.d]));
   // a lived-in room with no plant of its own has one in a free corner
@@ -2610,6 +2622,8 @@ function FlatRoom({
           const at = a.spots.get(n.id)!;
           const f = footprint(p);
           const label = a.labelOf(n);
+          const cx = at.x + f.w / 2;
+          const cy = at.y + f.d / 2;
           return (
             <Piece
               key={n.id}
@@ -2644,6 +2658,12 @@ function FlatRoom({
               // a piece in any room is taken by the pointer at once: the
               // room it stands in need not be the one worked on
               canDrag={canDragHere && !p.locked}
+              onRug={
+                !isRug(n) &&
+                rugs.some(
+                  (r) => cx > r.x0 && cx < r.x1 && cy > r.y0 && cy < r.y1,
+                )
+              }
               room={{
                 W: rm.width,
                 D: rm.depth,

@@ -2769,3 +2769,25 @@ Pictures that change on purpose: every baseline with parquet, a model's
 cloth, a dining chair or the rug in view (corner, day panels, evening
 panels, walk, walk-follow, elevation front, day sunset). They are taken
 again in the closing pass.
+
+**The lamp's shadow on WebGPU, again (2026-10-16).** The same error was
+reported after the change above: "Destroyed texture
+[PointShadowDepthTexture] used in a submit". Keeping the shadow on was
+not enough: three (0.186.1, pinned) renews a render target's depth
+texture on an update (`Textures.updateTexture` destroys the GPU texture
+before making the new one) without dropping the bind groups that hold
+the old one, and a point light's six-face map is the one such target the
+room renews. That is in three, not here, so the floor lamp now casts its
+shadow on WebGL's desktop tier only; on WebGPU it lights the room with
+no shadow map (this reverses part of 2026-10-13's evening lamp, for
+WebGPU, for this reason). It also takes six pictures of every caster in
+the flat out of each change of an evening room there.
+
+**Pieces on a rug stood with no shadow.** A piece's footprint (its soft
+baked shadow on the floor, Bake.tsx) lay 1.2 mm over the floor, and a
+rug is 12 mm thick: under the sofa's or the coffee table's rug the
+footprint was covered, and the piece stood on the rug as if pasted. A
+piece whose middle stands on a rug in its room now has its footprint
+laid on the rug's top (`lift`, `RUG_H`), raised in place when it is
+moved on or off one (no new bake). Read back from the default flat: the
+coffee table's footprint at 0.012 m, every other piece's at the floor.

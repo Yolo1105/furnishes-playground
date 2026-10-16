@@ -170,6 +170,8 @@ const SOIL = "#4a3b31";
 
 type Props = {
   node: AssetNode;
+  /** it stands on a rug: its footprint is laid on the rug's top */
+  onRug?: boolean | undefined;
   /** width, height, depth in metres */
   size: Vector3Tuple;
   colour: string;
@@ -694,7 +696,11 @@ export function Furniture3D(p: Props) {
     <group onClick={onClick}>
       {/* the piece within its bake (Bake.tsx): its light baked once it is
           built, and its footprint on the floor */}
-      <BakeScope name={p.node.name} wall={p.wall ?? null}>
+      <BakeScope
+        name={p.node.name}
+        wall={p.wall ?? null}
+        lift={p.onRug ? RUG_H : 0}
+      >
         <group rotation={[0, turn, 0]}>
           {stock ? (
             <ModelGuard fallback={form}>
@@ -1777,13 +1783,18 @@ function Lamp({
   const shadeH = desk ? h * 0.3 : h * 0.22;
   const stemH = h - shadeH * 0.55;
   const lit = useStudio((s) => s.scene.light === "evening");
-  // once on, the lamp's shadow stays on while it stands: turned off
-  // (the tier lowered under a slow frame), three throws its map away at
-  // once, the shaders built with it still draw from it for a frame, and
-  // WebGPU refuses that frame whole ("destroyed texture used in a
-  // submit"): a black flash. On a lower tier its map is only not drawn
-  // again (ShadowsOnChange reads `still`)
-  const want = useStudio((s) => s.tier === "desktop") && !desk;
+  // a lamp casts its shadow on WebGL's desktop tier only. On WebGPU
+  // three (0.186.1, pinned) renews a point light's six-sided shadow map
+  // while shaders built earlier still bind the old one, and WebGPU
+  // refuses the frame whole ("destroyed texture [PointShadowDepthTexture]
+  // used in a submit"): a black frame, reported twice. The lamp still
+  // lights the room there; the pieces' baked footprints ground them.
+  // Once on, the shadow stays on while the lamp stands: turned off (the
+  // tier lowered under a slow frame) its map went at once, the same
+  // refusal; on a lower tier its map is only not drawn again
+  // (ShadowsOnChange reads `still`)
+  const want =
+    useStudio((s) => s.tier === "desktop" && s.backend === "webgl") && !desk;
   const [shadowed, setShadowed] = useState(want);
   if (want && !shadowed) setShadowed(true);
   // and the light let go a moment after the lamp leaves the scene, not

@@ -198,8 +198,8 @@ export type Work = {
 };
 /** WebGPU, WebGL 2, or WebGL 2 on a software GPU (SwiftShader, llvmpipe) */
 export type Backend = "" | "webgpu" | "webgl" | "software";
-/** an effect drawn by passes of its own, which the room can go without */
-/** an effect given up on, or "gpu": the GPU reported an error (WebGPU) */
+/** an effect drawn by passes of its own, which the room can go without,
+    given up on; or "gpu": the GPU reported an error (WebGPU) */
 export type Fault = "probes" | "reflection" | "gpu";
 
 type StudioState = {
