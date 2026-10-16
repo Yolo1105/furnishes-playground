@@ -153,7 +153,10 @@ const clusterAt = (
       for (let k = 0; k < size; k++)
         data[i * size + k] = src.getComponent(v, k);
     });
-    out.setAttribute(name, new BufferAttribute(data, size, src.normalized));
+    // getComponent gives the values as they are meant (a quantized
+    // model's are normalized integers), so the floats are not: WebGPU
+    // has no vertex format for normalized float32
+    out.setAttribute(name, new BufferAttribute(data, size));
   }
   out.setIndex(index);
   if (g.groups.length)

@@ -119,10 +119,8 @@ const keepTriangles = (g: BufferGeometry, keep: (t: number) => boolean) => {
     for (const [v, n] of used)
       for (let k = 0; k < src.itemSize; k++)
         data[n * src.itemSize + k] = src.getComponent(v, k);
-    out.setAttribute(
-      name,
-      new BufferAttribute(data, src.itemSize, src.normalized),
-    );
+    // the values as they are meant (see clusterGeometry), so not normalized
+    out.setAttribute(name, new BufferAttribute(data, src.itemSize));
   }
   out.setIndex(index);
   out.computeBoundingBox();

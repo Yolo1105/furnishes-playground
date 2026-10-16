@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   BoxGeometry,
+  BufferAttribute,
   Group,
   Mesh,
   MeshStandardMaterial,
@@ -36,6 +37,22 @@ describe("what a model may cost in the room", () => {
     expect(size.y).toBeGreaterThan(0.9);
     expect(out.attributes.uv).toBeDefined();
     expect(out.attributes.normal).toBeDefined();
+  });
+
+  it("gives a quantized model's coordinates back as floats WebGPU can read", () => {
+    // a Khronos model's coordinates come as normalized 16-bit integers
+    const g = new SphereGeometry(0.5, 200, 100);
+    const uv = g.attributes.uv!;
+    const q = new Uint16Array(uv.count * 2);
+    for (let i = 0; i < q.length; i++)
+      q[i] = Math.round((uv.array[i] as number) * 65535);
+    g.setAttribute("uv", new BufferAttribute(q, 2, true));
+    const got = clusterGeometry(g, 5000).attributes.uv as BufferAttribute;
+    // WebGPU has no vertex format for normalized float32
+    expect(got.normalized).toBe(false);
+    expect(got.array).toBeInstanceOf(Float32Array);
+    expect(Math.max(...got.array)).toBeLessThanOrEqual(1);
+    expect(Math.max(...got.array)).toBeGreaterThan(0.9);
   });
 
   it("budgets a whole model once, shares it among its meshes, and picks it by its box", () => {

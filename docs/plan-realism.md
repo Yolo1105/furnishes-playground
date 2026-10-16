@@ -2686,3 +2686,22 @@ The visual project after the pictures were taken again: 10 of 10 (1.5
 hours with `VISUAL_SLOW=3`), the day–evening–day test within its new
 budget. `next build` passes; first-load JavaScript is 424.0 KB gzip,
 under the 450 KB budget.
+
+### WebGPU: a quantized model's vertex format (2026-10-16)
+
+On a real WebGPU browser, the probe bake, the floor's picture and the
+shadows failed with "Vertex format not supported yet" and an undefined
+`format` in `createRenderPipeline`. Part 2's Khronos models are
+quantized (`KHR_mesh_quantization`: their coordinates, normals and
+colours are normalized 8- and 16-bit integers). When a model is
+brought under its triangle budget (`clusterGeometry`) or has its
+stray parts dropped (`dropStrays`), each attribute is copied into a
+`Float32Array` through `getComponent`, which already gives the
+values as they are meant. The copy kept the source's `normalized`
+flag, and WebGPU has no vertex format for normalized float32 (WebGL
+ignores the flag for floats, so the software renderer here never
+showed it). The copies are now plain floats. Unit tests in
+model-budget.test.ts and mesh-clean.test.ts feed both a normalized
+16-bit attribute; they fail without the change. A scan of the 31
+shipped `.glb` files finds no other attribute WebGPU cannot take
+(single 8- or 16-bit components, normalized 32-bit).

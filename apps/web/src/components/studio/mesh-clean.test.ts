@@ -1,5 +1,6 @@
 import {
   BoxGeometry,
+  BufferAttribute,
   BufferGeometry,
   Float32BufferAttribute,
   Group,
@@ -35,6 +36,24 @@ describe("a generated mesh made fit for the room", () => {
     expect(dropped).toBe(1);
     geometry.computeBoundingBox();
     expect(geometry.boundingBox!.max.x).toBeLessThan(1);
+  });
+  it("keeps a quantized model's coordinates as floats WebGPU can read", () => {
+    const g = mergeGeometries([
+      new BoxGeometry(1, 1, 1, 10, 10, 10),
+      box(0.05, 5),
+    ]);
+    // as a Khronos model has them: normalized 16-bit integers
+    const uv = g.attributes.uv!;
+    const q = new Uint16Array(uv.count * 2);
+    for (let i = 0; i < q.length; i++)
+      q[i] = Math.round((uv.array[i] as number) * 65535);
+    g.setAttribute("uv", new BufferAttribute(q, 2, true));
+    const got = dropStrays(g).geometry.attributes.uv as BufferAttribute;
+    // WebGPU has no vertex format for normalized float32
+    expect(got.normalized).toBe(false);
+    expect(got.array).toBeInstanceOf(Float32Array);
+    expect(Math.max(...got.array)).toBeLessThanOrEqual(1);
+    expect(Math.max(...got.array)).toBeGreaterThan(0.9);
   });
   it("finds the holes in an open mesh, none in a closed one", () => {
     expect(openShare(box())).toBe(0);
