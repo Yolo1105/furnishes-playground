@@ -2791,3 +2791,17 @@ piece whose middle stands on a rug in its room now has its footprint
 laid on the rug's top (`lift`, `RUG_H`), raised in place when it is
 moved on or off one (no new bake). Read back from the default flat: the
 coffee table's footprint at 0.012 m, every other piece's at the floor.
+
+**The room black on the desktop tier (2026-10-16).** Found while taking
+the visual pictures again: on the desktop tier the whole room drew
+black. The drag fix (c92eedd) paused the occlusion while anything moved
+by switching its update type off (`updateBeforeType = NONE`). Three
+lists the nodes to update when the shaders are built, so a chain built
+during the opening's glide (moving) never listed the occlusion, its map
+stayed empty, and the room, multiplied by it, was black for good; on a
+real device, by the timing of the first build, at random. Checked with
+the dev flags: black with `?nobloom`, drawn with `?noao`. The occlusion's
+own pass is now skipped inside its update while something moves, its
+update type untouched, and the smoothing's update (which only sets its
+resolution) is left be. After: the desktop tier draws the room with its
+occlusion.

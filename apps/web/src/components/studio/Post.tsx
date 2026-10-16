@@ -32,7 +32,6 @@ import {
   metalness,
   mix,
   mrt,
-  NodeUpdateType,
   normalView,
   output,
   pass,
@@ -540,10 +539,21 @@ const build = (
   );
   resolve.useSubpixelCorrection = false;
   pipeline.outputNode = devFlag("notraa") ? frame : resolve;
+  // while something moves the occlusion's own pass is skipped, inside
+  // its update. Its update type was once switched off instead: three
+  // lists a node to update when the shaders are built, so a chain built
+  // while the opening's camera glided never drew its occlusion, and the
+  // room, multiplied by an empty map, was black on the desktop tier.
+  // (The smoothing's update only sets its resolution, and is left be.)
+  let held = false;
+  if (occlusion) {
+    const update = occlusion.updateBefore.bind(occlusion);
+    occlusion.updateBefore = (frame) => {
+      if (!held) update(frame);
+    };
+  }
   const hold = (under: boolean) => {
-    const type = under ? NodeUpdateType.NONE : NodeUpdateType.FRAME;
-    if (occlusion) occlusion.updateBeforeType = type;
-    if (smoothed) smoothed.updateBeforeType = type;
+    held = under;
     MOVING.value = under ? 1 : 0;
   };
   return {
