@@ -27,10 +27,11 @@ export const LAMPLIT_WHITE = "#f3ebe0";
     are lit by the lamps' light come back off the room, not by a blue
     fill: measured again off the evening's Corner view, a wall's red to
     green 1.55 and blue to green 0.45 under the old gain (the walls read
-    tan). Balanced for the ceiling light's colour, between the old mix
-    and the bulb, the walls read a warm white again and the dusk at the
-    window stays blue */
-export const EVENING_LIGHT = "#ffc48a";
+    tan). Balanced for the ceiling light's colour (#ffc48a) the walls
+    read as they did (1.32, 0.73), but the velvet sofa's shaded side,
+    lit by the dusk outside on its sheen, went blue (blue to green 1.6):
+    set halfway, the walls a little warmer, the sofa less blue */
+export const EVENING_LIGHT = "#ffcb9a";
 
 /** the gain that turns a white lit by `lampHex` into `targetHex`, each
     channel in linear light, green held at 1 */

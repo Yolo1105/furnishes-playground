@@ -2834,3 +2834,135 @@ software (hardware acceleration off, or a driver it refuses;
 `data-backend="software"`), every frame is drawn by the processor and
 nothing in the studio can make up for it. The studio now says so once
 a session, with what to turn on (not to a test's browser).
+
+## Bounced light, real upholstery (2026-10-16)
+
+The owner's round 9: from anime to photo. Read first, then changed.
+
+**Why the room read flat (the readings before).** Taken with the glance
+(e2e/glance.ts, which now reads three more things: each surface's
+flatness, the 90th over the 10th percentile of its brightness; the
+on-screen saturation of the sofa and the rug; and the floor's colour
+beside the sofa against open floor) on the Corner view, by day and in
+the evening, software renderer, the desktop chain, exposure 2.15:
+
+| Corner view                                | day before | day after   | evening before | evening after |
+| ------------------------------------------ | ---------- | ----------- | -------------- | ------------- |
+| ceiling flatness                           | 1.20       | 1.47        | 2.01           | 3.42          |
+| wall flatness                              | 1.30       | 2.23        | 2.05           | 11.4          |
+| floor flatness                             | 1.66       | 1.34        | 1.91           | 2.20          |
+| rug saturation                             | 0.21       | 0.21        | 0.44           | 0.25          |
+| sofa saturation                            | 0.19       | 0.27        | 0.21           | 0.39          |
+| darkest 1 % (of white)                     | 0.130      | 0.061       | 0.063          | 0.000         |
+| floor by the sofa / open floor, saturation | 0.32 / –   | 0.34 / 0.30 | 0.48 / –       | 0.47 / 0.51   |
+
+Nothing carried light from one surface to another. The sun, the
+windows' area lights, the sky's fill and the probes each lit a surface
+on its own account, so the sunlit floor never lit the ceiling, a
+coloured sofa never warmed the floor beside it, and the ceiling, with a
+glow of its own, was the flattest thing in the room (1.20). The probes
+carried a bounce, but coarse and even: a uniform grey-white on the
+walls, and in the evening the dusk's blue on the sofa.
+
+**The bounce, baked (GiBake.tsx, gi-bake.ts, gi-collect.ts,
+gi-material.ts).** Whenever a room stops changing (600 ms after its
+last change, read every 300 ms), its light is baked on the processor in
+workers and laid on its floor, walls and ceiling as a light map:
+
+- the flat as drawn: each shell face is the room's it faces into, found
+  by the room's floor (a wall between two rooms is drawn once, by one of
+  them; its far face is the other room's); a face that looks into no
+  room (a wall's outside, its cut top) keeps the sky's fill it had;
+- a room's bake holds everything within 0.3 m of its box (the next
+  room's walls, a door in its frame); a piece over 3,000 triangles is
+  its box; glass and sheers let the light through;
+- the light: the sky through each window (the windows' own radiance,
+  the ground outside at 0.35 of it), what a doorway gives back (0.2 of
+  it), the sun's first bounce through the openings, the lamps and the
+  ceiling light in the evening, then two gathers by bounding-box-tree
+  ray tracing (one on a phone or a software renderer), each surface
+  giving back its colour (a floor's and a wall's tone under their
+  photographs, `giAlbedo`);
+- the first bake of a room comes coarse (12 rays, one bounce) and then
+  whole; a later bake laid out as the last fades in over 0.4 s on a
+  spare layer, only while the camera is still; a bake is kept by its
+  key, so a room put back finds its light at once; the bake works in
+  the flat's own frame, so a change of room bakes nothing again;
+- the light map takes the place of the sky's fill, the windows' area
+  lights and the probes on the shell (patched onto three's
+  NodeMaterial, `setupLightMap` and `setupLighting`, 0.186.1); the sun
+  with its shadow and every highlight stay live; the probes are taken
+  again with the shell lit by its bake, so the pieces take the bounce
+  through them. This changes the plan's decision 4 ("indirect light
+  without a bake") for the shell alone, and keeps its reason: the room
+  is drawn by the person, so no bake made ahead of time could hold, and
+  this one is made in the browser of the room as it stands, again after
+  every change. The probe grid stays for the pieces;
+- one RGBA half-float array texture, a layer a room (12) and a spare:
+  512² a layer on the desktop (13 layers, 27.3 MB, under the 2048²
+  budget), 256² on a phone (under 1024²); 8 texels a metre and 32 rays a
+  gather on the desktop, 4 and 24 on a phone;
+- `data-gi` (baking, ready, off), `data-gi-ms` and `data-gi-work` on the
+  stage; `?nogi` turns it off.
+
+Measured in this sandbox (a shared processor, the software renderer
+drawing on the same cores): the first light 0.69 s of a worker's time (the living room, coarse), the longest bake 7.1 s (the living room whole), every room of the flat 65 s of the workers' time by day and 100 s with the evening's again; by the clock, from the first bake asked, 36 s to the first light and 233 s to the last room, three workers and the software renderer sharing four cores (`data-gi-work`, `data-gi-ms`). Before the tuning (10 texels a metre, 64 rays) the longest was 18.5 s. A real desktop's cores run the
+workers free of the renderer; the first light under 3 s and the whole
+flat under 15 s are to be checked there.
+
+**The velvet sofa by default.** The living room's sofa is drawn with
+the glam velvet sofa (Khronos, CC-BY-4.0, already in the pack): a sofa
+with no model of its own design that fits is drawn with it when it fits
+within a tenth (`DEFAULT_MODEL`, `modelFor`). This reverses round 8's
+rule that a boxy sofa is never drawn as a curved one, for the sofa
+alone and only as the default, because the soft box built for a sofa
+read as a cartoon of one among real models; the box now stands in only
+while the model comes. The showcase sofa is 1.0 m deep (the model's
+1.02) and stands 0.1 m further back, so its walkway to the coffee table
+stays 600 mm. The models' sources and the steps to fetch them again are
+in public/props/README.md.
+
+**Calm colour.** A rug's dye is held under 0.3 saturation, a cloth's
+under 0.45 as before; the room's health notes a sofa and its rug within
+30 % of each other's tone. The picture's black point: 0.009 (linear)
+taken off after the tone mapping and the rest spread back to white
+(Post.tsx, `BLACK_POINT`): the darkest 1 % of a day picture read 0.13
+of white, a photograph's is near black; the midtones barely move and
+the exposure (2.15, the owner's) and the light are unchanged. The
+evening's white balance is set for the ceiling light's colour (#ffc48a,
+was #ffd1ab): with the bounce baked the walls are lit by the lamps'
+light come back off the room, and read tan under the old gain (a wall's
+red to green 1.55, blue to green 0.45).
+
+**Metered exposure.** Not changed: the exposure stays the fixed 2.15
+until the owner chooses (the questions below).
+
+**The bounce check (`?check=gi`).** The live view against the traced
+photo of the same view, in 4 × 3 regions, each a share of its picture's
+mean, within 15 % to pass (gi-check.ts, GiCheckPanel.tsx;
+`data-gi-check`, `data-gi-worst`). The tracer needs WebGPU: in this
+sandbox the page reads the live view and says `no-tracer`.
+
+**Asked of the owner.** Metered or fixed exposure (metered is
+recommended; fixed 2.15 stays meanwhile); the orange backdrop (kept;
+the immersive view shows the room without it); and where a better sofa
+model comes from.
+
+**Done when, read.** The ceiling by the window lit by the bounce:
+the ceiling's flatness 1.20 before, 1.47 after (to reach: 1.25). The
+floor beside the sofa tinted by it: a little, 0.34 of saturation 5 to
+20 cm off the sofa against 0.30 on open floor, and darker (0.60 against
+0.67); the velvet sofa is a pale grey, so there is little colour to
+carry. The evening's walls and ceilings read far from flat (11.4, 3.42):
+lamp-lit, they fall away from the lamps as a lamp-lit room does. The
+evening's darkest 1 % is black (0.000).
+
+**Open.** The velvet sofa's shaded side reads blue in the evening (blue
+to green 1.6 under the ceiling light's balance; the balance is set
+halfway, #ffcb9a, after the pictures above were taken): the dusk outside
+lights its sheen through the surroundings; a lamp-lit room's own
+surroundings (the probes' picture of the room) for the pieces in the
+evening is the next step. The Walk view was not taken again in this
+round's pictures (the Corner view's were); the pieces take the bounce
+through the probes alone; the photo's copy of the room does not force
+the models' near copies for a piece past 8 m.
