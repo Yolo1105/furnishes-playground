@@ -301,9 +301,12 @@ test("rails collapse into the toolbar and come back", async ({ page }) => {
   await expect(shell).toHaveAttribute("data-ui", "hidden");
   await expect(page.locator(".shell-rail-left")).toBeHidden();
   await expect(page.locator(".main-top")).toBeHidden();
-  // the room takes the whole window, not the space the rails left
+  // the room takes the whole window, not the space the rails left (the
+  // canvas draws the wider room first, slow under a software renderer)
   await expect
-    .poll(async () => (await page.locator(".stage-3d").boundingBox())!.width)
+    .poll(async () => (await page.locator(".stage-3d").boundingBox())!.width, {
+      timeout: 20_000,
+    })
     .toBe(page.viewportSize()!.width);
   // the eye stays where it stood, now the way back
   const peek = page.getByRole("toolbar", { name: "Looking" });
@@ -5249,6 +5252,9 @@ test("the room is its outline: a notch is a wall, the layouts keep out of it, th
 test("in 3D a picked piece carries its bar: its name, a turn, To wall, Duplicate and Remove; a rug's lists the pieces over it; a click on nothing puts it down", async ({
   page,
 }) => {
+  // a duplicate and a removal each take the floor's picture again, a
+  // face a frame: past the default minute under a software renderer
+  test.setTimeout(120_000);
   await page.goto("/rounded");
   const stage = page.locator(".shell-stage .stage-3d");
   // drawn, then settled: the stage reads settled before its first frame

@@ -2805,3 +2805,14 @@ own pass is now skipped inside its update while something moves, its
 update type untouched, and the smoothing's update (which only sets its
 resolution) is left be. After: the desktop tier draws the room with its
 occlusion.
+
+**Closing checks (2026-10-16).** The visual project, its pictures taken
+again on purpose (above): 10 of 10 (1.6 hours, `VISUAL_SLOW=3`). The
+desktop end-to-end suite: 90 of 92 at first. Both failures were time
+budgets under the software renderer, not behaviour, and both passed at
+the commit before the drag work (94d62e2): the arrange bar test ran past
+the default minute (a duplicate and a removal each take the floor's
+picture again, now a face a frame) and the rails test's five-second wait
+for the canvas to widen. Budgets of two minutes and twenty seconds; both
+pass (46 s and 56 s). `next build` passes; first-load JavaScript 424.2
+KB gzip, under the 450 KB budget.
