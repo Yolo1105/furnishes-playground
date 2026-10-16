@@ -1,9 +1,10 @@
 "use client";
 
 import { filteredRoughness } from "./spec-aa";
-import { useFrame, useThree } from "@react-three/fiber";
+import { type RootState, useFrame, useThree } from "@react-three/fiber";
 import { type RefObject, useEffect, useMemo, useRef } from "react";
 import {
+  type Camera,
   CubeCamera,
   CubeReflectionMapping,
   HalfFloatType,
@@ -200,24 +201,53 @@ export const useFloorMaterial = (
   return { material, target };
 };
 
-/** the picture taken: the floor out of it, the surroundings in through
-    the open top, then the filtered copy the floor samples is made anew */
-const take = (
+/** the cube's faces, one a frame */
+const FACES = 6;
+
+/**
+ * One face of the picture taken (as CubeCamera.update takes all six,
+ * three 0.186.1): the floor out of it, the surroundings in through the
+ * open top; after the last, the filtered copy the floor samples is made
+ * anew. The six in one frame were the whole flat drawn six times over,
+ * the stall that followed every drop of a piece (measured: most of the
+ * time a drop took to settle); one a frame, the hand never waits on them.
+ */
+const takeFace = (
   renderer: WebGPURenderer,
   scene: Scene,
   camera: CubeCamera,
   floor: Mesh | null,
+  face: number,
 ) => {
+  if (camera.parent === null) camera.updateMatrixWorld();
+  if (camera.coordinateSystem !== renderer.coordinateSystem) {
+    camera.coordinateSystem = renderer.coordinateSystem;
+    camera.updateCoordinateSystem();
+  }
+  const target = camera.renderTarget;
+  target.texture.generateMipmaps = false;
+  const was = {
+    target: renderer.getRenderTarget(),
+    face: renderer.getActiveCubeFace(),
+    mip: renderer.getActiveMipmapLevel(),
+  };
   const background = scene.background;
   scene.background = scene.environment;
   try {
     stillOf(scene, [floor], () =>
-      withWallsStanding(() => camera.update(renderer, scene)),
+      withWallsStanding(() => {
+        renderer.setRenderTarget(target, face, camera.activeMipmapLevel);
+        renderer.render(scene, camera.children[face] as Camera);
+      }),
     );
   } finally {
+    renderer.setRenderTarget(was.target, was.face, was.mip);
     scene.background = background;
   }
-  camera.renderTarget.texture.pmremVersion++;
+  if (face === FACES - 1) {
+    target.texture.needsPMREMUpdate = true;
+    target.texture.pmremVersion++;
+  }
 };
 
 export function FloorReflection({
@@ -249,10 +279,13 @@ export function FloorReflection({
   const shown = useRef<0 | 1>(0);
   const taken = useRef(false);
   const fade = useRef<{ from: number; into: 0 | 1 } | null>(null);
+  // a picture under way: the one it goes into and its next face
+  const taking = useRef<{ into: 0 | 1; face: number } | null>(null);
   useEffect(() => {
     shown.current = 0;
     taken.current = false;
     fade.current = null;
+    taking.current = null;
     SECOND.value = 0;
   }, [target]);
   const due = useRef(0);
@@ -278,6 +311,70 @@ export function FloorReflection({
     onState("pending");
     invalidate();
   }, [cameras, stamp, invalidate, onState]);
+  /** a picture due once its wait is over: its faces start (the next
+      frames take them) */
+  const start = (invalidate: () => void) => {
+    // the room's shaders being built hold the renderer's outputs: the
+    // picture is taken once they are (the post chain asks for the frame)
+    if (warming()) return;
+    // a piece in hand: its six faces are not taken mid-drag (a pause in
+    // a drag stalled the hand for them); the drop is a change of its
+    // own, and the picture follows it
+    if (useScene.getState().dragFrom !== null) {
+      due.current = performance.now() + SETTLE_MS;
+      return;
+    }
+    // a frame is asked for when the wait is over, not drawn each frame
+    // of it: the room stood still is drawn once
+    if (wakeAt(wake, due.current, invalidate)) return;
+    due.current = 0;
+    // a fade under way ends where it was going: the next comes over it
+    if (fade.current) {
+      shown.current = fade.current.into;
+      SECOND.value = shown.current;
+      fade.current = null;
+    }
+    // the first picture into the one shown; each after into the other,
+    // faded in over it
+    const into = (taken.current ? 1 - shown.current : shown.current) as 0 | 1;
+    cameras[into]!.position.set(0, h / 2, 0);
+    taking.current = { into, face: 0 };
+  };
+  /** the picture's next face, one a frame; after the last it shows */
+  const takeNext = (state: RootState) => {
+    const t = taking.current;
+    if (!t || warming()) return;
+    // a piece taken up meanwhile: the picture waits for its drop
+    if (useScene.getState().dragFrom !== null) {
+      taking.current = null;
+      due.current = performance.now() + SETTLE_MS;
+      return;
+    }
+    try {
+      takeFace(
+        state.gl as unknown as WebGPURenderer,
+        state.scene,
+        cameras[t.into]!,
+        floor.current,
+        t.face,
+      );
+    } catch (e) {
+      taking.current = null;
+      gaveUp("reflection", e);
+      onState("ready");
+      return;
+    }
+    t.face += 1;
+    state.invalidate();
+    if (t.face < FACES) return;
+    taking.current = null;
+    if (taken.current) {
+      fade.current = { from: performance.now(), into: t.into };
+    } else {
+      taken.current = true;
+      onState("ready");
+    }
+  };
   useFrame((state) => {
     if (givenUp("reflection")) return;
     // a new picture fading in: the share of the second follows the time
@@ -296,53 +393,11 @@ export function FloorReflection({
     if (state.scene.environment !== seen.current) {
       seen.current = state.scene.environment;
       due.current = performance.now() + SETTLE_MS;
+      taking.current = null;
       onState("pending");
     }
-    if (!due.current) return;
-    // the room's shaders being built hold the renderer's outputs: the
-    // picture is taken once they are (the post chain asks for the frame)
-    if (warming()) return;
-    // a piece in hand: its six faces are not taken mid-drag (a pause in
-    // a drag stalled the hand for them); the drop is a change of its
-    // own, and the picture follows it
-    if (useScene.getState().dragFrom !== null) {
-      due.current = performance.now() + SETTLE_MS;
-      return;
-    }
-    // a frame is asked for when the wait is over, not drawn each frame
-    // of it: the room stood still is drawn once
-    if (wakeAt(wake, due.current, state.invalidate)) return;
-    due.current = 0;
-    // a fade under way ends where it was going: the next comes over it
-    if (fade.current) {
-      shown.current = fade.current.into;
-      SECOND.value = shown.current;
-      fade.current = null;
-    }
-    // the first picture into the one shown; each after into the other,
-    // faded in over it
-    const into = (taken.current ? 1 - shown.current : shown.current) as 0 | 1;
-    const camera = cameras[into]!;
-    camera.position.set(0, h / 2, 0);
-    try {
-      take(
-        state.gl as unknown as WebGPURenderer,
-        state.scene,
-        camera,
-        floor.current,
-      );
-    } catch (e) {
-      gaveUp("reflection", e);
-      onState("ready");
-      return;
-    }
-    if (taken.current) {
-      fade.current = { from: performance.now(), into };
-    } else {
-      taken.current = true;
-      onState("ready");
-    }
-    state.invalidate();
+    if (due.current) start(state.invalidate);
+    takeNext(state);
   });
   return null;
 }

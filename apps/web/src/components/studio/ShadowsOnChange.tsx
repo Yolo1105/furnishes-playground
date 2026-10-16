@@ -80,11 +80,6 @@ const signatureOf = (scene: Object3D, lights: Caster[], camera: Object3D) => {
   return sum;
 };
 
-/** under a drag, the least time between two drawings of the maps, ms:
-    each is every caster in the flat into every casting light (a lamp's
-    six faces among them), a stall the hand felt five times a second */
-const DRAG_EVERY_MS = 450;
-
 /**
  * The shadow maps drawn when what they show changes, not every frame.
  * A light's shadow map was drawn again for every frame and for every
@@ -98,34 +93,21 @@ const DRAG_EVERY_MS = 450;
  */
 export function ShadowsOnChange() {
   const last = useRef<number | null>(null);
-  const drawnAt = useRef(0);
   const dragging = useRef(false);
-  const pending = useRef<number | null>(null);
-  useEffect(() => {
-    const off = useScene.subscribe((s) => {
-      dragging.current = s.dragFrom !== null;
-    });
-    return () => {
-      off();
-      if (pending.current !== null) window.clearTimeout(pending.current);
-    };
-  }, []);
-  useFrame(({ scene, camera, invalidate }) => {
-    // under a drag the maps follow a few times a second, not every
-    // frame: each drawing is every caster in the flat, and drawn on
-    // every frame of a drag it was what made a drag heavy; the frame
-    // after the drag ends (and a frame asked for here) catches up
-    const at = performance.now();
-    const wait = drawnAt.current + DRAG_EVERY_MS - at;
-    if (dragging.current && wait > 0) {
-      // one frame asked for when the wait is over, for a piece held
-      // still mid-drag
-      pending.current ??= window.setTimeout(() => {
-        pending.current = null;
-        invalidate();
-      }, wait);
-      return;
-    }
+  useEffect(
+    () =>
+      useScene.subscribe((s) => {
+        dragging.current = s.dragFrom !== null;
+      }),
+    [],
+  );
+  useFrame(({ scene, camera }) => {
+    // under a drag the maps stand as they were, and are drawn once the
+    // piece is let go (its frame finds the change): each drawing is every
+    // caster in the flat into every casting light, a lamp's six faces
+    // among them. Drawn a few times a second it was still a stall the
+    // hand felt, and measured the largest share of a drag's frame
+    if (dragging.current) return;
     const lights: Caster[] = [];
     scene.traverse((o) => {
       const l = o as Caster;
@@ -138,7 +120,6 @@ export function ShadowsOnChange() {
     const now = signatureOf(scene, lights, camera);
     if (now === last.current) return;
     last.current = now;
-    drawnAt.current = at;
     // a light that is off (a lamp by day: it stays in the scene at
     // nothing, so its coming on builds no shader) keeps its map as it
     // stands: a lamp's is six pictures of every caster in the flat,

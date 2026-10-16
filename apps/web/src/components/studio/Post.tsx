@@ -1,6 +1,7 @@
 "use client";
 
 import { recordPost } from "./bench";
+import { cameraMoving } from "./camera-motion";
 import { devFlag } from "./dev-flags";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
@@ -31,6 +32,7 @@ import {
   metalness,
   mix,
   mrt,
+  NodeUpdateType,
   normalView,
   output,
   pass,
@@ -51,6 +53,7 @@ import {
 import { RenderPipeline, type WebGPURenderer } from "three/webgpu";
 import { lightingKey, unwarmed, warmParts } from "./shader-warm";
 import type { Backend, Quality } from "./studio-store";
+import { useScene } from "./scene-store";
 
 /**
  * The picture after the scene is drawn: ambient occlusion (the dark
@@ -328,8 +331,19 @@ const frameOf = (
   return { frame, glow };
 };
 
+/** 1 while a hand moves the picture (a piece dragged, the camera
+    turned), 0 at rest: the occlusion's shading is let go meanwhile */
+const MOVING = uniform(0);
+/** whether a hand moves the picture now */
+const moving = () => cameraMoving() || useScene.getState().dragFrom !== null;
+
 type Chain = {
   render: () => void;
+  /** the picture under a hand or at rest (`MOVING`): the occlusion's
+      passes stood down meanwhile, each a full-screen pass a frame, and
+      taken up again at rest, where TRAA's settle frames bring it back
+      in. A drag drew them on every frame (measured: half its cost) */
+  hold: (moving: boolean) => void;
   /** the parts' shaders built for the scene pass ahead of the frame
       that draws them (shader-warm.ts), for at most `budget` ms */
   warm: (parts: readonly Object3D[], budget: number) => Promise<void>;
@@ -378,6 +392,7 @@ const build = (
     pipeline.outputNode = edges;
     return {
       render,
+      hold: () => undefined,
       warm,
       dispose: () => {
         edges.dispose();
@@ -492,7 +507,13 @@ const build = (
   const { frame, glow } = frameOf(
     scenePass,
     depth,
-    smoothed ? (smoothed as unknown as Node<"vec4">).r : null,
+    smoothed
+      ? (mix(
+          (smoothed as unknown as Node<"vec4">).r,
+          float(1),
+          MOVING,
+        ) as unknown as Node<"float">)
+      : null,
     backdrop,
     added,
     tier === "desktop" && !devFlag("nobloom"),
@@ -505,8 +526,15 @@ const build = (
   );
   resolve.useSubpixelCorrection = false;
   pipeline.outputNode = devFlag("notraa") ? frame : resolve;
+  const hold = (under: boolean) => {
+    const type = under ? NodeUpdateType.NONE : NodeUpdateType.FRAME;
+    if (occlusion) occlusion.updateBeforeType = type;
+    if (smoothed) smoothed.updateBeforeType = type;
+    MOVING.value = under ? 1 : 0;
+  };
   return {
     render,
+    hold,
     warm,
     dispose: () => {
       resolve.dispose();
@@ -589,6 +617,7 @@ export function Post({
   // renderer alone after one of its stages fails
   useFrame((state) => {
     let have = kept.current;
+    const under = moving();
     try {
       if (!have || have.key !== key) {
         have?.chain.dispose();
@@ -645,6 +674,7 @@ export function Post({
         return;
       }
       placeOf(state.gl.domElement, have.chain.place);
+      have.chain.hold(under);
       have.chain.render();
       drawnOnce.current = true;
     } catch (error) {
@@ -654,6 +684,13 @@ export function Post({
     }
     if (!have.chain.temporal) {
       onSettle?.(0);
+      return;
+    }
+    // under a hand each frame comes with the move: none is asked for to
+    // settle the last, and the settling starts once it is let go
+    if (under) {
+      settle.current = SETTLE_FRAMES;
+      onSettle?.(SETTLE_FRAMES);
       return;
     }
     if (settle.current === 0) settle.current = SETTLE_FRAMES;
