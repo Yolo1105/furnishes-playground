@@ -1496,6 +1496,10 @@ const SEAT = {
       the arm's top rolled fuller */
   base: 0.04,
   arm: 0.07,
+  /** the seat cushions' thickness, and how far the arms stand over
+      the seat, m (round 9) */
+  cushion: 0.17,
+  armOver: 0.16,
   /** how full the frame's faces stand, m (round 9): a frame drawn as
       flat-faced rounded boxes read as moulded blocks however soft its
       edges; padding over a frame is never flat */
@@ -1531,13 +1535,17 @@ function Seat({
   const arm = Math.min(0.18, w * 0.12);
   const back = 0.2;
   const seatTop = Math.min(0.44, h * 0.55);
-  const baseH = seatTop - LEG - 0.12;
+  // the seat cushions are the thick part, on a low base between the
+  // arms (round 9): a 22 cm base under 14 cm cushions read as a plinth
+  const baseH = seatTop - LEG - SEAT.cushion;
+  // the arms' top, each arm one padded piece from the base's foot to it
+  const armTop = seatTop + SEAT.armOver;
   const inner = w - 2 * arm;
   const cw = inner / seats;
   const body = cloth(shade(colour, SEAT.frameShade));
   const cushion = cloth(shade(colour, SEAT.cushionShade));
   const deck = cloth(shade(colour, SEAT.deckShade));
-  const backH = h - LEG - baseH - 0.16;
+  const backH = h - seatTop - 0.04;
   // the listed cushions, when there are any (index.json's kind "cushion")
   const pillows = useProps((s) => s.models?.find((m) => m.kind === "cushion"));
   return (
@@ -1555,7 +1563,7 @@ function Seat({
         f={body}
         at={[0, LEG + baseH / 2, 0]}
         shape={{
-          dims: [w, baseH, d],
+          dims: [inner + 0.02, baseH, d - 0.01],
           radius: SEAT.base,
           crown: SEAT.pad,
           facing: "all",
@@ -1566,9 +1574,9 @@ function Seat({
         <Cushion
           key={s}
           f={body}
-          at={[(s * (w - arm)) / 2, LEG + baseH + 0.14, 0]}
+          at={[(s * (w - arm)) / 2, LEG + (armTop - LEG) / 2, 0]}
           shape={{
-            dims: [arm, 0.28, d],
+            dims: [arm, armTop - LEG, d],
             radius: SEAT.arm,
             crown: SEAT.pad,
             facing: "all",
@@ -1598,7 +1606,7 @@ function Seat({
           },
           {
             f: deck,
-            at: [0, LEG + baseH + 0.14 + backH / 2, -d / 2 + back + 0.004],
+            at: [0, seatTop + backH / 2, -d / 2 + back + 0.004],
             dims: [inner - 0.01, backH, 0.008],
           },
         ]}
@@ -1609,9 +1617,10 @@ function Seat({
           <group key={i}>
             <Cushion
               f={cushion}
-              at={[x, LEG + baseH + 0.07, back / 2]}
+              at={[x, LEG + baseH + SEAT.cushion / 2, back / 2 + 0.01]}
               shape={{
-                dims: [cw - SEAT.gap, 0.14, d - back - 0.02],
+                // its front a hair proud of the base, as a cushion sits
+                dims: [cw - SEAT.gap, SEAT.cushion, d - back],
                 radius: SEAT.seatRound,
                 crown: SEAT.seatCrown,
                 facing: "up",
@@ -1620,11 +1629,7 @@ function Seat({
             />
             <Cushion
               f={cushion}
-              at={[
-                x,
-                LEG + baseH + 0.14 + backH / 2 + 0.01,
-                -d / 2 + back + 0.08,
-              ]}
+              at={[x, seatTop + backH / 2 + 0.01, -d / 2 + back + 0.08]}
               shape={{
                 dims: [cw - SEAT.gap * 1.5, backH, 0.16],
                 radius: SEAT.backRound,
@@ -1641,8 +1646,8 @@ function Seat({
         <SeatTouches
           w={w}
           d={d}
-          seatTop={LEG + baseH + 0.14}
-          armTop={LEG + baseH + 0.28}
+          seatTop={seatTop}
+          armTop={armTop}
           armRound={SEAT.arm}
           arm={arm}
           back={back + PILLOWS.cushion}
@@ -1657,7 +1662,7 @@ function Seat({
                 at={[
                   (seed % 2 ? 1 : -1) *
                     (inner / 2 - (inner * PILLOWS.share) / 2),
-                  LEG + baseH + PILLOWS.up,
+                  seatTop + PILLOWS.up - 0.14,
                   -d / 2 + back + PILLOWS.cushion + PILLOWS.off,
                 ]}
               />
