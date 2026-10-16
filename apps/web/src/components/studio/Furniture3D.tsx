@@ -45,11 +45,11 @@ import { useEvent } from "./use-event";
 import {
   kindOf,
   BUILT_KINDS,
-  modelFor,
   propUrl,
   lodAt,
   styleOf,
   type Variant,
+  variantFor,
 } from "./prop-variants";
 import {
   DRACO_PATH,
@@ -212,7 +212,7 @@ const modelOf = (
   if (!models || node.part || recipeOf(node)) return null;
   const kind = kindOf(node.name, node.category);
   if (!kind || BUILT_KINDS.includes(kind)) return null;
-  const pick = modelFor(models, kind, [w, h, d], styleOf(node.name, kind));
+  const pick = variantFor(models, kind, [w, h, d], styleOf(node.name, kind));
   if (!pick) return null;
   return {
     src: propUrl(pick.v.file),
@@ -1484,15 +1484,26 @@ const SEAT = {
   /** between two cushions, m: at 8 mm the seam closed to nothing past a
       couple of metres and the seat read as one block */
   gap: 0.014,
-  /** the cushions' rounds and crowns, m */
+  /** the cushions' rounds and crowns, m: at 18 and 24 mm of crown a
+      cushion read as a rounded brick (round 9); a filled cushion stands
+      full in its middle and pinched at its corners */
   seatRound: 0.035,
-  seatCrown: 0.018,
-  backRound: 0.045,
-  backCrown: 0.024,
+  seatCrown: 0.03,
+  backRound: 0.05,
+  backCrown: 0.045,
   /** the frame's rounds: the base, the arms and the back, as upholstery
-      is padded over its frame (at 25 and 40 mm the frame read as a box) */
-  base: 0.035,
-  arm: 0.055,
+      is padded over its frame (at 25 and 40 mm the frame read as a box);
+      the arm's top rolled fuller */
+  base: 0.04,
+  arm: 0.07,
+  /** how full the frame's faces stand, m (round 9): a frame drawn as
+      flat-faced rounded boxes read as moulded blocks however soft its
+      edges; padding over a frame is never flat */
+  pad: 0.014,
+  /** the deck under the seat cushions and the frame behind the backs,
+      seen through the seams: a shade darker, as a seam is in shadow (a
+      seam lit as the cushions' tops are read as a gap between blocks) */
+  deckShade: -0.3,
   /** the frame a shade under the cushions, the cushions a shade over
       the colour: one cloth all through read as one moulded block */
   frameShade: -0.05,
@@ -1525,6 +1536,7 @@ function Seat({
   const cw = inner / seats;
   const body = cloth(shade(colour, SEAT.frameShade));
   const cushion = cloth(shade(colour, SEAT.cushionShade));
+  const deck = cloth(shade(colour, SEAT.deckShade));
   const backH = h - LEG - baseH - 0.16;
   // the listed cushions, when there are any (index.json's kind "cushion")
   const pillows = useProps((s) => s.models?.find((m) => m.kind === "cushion"));
@@ -1539,26 +1551,57 @@ function Seat({
           })),
         )}
       />
-      <Soft
+      <Cushion
         f={body}
         at={[0, LEG + baseH / 2, 0]}
-        dims={[w, baseH, d]}
-        radius={SEAT.base}
+        shape={{
+          dims: [w, baseH, d],
+          radius: SEAT.base,
+          crown: SEAT.pad,
+          facing: "all",
+          seed: null,
+        }}
       />
       {[-1, 1].map((s) => (
-        <Soft
+        <Cushion
           key={s}
           f={body}
           at={[(s * (w - arm)) / 2, LEG + baseH + 0.14, 0]}
-          dims={[arm, 0.28, d]}
-          radius={SEAT.arm}
+          shape={{
+            dims: [arm, 0.28, d],
+            radius: SEAT.arm,
+            crown: SEAT.pad,
+            facing: "all",
+            seed: null,
+          }}
         />
       ))}
-      <Soft
+      <Cushion
         f={body}
         at={[0, LEG + baseH + (h - LEG - baseH) / 2, -d / 2 + back / 2]}
-        dims={[inner, h - LEG - baseH, back]}
-        radius={SEAT.arm}
+        shape={{
+          dims: [inner, h - LEG - baseH, back],
+          radius: SEAT.arm,
+          crown: SEAT.pad,
+          facing: "all",
+          seed: null,
+        }}
+      />
+      {/* the deck under the seat cushions and the frame's face behind
+          the backs, in the seams' shadow */}
+      <Built
+        parts={[
+          {
+            f: deck,
+            at: [0, LEG + baseH + 0.004, back / 2],
+            dims: [inner - 0.01, 0.008, d - back - 0.04],
+          },
+          {
+            f: deck,
+            at: [0, LEG + baseH + 0.14 + backH / 2, -d / 2 + back + 0.004],
+            dims: [inner - 0.01, backH, 0.008],
+          },
+        ]}
       />
       {Array.from({ length: seats }, (_, i) => {
         const x = -inner / 2 + cw * (i + 0.5);

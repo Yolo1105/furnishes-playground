@@ -499,8 +499,12 @@ export type CushionShape = {
   radius: number;
   /** how far its face bulges at the middle, m */
   crown: number;
-  /** which way it faces: its top (a seat) or its front (a back) */
-  facing: "up" | "front";
+  /** which way it faces: its top (a seat) or its front (a back); or
+      padded all round (a sofa's base, arms and back frame: upholstery
+      over a frame, every face a little full, none flat), `crown` then
+      at the middle of a face half a metre across or more, less on a
+      narrower one, and no welt */
+  facing: "up" | "front" | "all";
   /** the sag and the creases' seed, or null for none */
   seed: number | null;
 };
@@ -557,6 +561,7 @@ export const cushionGeometry = (c: CushionShape) => {
   // rounded: each point pushed onto the round about the inner box
   const n = pos.length / 3;
   const tone = new Float32Array(n * 3);
+  const all = c.facing === "all";
   const up = c.facing === "up" ? 1 : 2;
   const [ax, bx] = c.facing === "up" ? [0, 2] : [0, 1];
   const sag = c.seed === null ? 0 : 0.006 + 0.008 * hash01(c.seed, 1);
@@ -580,9 +585,22 @@ export const cushionGeometry = (c: CushionShape) => {
     const t = Math.max(-1, Math.min(1, p[bx]! / half[bx]!));
     const bulge = (1 - s * s) * (1 - t * t);
     const onFace = Math.max(0, out[up]!);
-    p[up] = p[up]! + c.crown * bulge * onFace;
-    // the back face a little crowned too, the other way
-    p[up] = p[up]! - c.crown * 0.35 * bulge * Math.max(0, -out[up]!);
+    if (all) {
+      // padded all round: each face full in its middle, by its size
+      for (let a = 0; a < 3; a++) {
+        const [u, v] = [(a + 1) % 3, (a + 2) % 3];
+        const su = Math.max(-1, Math.min(1, p[u]! / half[u]!));
+        const sv = Math.max(-1, Math.min(1, p[v]! / half[v]!));
+        const k = c.crown * Math.min(1, Math.min(half[u]!, half[v]!) / 0.25);
+        p[a] =
+          p[a]! +
+          out[a]! * Math.abs(out[a]!) * k * (1 - su * su) * (1 - sv * sv);
+      }
+    } else {
+      p[up] = p[up]! + c.crown * bulge * onFace;
+      // the back face a little crowned too, the other way
+      p[up] = p[up]! - c.crown * 0.35 * bulge * Math.max(0, -out[up]!);
+    }
     if (c.seed !== null && c.facing === "up" && out[1]! > 0) {
       // sat on: a soft hollow towards the front, off the middle
       const dx = (s - sagAt) / 0.55;
@@ -602,7 +620,7 @@ export const cushionGeometry = (c: CushionShape) => {
     // the welt: where the face's round meets the sides, all round
     const rim = Math.abs(out[up]!);
     const welt = Math.exp(-((rim - 0.7) * (rim - 0.7)) / 0.006);
-    const k = 1 - (1 - WELT) * welt;
+    const k = all ? 1 : 1 - (1 - WELT) * welt;
     tone[i * 3] = k;
     tone[i * 3 + 1] = k;
     tone[i * 3 + 2] = k;

@@ -135,15 +135,6 @@ export const fitOf = (
   return options.reduce((a, b) => (cost(b.scale) < cost(a.scale) ? b : a));
 };
 
-/** the model a kind is drawn with when none of its own design fits
-    (round 9, Part 2): a sofa is upholstered, and the soft box built for
-    one (Furniture3D's Seat) read as a cartoon of one beside real
-    models; it now stands in only while the model comes, or where no
-    sofa model fits at all */
-export const DEFAULT_MODEL: Partial<Record<Kind, string>> = {
-  sofa: "glam_velvet_sofa",
-};
-
 /** the variant of a kind (and of the item's design, when given) that
     fits an item best, with its fit; null when none of them fits */
 export const variantFor = (
@@ -167,21 +158,6 @@ export const variantFor = (
   }
   return best;
 };
-
-/** the model an item is drawn with: of its own design when one fits,
-    else its kind's default model when that fits (`DEFAULT_MODEL`) */
-export const modelFor = (
-  variants: readonly Variant[],
-  kind: Kind,
-  size: readonly [number, number, number],
-  style: Style,
-) =>
-  variantFor(variants, kind, size, style) ??
-  variantFor(
-    variants.filter((v) => v.file === DEFAULT_MODEL[kind]),
-    kind,
-    size,
-  );
 
 /** the kinds whose built form only stands in for a model (a lamp, a
     plant, an armchair's frame): an item of one with no model within

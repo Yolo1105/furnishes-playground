@@ -139,27 +139,20 @@ Do not use 3dsky, CGTrader or TurboSquid models without checking their
 licence first. Most forbid shipping the model inside a web app, where
 anyone can download the `.glb`.
 
-## The sofa, and fetching the models again (round 9, 2026-10-16)
-
-The living room's sofa is drawn with `glam_velvet_sofa.glb` (prop-variants.ts,
-`DEFAULT_MODEL`): a sofa with no model of its own design that fits is
-drawn with it when it fits within a tenth, and the soft box built for a
-sofa (Furniture3D's Seat) stands in only while the model comes or where
-no sofa model fits. The showcase sofa is 2.4 × 0.8 × 1.0 m, the model
-2.19 × 0.79 × 1.02 m.
+## Fetching the models again (round 9, 2026-10-16)
 
 To fetch a model again (each was changed as described above, so a copy
 fetched afresh needs the same steps before it replaces the one here):
 
-| File                  | Where                                                                                      |
-| --------------------- | ------------------------------------------------------------------------------------------ |
-| glam_velvet_sofa.glb  | github.com/KhronosGroup/glTF-Sample-Assets, `Models/GlamVelvetSofa/glTF-Binary`            |
-| leather_wood_sofa.glb | github.com/KhronosGroup/glTF-Sample-Assets, `Models/SheenWoodLeatherSofa/glTF-Binary`      |
-| sheen_chair.glb       | github.com/KhronosGroup/glTF-Sample-Assets, `Models/SheenChair/glTF-Binary`                |
-| chair_damask.glb      | github.com/KhronosGroup/glTF-Sample-Assets, `Models/ChairDamaskPurplegold/glTF-Binary`     |
-| silk_pouf.glb         | github.com/KhronosGroup/glTF-Sample-Assets, `Models/SpecularSilkPouf/glTF-Binary`          |
-| floor_lamp_arc.glb    | github.com/KhronosGroup/glTF-Sample-Assets, `Models/LightsPunctualLamp/glTF-Binary`        |
-| the Poly Haven models | polyhaven.com/a/`<file name without .glb>`, the 1k glTF                                    |
+| File                  | Where                                                                                  |
+| --------------------- | -------------------------------------------------------------------------------------- |
+| glam_velvet_sofa.glb  | github.com/KhronosGroup/glTF-Sample-Assets, `Models/GlamVelvetSofa/glTF-Binary`        |
+| leather_wood_sofa.glb | github.com/KhronosGroup/glTF-Sample-Assets, `Models/SheenWoodLeatherSofa/glTF-Binary`  |
+| sheen_chair.glb       | github.com/KhronosGroup/glTF-Sample-Assets, `Models/SheenChair/glTF-Binary`            |
+| chair_damask.glb      | github.com/KhronosGroup/glTF-Sample-Assets, `Models/ChairDamaskPurplegold/glTF-Binary` |
+| silk_pouf.glb         | github.com/KhronosGroup/glTF-Sample-Assets, `Models/SpecularSilkPouf/glTF-Binary`      |
+| floor_lamp_arc.glb    | github.com/KhronosGroup/glTF-Sample-Assets, `Models/LightsPunctualLamp/glTF-Binary`    |
+| the Poly Haven models | polyhaven.com/a/`<file name without .glb>`, the 1k glTF                                |
 
 The steps, with glTF Transform's CLI (`npx @gltf-transform/cli`, run
 outside the app; it is not one of its dependencies):
@@ -167,7 +160,5 @@ outside the app; it is not one of its dependencies):
 over the model budget (model-budget.ts), `webp --slots "*" --resize 2048`
 (1024 for a plant), and `meshopt` (Khronos) or `draco` (Poly Haven).
 
-Sourcing a better sofa is the owner's call (round 9's questions): a
-CC0 or CC-BY upholstered three-seater with a separate seat and back
-cushions, about 2.2 × 0.8 × 0.95 m, at 2k, would replace the velvet
-sofa's curved arms with the boxy form the studio's own pieces have.
+Sourcing a sofa model is the owner's call (round 9's questions); the
+living room's sofa is the studio's own built form until then.

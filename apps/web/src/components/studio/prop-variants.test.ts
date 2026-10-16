@@ -15,7 +15,6 @@ import {
   lodAt,
   type Variant,
   variantFor,
-  modelFor,
 } from "./prop-variants";
 
 const listed = JSON.parse(
@@ -87,14 +86,6 @@ describe("choosing by design (round 8, Part 2)", () => {
     expect(
       variantFor(listed.models, "sofa", [2.2, 0.8, 1.0], "curved")?.v.file,
     ).toBe("glam_velvet_sofa");
-  });
-  it("draws a sofa of no fitting design with the velvet sofa (round 9)", () => {
-    // the living room's sofa: 2.4 m, 0.8 m tall, 1 m deep, boxy by name
-    expect(
-      modelFor(listed.models, "sofa", [2.4, 0.8, 1.0], "boxy")?.v.file,
-    ).toBe("glam_velvet_sofa");
-    // one far from its size keeps its built form
-    expect(modelFor(listed.models, "sofa", [1.4, 0.8, 0.8], "boxy")).toBeNull();
   });
   it("lists every model with its design and a kind it knows", () => {
     for (const m of listed.models) {
