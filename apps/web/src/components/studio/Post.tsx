@@ -276,6 +276,20 @@ export const WHITE_BALANCE = uniform(new Vector3(1, 1, 1));
     is where the depth pass wrote (the pass's own alpha cannot be read
     beside another texture on the WebGL backend); TRAA's jitter softens
     that edge over the settle frames */
+/** the most a lit value may be: half float's largest, under which the
+    passes keep the frame */
+const HDR_MAX = 65000;
+/** a value kept only where it is a light at all: 0 to `HDR_MAX`. A NaN
+    (a zero-length normal in a shader, an occlusion sample off the depth)
+    fails every comparison, so it is the one test there is for it; one
+    such pixel went into the glow's blur and the smoothing's history and
+    spread until the whole frame was black, and stayed so */
+const finite = (c: Node<"vec3">) => {
+  const kept = (v: Node<"float">) =>
+    v.greaterThanEqual(0).and(v.lessThan(HDR_MAX)).select(v, 0);
+  return vec3(kept(c.r), kept(c.g), kept(c.b));
+};
+
 const frameOf = (
   scenePass: PassNode,
   depth: TextureNode,
@@ -287,7 +301,7 @@ const frameOf = (
   glows = false,
 ) => {
   const shaded = occlusion ? scenePass.rgb.mul(occlusion) : scenePass.rgb;
-  const lit = added ? shaded.add(added) : shaded;
+  const lit = finite(added ? shaded.add(added) : shaded);
   // the glow is found in the exposed picture and handed back unexposed,
   // so the tone mapping takes it with the rest
   // the renderer's exposure as a float node (its reference is typed

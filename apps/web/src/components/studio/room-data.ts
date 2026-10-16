@@ -125,7 +125,9 @@ export type Floor = (typeof FLOORS)[number];
 export const FLOOR_TONES: Record<Floor, string> = {
   Vinyl: "#d8c1a4",
   Tiles: "#e4ded4",
-  Parquet: "#c59b6b",
+  // a natural oak: the honey #c59b6b went orange under the warm light,
+  // and with walnut pieces and a terracotta sofa the room was one brown
+  Parquet: "#bfa482",
   Concrete: "#b9b4ad",
 };
 export const WALL_TONES = [

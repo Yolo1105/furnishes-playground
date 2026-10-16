@@ -2705,3 +2705,67 @@ model-budget.test.ts and mesh-clean.test.ts feed both a normalized
 16-bit attribute; they fail without the change. A scan of the 31
 shipped `.glb` files finds no other attribute WebGPU cannot take
 (single 8- or 16-bit components, normalized 32-bit).
+
+### Black frames, a chair that could not be taken, and the Leisure look (2026-10-16)
+
+**Black frames on WebGPU.** Reported: the view sometimes went black, and
+the console showed "Destroyed texture [PointShadowDepthTexture] used in
+a submit". A floor lamp's light cast its shadow only on the desktop tier
+(`castShadow` followed the tier), and the tier drops under a slow frame:
+three then threw the lamp's shadow map away at once, while shaders built
+with it still drew from it, and WebGPU refused that frame whole. A lamp
+taken out of the scene (a project switched, a lamp deleted) did the same
+through its light's `dispose`. Now a lamp's shadow, once on, stays on
+for the lamp's life (on a lower tier its map is only not drawn again:
+`still`, read by ShadowsOnChange), and a lamp's light is disposed two
+seconds after the lamp leaves the scene. Separately, the lit frame is
+kept to 0–65,000 before the glow and the smoothing (`finite`, Post.tsx):
+one NaN pixel (it fails every comparison, which is the only test for it
+in TSL) spread through the glow's blur and TRAA's history to the whole
+frame, which stayed black. A GPU error WebGPU reports (it never throws)
+is now named on the stage, `data-faults` taking `gpu`. Not verified
+here: this sandbox has no WebGPU.
+
+**A dining chair could not be dragged.** A chair at the table stands
+with its seat under the top's edge; seen from above the top covers it,
+and a press went to the nearest piece hit, the table, which moved
+instead (measured: two of the four chairs could not be taken, the table
+moved). A press, a hover and a click on a piece are now given to a
+smaller piece the same ray meets beneath its top, within its footprint
+or 0.3 m past it (`tuckedUnder`, Scene3D.tsx); a piece beside or
+behind, or a bigger one, does not take it. After: the chairs drag, the
+table still drags by its middle, the armchair, desk chair and sofa as
+before.
+
+**The Leisure arrangement read as one brown, and the far armchairs as
+melted.** Causes found and changed:
+
+- The grown parquet's joint was the vinyl's bevel, 6 px of a 38 px
+  strip at 20 % dark: every strip outlined, a brick wall from the
+  flat's views. Parquet now has its own joint (`JOINT`, surface-paint:
+  0.6 px full, gone by 2 px, 12 %); vinyl keeps `BEVEL`.
+- Parquet's tone was a honey (`#c59b6b`) that went orange under the
+  warm light, beside walnut pieces, a terracotta sofa and a rust rug.
+  It is a natural oak (`#bfa482`), and the Leisure rug a sage
+  (`#6f7b6a`), so the sofa stands apart.
+- A model's cloth (the armchairs' cushions) lifted the model's own map
+  to a fixed mean: a dark leather's creases and highlights were lifted
+  about tenfold with it, and its glossy roughness map kept, so a pale
+  cloth over it read as a melted lump. The grey copy's spread is now
+  held to 0.12 of its mean (a weave's finer spread is kept), cloth is
+  matt (0.88, the model's roughness map left off) and its normals at
+  half strength.
+- The dining chair was a full-size pad under a solid board back: from
+  above, a grey square. It is a wooden seat with an inset pad and an
+  open back of two posts and a rail.
+- The far copies were checked one by one beside their full models: the
+  armchair's is sound (an earlier side-by-side misled by perspective);
+  the wicker basket's lost its weave at 256 px and read as wire, so the
+  basket has no far copy now (its full model is 241 KB).
+- The TV is upright: in a steep top-down view tall things near the
+  frame's edge lean outward in perspective, the curtains with it.
+
+Pictures that change on purpose: every baseline with parquet, a model's
+cloth, a dining chair or the rug in view (corner, day panels, evening
+panels, walk, walk-follow, elevation front, day sunset). They are taken
+again in the closing pass.

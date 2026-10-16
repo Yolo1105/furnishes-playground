@@ -123,9 +123,11 @@ export function ShadowsOnChange() {
     // a light that is off (a lamp by day: it stays in the scene at
     // nothing, so its coming on builds no shader) keeps its map as it
     // stands: a lamp's is six pictures of every caster in the flat,
-    // drawn for nothing at every change of the day
+    // drawn for nothing at every change of the day. One marked `still`
+    // (a lamp's kept past its tier, Furniture3D) is not drawn again
     for (const l of lights)
-      l.shadow.needsUpdate = !l.isLight || l.intensity > 0;
+      l.shadow.needsUpdate =
+        (!l.isLight || l.intensity > 0) && l.userData.still !== true;
   });
   return null;
 }

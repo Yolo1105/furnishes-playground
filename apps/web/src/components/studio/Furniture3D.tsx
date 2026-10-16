@@ -31,6 +31,7 @@ import {
   MeshPhysicalMaterial,
   type MeshStandardMaterial,
   type Object3D,
+  type PointLight,
   Vector2,
   Vector3,
   type Vector3Tuple,
@@ -192,7 +193,8 @@ type Props = {
   /** the wall behind the piece, as its bake takes it: the plane z in the
       piece's frame (its back is −z), when it stands against one */
   wall?: number | null | undefined;
-  onPick: () => void;
+  /** a click on the piece; false gives it to a piece beneath */
+  onPick: (e: ThreeEvent<MouseEvent>) => boolean | void;
 };
 
 /** the real model a room item is drawn from (public/props/index.json,
@@ -223,8 +225,13 @@ const modelOf = (
     (the weave's shading, its seams, its wear) and brought to a mean of
     `GREY_MEAN` (linear), so a dark leather's map and a pale linen's both
     carry the item's colour at its own tone; the colour is lifted by the
-    same share. Made once a map, on a canvas */
+    same share. Its spread is held to `GREY_SPREAD` (the values' standard
+    deviation over their mean): a dark leather's map lifted to that mean
+    had its creases and highlights lifted tenfold with it, and a pale
+    cloth over it read as a melted lump. A weave's finer spread is kept.
+    Made once a map, on a canvas */
 const GREY_MEAN = 0.8;
+const GREY_SPREAD = 0.12;
 const greys = new Map<string, Texture>();
 const toSrgb = (c: number) =>
   c <= 0.0031308 ? c * 12.92 : 1.055 * c ** (1 / 2.4) - 0.055;
@@ -254,9 +261,16 @@ const greyOf = (map: Texture) => {
     lum[k] = v;
     sum += v;
   }
-  const k0 = GREY_MEAN / Math.max(0.01, sum / lum.length);
+  const mean = Math.max(0.01, sum / lum.length);
+  let dev = 0;
+  for (const v of lum) dev += (v / mean - 1) ** 2;
+  const spread = Math.sqrt(dev / lum.length);
+  const keep = spread > GREY_SPREAD ? GREY_SPREAD / spread : 1;
   for (let i = 0, k = 0; i < d.length; i += 4, k++) {
-    const v = Math.round(toSrgb(Math.min(1, lum[k]! * k0)) * 255);
+    const rel = 1 + keep * (lum[k]! / mean - 1);
+    const v = Math.round(
+      toSrgb(Math.min(1, Math.max(0, GREY_MEAN * rel))) * 255,
+    );
     d[i] = v;
     d[i + 1] = v;
     d[i + 2] = v;
@@ -276,8 +290,12 @@ const greyOf = (map: Texture) => {
 
 /** the item's cloth over the model's own: the item's colour over a grey
     copy of the model's colour map (its weave, seams and wear kept), and
-    the model's normal, roughness, occlusion and sheen maps as they are
-    (round 8, 1g; it once dropped the colour map for one flat colour) */
+    the model's occlusion and sheen maps as they are (round 8, 1g; it
+    once dropped the colour map for one flat colour). Cloth is matt:
+    the model's own roughness map is left off (a leather's, kept, put a
+    gloss on every crease), and its normals are drawn at half strength */
+const CLOTH_ROUGH = 0.88;
+const CLOTH_RELIEF = 0.5;
 const clothOver = (own: MeshStandardMaterial, colour: string) => {
   const grey = own.map ? greyOf(own.map) : null;
   const tint = new Color(clothColour(colour));
@@ -287,7 +305,7 @@ const clothOver = (own: MeshStandardMaterial, colour: string) => {
   const m = new MeshPhysicalMaterial({
     color: tint,
     map: grey ?? null,
-    roughness: own.roughnessMap ? own.roughness : 0.9,
+    roughness: CLOTH_ROUGH,
     metalness: 0,
     sheen: sheened.sheen ?? 0.5,
     sheenColor: shade(colour, 0.1),
@@ -297,8 +315,7 @@ const clothOver = (own: MeshStandardMaterial, colour: string) => {
       ? { sheenRoughnessMap: sheened.sheenRoughnessMap }
       : {}),
     normalMap: own.normalMap,
-    normalScale: own.normalScale,
-    roughnessMap: own.roughnessMap,
+    normalScale: own.normalScale.clone().multiplyScalar(CLOTH_RELIEF),
     aoMap: own.aoMap,
     aoMapIntensity: own.aoMapIntensity,
   });
@@ -653,8 +670,9 @@ export function Furniture3D(p: Props) {
         ? { src: listed.src, cloth: listed.cloth, fit: listed, lod: listed.lod }
         : null;
   const onClick = useEvent((e: ThreeEvent<MouseEvent>) => {
+    // false: the click is another piece's, beneath this one
+    if (p.onPick(e) === false) return;
     e.stopPropagation();
-    p.onPick();
   });
   // one against a wall stays square to it
   const turn = p.wall == null ? looseTurn(p.node) : 0;
@@ -1741,6 +1759,9 @@ const LAMP_LIGHT = {
   shadow: { map: 256, radius: 6, bias: -0.002, near: 0.05 },
 } as const;
 
+/** how long a lamp's light is kept once the lamp is gone, ms: the
+    shaders that drew with it built again by then */
+const LIGHT_LET_GO_MS = 2000;
 function Lamp({
   w,
   h,
@@ -1756,7 +1777,24 @@ function Lamp({
   const shadeH = desk ? h * 0.3 : h * 0.22;
   const stemH = h - shadeH * 0.55;
   const lit = useStudio((s) => s.scene.light === "evening");
-  const shadowed = useStudio((s) => s.tier === "desktop") && !desk;
+  // once on, the lamp's shadow stays on while it stands: turned off
+  // (the tier lowered under a slow frame), three throws its map away at
+  // once, the shaders built with it still draw from it for a frame, and
+  // WebGPU refuses that frame whole ("destroyed texture used in a
+  // submit"): a black flash. On a lower tier its map is only not drawn
+  // again (ShadowsOnChange reads `still`)
+  const want = useStudio((s) => s.tier === "desktop") && !desk;
+  const [shadowed, setShadowed] = useState(want);
+  if (want && !shadowed) setShadowed(true);
+  // and the light let go a moment after the lamp leaves the scene, not
+  // on the frame it goes, for the same reason
+  const light = useRef<PointLight>(null);
+  useEffect(() => {
+    const l = light.current;
+    return () => {
+      if (l) setTimeout(() => l.dispose(), LIGHT_LET_GO_MS);
+    };
+  }, []);
   const bulb = desk ? LAMP_LIGHT.desk : LAMP_LIGHT.floor;
   // the shade's linen: the cloth set's weave round the cone, the light
   // through it showing the weave
@@ -1841,6 +1879,9 @@ function Lamp({
       {/* always there, at nothing by day: a light come and gone would
           build every shader in the room again */}
       <pointLight
+        ref={light}
+        dispose={null}
+        userData={{ still: !want }}
         position={[0, h - shadeH * 0.6, 0]}
         color={LAMP_LIGHT.colour}
         intensity={lit ? bulb.evening : 0}
@@ -2405,7 +2446,12 @@ function Stool({ w, h, d }: { w: number; h: number; d: number }) {
 
 /** a chair's back board, m thick */
 const CHAIR_BACK = 0.025;
-/** a dining chair: a seat on four legs with a back */
+/** a dining chair: a wooden seat with a pad set in on it, four legs,
+    and an open back of two posts and a rail. The seat was once the pad
+    alone, the full size of the chair, under a solid board back: from
+    above, the flat's views, a grey square */
+const CHAIR_SEAT = 0.03;
+const CHAIR_RAIL = 0.13;
 function Chair({
   w,
   h,
@@ -2419,31 +2465,40 @@ function Chair({
 }) {
   const seatH = Math.min(0.45, h * 0.53);
   const f = wood(LIGHT_WOOD);
+  const legH = seatH - CHAIR_SEAT;
+  const backZ = -d / 2 + 0.03;
+  const postH = h - seatH;
   return (
     <group>
+      {/* the pad, inset from the seat's edge and a little forward of
+          the back */}
       <Soft
         f={cloth(colour)}
-        at={[0, seatH - 0.02, 0]}
-        dims={[w, 0.04, d]}
+        at={[0, seatH + 0.012, 0.015]}
+        dims={[w - 0.06, 0.024, d - 0.09]}
         radius={0.01}
       />
       <Built
         parts={[
+          { f, at: [0, seatH - CHAIR_SEAT / 2, 0], dims: [w, CHAIR_SEAT, d] },
           ...[-1, 1].flatMap((sx) =>
             [-1, 1].map((sz): Part => ({
               f,
-              at: [
-                sx * (w / 2 - 0.03),
-                (seatH - 0.04) / 2,
-                sz * (d / 2 - 0.03),
-              ],
-              rod: [0.014, seatH - 0.04],
+              at: [sx * (w / 2 - 0.03), legH / 2, sz * (d / 2 - 0.03)],
+              rod: [0.014, legH],
             })),
           ),
+          // the back's posts carry the back legs up, the rail between
+          // them at the top
+          ...[-1, 1].map((sx): Part => ({
+            f,
+            at: [sx * (w / 2 - 0.03), seatH + postH / 2, backZ],
+            rod: [0.013, postH],
+          })),
           {
             f,
-            at: [0, seatH + (h - seatH) / 2, -d / 2 + 0.02],
-            dims: [w - 0.04, h - seatH, CHAIR_BACK],
+            at: [0, h - CHAIR_RAIL / 2 - 0.01, backZ],
+            dims: [w - 0.04, CHAIR_RAIL, CHAIR_BACK],
           },
         ]}
       />

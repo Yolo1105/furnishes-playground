@@ -465,8 +465,8 @@ const varied = (v: Variant): Entry[] =>
  * bench and a reading chair under the living room's window in place of
  * the homework desk, a second armchair across the rug, a low play table
  * in the shared room, a bean bag in place of the single room's desk;
- * walnut pieces, a terracotta sofa on a rust rug, sand and sage walls
- * over parquet.
+ * walnut pieces, a terracotta sofa on a deep sage rug, sand and sage
+ * walls over oak parquet.
  */
 const BEDROOMS = [R.master, R.bedroom2, R.bedroom3];
 export const ARRANGEMENTS: {
@@ -584,12 +584,13 @@ export const ARRANGEMENTS: {
             },
           ],
         ],
-        // walnut pieces, a terracotta sofa on a rust rug, oatmeal
+        // walnut pieces, a terracotta sofa on a deep sage rug (a rust one
+        // made the sofa, the rug and the floor one brown), oatmeal
         // armchairs, warm linen
         paint: "walnut",
         tones: {
           sofa: "#8c5c49",
-          rug: "#7a4a36",
+          rug: "#6f7b6a",
           armchair: "#d6c3a2",
           "armchair-2": "#d6c3a2",
           "reading-chair": "#d6c3a2",

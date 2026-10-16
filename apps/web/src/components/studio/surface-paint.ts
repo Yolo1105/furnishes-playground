@@ -211,8 +211,18 @@ const plasterAt = (u: number, v: number, seed: number): Point => {
   };
 };
 
+/** a seam between boards, px at the painted size: how wide it is dark
+    in full, where it has faded out, and how much darker it is */
+type Seam = { full: number; fade: number; dark: number };
+/** a vinyl plank's bevel */
+const BEVEL: Seam = { full: 1.5, fade: 5, dark: 0.2 };
+/** a parquet strip's joint, tight and faint: at the bevel's width, 6
+    px of a 38 px strip, every strip was outlined, and from the flat's
+    views the floor read as a brick wall */
+const JOINT: Seam = { full: 0.6, fade: 2, dark: 0.12 };
+
 /** boards of a size laid in staggered rows, each wood cut from its own
-    place with its own tone, a bevelled seam between */
+    place with its own tone, a seam between */
 const boardsAt = (
   u: number,
   v: number,
@@ -220,6 +230,7 @@ const boardsAt = (
   boardW: number,
   boardL: number,
   seed: number,
+  join: Seam,
 ): Point => {
   const rows = Math.max(1, Math.round(1 / boardW));
   const cols = Math.max(1, Math.round(1 / boardL));
@@ -239,10 +250,15 @@ const boardsAt = (
   const lu = along - k * bl;
   const lv = v - r * bw;
   const e = Math.min(lu, bl - lu, lv, bw - lv) * size;
-  const seam = e < 1.5 ? 1 : e < 5 ? (5 - e) / 3.5 : 0;
+  const seam =
+    e < join.full
+      ? 1
+      : e < join.fade
+        ? (join.fade - e) / (join.fade - join.full)
+        : 0;
   return {
-    lum: clamp01(p.lum + tone - 0.2 * seam),
-    height: p.height - 1.8 * seam,
+    lum: clamp01(p.lum + tone - join.dark * seam),
+    height: p.height - 9 * join.dark * seam,
     rough: clamp01(p.rough + 0.2 * seam),
   };
 };
@@ -286,9 +302,11 @@ const painterOf = (kind: SurfaceKind, size: number): Paint => {
     case "plaster":
       return (u, v) => plasterAt(u, v, 41);
     case "parquet":
-      return (u, v) => boardsAt(u, v, size, 0.09 / TILE_M, 0.6 / TILE_M, 7);
+      return (u, v) =>
+        boardsAt(u, v, size, 0.09 / TILE_M, 0.6 / TILE_M, 7, JOINT);
     case "vinyl":
-      return (u, v) => boardsAt(u, v, size, 0.14 / TILE_M, 1.2 / TILE_M, 17);
+      return (u, v) =>
+        boardsAt(u, v, size, 0.14 / TILE_M, 1.2 / TILE_M, 17, BEVEL);
     case "tiles":
       return (u, v) => tilesAt(u, v, size);
     case "concrete":

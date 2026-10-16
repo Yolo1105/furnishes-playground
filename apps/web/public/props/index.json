@@ -128,8 +128,7 @@
       "file": "wicker_basket_01",
       "kind": "basket",
       "style": "organic",
-      "size": [0.38, 0.12, 0.29],
-      "lod": true
+      "size": [0.38, 0.12, 0.29]
     },
     {
       "file": "throw_pillows_01",

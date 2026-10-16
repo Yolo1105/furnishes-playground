@@ -31,6 +31,7 @@ import {
   type Camera,
   CanvasTexture,
   type Group,
+  type Object3D,
   type PerspectiveCamera,
   PCFShadowMap,
   Plane,
@@ -49,6 +50,7 @@ import {
   ADAPTER_WAIT_MS,
   fellBackFor,
   FIRST_PICTURE_WAIT_MS,
+  givenUp,
   INIT_WAIT_MS,
   shun,
   shunnedFor,
@@ -269,6 +271,14 @@ const makeRenderer = async (
     renderer.onDeviceLost = (info) => {
       lost(info);
       startOverOnWebGL("lost");
+    };
+    // a GPU error is never thrown (the device reports it later, and the
+    // frame it spoiled is drawn black): logged as three logs it, and
+    // named on the stage (data-faults) so a black frame can be traced
+    const failed = renderer.onError.bind(renderer);
+    renderer.onError = (info) => {
+      failed(info);
+      if (!givenUp("gpu")) useStudio.getState().fault("gpu");
     };
     // a device that does not answer, or refuses: the canvas has no
     // WebGPU context until it answers, so the WebGL backend takes the
@@ -1958,6 +1968,49 @@ const wallBehind = (
 };
 const Piece = memo(PieceDrawn, samePieceMidDrag);
 
+/** the piece an object is part of: its group, marked `piece` */
+const pieceOf = (o: Object3D | null) => {
+  while (o && o.userData.piece === undefined) o = o.parent;
+  return o;
+};
+/** how far past a piece's footprint one smaller beneath its top still
+    counts as tucked under it, m: a chair's seat under a table's edge */
+const TUCK_M = 0.3;
+/**
+ * Whether a press on a piece is another's, tucked under it: the same ray,
+ * past the piece, meets a smaller piece below its top, within its
+ * footprint or `TUCK_M` past it (a dining chair at the table, its seat
+ * under the top's edge). Seen from above the top covers the seat, and
+ * the nearest hit took every press: the table moved and the chair could
+ * not be taken. The smaller one beneath has it instead; a bigger one, or
+ * one further off, keeps to itself.
+ */
+const tuckedUnder = (
+  e: { intersections: { object: Object3D; point: Vector3 }[] },
+  self: Object3D | null,
+  size: Vector3Tuple,
+) => {
+  if (!self) return false;
+  let past = false;
+  for (const i of e.intersections) {
+    const owner = pieceOf(i.object);
+    if (owner === self) {
+      past = true;
+      continue;
+    }
+    if (!past || !owner) continue;
+    if (!((owner.userData.area as number) < size[0] * size[2])) continue;
+    const p = self.worldToLocal(i.point.clone());
+    if (
+      Math.abs(p.x) <= size[0] / 2 + TUCK_M &&
+      Math.abs(p.z) <= size[2] / 2 + TUCK_M &&
+      p.y < size[1]
+    )
+      return true;
+  }
+  return false;
+};
+
 function PieceDrawn({
   portal,
   node,
@@ -2040,8 +2093,10 @@ function PieceDrawn({
   // every handler on a three object is held stable: fiber takes a
   // re-created handler as a changed prop and asks for a frame, and a
   // frame per render would keep the stage from ever settling
+  const self = useRef<Group>(null);
   const onDown = useEvent((e: ThreeEvent<PointerEvent>) => {
     if (!canDrag || e.button !== 0) return;
+    if (tuckedUnder(e, self.current, size)) return;
     const hit = hitFloor(e);
     if (!hit) return;
     e.stopPropagation();
@@ -2101,15 +2156,21 @@ function PieceDrawn({
   // the stage and every piece in the flat
   const selected = useScene((s) => s.selectedId === node.id) && !rendering;
   const onOver = useEvent((e: ThreeEvent<PointerEvent>) => {
+    if (tuckedUnder(e, self.current, size)) return;
     e.stopPropagation();
     if (hoverable) hoverPiece(node.id, true);
   });
   const onOut = useEvent(() => hoverPiece(node.id, false));
   return (
     <group
+      ref={self}
       position={at}
       rotation={[0, turn, 0]}
-      userData={{ name: node.name }}
+      userData={{
+        name: node.name,
+        piece: node.id,
+        area: size[0] * size[2],
+      }}
       onPointerDown={onDown}
       onPointerMove={onMove}
       onPointerUp={onUp}
@@ -2132,7 +2193,8 @@ function PieceDrawn({
         editable={selected && !props.locked}
         selected={selected}
         clash={clash}
-        onPick={() => {
+        onPick={(e) => {
+          if (tuckedUnder(e, self.current, size)) return false;
           // the click after a drag is the drag's end, not a pick
           if (!moved.current) onPick();
         }}
