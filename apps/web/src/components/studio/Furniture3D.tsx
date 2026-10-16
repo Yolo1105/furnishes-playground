@@ -1481,16 +1481,22 @@ function Cart({ w, h, d, f }: { w: number; h: number; d: number; f: Finish }) {
     welted along their seams, each sat on a little differently (seeded
     by the piece) */
 const SEAT = {
-  /** between two cushions, m */
-  gap: 0.008,
+  /** between two cushions, m: at 8 mm the seam closed to nothing past a
+      couple of metres and the seat read as one block */
+  gap: 0.014,
   /** the cushions' rounds and crowns, m */
   seatRound: 0.035,
   seatCrown: 0.018,
   backRound: 0.045,
   backCrown: 0.024,
-  /** the frame's rounds: the base, the arms and the back */
-  base: 0.025,
-  arm: 0.04,
+  /** the frame's rounds: the base, the arms and the back, as upholstery
+      is padded over its frame (at 25 and 40 mm the frame read as a box) */
+  base: 0.035,
+  arm: 0.055,
+  /** the frame a shade under the cushions, the cushions a shade over
+      the colour: one cloth all through read as one moulded block */
+  frameShade: -0.05,
+  cushionShade: 0.05,
 };
 function Seat({
   w,
@@ -1517,8 +1523,8 @@ function Seat({
   const baseH = seatTop - LEG - 0.12;
   const inner = w - 2 * arm;
   const cw = inner / seats;
-  const body = cloth(colour);
-  const cushion = cloth(shade(colour, 0.04));
+  const body = cloth(shade(colour, SEAT.frameShade));
+  const cushion = cloth(shade(colour, SEAT.cushionShade));
   const backH = h - LEG - baseH - 0.16;
   // the listed cushions, when there are any (index.json's kind "cushion")
   const pillows = useProps((s) => s.models?.find((m) => m.kind === "cushion"));
@@ -1663,8 +1669,12 @@ function Pillows({
 
 /** a coffee table's stone top, honed and sealed (a little coat), and
     its frame in blackened steel: the room's tables are not all the
-    floor's oak (round 8, 1h) */
-const STONE_TOP = "#d8d3ca";
+    floor's oak (round 8, 1h). A warm travertine, matt, its edge eased
+    enough to catch the light: a cool grey at 0.42 with a 5 mm round read
+    as a plastic slab from above */
+const STONE_TOP = "#d6ccbd";
+const STONE_ROUGH = 0.55;
+const STONE_EDGE = 0.012;
 const BLACK_STEEL = "#2b2a28";
 function Table({
   w,
@@ -1689,10 +1699,10 @@ function Table({
     return (
       <group>
         <Soft
-          f={{ colour: STONE_TOP, rough: 0.42, coat: 0.12 }}
+          f={{ colour: STONE_TOP, rough: STONE_ROUGH, coat: 0.08 }}
           at={[0, h - top / 2, 0]}
           dims={[w, top, d]}
-          radius={0.005}
+          radius={STONE_EDGE}
         />
         <Built
           parts={[
