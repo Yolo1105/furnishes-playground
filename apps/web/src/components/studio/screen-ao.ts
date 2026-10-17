@@ -1,4 +1,6 @@
 import type { Material } from "three";
+import { mrt, roughness, vec4, velocity } from "three/tsl";
+import type { Node } from "three/webgpu";
 
 /**
  * One occlusion a surface (round 10, Part 3). A piece's boards, its
@@ -20,19 +22,38 @@ import type { Material } from "three";
  * bake already darkens its folds, and its footprint (Bake.tsx) grounds
  * it on the floor.
  *
- * A material takes it by a flag of its own, a number, which three keys
- * a shader by (RenderObject's material key, on or off), so a model's
- * program is never shared with a board's that reads none.
+ * A material takes it by its own output to the scene pass (three's
+ * `NodeMaterial.mrtNode`, merged over the pass's outputs): it writes its
+ * share into the motion target's fourth channel, where every other
+ * surface writes 0 (Post.tsx), and the frame lays the occlusion by it.
+ * A plain material (a loaded model's) carries it too: three copies a
+ * plain material's own properties into the node material it draws it
+ * with. A first version read the flag from the material inside a
+ * shader function as each shader was built; it gave 0 everywhere (the
+ * glance's contact by the sofa read 8 % with it, past 25 % with the
+ * occlusion forced on).
  */
 export const GTAO_SHARE = 0.4;
 
 export type ScreenAoMaterial = Material & { screenAo?: number };
 
+/** the scene pass's motion output for a surface that takes the
+    screen's occlusion: the motion, the roughness (the reflections read
+    it on the desktop) and the share */
+const SCREEN_AO_OUT = mrt({
+  velocity: vec4(
+    velocity as unknown as Node<"vec2">,
+    roughness,
+    GTAO_SHARE,
+  ),
+});
+
 /** a model's material marked to take the screen's occlusion, unless it
     brings its own */
 export const takesScreenAo = (m: Material) => {
-  if (!(m as Material & { aoMap?: unknown }).aoMap)
-    (m as ScreenAoMaterial).screenAo = 1;
+  if ((m as Material & { aoMap?: unknown }).aoMap) return m;
+  (m as ScreenAoMaterial).screenAo = 1;
+  (m as Material & { mrtNode?: unknown }).mrtNode = SCREEN_AO_OUT;
   return m;
 };
 

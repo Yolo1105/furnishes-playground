@@ -3,13 +3,11 @@
 import { recordPost } from "./bench";
 import { cameraMoving } from "./camera-motion";
 import { devFlag } from "./dev-flags";
-import { screenAoOf } from "./screen-ao";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
 import {
   NeutralToneMapping,
   type Camera,
-  type Material,
   type Object3D,
   type PerspectiveCamera,
   type Scene,
@@ -327,13 +325,6 @@ const frameOf = (
   return { frame, glow };
 };
 
-/** a surface's share of the screen's occlusion, as its material says
-    (screen-ao.ts): read as each material's shader is built, as three
-    reads a geometry's attributes (the flag is in the shader's key) */
-const aoShare = Fn((builder: { material: Material | null }) =>
-  float(screenAoOf(builder.material)),
-)() as unknown as Node<"float">;
-
 /** 1 while a hand moves the picture (a piece dragged, the camera
     turned), 0 at rest: the occlusion's shading is let go meanwhile */
 const MOVING = uniform(0);
@@ -416,14 +407,15 @@ const build = (
   const extras = tier === "desktop" && (effects.reflections || effects.bounce);
   const fits = bytesPerSample >= MRT_BYTES;
   // the motion's fourth channel holds how much of the screen's occlusion
-  // a surface takes (screen-ao.ts): a model's share, none on a baked one
+  // a surface takes: none here, a model's, the floor's and a rug's share
+  // written by their own materials over it (screen-ao.ts)
   const wantSsr = extras && effects.reflections && fits && !devFlag("nossr");
   const wantSsgi = extras && effects.bounce && fits && !devFlag("nossgi");
   if (extras && fits)
     scenePass.setMRT(
       mrt({
         output,
-        velocity: vec4(velocity as unknown as Node<"vec2">, roughness, aoShare),
+        velocity: vec4(velocity as unknown as Node<"vec2">, roughness, 0),
         normal: vec4(normalView, metalness),
       }),
     );
@@ -431,7 +423,7 @@ const build = (
     scenePass.setMRT(
       mrt({
         output,
-        velocity: vec4(velocity as unknown as Node<"vec2">, 0, aoShare),
+        velocity: vec4(velocity as unknown as Node<"vec2">, 0, 0),
       }),
     );
   // the occlusion from the depth alone (its normals are read back from
