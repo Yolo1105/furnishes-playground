@@ -30,11 +30,6 @@ export const withBakeDefaults = (g: BufferGeometry) => {
       "lm",
       new Float32BufferAttribute(new Float32Array(count * 2), 2),
     );
-  if (!g.getAttribute("edge"))
-    g.setAttribute(
-      "edge",
-      new Float32BufferAttribute(new Float32Array(count * 4), 4),
-    );
   return g;
 };
 

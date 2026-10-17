@@ -1,7 +1,6 @@
 "use client";
 
 import { ROD_SQUARE } from "./bake-defaults";
-import { unpickable } from "./no-pick";
 import { filtered } from "./spec-aa";
 import { useEffect, useMemo, useRef } from "react";
 import {
@@ -15,31 +14,21 @@ import { useBakeMembers } from "./Bake";
 import {
   materialColor,
   materialRoughness,
-  mx_noise_float,
-  normalLocal,
-  positionLocal,
-  smoothstep,
-  vec3,
-  vec4,
 } from "three/tsl";
 import {
   MeshPhysicalNodeMaterial,
   MeshStandardNodeMaterial,
   type Node,
 } from "three/webgpu";
-import { bakedOcclusion, bakedSky, edgeLift } from "./lightmap-nodes";
+import { bakedOcclusion, bakedSky } from "./lightmap-nodes";
 import { clothColour, plausible, toned, toneOf } from "./albedo";
 import { type MaterialName, repeated, useMaterial } from "./materials";
-import { jointLine } from "./edge-line";
 import { plyColour } from "./ply";
 import { useRoomReflection } from "./Reflection";
 import {
   batchesOf,
   cushionGeometry,
   type CushionShape,
-  JOINT_OPACITY,
-  JOINT_SHADE,
-  jointGeometry,
   type Part,
   rodGeometry,
   slabGeometry,
@@ -224,31 +213,17 @@ type MatProps = {
   banded: boolean;
 };
 
-/** a finish's roughness is never one even value: a slow drift of
-    ±`ROUGH_DRIFT` across a piece, as a real coat lies thicker and
-    thinner, and on its tops a few faint smudges `SMUDGE` rougher where
-    hands and cups have been; then held still far off (spec-aa.ts) */
-const ROUGH_DRIFT = 0.05;
-const SMUDGE = 0.07;
-const drift = mx_noise_float(positionLocal.mul(2.3)).mul(ROUGH_DRIFT);
-const smudges = smoothstep(
-  0.45,
-  0.75,
-  mx_noise_float(positionLocal.mul(5.1).add(vec3(17, 3, 11))),
-)
-  .mul(smoothstep(0.7, 0.95, normalLocal.y))
-  .mul(SMUDGE);
-const roughness = filtered(
-  materialRoughness.add(drift).add(smudges).clamp(0.04, 1),
-);
+/** a finish's roughness as its material has it, held still far off
+    (spec-aa.ts). Round 10 removed the painted drift and smudges laid
+    over it: a scan's roughness map carries the real variation, and two
+    sources of it on one surface read as noise, not as a coat */
+const roughness = filtered(materialRoughness);
 
 /** a part's colour: its board's plies on a plywood edge, its face as
-    the material has it, and a convex edge a hair brighter where it
-    catches the light (lightmap-nodes.ts) */
-const lifted = (c: Node<"vec4">) =>
-  vec4(c.rgb.mul(edgeLift), c.a) as unknown as Node<"vec4">;
-const PLY_COLOUR = lifted(plyColour);
-const FACE_COLOUR = lifted(materialColor as unknown as Node<"vec4">);
+    the material has it (round 10 removed the edge lift: the baked
+    occlusion and the light already shape a convex edge) */
+const PLY_COLOUR = plyColour;
+const FACE_COLOUR = materialColor as unknown as Node<"vec4">;
 
 type LightingModel = {
   directRectArea: (
@@ -434,14 +409,6 @@ export function Slab({
       geometry={geometry}
     >
       <Mat f={f} colour={colour} banded />
-      <lineSegments
-        geometry={jointGeometry(dims)}
-        material={jointLine(
-          shade(colour ?? f.colour, JOINT_SHADE),
-          JOINT_OPACITY,
-        )}
-        raycast={unpickable}
-      />
     </mesh>
   );
 }
@@ -464,7 +431,6 @@ export function Built({ parts }: { parts: Part[] }) {
     () => () => {
       for (const b of batches) {
         b.faces.dispose();
-        b.joints?.dispose();
       }
     },
     [batches],
@@ -501,16 +467,6 @@ export function Built({ parts }: { parts: Part[] }) {
           receiveShadow
         >
           <Mat f={b.f} colour={b.colour} banded />
-          {b.joints && (
-            <lineSegments
-              geometry={b.joints}
-              material={jointLine(
-                shade(b.colour ?? b.f.colour, JOINT_SHADE),
-                JOINT_OPACITY,
-              )}
-              raycast={unpickable}
-            />
-          )}
         </mesh>
       ))}
     </>

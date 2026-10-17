@@ -1,9 +1,7 @@
 import { hash01 } from "./seeded";
 import {
-  BoxGeometry,
   BufferGeometry,
   CylinderGeometry,
-  EdgesGeometry,
   Euler,
   ExtrudeGeometry,
   Float32BufferAttribute,
@@ -20,14 +18,14 @@ import {
 } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { grainShiftOf, toneOf } from "./albedo";
 import { ROD_SQUARE, withBakeDefaults } from "./bake-defaults";
-import { type BakeBox, faceAxes, inside, toPiece } from "./lightmap-bake";
+import { type BakeBox, faceAxes } from "./lightmap-bake";
 import type { Finish } from "./finish";
 import { WOOD_M } from "./textures";
 
 /**
  * The geometry a piece's parts are drawn with (finish.tsx draws them):
- * a board with its edges eased and its band in its vertex colours, its
- * joint lines, a rod and a soft block, each kept by size, and a built
+ * a board with its edges eased and its band in its vertex colours, a
+ * rod and a soft block, each kept by size, and a built
  * piece's parts merged into a few batches, one a finish.
  */
 
@@ -57,29 +55,6 @@ export const faceOfNormal = (nx: number, ny: number, nz: number) => {
   const axis = ax >= ay && ax >= az ? 0 : ay >= az ? 1 : 2;
   return axis * 2 + ([nx, ny, nz][axis]! > 0 ? 1 : 0);
 };
-/** how near a point of a board stands to each of its face's four edges
-    (−u, +u, −v, +v of the face's axes), as the `edge` attribute keeps
-    it for the edge's line (lightmap-nodes.ts): 1 less the distance in
-    m, which a face's interpolation keeps exact across it */
-const edgeNear = (
-  out: Float32Array,
-  i: number,
-  p: [number, number, number],
-  half: [number, number, number],
-  face: number,
-) => {
-  const [u, v] = faceAxes(face);
-  const [pu, pv, hu, hv] = [p[u]!, p[v]!, half[u]!, half[v]!];
-  out[i * 4] = 1 - (pu + hu);
-  out[i * 4 + 1] = 1 - (hu - pu);
-  out[i * 4 + 2] = 1 - (pv + hv);
-  out[i * 4 + 3] = 1 - (hv - pv);
-};
-/** an edge another board covers draws no line: its nearness set far */
-const COVERED = -10;
-/** how far round an edge is looked at for a board covering it, m */
-const ROUND_LOOK = 0.003;
-
 /** a slab's geometry: a box with its edges eased, its texture laid in
     metres with the grain along the panel's longer side (a top's along
     its length, a side's up its height, a door's up its height), so no
@@ -103,7 +78,6 @@ export const slabGeometry = (dims: Vector3Tuple) => {
   const uv = g.getAttribute("uv");
   const tone = new Float32Array(pos.count * 3);
   const ply = new Float32Array(pos.count * 3);
-  const near = new Float32Array(pos.count * 4);
   // the board's thickness runs along its shortest side: the two faces
   // across it are the board's faces, the other four its edge band
   const thin = Math.min(w, h, d);
@@ -135,14 +109,6 @@ export const slabGeometry = (dims: Vector3Tuple) => {
       facing = 2;
     }
     uv.setXY(i, a / WOOD_M, b / WOOD_M);
-    // how near the point stands to its face's four edges (edgeNear)
-    edgeNear(
-      near,
-      i,
-      [x, y, z],
-      [w / 2, h / 2, d / 2],
-      faceOfNormal(nor.getX(i), nor.getY(i), nor.getZ(i)),
-    );
     const t = across === thin ? 1 : BAND;
     tone[i * 3] = t;
     tone[i * 3 + 1] = t;
@@ -156,7 +122,6 @@ export const slabGeometry = (dims: Vector3Tuple) => {
   uv.needsUpdate = true;
   g.setAttribute("color", new Float32BufferAttribute(tone, 3));
   g.setAttribute("ply", new Float32BufferAttribute(ply, 3));
-  g.setAttribute("edge", new Float32BufferAttribute(near, 4));
   withBakeDefaults(g);
   if (slabs.size >= SLABS_KEPT) {
     const oldest = slabs.keys().next().value!;
@@ -167,31 +132,6 @@ export const slabGeometry = (dims: Vector3Tuple) => {
   return g;
 };
 
-/** the joint lines of a slab: its twelve edges as the hairline two
-    eased edges leave where boards meet, a hair outside the slab so
-    they lie on its surface, drawn and never picked */
-const joints = new Map<string, BufferGeometry>();
-const JOINT_OUT = 0.0004;
-/** how far below the board's colour its joint lines stand, and how
-    much they cover */
-export const JOINT_SHADE = -0.3;
-export const JOINT_OPACITY = 0.15;
-export const jointGeometry = (dims: Vector3Tuple) => {
-  const key = dims.join(",");
-  const had = joints.get(key);
-  if (had) return had;
-  const [w, h, d] = dims;
-  const g = new EdgesGeometry(
-    new BoxGeometry(w + JOINT_OUT, h + JOINT_OUT, d + JOINT_OUT),
-  );
-  if (joints.size >= SLABS_KEPT) {
-    const oldest = joints.keys().next().value!;
-    joints.get(oldest)!.dispose();
-    joints.delete(oldest);
-  }
-  joints.set(key, g);
-  return g;
-};
 /** a round part's segments around */
 const ROUND = 20;
 
@@ -225,8 +165,6 @@ const batchOf = (p: Part) => {
 const placed = (
   parts: Part[],
   shape: (p: Part) => BufferGeometry,
-  /** a part's own copy changed before it is placed (its edges) */
-  adjust?: (g: BufferGeometry, p: Part) => void,
 ) => {
   const m = new Matrix4();
   const q = new Quaternion();
@@ -240,7 +178,6 @@ const placed = (
   const each = parts.map((p, i) => {
     const own = shapes[i]!;
     const g = mixed && own.index ? own.toNonIndexed() : own.clone();
-    adjust?.(g, p);
     m.compose(
       at.set(...p.at),
       q.setFromEuler(e.set(...(p.rotation ?? [0, 0, 0]))),
@@ -302,74 +239,21 @@ export const boxOfPart = (p: Part): BakeBox => {
   };
 };
 
-/** which of a board's edges another board covers: for each face, its
-    four edges (−u, +u, −v, +v), looked at just round the edge at three
-    points along it (an edge two of them find covered is covered), and
-    below the floor counts as covered (a plinth's foot draws no line) */
-export const coveredEdges = (k: number, boxes: BakeBox[]) => {
-  const b = boxes[k]!;
-  const out: boolean[] = [];
-  for (let face = 0; face < 6; face++) {
-    const a = face >> 1;
-    const sign = face & 1 ? 1 : -1;
-    const [u, v] = faceAxes(face);
-    for (let edge = 0; edge < 4; edge++) {
-      const along = edge < 2 ? u : v;
-      const across = edge < 2 ? v : u;
-      const end = edge % 2 ? 1 : -1;
-      let hits = 0;
-      for (const f of [0.25, 0.5, 0.75]) {
-        const l: [number, number, number] = [0, 0, 0];
-        // past the edge, out round the corner from the face
-        l[a] = sign * (b.h[a]! + ROUND_LOOK);
-        l[along] = end * (b.h[along]! + ROUND_LOOK);
-        l[across] = (2 * f - 1) * b.h[across]!;
-        const q = toPiece(b, l);
-        if (
-          q[1] < -ROUND_LOOK / 2 ||
-          boxes.some((o, i) => i !== k && inside(o, [q[0], q[1], q[2]], 0))
-        )
-          hits++;
-      }
-      out.push(hits >= 2);
-    }
-  }
-  return out;
-};
-
-/** a board's copy with its covered edges set far, so they draw no line */
-const coverEdges = (g: BufferGeometry, covered: boolean[]) => {
-  const near = g.getAttribute("edge");
-  const nor = g.getAttribute("normal");
-  if (!near || !nor) return;
-  for (let i = 0; i < near.count; i++) {
-    const face = faceOfNormal(nor.getX(i), nor.getY(i), nor.getZ(i));
-    for (let e = 0; e < 4; e++)
-      if (covered[face * 4 + e]) near.setComponent(i, e, COVERED);
-  }
-};
-
 export type Batch = {
   key: string;
   f: Finish;
   colour: string | undefined;
   faces: BufferGeometry;
-  joints: BufferGeometry | null;
   /** the batch's parts, and where each one's vertices lie in `faces` */
   parts: Part[];
   ranges: [number, number][];
 };
 
 /** the parts in batches: those with the same finish and colour merged
-    into one geometry, their boards' joint lines into another; each
-    board's edges that another of the piece's boards covers drawn with
-    no line */
+    into one geometry (round 10 took away the joint lines and the edge
+    lift: the rounds in the geometry and the baked occlusion draw where
+    boards meet) */
 export const batchesOf = (all: Part[]): Batch[] => {
-  const boxes = all.map(boxOfPart);
-  const covered = new Map<Part, boolean[]>();
-  all.forEach((p, k) => {
-    if ("dims" in p) covered.set(p, coveredEdges(k, boxes));
-  });
   const by = new Map<string, Part[]>();
   for (const p of all) {
     const k = batchOf(p);
@@ -377,24 +261,14 @@ export const batchesOf = (all: Part[]): Batch[] => {
   }
   return [...by].map(([k, ps]): Batch => {
     const first = ps[0]!;
-    const boards = ps.filter((p) => "dims" in p);
-    const { merged, ranges } = placed(
-      ps,
-      (p) => ("dims" in p ? slabGeometry(p.dims) : rodGeometry(p.rod)),
-      (g, p) => {
-        const c = covered.get(p);
-        if (c) coverEdges(g, c);
-      },
+    const { merged, ranges } = placed(ps, (p) =>
+      "dims" in p ? slabGeometry(p.dims) : rodGeometry(p.rod),
     );
     return {
       key: k,
       f: first.f,
       colour: "dims" in first ? first.colour : undefined,
       faces: merged,
-      joints: boards.length
-        ? placed(boards, (p) => jointGeometry("dims" in p ? p.dims : [0, 0, 0]))
-            .merged
-        : null,
       parts: ps,
       ranges,
     };

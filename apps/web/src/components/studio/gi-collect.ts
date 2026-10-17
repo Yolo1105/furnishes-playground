@@ -266,6 +266,51 @@ const floorsOf = (rooms: GiRoomIn[]) => {
   return floors;
 };
 
+/** a mesh the bake leaves out of the light: the small things set in
+    rows (books), which count for little; the helpers; and a piece's
+    footprint, its own bake's shadow on the floor (GiBake's room
+    signature leaves out the same, or every piece's bake arriving would
+    change its room's signature and bake the room again) */
+export const bakeIgnores = (mesh: Mesh) => {
+  if ((mesh as Mesh & { isInstancedMesh?: boolean }).isInstancedMesh)
+    return true;
+  const ud = mesh.userData as { export?: string; name?: string };
+  return ud.export === "helper" || ud.name === "Footprint";
+};
+
+/** a room's signature: where its meshes stand and their colours, and
+    its lamps, each once (a model's near and far copies stand in the same
+    place, so a change of copy as the camera comes nearer, or the two
+    seen at once while one fades to the other, bakes nothing again), as
+    one hash (FNV-1a) over them in order */
+export const roomSignature = (group: Object3D, from: V3, extra: number) => {
+  const seen = new Set<string>();
+  const r = (x: number) => Math.round(x * 100);
+  group.traverse((o) => {
+    const l = o as Object3D & { isLight?: boolean; intensity?: number };
+    const e = o.matrixWorld.elements;
+    const at = `${r(e[12]! + from[0])},${r(e[13]! + from[1])},${r(e[14]! + from[2])}`;
+    if (l.isLight) {
+      seen.add(`L${at},${r(l.intensity ?? 0)}`);
+      return;
+    }
+    const m = o as Mesh;
+    if (!m.isMesh || bakeIgnores(m)) return;
+    const mat = Array.isArray(m.material) ? m.material[0] : m.material;
+    const c = (mat as { color?: Color } | undefined)?.color;
+    seen.add(`${at},${r(e[0]!)},${r(e[2]!)},${c ? c.getHex() : -1}`);
+  });
+  let h = 0x811c9dc5;
+  for (const k of [...seen].sort()) {
+    for (let i = 0; i < k.length; i++) {
+      h ^= k.charCodeAt(i);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+  }
+  h ^= Math.round(extra * 100) | 0;
+  return Math.imul(h, 0x01000193) >>> 0;
+};
+
 /** the flat's triangles, each room's job, and the shell's meshes, as
     the scene stands */
 export const collectFlat = (
@@ -301,11 +346,7 @@ export const collectFlat = (
       }
       const mesh = o as Mesh & { isInstancedMesh?: boolean };
       if (!mesh.isMesh || !mesh.geometry?.getAttribute("position")) return;
-      // the small things set in rows (books) count for little in the
-      // light
-      if (mesh.isInstancedMesh) return;
-      const ud = mesh.userData as { export?: string; name?: string };
-      if (ud.export === "helper" || ud.name === "Footprint") return;
+      if (bakeIgnores(mesh)) return;
       const mats = Array.isArray(mesh.material)
         ? mesh.material
         : [mesh.material];

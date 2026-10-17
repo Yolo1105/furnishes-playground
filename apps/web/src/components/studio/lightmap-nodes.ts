@@ -2,15 +2,10 @@ import {
   attribute,
   float,
   Fn,
-  fwidth,
-  max,
-  positionView,
-  smoothstep,
   texture,
   uv,
   vec2,
   vec3,
-  vec4,
 } from "three/tsl";
 import { Color } from "three";
 import { MeshBasicNodeMaterial, type Node } from "three/webgpu";
@@ -41,12 +36,6 @@ const orNone = <T extends "vec2" | "vec4">(
  *   what is taken away (so a part never baked, or with no `lm` at all,
  *   takes nothing). `bakedOcclusion` scales the indirect light (as the
  *   material's ambient occlusion), `bakedSky` the window's area lights.
- * - `edgeLift`: a board's convex edges catch the light. Each vertex of a
- *   board carries how near it stands to each of its face's four edges
- *   (the `edge` attribute, part-geometry.ts: 1 less the distance in m,
- *   an edge another board covers set far off), so the line is drawn at
- *   the pixel, a pixel or the round-over wide, whichever is more, and
- *   given over with distance so it never crawls.
  */
 
 const lm = orNone("lm", "vec2", vec2(0, 0));
@@ -63,23 +52,6 @@ export const bakedOcclusion = baked.r.mul(
 /** how much of the sky's light, through the window, reaches it */
 export const bakedSky = baked.g.mul(
   float(1).sub(lm.y),
-) as unknown as Node<"float">;
-
-/** how much brighter a convex edge's line is than its face */
-export const EDGE_LIFT = 0.09;
-/** the line at least this wide, m: the round-over's own width */
-export const EDGE_MIN = 0.0018;
-/** from this far, m, the line gives way, all of it by the second */
-export const EDGE_FADE = { from: 6, to: 14 } as const;
-const edge = orNone("edge", "vec4", vec4(0, 0, 0, 0));
-const nearest = float(1).sub(max(max(edge.x, edge.y), max(edge.z, edge.w)));
-const width = max(fwidth(nearest).mul(1.25), EDGE_MIN);
-const line = float(1).sub(smoothstep(0, width, nearest));
-const fade = float(1).sub(
-  smoothstep(EDGE_FADE.from, EDGE_FADE.to, positionView.z.negate()),
-);
-export const edgeLift = float(1).add(
-  line.mul(fade).mul(EDGE_LIFT),
 ) as unknown as Node<"float">;
 
 /** the footprint's colour, a warm near-black as a shadow on oak is, and

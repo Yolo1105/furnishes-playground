@@ -3,11 +3,13 @@
 import { recordPost } from "./bench";
 import { cameraMoving } from "./camera-motion";
 import { devFlag } from "./dev-flags";
+import { screenAoOf } from "./screen-ao";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
 import {
   NeutralToneMapping,
   type Camera,
+  type Material,
   type Object3D,
   type PerspectiveCamera,
   type Scene,
@@ -27,7 +29,6 @@ import { bloom } from "three/examples/jsm/tsl/display/BloomNode.js";
 import {
   float,
   Fn,
-  hash,
   max,
   metalness,
   mix,
@@ -39,11 +40,7 @@ import {
   renderOutput,
   roughness,
   rtt,
-  screenCoordinate,
   screenUV,
-  smoothstep,
-  sRGBTransferEOTF,
-  sRGBTransferOETF,
   toneMappingExposure,
   uniform,
   vec2,
@@ -260,20 +257,13 @@ const backdropNode = (b: Backdrop, place: Place): Node<"vec3"> => {
 const GLOW = { strength: 0.06, radius: 0.2, threshold: 2 };
 /** the most the glow takes from any pixel, times white (stability) */
 const GLOW_CLAMP = 8;
-/** a lens's fall-off at the frame's corners, a share of the light */
-const VIGNETTE = { depth: 0.065, from: 0.4, to: 0.72 };
-/** a photograph's faint grain (round 8, 1h): up to ±`GRAIN` of a
-    pixel's value in the midtones, none in the blacks and the whites,
-    fixed to the pixel so a still frame stays still (it does not crawl;
-    TRAA's jitter moves the scene under it, not it) */
-const GRAIN = 0.012;
-/** the picture's black point, linear (round 9, Part 3): the deepest
-    shade under a sofa or in a bookshelf's back read a milky grey (the
-    darkest 1 % of a day picture at 0.13 of white); a photograph's
-    darkest is near black. Taken off after the tone mapping and the rest
-    spread back to white, so the midtones barely move (0.5 stays 0.49)
-    and the exposure and the light are as they were */
-const BLACK_POINT = 0.01;
+/* Round 10 took the lens's vignette, the photograph's grain and the
+   black point out of the live view: each was a second layer over what
+   the light and the materials already do (the corners and the deep
+   shade are the bake's and the probes' to darken; a still frame's
+   noise is the materials' own grain), and the black point crushed the
+   one shade the occlusion had just drawn. The frame is the tone
+   mapping's, nothing laid over it */
 /** the picture's white balance, a gain on each channel before the tone
     mapping (white-balance.ts): the scene sets it for its look */
 export const WHITE_BALANCE = uniform(new Vector3(1, 1, 1));
@@ -329,31 +319,20 @@ const frameOf = (
   const withGlow = (glow ? lit.add(glow.rgb.div(exposure)) : lit).mul(
     WHITE_BALANCE,
   );
-  // the lens darkens the room's corners a little, not the page behind
-  const lens = float(1).sub(
-    smoothstep(VIGNETTE.from, VIGNETTE.to, screenUV.sub(0.5).length()).mul(
-      VIGNETTE.depth,
-    ),
-  );
-  const mapped = renderOutput(vec4(withGlow, 1), TONE_MAPPING, SRGBColorSpace)
+  const toned = renderOutput(vec4(withGlow, 1), TONE_MAPPING, SRGBColorSpace)
     .rgb as unknown as Node<"vec3">;
-  const deep = (sRGBTransferEOTF(mapped) as unknown as Node<"vec3">)
-    .sub(BLACK_POINT)
-    .max(0)
-    .div(1 - BLACK_POINT);
-  const toned = (sRGBTransferOETF(deep) as unknown as Node<"vec3">).mul(lens);
-  const luma = toned.dot(vec3(0.2126, 0.7152, 0.0722)).clamp(0, 1);
-  const speck = hash(
-    screenCoordinate.x.floor().add(screenCoordinate.y.floor().mul(4099)),
-  ).sub(0.5);
-  const grained = toned.mul(
-    float(1).add(speck.mul(2 * GRAIN).mul(luma.mul(float(1).sub(luma)).mul(4))),
-  );
   const frame = rtt(
-    vec4(mix(backdrop, grained, depth.r.lessThan(1).select(1, 0)), 1),
+    vec4(mix(backdrop, toned, depth.r.lessThan(1).select(1, 0)), 1),
   );
   return { frame, glow };
 };
+
+/** a surface's share of the screen's occlusion, as its material says
+    (screen-ao.ts): read as each material's shader is built, as three
+    reads a geometry's attributes (the flag is in the shader's key) */
+const aoShare = Fn((builder: { material: Material | null }) =>
+  float(screenAoOf(builder.material)),
+)() as unknown as Node<"float">;
 
 /** 1 while a hand moves the picture (a piece dragged, the camera
     turned), 0 at rest: the occlusion's shading is let go meanwhile */
@@ -436,17 +415,25 @@ const build = (
   // stays within the bytes a sample may hold on any device
   const extras = tier === "desktop" && (effects.reflections || effects.bounce);
   const fits = bytesPerSample >= MRT_BYTES;
+  // the motion's fourth channel holds how much of the screen's occlusion
+  // a surface takes (screen-ao.ts): a model's share, none on a baked one
   const wantSsr = extras && effects.reflections && fits && !devFlag("nossr");
   const wantSsgi = extras && effects.bounce && fits && !devFlag("nossgi");
   if (extras && fits)
     scenePass.setMRT(
       mrt({
         output,
-        velocity: vec4(velocity as unknown as Node<"vec2">, roughness, 0),
+        velocity: vec4(velocity as unknown as Node<"vec2">, roughness, aoShare),
         normal: vec4(normalView, metalness),
       }),
     );
-  else scenePass.setMRT(mrt({ output, velocity }));
+  else
+    scenePass.setMRT(
+      mrt({
+        output,
+        velocity: vec4(velocity as unknown as Node<"vec2">, 0, aoShare),
+      }),
+    );
   // the occlusion from the depth alone (its normals are read back from
   // it), so the room is drawn once a frame
   // the occlusion can be switched off for diagnosis (dev-flags.ts)
@@ -533,9 +520,11 @@ const build = (
     depth,
     smoothed
       ? (mix(
-          (smoothed as unknown as Node<"vec4">).r,
           float(1),
-          MOVING,
+          (smoothed as unknown as Node<"vec4">).r,
+          scenePass
+            .getTextureNode("velocity")
+            .a.mul(float(1).sub(MOVING)),
         ) as unknown as Node<"float">)
       : null,
     backdrop,

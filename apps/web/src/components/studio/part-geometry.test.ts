@@ -3,56 +3,18 @@ import { Vector3 } from "three";
 import {
   batchesOf,
   cushionGeometry,
-  faceOfNormal,
   type Part,
   slabGeometry,
 } from "./part-geometry";
 
 describe("a board's geometry for the bake (round 8)", () => {
-  it("carries a second UV set, an open light and its edges' nearness", () => {
+  it("carries a second UV set and an open light, and no edge line (round 10)", () => {
     const g = slabGeometry([0.6, 0.018, 0.3]);
-    for (const name of ["uv1", "lm", "edge"])
+    for (const name of ["uv1", "lm"])
       expect(g.getAttribute(name), name).toBeTruthy();
-    // a point in the middle of the top stands about 0.3 m from its
-    // nearest edges across, 0.15 m along (1 less the distance)
-    const pos = g.getAttribute("position");
-    const nor = g.getAttribute("normal");
-    const edge = g.getAttribute("edge");
-    let seen = 0;
-    for (let i = 0; i < pos.count; i++) {
-      if (faceOfNormal(nor.getX(i), nor.getY(i), nor.getZ(i)) !== 3) continue;
-      const d = [0, 1, 2, 3].map((k) => 1 - edge.getComponent(i, k));
-      // the four distances to its face's edges sum to the face's size
-      expect(d[0]! + d[1]!).toBeCloseTo(0.6, 2);
-      expect(d[2]! + d[3]!).toBeCloseTo(0.3, 2);
-      seen++;
-    }
-    expect(seen).toBeGreaterThan(3);
-  });
-  it("sets far an edge another board covers, so it draws no line", () => {
-    const f = { colour: "#a07850", rough: 1 };
-    // a side standing on a bottom board: the side's foot is covered
-    const parts: Part[] = [
-      { f, at: [0, 0.009, 0], dims: [0.6, 0.018, 0.3] },
-      { f, at: [-0.291, 0.218, 0], dims: [0.018, 0.4, 0.3] },
-    ];
-    const [batch] = batchesOf(parts);
-    const [from, count] = batch!.ranges[1]!;
-    const pos = batch!.faces.getAttribute("position");
-    const nor = batch!.faces.getAttribute("normal");
-    const edge = batch!.faces.getAttribute("edge");
-    let covered = 0;
-    let open = 0;
-    for (let i = from; i < from + count; i++) {
-      // the side's inner face (+x)
-      if (faceOfNormal(nor.getX(i), nor.getY(i), nor.getZ(i)) !== 1) continue;
-      if (pos.getX(i) < -0.29) continue;
-      // its −v (low y) edge sits on the bottom board; its +v (top) is open
-      if (edge.getComponent(i, 2) < -5) covered++;
-      if (edge.getComponent(i, 3) > -5) open++;
-    }
-    expect(covered).toBeGreaterThan(0);
-    expect(open).toBeGreaterThan(0);
+    // the edge lift's nearness is gone with the lift: one fewer layer
+    // over the light, and four floats a vertex fewer
+    expect(g.getAttribute("edge")).toBeUndefined();
   });
   it("keeps where each part's vertices lie in its batch", () => {
     const f = { colour: "#a07850", rough: 1 };

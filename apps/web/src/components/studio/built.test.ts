@@ -30,10 +30,6 @@ describe("a built piece's parts in batches", () => {
     expect(batches).toHaveLength(1);
     const one = batchesOf([board(0)])[0]!;
     expect(tris(batches[0]!.faces)).toBe(3 * tris(one.faces));
-    // the joint lines are merged too, one set for the batch
-    expect(batches[0]!.joints!.getAttribute("position").count).toBe(
-      3 * one.joints!.getAttribute("position").count,
-    );
   });
   it("keeps a bay in its own colour, and the handles apart", () => {
     const parts: Part[] = [
@@ -45,8 +41,7 @@ describe("a built piece's parts in batches", () => {
     const batches = batchesOf(parts);
     expect(batches).toHaveLength(3);
     const rods = batches.find((b) => b.f.metal !== undefined)!;
-    // a batch of rods has no joint lines to draw
-    expect(rods.joints).toBeNull();
+    expect(rods.parts.every((p) => "rod" in p)).toBe(true);
     expect(batches.every((b) => b.faces.getAttribute("color"))).toBe(true);
   });
   it("merges a rod with the boards of its finish", () => {
@@ -57,9 +52,6 @@ describe("a built piece's parts in batches", () => {
     ]);
     expect(batches).toHaveLength(1);
     expect(batches[0]!.faces).not.toBeNull();
-    expect(batches[0]!.joints!.getAttribute("position").count).toBeGreaterThan(
-      0,
-    );
   });
   it("places a turned part where it stands", () => {
     const [b] = batchesOf([

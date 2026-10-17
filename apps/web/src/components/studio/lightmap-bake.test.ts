@@ -7,7 +7,6 @@ import {
   facePoint,
   layoutCharts,
 } from "./lightmap-bake";
-import { coveredEdges } from "./part-geometry";
 import { giveBack, resetAtlas, take } from "./lightmap";
 
 /** a bay of 18 mm boards: two sides, a bottom, a top and a back, 0.6 m
@@ -123,19 +122,6 @@ describe("bake", () => {
     const { p, n } = facePoint(bay[3]!, 3, 0.5, 0.5);
     expect(p[1]).toBeCloseTo(0.4);
     expect(n).toEqual([0, 1, 0]);
-  });
-});
-
-describe("coveredEdges", () => {
-  it("finds the edge where one board meets another's face", () => {
-    // the left side's top edge on its outer face is open; its inner
-    // face's bottom edge meets the bottom board
-    const covered = coveredEdges(0, bay);
-    // face 1 (+x, the side's inner face), its −v edge (low y): the
-    // bottom board sits there
-    expect(covered[1 * 4 + 2]).toBe(true);
-    // face 0 (−x, the outer face), its +v edge (the top): open air
-    expect(covered[0 * 4 + 3]).toBe(false);
   });
 });
 
