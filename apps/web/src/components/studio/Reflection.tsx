@@ -39,6 +39,7 @@ import { create } from "zustand";
 import { PICTURE_FADE_MS, type StillState, stillOf, wakeAt } from "./capture";
 import { gaveUp, givenUp } from "./gpu-fallback";
 import { devFlag } from "./dev-flags";
+import { takesScreenAo } from "./screen-ao";
 import { useScene } from "./scene-store";
 import { warming } from "./shader-warm";
 import { withWallsStanding } from "./walls-standing";
@@ -195,6 +196,10 @@ export const useFloorMaterial = (
         getParallaxCorrectNormal(reflectVector, ROOM_BOX, ROOM_MID),
       );
     }
+    // the floor's contact with what stands on it is the screen's
+    // occlusion's (round 10): the bounce's texels are too coarse for a
+    // sofa's few centimetres, and a footprint is baked for few pieces
+    takesScreenAo(m);
     return m;
   }, [target]);
   useEffect(() => () => material.dispose(), [material]);

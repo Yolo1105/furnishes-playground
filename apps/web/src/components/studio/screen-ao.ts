@@ -9,6 +9,12 @@ import type { Material } from "three";
  * own, a loaded model (a sofa, a plant, a lamp), at `GTAO_SHARE` of its
  * strength: a model's own maps already shade its folds.
  *
+ * The floor takes it too, for what stands on it: its own bake (the
+ * rooms' bounce) is too coarse for a contact a few centimetres wide,
+ * and only a few pieces lay a footprint (round 10's glance read the
+ * floor by the sofa 8.5 % darker than open floor without it, against
+ * its 25 %). The walls, the ceiling and the boards stay on their bakes.
+ *
  * A model whose own file brings an occlusion map (glTF's occlusion
  * texture) keeps that one and takes none from the screen: its artist's
  * bake already darkens its folds, and its footprint (Bake.tsx) grounds

@@ -3142,7 +3142,8 @@ each job:
 | Job | Before | After | Why |
 | --- | --- | --- | --- |
 | Occlusion, pieces | baked (`bakedOcclusion`) **and** GTAO | baked only | the bake knows the piece's own boards; GTAO darkened the same corners again |
-| Occlusion, the shell | GI bake's bounce **and** GTAO | the bake only | the bounce already falls off into corners |
+| Occlusion, the walls and ceiling | GI bake's bounce **and** GTAO | the bake only | the bounce already falls off into corners |
+| Occlusion, the floor | GI bake's bounce **and** GTAO | GTAO at 0.4, for contact only | the bounce's texels are too coarse for a sofa's few centimetres, and only 4 pieces in the flat lay a footprint; without it the glance read the floor by the sofa 8.5 % darker than open floor, against its 25 % |
 | Occlusion, glTF models | GTAO at full | GTAO at 0.4 (`GTAO_SHARE`; the glance's sofa edge lift reads 0.038 at 0.4 and 0.037 at 0.5, so its bar moves from 0.04 to 0.035, below), none if the file brings its own occlusion map | a model has no bake of its own; its footprint grounds it |
 | Bounce | baked GI; SSGI optional (desktop, off) | baked GI; SSGI stays an opt-in setting, off | one source by default |
 | Reflection | room cube / box-projected floor; SSR optional (desktop, off) | the same | already one by default |
