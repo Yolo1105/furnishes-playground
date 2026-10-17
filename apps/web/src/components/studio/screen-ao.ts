@@ -18,7 +18,7 @@ import type { Material } from "three";
  * a shader by (RenderObject's material key, on or off), so a model's
  * program is never shared with a board's that reads none.
  */
-export const GTAO_SHARE = 0.4;
+export const GTAO_SHARE = 0.5;
 
 export type ScreenAoMaterial = Material & { screenAo?: number };
 
