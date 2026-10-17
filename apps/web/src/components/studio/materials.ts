@@ -82,12 +82,22 @@ const ROOT = "/materials";
 /** how much of a tone goes over a photographed set */
 export const TINT = 0.3;
 
+/** each map of a set as its file holds it: the colour an sRGB picture,
+    the rest data read as they are (a normal's directions, a
+    roughness), never decoded as a colour. A set's own occlusion map is
+    not loaded at all: a piece's bake is its one occlusion (round 10) */
+export const SET_MAPS = {
+  color: SRGBColorSpace,
+  normal: NoColorSpace,
+  roughness: NoColorSpace,
+} as const;
+
 const loader = new TextureLoader();
-const load = (url: string, colour: boolean) =>
+const load = (url: string, slot: keyof typeof SET_MAPS) =>
   loader.loadAsync(url).then((t: Texture) => {
     t.wrapS = RepeatWrapping;
     t.wrapT = RepeatWrapping;
-    t.colorSpace = colour ? SRGBColorSpace : NoColorSpace;
+    t.colorSpace = SET_MAPS[slot];
     t.anisotropy = 8;
     // a JPEG goes out of a glTF export as a JPEG again, not re-drawn
     // as a PNG four times the size (the exporter reads the hint)
@@ -143,9 +153,9 @@ export const loadMaterials = () => {
       for (const [name, m] of entries) {
         const base = `${ROOT}/${name}/`;
         void Promise.all([
-          load(base + m.color, true),
-          load(base + m.normal, false),
-          load(base + m.roughness, false),
+          load(base + m.color, "color"),
+          load(base + m.normal, "normal"),
+          load(base + m.roughness, "roughness"),
         ])
           .then(([map, normalMap, roughnessMap]) => {
             warnIfDark(name, map);
