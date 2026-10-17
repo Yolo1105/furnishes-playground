@@ -15,6 +15,7 @@ import {
   fallback,
   MODEL,
 } from "@/lib/model";
+import { meshInput } from "@/lib/mesh-input";
 import { MODEL_BYTES, readJson } from "@/lib/schemas";
 
 /**
@@ -121,7 +122,7 @@ export async function POST(req: Request) {
     counted = true;
     const [made, material] = await Promise.all([
       fal.subscribe(mesh, {
-        input: { input_image_url: imageUrl, enable_pbr: true },
+        input: meshInput(mesh, imageUrl),
       }) as Promise<{ data: Record<string, unknown> }>,
       materialOf(req, door.caller, imageUrl),
     ]);

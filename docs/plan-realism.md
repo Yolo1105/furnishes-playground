@@ -3203,6 +3203,21 @@ frame's width, with a margin. `data-proof-piece` says which piece the
 stage holds. `product-piece.test.ts`: every recipe gives its boards
 inside its own box, every board its own cut, and an unknown id none.
 
+### Part 6, first: a second mesh provider, switched by the environment
+
+The route (`/api/generate-item`) already runs Hunyuan 3D v3.1 on fal
+(not the v2.1 the brief names; it was moved in round 8), with its PBR
+output and the model's id set by `FAL_MESH_FULL` / `FAL_MESH_RAPID`.
+Hyper3D Rodin is on fal too, so moving to it needs no new client or
+key: `meshInput` (src/lib/mesh-input.ts) gives a Rodin id its own input
+(a list of pictures, PBR materials, a GLB) and the answer's
+`model_mesh` was already read. The default stays Hunyuan until the
+owner sets the variable. Not verified: the sandbox cannot reach fal.ai,
+so Rodin's fields are as its documentation had them; the first live
+call is the check. Meshy v6 is a different provider with its own key
+and is not wired. Server-side normalising and materials by part are not
+started.
+
 ### Not done in this round, and why
 
 - **Retiring the grown wood and parquet**: needs the scans and the
@@ -3210,5 +3225,4 @@ inside its own box, every board its own cut, and an unknown id none.
 - **Metered exposure for the room planner** (Part 4): the fixed 2.15 is
   the owner's choice; it stays until they choose the metered one.
 - **Settle-to-photo and `?check=gi` on the proof** (Part 4), **scanned floor, plaster relief, textile limits** (Part 5),
-  **the fal.ai to Meshy/Rodin move** (Part 6, needs keys and a budget):
-  not started.
+  and the rest of Part 6 (above): not started.
