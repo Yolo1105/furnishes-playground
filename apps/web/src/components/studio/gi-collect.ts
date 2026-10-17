@@ -279,27 +279,37 @@ export const bakeIgnores = (mesh: Mesh) => {
 };
 
 /** a room's signature: where its meshes stand and their colours, and
-    its lamps, each once (a model's near and far copies stand in the same
-    place, so a change of copy as the camera comes nearer, or the two
-    seen at once while one fades to the other, bakes nothing again), as
-    one hash (FNV-1a) over them in order */
+    its lamps, each once, and a loaded model (its anchor marked
+    `giItem`, Furniture3D.tsx) once where it stands, so a change of copy
+    as the camera comes nearer, the two seen at once while one fades to
+    the other, or the model taking its stand-in's place bakes nothing
+    again; as one hash (FNV-1a) over them in order */
 export const roomSignature = (group: Object3D, from: V3, extra: number) => {
   const seen = new Set<string>();
   const r = (x: number) => Math.round(x * 100);
-  group.traverse((o) => {
+  const walk = (o: Object3D) => {
     const l = o as Object3D & { isLight?: boolean; intensity?: number };
     const e = o.matrixWorld.elements;
     const at = `${r(e[12]! + from[0])},${r(e[13]! + from[1])},${r(e[14]! + from[2])}`;
-    if (l.isLight) {
-      seen.add(`L${at},${r(l.intensity ?? 0)}`);
+    // a loaded model counts once, by where its item stands: its near
+    // and far copies are scaled and placed apart inside it, and its
+    // stand-in gives way to it, none of which moves the item
+    if ((o.userData as { giItem?: boolean }).giItem) {
+      seen.add(`I${at},${r(e[0]!)},${r(e[2]!)}`);
       return;
     }
-    const m = o as Mesh;
-    if (!m.isMesh || bakeIgnores(m)) return;
-    const mat = Array.isArray(m.material) ? m.material[0] : m.material;
-    const c = (mat as { color?: Color } | undefined)?.color;
-    seen.add(`${at},${r(e[0]!)},${r(e[2]!)},${c ? c.getHex() : -1}`);
-  });
+    if (l.isLight) seen.add(`L${at},${r(l.intensity ?? 0)}`);
+    else {
+      const m = o as Mesh;
+      if (m.isMesh && !bakeIgnores(m)) {
+        const mat = Array.isArray(m.material) ? m.material[0] : m.material;
+        const c = (mat as { color?: Color } | undefined)?.color;
+        seen.add(`${at},${r(e[0]!)},${r(e[2]!)},${c ? c.getHex() : -1}`);
+      }
+    }
+    for (const c of o.children) walk(c);
+  };
+  walk(group);
   let h = 0x811c9dc5;
   for (const k of [...seen].sort()) {
     for (let i = 0; i < k.length; i++) {

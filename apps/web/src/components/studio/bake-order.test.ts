@@ -81,4 +81,31 @@ describe("a piece's bake and its room's bounce", () => {
     g.add(lamp);
     expect(sig(g)).not.toBe(lit);
   });
+  it("a model's near copy taking over from its far one changes nothing", () => {
+    const { g } = room();
+    const item = new Group();
+    item.userData = { giItem: true };
+    item.position.set(-1, 0, 0.5);
+    const far = new Mesh(
+      new BoxGeometry(0.5, 0.5, 0.5),
+      new MeshStandardMaterial({ color: "#cccccc" }),
+    );
+    far.scale.setScalar(0.51);
+    item.add(far);
+    g.add(item);
+    const before = sig(g);
+    // the near copy, in its own scale and colour, fades in; the far goes
+    const near = new Mesh(
+      new BoxGeometry(1, 1, 1),
+      new MeshStandardMaterial({ color: "#f0e8dd" }),
+    );
+    near.position.y = 0.5;
+    item.add(near);
+    expect(sig(g)).toBe(before);
+    item.remove(far);
+    expect(sig(g)).toBe(before);
+    // the item moved is a change
+    item.position.x += 0.4;
+    expect(sig(g)).not.toBe(before);
+  });
 });

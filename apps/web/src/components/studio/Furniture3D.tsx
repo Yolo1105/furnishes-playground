@@ -472,7 +472,7 @@ function Model({
     ];
   }, [w, h, d]);
   return (
-    <group ref={anchor}>
+    <group ref={anchor} userData={GI_ITEM}>
       <group
         scale={k}
         position={[-centre.x * k[0], -box.min.y * k[1], -centre.z * k[2]]}
@@ -482,6 +482,10 @@ function Model({
     </group>
   );
 }
+
+/** a loaded model's anchor, which the room's bounce bake counts as one
+    item where it stands (gi-collect.ts's roomSignature) */
+const GI_ITEM = { giItem: true } as const;
 
 /** each of a model's own materials as much shown as `k` of its own
     opacity (Model's dither) */
@@ -583,7 +587,7 @@ function LodModel({
   });
   const srcOf = (k: 0 | 1) => (k === 1 ? farOf(model.src) : model.src);
   return (
-    <group ref={anchor}>
+    <group ref={anchor} userData={GI_ITEM}>
       {level.was !== null && (
         // the change under way counts as a model on its way, so a
         // picture waits for it
