@@ -215,7 +215,10 @@ const toDisk = async (key: string, r: BakeResult) => {
 
 let worker: Worker | null | undefined;
 let next = 1;
-const workerReplies = new Map<number, (r: BakeResult) => void>();
+const workerReplies = new Map<
+  number,
+  { resolve: (r: BakeResult) => void; job: BakeJob }
+>();
 /** the bakes queued, nearest first when asked with a distance */
 const queue: { job: BakeJob; near: number; go: () => void }[] = [];
 let running = false;
@@ -236,8 +239,20 @@ const inWorker = (job: BakeJob) =>
           type: "module",
         });
         w.onmessage = (e: MessageEvent<{ id: number; result: BakeResult }>) => {
-          workerReplies.get(e.data.id)?.(e.data.result);
+          workerReplies.get(e.data.id)?.resolve(e.data.result);
           workerReplies.delete(e.data.id);
+        };
+        // a worker whose script did not load (a development server still
+        // compiling it) is let go, and what it held is baked here: a
+        // piece's light is never waited on for ever
+        w.onerror = (e) => {
+          e.preventDefault();
+          w.terminate();
+          worker = null;
+          for (const [id, r] of workerReplies) {
+            workerReplies.delete(id);
+            r.resolve(bake(r.job));
+          }
         };
         worker = w;
       } catch {
@@ -249,7 +264,7 @@ const inWorker = (job: BakeJob) =>
       return;
     }
     const id = next++;
-    workerReplies.set(id, resolve);
+    workerReplies.set(id, { resolve, job });
     worker.postMessage({ id, job });
   });
 

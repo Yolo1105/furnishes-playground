@@ -186,18 +186,19 @@ type Done = {
 };
 
 /** the workers, a few, each with a job at a time; none where a worker
-    cannot be made (baked here, between frames) */
+    cannot be made (baked here, between frames). A worker that fails
+    (its script did not load: a development server still compiling it
+    on a first visit) leaves the pool and its job goes back to the queue,
+    so a bake is never waited on for ever */
+type Task = { job: GiJob; done: (r: { half: Uint16Array; ms: number }) => void };
 const pool = (() => {
-  let workers: { w: Worker; busy: boolean }[] | null = null;
+  let workers: { w: Worker; busy: Task | null }[] | null = null;
   let id = 0;
   const replies = new Map<
     number,
     (r: { half: Uint16Array; ms: number }) => void
   >();
-  const queue: {
-    job: GiJob;
-    done: (r: { half: Uint16Array; ms: number }) => void;
-  }[] = [];
+  const queue: Task[] = [];
   const start = () => {
     if (workers) return;
     workers = [];
@@ -210,13 +211,21 @@ const pool = (() => {
         const w = new Worker(new URL("./gi.worker.ts", import.meta.url), {
           type: "module",
         });
-        const slot = { w, busy: false };
+        const slot: { w: Worker; busy: Task | null } = { w, busy: null };
         w.onmessage = (
           e: MessageEvent<{ id: number; half: Uint16Array; ms: number }>,
         ) => {
-          slot.busy = false;
+          slot.busy = null;
           replies.get(e.data.id)?.(e.data);
           replies.delete(e.data.id);
+          next();
+        };
+        w.onerror = (e) => {
+          e.preventDefault();
+          w.terminate();
+          workers = workers!.filter((x) => x !== slot);
+          if (slot.busy) queue.unshift(slot.busy);
+          slot.busy = null;
           next();
         };
         workers.push(slot);
@@ -239,7 +248,7 @@ const pool = (() => {
     const free = workers!.find((w) => !w.busy);
     if (!free) return;
     const t = queue.shift()!;
-    free.busy = true;
+    free.busy = t;
     const k = ++id;
     replies.set(k, t.done);
     free.w.postMessage({ id: k, job: t.job });
