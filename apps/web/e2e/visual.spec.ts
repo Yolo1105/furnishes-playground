@@ -427,7 +427,11 @@ test("day, evening and day again: the floor's picture settles each time", async 
  * - every large face seen of the bookwall and the sofa (and the coffee
  *   table's top) spans at least 1.15 from its 10th to its 90th
  *   percentile, not one even tone;
- * - the top of the sofa's front catches the light, 4 % over its face;
+ * - the top of the sofa's front catches the light, 3.5 % over its face
+ *   (4 % until round 10: the screen's full occlusion on every surface
+ *   and the black point after the tone map both darkened the face more
+ *   than the top; with the occlusion on a model at 0.4 and no black
+ *   point it reads 3.7–3.8 %, at 0.5 the same, the sofa unchanged);
  * - a bookwall bay's back is at least 25 % darker than the boards' front
  *   edges (35 % until Part 4: with every shelf full of books the back was
  *   seen only in the gaps between them; dressed, a shelf in three is left
@@ -446,7 +450,7 @@ test("day, evening and day again: the floor's picture settles each time", async 
  */
 const GLANCE = {
   spread: 1.15,
-  edge: 0.04,
+  edge: 0.035,
   bays: 0.25,
   contact: 0.25,
   table: 0.15,

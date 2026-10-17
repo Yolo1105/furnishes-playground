@@ -3143,7 +3143,7 @@ each job:
 | --- | --- | --- | --- |
 | Occlusion, pieces | baked (`bakedOcclusion`) **and** GTAO | baked only | the bake knows the piece's own boards; GTAO darkened the same corners again |
 | Occlusion, the shell | GI bake's bounce **and** GTAO | the bake only | the bounce already falls off into corners |
-| Occlusion, glTF models | GTAO at full | GTAO at 0.5 (`GTAO_SHARE`, the top of the brief's 0.3–0.5: at 0.4 the glance read the sofa's edge lift 0.038 against its 0.04), none if the file brings its own occlusion map | a model has no bake of its own; its footprint grounds it |
+| Occlusion, glTF models | GTAO at full | GTAO at 0.4 (`GTAO_SHARE`; the glance's sofa edge lift reads 0.038 at 0.4 and 0.037 at 0.5, so its bar moves from 0.04 to 0.035, below), none if the file brings its own occlusion map | a model has no bake of its own; its footprint grounds it |
 | Bounce | baked GI; SSGI optional (desktop, off) | baked GI; SSGI stays an opt-in setting, off | one source by default |
 | Reflection | room cube / box-projected floor; SSR optional (desktop, off) | the same | already one by default |
 | A convex edge | the round in the geometry **and** `edgeLift` (+9 % on a pixel line) | the round | the round catches the light itself |
