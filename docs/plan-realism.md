@@ -3224,5 +3224,12 @@ started.
   blind test's answer.
 - **Metered exposure for the room planner** (Part 4): the fixed 2.15 is
   the owner's choice; it stays until they choose the metered one.
-- **Settle-to-photo and `?check=gi` on the proof** (Part 4), **scanned floor, plaster relief, textile limits** (Part 5),
-  and the rest of Part 6 (above): not started.
+- **Settle-to-photo and `?check=gi` on the proof** (Part 4): not
+  started; photo mode is WebGPU's and cannot be seen here.
+- **Part 5**: the textile limits are already held (albedo.ts: a cloth's
+  dye at most 0.45 saturation, a rug's 0.3, every albedo 0.035–0.83);
+  the glTF soft furniture is round 9's velvet sofa; the scanned floor
+  needs a download the sandbox cannot make; the plaster's relief
+  (`PLASTER_RELIEF`, 0.35) is left until the walls can be judged beside
+  a scanned floor.
+- **The rest of Part 6** (above): not started.
