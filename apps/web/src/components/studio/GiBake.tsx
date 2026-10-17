@@ -39,6 +39,7 @@ import {
   GI_SIDE,
   SPARE,
   giTexture,
+  guardShape,
   patchGi,
 } from "./gi-material";
 import type { Tier } from "./Post";
@@ -488,6 +489,7 @@ export function GiBake({
     const give = () => {
       if (!s.places.size) return;
       for (const m of s.shells) {
+        guardShape(m);
         const g = m.geometry;
         if (s.given.get(g) === s.placed) continue;
         s.given.set(g, s.placed);

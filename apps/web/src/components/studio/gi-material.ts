@@ -4,7 +4,10 @@ import {
   HalfFloatType,
   LinearFilter,
   RGBAFormat,
+  type BufferGeometry,
   type Light,
+  type Material,
+  type Mesh,
 } from "three";
 import {
   attribute,
@@ -147,5 +150,43 @@ export const patchGi = () => {
     } finally {
       this.lightsNode = had;
     }
+  };
+};
+
+/** a geometry's set of attributes, as three keys a shader by it */
+export const shapeOf = (g: BufferGeometry) =>
+  Object.keys(g.attributes).sort().join(",");
+
+/**
+ * A shell mesh's shader made again whenever its geometry's set of
+ * attributes changes, just before it is drawn. Three (0.186.1) keys a
+ * mesh's shader and its WebGPU pipeline by its geometry's attributes,
+ * but only looks again when the material's version moves: a wall
+ * swapping to another of its shapes (Room3D, its ends squared as the
+ * camera goes round) without `giuv`, or `giuv` given or taken back,
+ * kept the old pipeline, which asked for a vertex buffer the geometry
+ * no longer had. WebGL reads such a buffer as zeros; WebGPU refused
+ * every frame ("Vertex buffer slot 4 … was not set"), and the stage
+ * stayed blank. Moving the material's version is three's own way to
+ * have it compare the keys: the other meshes sharing the material keep
+ * their shaders, as their keys have not changed.
+ */
+const guarded = new WeakSet<Mesh>();
+export const guardShape = (mesh: Mesh) => {
+  if (guarded.has(mesh)) return;
+  guarded.add(mesh);
+  // unknown at first: the shader may have been made before the guard
+  let seen: string | null = null;
+  const own = mesh.onBeforeRender;
+  mesh.onBeforeRender = function (this: Mesh, ...args) {
+    const now = shapeOf(this.geometry);
+    if (now !== seen) {
+      seen = now;
+      const ms: Material[] = Array.isArray(this.material)
+        ? this.material
+        : [this.material];
+      for (const m of ms) m.needsUpdate = true;
+    }
+    own.apply(this, args);
   };
 };

@@ -3033,3 +3033,32 @@ Kept, and why: the boards' 1.8 mm round (a real arris on panel
 furniture, 1b above), the Furnishes family's flush tops and bay-by-bay
 sides (the assembly record's own design), and the forms of the tables,
 desks and chairs, whose tell was their wood alone.
+
+## A blank first picture on WebGPU (2026-10-17)
+
+Reported with the console: on a real Mac (WebGPU) the stage stayed
+blank on a first visit, every frame refused with "Vertex buffer slot 4
+required by [RenderPipeline …] was not set" and "Vertex range … requires
+a larger buffer than the bound buffer size … of the vertex buffer at
+slot 4 with stride 12". Slot 4, three floats: the bounce bake's `giuv`.
+
+Three (0.186.1) keys a mesh's shader and pipeline by its geometry's set
+of attributes, but looks at that key again only when the material's
+version moves; a new geometry on the same mesh only has its buffers
+bound again (`needsGeometryUpdate`, `setGeometry`). Two things changed
+a shell's geometry under a pipeline made for another: a wall swaps
+between the shapes of its ends as the camera goes round (Room3D), and
+`giuv` is given to a room's shells as its bake is laid (and taken back
+when the bake is turned off). A pipeline made with `giuv` then drew a
+shape without it, or the other way about. WebGL reads a missing buffer
+as zeros, which is why this sandbox (WebGL only; its Chromium has no
+WebGPU) never showed it; WebGPU refuses the whole command buffer.
+
+Each shell mesh the bake reaches now has a guard (`guardShape`,
+gi-material.ts): just before it is drawn, if its geometry's set of
+attributes is not the one it last drew with, its material's version
+moves, so three compares the keys and makes the shader and pipeline
+again for that mesh alone (the others sharing the material keep
+theirs). gi-guard.test.ts checks the version moves on a swap to a shape
+without `giuv`, on `giuv` given, and not on a swap between shapes alike.
+Not verifiable here: the WebGPU run itself.
