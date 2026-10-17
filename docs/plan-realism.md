@@ -3108,6 +3108,16 @@ from the front (`view=45|front`), rasterised or path traced
   report's `scan`. No reference photograph is here either, so the
   side-by-side for the blind test waits on the owner too.
 
+The four stand-in frames (45° and front, raster and traced at 128
+samples, `/tmp`, not committed) compare, region by region in sRGB: the
+doors and the side within 0.03 of each other (door face 0.521/0.465/
+0.357 traced, 0.531/0.477/0.371 raster); the open bay's inside warmer
+and more saturated traced (0.409/0.336/0.214 against 0.415/0.374/0.282),
+the wood lighting the wood, which the raster's bake has no colour for;
+the backdrop's top a little brighter rastered (0.59 against 0.52), the
+exposure being metered on the raster. The 45° trace took 36 min, the
+front 33.
+
 The stand-in's numbers (software renderer, swiftshader): first frame
 17–19 s warm (35–38 s on a cold compile), bake 150–230 ms, textures
 17.0 MB, mean albedo face 0.375 and edge 0.484, exposure 3.55, backdrop
@@ -3167,6 +3177,50 @@ now lives beside the collector (`roomSignature`, gi-collect.ts) and
 leaves out the same meshes (`bakeIgnores`): instanced rows, helpers and
 footprints. `bake-order.test.ts` checks a footprint or a helper leaves
 it as it was, and a move, a colour or a lamp changes it.
+
+### The budget, measured, and what it found
+
+`e2e/budget.spec.ts` (the `budget` project) asks for the first picture
+within 5 s, the Corner view settled within 20 s, and no bake starting
+again by itself once still; it prints what it measured. On this
+sandbox's software renderer (swiftshader, a development server, the
+page visited once first so the compile is not counted) it does not
+pass, and is not expected to; the numbers, before and after this
+round's fixes:
+
+| | before | after |
+| --- | --- | --- |
+| first picture | 72.5 s | 63–88 s |
+| every room's bounce baked | 286 s | 102 s |
+| Corner view: bounce bakes started again | 1 | 0 |
+| Corner view: probes taken again | 1 | 0 |
+| once still, 10 s: anything baked again | no | no |
+
+What the runs found and fixed:
+
+- **A model's nearer copy baked its room again.** Traced by the room's
+  signature keys before and after the Corner view: a stock model's near
+  copy (scale 1.00) arriving beside its far one (0.51) added meshes,
+  though the item had not moved. The signature now counts a loaded
+  model once by its anchor (`giItem`, Furniture3D's Model and LodModel).
+- **A bake could be waited on for ever.** Twice on a fresh server the
+  bounce stayed "baking" ten minutes and more with nothing laid
+  (`data-gi-ms="-/-"`): neither worker pool listened for a worker's
+  error, so a worker whose script did not load held its job. A failed
+  worker now leaves the pool and gives its work back (GiBake), or its
+  bakes are done here (lightmap.ts), with a console warning.
+- **The strict order was tried and taken back.** Holding the bounce
+  until every piece's bake was in made the flat about three times
+  slower to finish here (12 of 46 pieces still waiting at 874 s, against
+  all in by 243 s without it): each bake landing restarts the frame's
+  settle, and with the bounce held back the pieces baked one at a time
+  under those frames. The point of the order still holds without it: a
+  piece's bake never bakes its room again, and the probes wait on the
+  bounce. `data-gi-runs` and `data-probe-runs` on the stage count them.
+
+The first picture and the settle are the software renderer's: each
+frame at 1440 × 900 takes most of a second there, and a piece's bake
+several. On a GPU the budget needs measuring on the owner's machine.
 
 ### Part 2, the parts that do not wait on the scans
 
