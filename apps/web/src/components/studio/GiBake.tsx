@@ -193,6 +193,8 @@ type Room = {
   going: number | null;
   /** the layout the room's layer holds, as a key */
   layout: string | null;
+  /** the bake whole on the room's layer, by its key (giKey) */
+  laid: string | null;
   slot: number;
 };
 
@@ -200,6 +202,8 @@ type Room = {
 type Done = {
   id: string;
   sig: number;
+  /** the job's key (giKey) */
+  key: string;
   whole: boolean;
   half: Uint16Array;
   size: [number, number];
@@ -372,6 +376,9 @@ export function GiBake({
     giving: new Set<Mesh["geometry"]>(),
     give: null as null | (() => void),
     lay: null as null | ((d: Done) => void),
+    /** a bake laid since the bake was last ready: the probes are taken
+        again only then */
+    laidSince: false,
   });
   // what the poll reads as it is now, without starting it again
   const now = useRef({ active, downlight, set });
@@ -469,7 +476,11 @@ export function GiBake({
         write(SPARE);
         s.fade = { slot: r.slot, t: 0, done: d };
       }
-      if (d.whole) r.baked = d.sig;
+      if (d.whole) {
+        r.baked = d.sig;
+        r.laid = d.key;
+      }
+      s.laidSince = true;
       if (!useGi.getState().first)
         useGi.setState({ first: Math.round(performance.now() - s.began) });
       invalidate();
@@ -549,6 +560,7 @@ export function GiBake({
             baked: null,
             going: null,
             layout: null,
+            laid: null,
             slot,
           };
           s.rooms.set(id, r);
@@ -566,11 +578,16 @@ export function GiBake({
       const st = useGi.getState();
       if (busy && st.state !== "baking") useGi.setState({ state: "baking" });
       if (!busy && st.state !== "ready") {
+        // the version moves (and the probes are taken again) only when
+        // a bake was laid: a room's signature changes with what does
+        // not change its light (a piece's own light bake arriving), and
+        // each such change took the probes again, every piece in turn
         useGi.setState({
           state: "ready",
-          version: st.version + 1,
+          version: s.laidSince ? st.version + 1 : st.version,
           full: st.full ?? Math.round(at - s.began),
         });
+        s.laidSince = false;
       }
       if (!due || cameraMoving()) return;
       // the flat as it stands, and each room due baked: the active room
@@ -634,17 +651,24 @@ export function GiBake({
         ]);
         const sig = r.sig;
         r.going = sig;
+        const key = giKey(job);
         const doneOf = (half: Uint16Array, whole: boolean): Done => ({
           id,
           sig,
+          key,
           whole,
           half,
           size: p.job.size,
           charts: p.charts,
           layout,
         });
-        const key = giKey(job);
         const had = kept.get(key);
+        // the same job as the one the room's layer holds: nothing to lay
+        if (had && r.laid === key && r.layout === layout) {
+          r.baked = sig;
+          r.going = null;
+          continue;
+        }
         if (had) {
           s.lay!(doneOf(had, true));
           continue;
