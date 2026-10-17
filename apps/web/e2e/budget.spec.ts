@@ -34,10 +34,28 @@ const settledNow = (page: Page) =>
       a("data-gliding") !== "true"
     );
   });
+/** ms until the room is settled, given up at six times the budget
+    (the stage's state then printed, so a miss says what it waited on) */
 const waitSettled = async (page: Page, within: number) => {
   const t0 = Date.now();
   while (!(await settledNow(page))) {
-    if (Date.now() - t0 > within * 6) break;
+    if (Date.now() - t0 > within * 6) {
+      const state = await page.evaluate(() => {
+        const s = document.querySelector(".stage-3d");
+        return s
+          ? [...s.attributes]
+              .filter((a) =>
+                /settled|gi|probes|reflection|bakes|pending|gliding|drawn/.test(
+                  a.name,
+                ),
+              )
+              .map((a) => `${a.name}=${a.value}`)
+              .join(" ")
+          : "no stage";
+      });
+      console.log(`BUDGET waiting on: ${state}`);
+      break;
+    }
     await page.waitForTimeout(250);
   }
   return Date.now() - t0;
@@ -65,16 +83,25 @@ test.beforeEach(async ({ page }) => {
   );
 });
 
-test("the room keeps its performance budget", async ({ page }) => {
-  test.setTimeout(CORNER_MS * 12 + 120_000);
+test("the room keeps its performance budget", async ({ page, context }) => {
+  test.setTimeout(900_000 * SLOW);
+  // a development server compiles the page on its first visit: one
+  // visit first, so the budget is the studio's and not the compiler's
+  const warm = await context.newPage();
+  await warm.goto("/rounded?probes=fast");
+  await expect(stage(warm)).toHaveAttribute("data-drawn", "true", {
+    timeout: 300_000 * SLOW,
+  });
+  await warm.close();
   const t0 = Date.now();
   await page.goto("/rounded?probes=fast");
   await expect(stage(page)).toHaveAttribute("data-drawn", "true", {
-    timeout: FIRST_MS * 12,
+    timeout: 120_000 * SLOW,
   });
   const first = Date.now() - t0;
   // the opening's flight and the first bakes over, before the Corner
-  await waitSettled(page, CORNER_MS * 2);
+  const opening = await waitSettled(page, CORNER_MS * 2);
+  console.log(`BUDGET first=${first}ms opening settled=${opening}ms`);
   const before = await runs(page);
   await page
     .getByRole("button", { name: "Corner view, as a photograph" })
