@@ -223,6 +223,7 @@ const pool = (() => {
         };
         w.onerror = (e) => {
           e.preventDefault();
+          console.warn(`bounce bake: a worker failed (${e.message || "it did not load"}); its work goes on without it`);
           w.terminate();
           workers = workers!.filter((x) => x !== slot);
           if (slot.busy) queue.unshift(slot.busy);

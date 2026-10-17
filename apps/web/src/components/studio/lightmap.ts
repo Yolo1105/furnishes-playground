@@ -247,6 +247,7 @@ const inWorker = (job: BakeJob) =>
         // piece's light is never waited on for ever
         w.onerror = (e) => {
           e.preventDefault();
+          console.warn(`piece bake: a worker failed (${e.message || "it did not load"}); its work goes on without it`);
           w.terminate();
           worker = null;
           for (const [id, r] of workerReplies) {
