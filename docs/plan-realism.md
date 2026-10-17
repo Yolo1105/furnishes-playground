@@ -3062,3 +3062,138 @@ again for that mesh alone (the others sharing the material keep
 theirs). gi-guard.test.ts checks the version moves on a swap to a shape
 without `giuv`, on `giuv` given, and not on a swap between shapes alike.
 Not verifiable here: the WebGPU run itself.
+
+## Materials, not light (2026-10-16)
+
+Round 10's brief turned the work round: the picture's light is good
+enough, the surfaces are not, and several layers had been laid over the
+light to make up for them. So: prove one piece with scanned materials,
+take away the layers that overlap, and only then replace surfaces.
+
+### Part 1: the birch bookcase proof
+
+`/rounded?proof=bookcase` draws one 800 × 2000 × 400 mm birch-ply
+bookcase (sides, top, plinth, bottom, back, four shelves, two overlay
+doors with bar handles; `proof/bookcase.ts`) on a grey cyclorama under
+the studio HDR (`public/sky/studio.hdr`), at 1600 × 1067, from 45° or
+from the front (`view=45|front`), rasterised or path traced
+(`mode=raster|trace`, `spp`, default 512).
+
+- **Its own page, not the studio.** It is a plain `WebGLRenderer` (the
+  path tracer is WebGL), neutral tone mapping as the studio, its
+  exposure metered so the backdrop reads 0.6 (sRGB); nothing of the
+  room, the probes or the post chain, so the test is of the materials.
+- **Boards as a cabinetmaker cuts them** (`proof/board-uv.ts`): each
+  board's faces and edges in two groups, the texture in metres at the
+  scan's real size (the face set 0.5 m a repeat until the owner's note
+  says otherwise, the edge set one period across 18 mm), the grain
+  along the longer side, the edge's plies lined up with the thickness,
+  each board cut from its own seeded place in the sheet and half turned
+  end for end. All in the `uv` attribute: the tracer reads it too.
+- **One occlusion**: the studio's own box bake (lightmap-bake.ts) into
+  the second UV set, and a footprint under the piece (raster only; the
+  tracer finds its own).
+- **The tracer** (three-gpu-pathtracer 0.0.27, `WebGLPathTracer`): 8
+  bounces, the HDR loaded as float (half float gave the frame a brown
+  cast), faces and edges as separate meshes (the tracer takes a
+  material per vertex, and a box's face and edge share theirs).
+- **The handle is drawn, not loaded**: a satin-steel bar on two posts in
+  code. The brief asked for a CC0 glTF; a bar is two cylinders, and a
+  file would add a loader path the proof does not otherwise need.
+- **The scans are not here.** The sandbox cannot reach Poly Haven or
+  ambientCG (the download list is in `public/materials/README.md`,
+  "Round 10, Part 1"). Until they are in place the page draws a
+  labelled stand-in (the studio wood set tinted to birch, a drawn
+  13-ply edge) and says so: `data-proof-scan="stand-in"`, and the
+  report's `scan`. No reference photograph is here either, so the
+  side-by-side for the blind test waits on the owner too.
+
+The stand-in's numbers (software renderer, swiftshader): first frame
+17–19 s warm (35–38 s on a cold compile), bake 150–230 ms, textures
+17.0 MB, mean albedo face 0.375 and edge 0.484, exposure 3.55, backdrop
+0.600. A path-traced sample at 1600 × 1067 takes about 15.5 s here, so
+512 samples are two hours a frame; the stand-in frames were traced at
+128. OIDN (`oidn-web`) needs WebGPU, which this sandbox has not; on the
+owner's GPU a 512-sample frame takes seconds.
+
+The brief said nothing in Parts 2–7 starts before the blind test. The
+owner's "go … continue" asked for the rest to go on meanwhile, so the
+parts that do not depend on the scans' result were done (below); the
+surface replacements that do (the grown wood and parquet retired) wait.
+
+### Part 3: one layer a job
+
+Each effect below was added in an earlier round to make a surface read
+better from afar. Laid together they overlap: a corner darkened by the
+bake, then by GTAO, then by the black point; an edge rounded in the
+geometry, then brightened, then outlined. Round 10 keeps one source for
+each job:
+
+| Job | Before | After | Why |
+| --- | --- | --- | --- |
+| Occlusion, pieces | baked (`bakedOcclusion`) **and** GTAO | baked only | the bake knows the piece's own boards; GTAO darkened the same corners again |
+| Occlusion, the shell | GI bake's bounce **and** GTAO | the bake only | the bounce already falls off into corners |
+| Occlusion, glTF models | GTAO at full | GTAO at 0.4 (`GTAO_SHARE`), none if the file brings its own occlusion map | a model has no bake of its own; its footprint grounds it |
+| Bounce | baked GI; SSGI optional (desktop, off) | baked GI; SSGI stays an opt-in setting, off | one source by default |
+| Reflection | room cube / box-projected floor; SSR optional (desktop, off) | the same | already one by default |
+| A convex edge | the round in the geometry **and** `edgeLift` (+9 % on a pixel line) | the round | the round catches the light itself |
+| Where boards meet | the rounds' seam **and** joint lines (0.15 opacity, faded 2–6 m) | the seam | a line round every board read as ink |
+| Roughness | the material's **and** a drift ±0.05 **and** smudges +0.07 | the material's (filtered far off) | a scan's roughness map carries the real variation |
+| Plywood edge | drawn plies, blurred far off (`ply.ts`) | kept until the edge scan arrives | taking only the blur away brought back the speckled outline |
+| The picture's black point | 0.01 linear off after tone mapping | none | it crushed the shade the occlusion had just drawn |
+| Vignette | 6.5 % at the corners | none in the live views | the bake and the probes darken what is dark |
+| Grain | ±1.2 % in the midtones | none in the live views | a still frame's texture is the materials' own |
+
+The geometry lost what fed the gone layers: the `edge` attribute (four
+floats a vertex), the covered-edge search and the joint geometry; the
+polygon offset that kept faces behind the joint lines went with them.
+
+GTAO is still computed from the depth (the occlusion pass is one pass
+for the frame); what changed is where it is laid. Each material says
+how much it takes by a flag of its own (`screenAo`, screen-ao.ts), a
+number, which three keys a shader by, so a model's program is never
+shared with a board's; the scene pass writes the share into the motion
+target's spare fourth channel, and the frame mixes the occlusion by it.
+
+### The bakes in order: pieces, the room, the probes
+
+A piece's bake lays its footprint (a mesh named `Footprint`) on the
+floor. The GI bake's collector left footprints out of the light, but
+the room's signature (what tells the room to bake again) counted them:
+so each piece's bake arriving changed its room's signature, baked the
+room's bounce again, and the probes after it. On the Corner view that
+was most of the five minutes the picture took to settle. The signature
+now lives beside the collector (`roomSignature`, gi-collect.ts) and
+leaves out the same meshes (`bakeIgnores`): instanced rows, helpers and
+footprints. `bake-order.test.ts` checks a footprint or a helper leaves
+it as it was, and a move, a colour or a lamp changes it.
+
+### Part 2, the parts that do not wait on the scans
+
+- **Metric UVs and a cut a board**: the studio's boards already lay
+  their texture in metres (`WOOD_M` a tile) with the grain along the
+  longer side, and each board in a batch is offset by a hash of its
+  place and half of them turned (`grainShiftOf`, part-geometry.ts's
+  `placed`). `metric-uv.test.ts` now holds it: one tile is `WOOD_M` on
+  any board, no two boards of any recipe share a cut, and the cut
+  reaches the merged batch. The proof's `board-uv.ts` is the scanned
+  form of the same, ready to replace `slabGeometry` when the sets come.
+- **Colour space and occlusion audit** (`ao-audit.test.ts`): a set's
+  colour map is sRGB and its normal and roughness are data
+  (`SET_MAPS`, materials.ts); a set's own occlusion map is never loaded;
+  a board, plain, coated or sheened, takes its bake alone; a model the
+  screen's at 0.3–0.5; a model with its own map that one alone.
+- **KTX2**: measured in an earlier round and left as JPG (above, "KTX2
+  textures: measured, left as JPG"); nothing new to measure until the
+  scans are in.
+
+### Not done in this round, and why
+
+- **Retiring the grown wood and parquet**: needs the scans and the
+  blind test's answer.
+- **Metered exposure for the room planner** (Part 4): the fixed 2.15 is
+  the owner's choice; it stays until they choose the metered one.
+- **Product studio view, settle-to-photo, `?check=gi` on the proof**
+  (Part 4), **scanned floor, plaster relief, textile limits** (Part 5),
+  **the fal.ai to Meshy/Rodin move** (Part 6, needs keys and a budget):
+  not started.
