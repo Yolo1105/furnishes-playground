@@ -86,9 +86,18 @@ const settled = async (page: Page) => {
   );
   // the bounce baked over the shell (GiBake.tsx) first: the probes are
   // taken again with the shell lit by it
-  await expect(stage(page)).toHaveAttribute("data-gi", /ready|off/, {
-    timeout: LONG,
-  });
+  await expect(stage(page))
+    .toHaveAttribute("data-gi", /ready|off/, { timeout: LONG })
+    .catch(async (e: unknown) => {
+      // what the bake waits on, which the locator's own message cuts off
+      const held = await stage(page).evaluate((s) =>
+        ["data-gi-hold", "data-gi-runs", "data-gi-ms", "data-bakes"]
+          .map((n) => `${n}=${s.getAttribute(n)}`)
+          .join(" "),
+      );
+      console.log("GI HELD", held);
+      throw e;
+    });
   await expect(stage(page)).toHaveAttribute("data-probes", /ready|off/, {
     timeout: LONG,
   });
