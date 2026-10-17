@@ -85,6 +85,9 @@ export const useGi = create<{
       since the bake was turned on: a piece's bake arriving or the
       probes being taken must never add one (round 10) */
   runs: number;
+  /** what the bake waits on: rooms not baked / of them on their way /
+      a fade under way / bakes waiting for it */
+  hold: string;
   /** ms from the first read of the flat to its first light, and to
       every room's whole bake */
   first: number | null;
@@ -98,6 +101,7 @@ export const useGi = create<{
   state: "off",
   version: 0,
   runs: 0,
+  hold: "",
   first: null,
   full: null,
   bytes: 0,
@@ -562,6 +566,16 @@ export function GiBake({
       const busy =
         left || s.fade !== null || s.waiting.length > 0 || !s.rooms.size;
       const st = useGi.getState();
+      // what the bake waits on, for the stage (data-gi-hold): rooms not
+      // baked, of them on their way, a fade, bakes waiting for it
+      const going = [...s.rooms.values()].filter(
+        (r) => r.baked !== r.sig && r.going === r.sig,
+      ).length;
+      const unbaked = [...s.rooms.values()].filter(
+        (r) => r.baked !== r.sig,
+      ).length;
+      const hold = `${unbaked}/${going}/${s.fade ? 1 : 0}/${s.waiting.length}`;
+      if (st.hold !== hold) useGi.setState({ hold });
       if (busy && st.state !== "baking") useGi.setState({ state: "baking" });
       if (!busy && st.state !== "ready") {
         // the version moves (and the probes are taken again) only when

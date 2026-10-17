@@ -3134,6 +3134,7 @@ export default function Scene3D() {
   const giFull = useGi((s) => s.full);
   const giWork = useGi((s) => s.work);
   const giRuns = useGi((s) => s.runs);
+  const giHold = useGi((s) => s.hold);
   // what the probes see: the shell, its finish and its light (and its
   // bounce, once baked)
   const probeStamp = JSON.stringify([
@@ -3384,6 +3385,7 @@ export default function Scene3D() {
       // budget: none after the room has settled)
       data-gi-runs={gi ? giRuns : 0}
       data-probe-runs={probeRuns}
+      data-gi-hold={gi ? giHold : "off"}
       // the bake's times, ms: to its first light and to every room's
       // whole bake (the report reads them)
       data-gi-ms={gi ? `${giFirst ?? "-"}/${giFull ?? "-"}` : "off"}
