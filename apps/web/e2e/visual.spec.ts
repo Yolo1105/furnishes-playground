@@ -491,6 +491,12 @@ test("the glance: the boxes read as built, lit and used", async ({
     contentType: "image/png",
   });
   const n = glanceNumbers(grey, points);
+  // the numbers in the run's log too, as the line reporter keeps no
+  // attachment
+  console.log(
+    "GLANCE",
+    JSON.stringify({ ...n, faces: n.faces.length, edges: n.edges }),
+  );
   await info.attach("glance.json", {
     body: JSON.stringify(n, null, 1),
     contentType: "application/json",

@@ -2079,7 +2079,7 @@ function Rug({ w, d, colour }: { w: number; d: number; colour: string }) {
   return (
     <group>
       <mesh ref={mesh} geometry={geometry} receiveShadow>
-        <Mat f={cloth(rugColour(colour))} banded />
+        <Mat f={{ ...cloth(rugColour(colour)), ground: true }} banded />
       </mesh>
       <mesh
         geometry={contact}

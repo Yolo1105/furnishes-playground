@@ -9,7 +9,7 @@ import type { Material } from "three";
  * own, a loaded model (a sofa, a plant, a lamp), at `GTAO_SHARE` of its
  * strength: a model's own maps already shade its folds.
  *
- * The floor takes it too, for what stands on it: its own bake (the
+ * The floor and a rug take it too, for what stands on them: its own bake (the
  * rooms' bounce) is too coarse for a contact a few centimetres wide,
  * and only a few pieces lay a footprint (round 10's glance read the
  * floor by the sofa 8.5 % darker than open floor without it, against
@@ -38,7 +38,8 @@ export const takesScreenAo = (m: Material) => {
 
 /** the occlusions a material lays on its surface: its own map, its
     piece's bake (the node finish.tsx and Furniture3D.tsx set) and the
-    screen's; round 10 allows one */
+    screen's; round 10 allows one, but for a rug (its bake and its
+    contact with what stands on it) */
 export const aoSourcesOf = (m: Material) => {
   const n = m as ScreenAoMaterial & { aoMap?: unknown; aoNode?: unknown };
   const out: ("map" | "baked" | "screen")[] = [];
