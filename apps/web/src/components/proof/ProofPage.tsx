@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  BoxGeometry,
   BufferAttribute,
   BufferGeometry,
   CanvasTexture,
   CylinderGeometry,
   DataTexture,
   EquirectangularReflectionMapping,
+  Euler,
   FloatType,
   Group,
   LinearFilter,
@@ -29,8 +31,9 @@ import {
   WebGLRenderer,
 } from "three";
 import { HDRLoader } from "three/examples/jsm/loaders/HDRLoader.js";
-import { boardGeometry, cutOf, type ScanScale } from "./board-uv";
-import { BOOKCASE, bookcase } from "./bookcase";
+import { boardGeometry, cutOf, type ScanScale, type V3 } from "./board-uv";
+import { BOOKCASE, type Board, bookcase, type Handle } from "./bookcase";
+import { type Plain, productPiece } from "./product-piece";
 import { bakePiece, giveAoUv } from "./proof-ao";
 
 /**
@@ -56,6 +59,11 @@ import { bakePiece, giveAoUv } from "./proof-ao";
  * the exposure metered so the backdrop reads 0.6 sRGB, and the frame
  * supersampled 2 × 2 (the still's equivalent of TRAA). Views: `view=45`
  * and `view=front`, 1600 px across.
+ *
+ * Part 4's product studio view is the same page for any Furnishes
+ * recipe (`?studio=<product id>`, product-piece.ts): its square birch
+ * boards drawn and baked as the bookcase's, the base a shade under the
+ * body, a turned leaf in birch without the bake, and the hardware plain.
  */
 
 /** the frame, CSS px; drawn at twice that and read back */
@@ -71,6 +79,68 @@ const BACKDROP = { colour: 0xbdbdbd, rough: 0.95 };
 const EDGE_ROUGH = 1.2;
 /** the stand-in's birch tone over the studio's light grain values */
 const STAND_IN_TINT = 0xdcc6a2;
+/** a base board's tone, a share of the body's (Furniture3D's base is a
+    shade under the body) */
+const BASE_TONE = 0.72;
+
+/** what the page draws: the boards in the scanned sets, the bars, the
+    plain parts, and the piece's size for the camera */
+type Piece = {
+  id: string;
+  label: string;
+  size: V3;
+  boards: (Board & { tint?: "body" | "base"; rotation?: V3 })[];
+  handles: Handle[];
+  plain: Plain[];
+};
+
+const pieceOf = (product: string | undefined): Piece | null => {
+  if (!product) {
+    const { boards, handles } = bookcase();
+    return {
+      id: BOOKCASE.id,
+      label: "Proof bookcase",
+      size: [BOOKCASE.w, BOOKCASE.h, BOOKCASE.d],
+      boards,
+      handles,
+      plain: [],
+    };
+  }
+  const p = productPiece(product);
+  return (
+    p && {
+      id: p.id,
+      label: p.name,
+      size: p.size,
+      boards: [...p.boards, ...p.turned],
+      handles: [],
+      plain: p.plain,
+    }
+  );
+};
+
+/** a tone scaled, as a hex */
+const toned = (hex: number, k: number) =>
+  (Math.round(((hex >> 16) & 255) * k) << 16) |
+  (Math.round(((hex >> 8) & 255) * k) << 8) |
+  Math.round((hex & 255) * k);
+
+/** a plain part: a box or a rod in what it is made of */
+const plainMesh = (p: Plain) => {
+  const mat = new MeshPhysicalMaterial({
+    color: p.colour,
+    roughness: p.rough,
+    metalness: p.metal,
+  });
+  const g =
+    "dims" in p
+      ? new BoxGeometry(...p.dims)
+      : new CylinderGeometry(p.rod[2] ?? p.rod[0], p.rod[0], p.rod[1], 24);
+  const mesh = new Mesh(g, mat);
+  mesh.position.set(...p.at);
+  if (p.rotation) mesh.rotation.copy(new Euler(...p.rotation));
+  return mesh;
+};
 
 type SetFiles = {
   color: Texture;
@@ -300,16 +370,22 @@ export function ProofPage({
   view,
   mode,
   spp,
+  product,
 }: {
   view: "45" | "front";
   mode: "raster" | "trace";
   spp: number;
+  /** a recipe's id for the product studio view; the bookcase if none */
+  product?: string | undefined;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const [state, setState] = useState("loading");
   const [scan, setScan] = useState("");
   const [samples, setSamples] = useState(0);
+  const piece = useMemo(() => pieceOf(product), [product]);
   useEffect(() => {
+    // an unknown recipe draws nothing, and the stage says it failed
+    if (!piece) return;
     const began = performance.now();
     let stop = false;
     const renderer = new WebGLRenderer({
@@ -322,11 +398,27 @@ export function ProofPage({
     host.current!.appendChild(renderer.domElement);
     const scene = new Scene();
     const camera = new PerspectiveCamera(32, FRAME.w / FRAME.h, 0.1, 40);
-    const D = 4.7;
-    if (view === "45")
-      camera.position.set(D * Math.SQRT1_2, 1.25, D * Math.SQRT1_2);
-    else camera.position.set(0, 1.15, D);
-    camera.lookAt(0, 0.98, 0);
+    if (product) {
+      // the piece framed with a margin: its height in the frame's
+      // height, its run across (corner to corner from 45°) in its width
+      const [w, h, d] = piece.size;
+      const half = Math.tan((camera.fov * Math.PI) / 360);
+      const across = view === "45" ? (w + d) * Math.SQRT1_2 : w;
+      const D =
+        1.3 * Math.max(h / 2 / half, across / 2 / (half * camera.aspect)) +
+        d / 2;
+      const y = h * 0.49;
+      if (view === "45")
+        camera.position.set(D * Math.SQRT1_2, y + 0.135 * h, D * Math.SQRT1_2);
+      else camera.position.set(0, y + 0.085 * h, D);
+      camera.lookAt(0, y, 0);
+    } else {
+      const D = 4.7;
+      if (view === "45")
+        camera.position.set(D * Math.SQRT1_2, 1.25, D * Math.SQRT1_2);
+      else camera.position.set(0, 1.15, D);
+      camera.lookAt(0, 0.98, 0);
+    }
     void (async () => {
       const [face, edge, hdr] = await Promise.all([
         faceSet(),
@@ -340,9 +432,11 @@ export function ProofPage({
       const env = pmrem.fromEquirectangular(hdr).texture;
       scene.environment = env;
       setScan(face.standIn || edge.standIn ? "stand-in" : "scanned");
-      // the piece and its one AO
-      const { boards, handles } = bookcase();
-      const ao = bakePiece(boards);
+      // the piece and its one AO: its square boards baked (a turned
+      // leaf is left out, and drawn without the map)
+      const square = piece.boards.filter((b) => !b.rotation);
+      const turned = piece.boards.filter((b) => b.rotation);
+      const ao = bakePiece(square);
       const aoTex = new DataTexture(
         ao.atlas,
         ao.size[0],
@@ -354,48 +448,68 @@ export function ProofPage({
       aoTex.minFilter = LinearFilter;
       aoTex.channel = 1;
       aoTex.needsUpdate = true;
-      const faceMat = new MeshPhysicalMaterial({
-        color: face.tint,
-        map: face.color,
-        normalMap: face.normal,
-        roughnessMap: face.roughness,
-        roughness: 1,
-        metalness: 0,
-        clearcoat: 0,
-        aoMap: aoTex,
-      });
-      const edgeMat = new MeshPhysicalMaterial({
-        color: edge.tint,
-        map: edge.color,
-        normalMap: edge.normal,
-        roughnessMap: edge.roughness,
-        roughness: edge.roughness ? EDGE_ROUGH : 0.62,
-        metalness: 0,
-        clearcoat: 0,
-        aoMap: aoTex,
-      });
-      const piece = new Group();
-      boards.forEach((b, k) => {
+      const faceOf = (tint: number, occluded: boolean) =>
+        new MeshPhysicalMaterial({
+          color: tint,
+          map: face.color,
+          normalMap: face.normal,
+          roughnessMap: face.roughness,
+          roughness: 1,
+          metalness: 0,
+          clearcoat: 0,
+          aoMap: occluded ? aoTex : null,
+        });
+      const edgeOf = (tint: number, occluded: boolean) =>
+        new MeshPhysicalMaterial({
+          color: tint,
+          map: edge.color,
+          normalMap: edge.normal,
+          roughnessMap: edge.roughness,
+          roughness: edge.roughness ? EDGE_ROUGH : 0.62,
+          metalness: 0,
+          clearcoat: 0,
+          aoMap: occluded ? aoTex : null,
+        });
+      // a face and an edge material for each tone, baked or not
+      const mats = new Map<string, MeshPhysicalMaterial[]>();
+      const matsOf = (tint: "body" | "base", occluded: boolean) => {
+        const key = `${tint}/${occluded}`;
+        const had = mats.get(key);
+        if (had) return had;
+        const k = tint === "base" ? BASE_TONE : 1;
+        const pair = [
+          faceOf(toned(face.tint, k), occluded),
+          edgeOf(toned(edge.tint, k), occluded),
+        ];
+        mats.set(key, pair);
+        return pair;
+      };
+      const group = new Group();
+      const draw = (b: Piece["boards"][number], k: number | null) => {
         const g = boardGeometry(
           b.dims,
           face.scale,
           edge.scale,
-          cutOf(BOOKCASE.id, b.id),
+          cutOf(piece.id, b.id),
         );
-        giveAoUv(g, k, ao.boxes[k]!, ao.charts, ao.size);
+        if (k !== null) giveAoUv(g, k, ao.boxes[k]!, ao.charts, ao.size);
         // a mesh a material: the tracer gives each vertex one material,
         // and a board's faces and edges meet at shared vertices
-        for (const m of partsOf(g, [faceMat, edgeMat])) {
+        for (const m of partsOf(g, matsOf(b.tint ?? "body", k !== null))) {
           m.position.set(...b.at);
-          piece.add(m);
+          if (b.rotation) m.rotation.copy(new Euler(...b.rotation));
+          group.add(m);
         }
-      });
-      for (const h of handles) {
+      };
+      square.forEach((b, k) => draw(b, k));
+      turned.forEach((b) => draw(b, null));
+      for (const h of piece.handles) {
         const m = handleMesh(h.length);
         m.position.set(...h.at);
-        piece.add(m);
+        group.add(m);
       }
-      scene.add(piece);
+      for (const p of piece.plain) group.add(plainMesh(p));
+      scene.add(group);
       scene.add(cyclorama());
       // the footprint, the raster's one contact shadow
       const f = ao.foot;
@@ -495,10 +609,11 @@ export function ProofPage({
       tracer.fadeDuration = 0;
       tracer.minSamples = 1;
       tracer.dynamicLowRes = false;
-      faceMat.aoMap = null;
-      edgeMat.aoMap = null;
-      faceMat.needsUpdate = true;
-      edgeMat.needsUpdate = true;
+      for (const pair of mats.values())
+        for (const m of pair) {
+          m.aoMap = null;
+          m.needsUpdate = true;
+        }
       tracer.setScene(scene, camera);
       setState("tracing");
       const traceFrom = performance.now();
@@ -525,18 +640,19 @@ export function ProofPage({
       renderer.dispose();
       renderer.domElement.remove();
     };
-  }, [view, mode, spp]);
+  }, [view, mode, spp, product, piece]);
   return (
     <div
       className="proof-stage"
-      data-proof={state}
+      data-proof={piece ? state : "failed"}
       data-proof-scan={scan}
       data-proof-samples={samples}
+      data-proof-piece={product ?? "bookcase"}
       style={{ background: "#ddd", minHeight: "100vh", padding: 0 }}
     >
       <div ref={host} style={{ width: FRAME.w, height: FRAME.h }} />
       <p style={{ font: "12px system-ui", margin: 8 }}>
-        Proof bookcase · {view} · {mode} · {scan || "…"} · {state}
+        {product ? `Studio · ${product}` : "Proof bookcase"} · {view} · {mode} · {scan || "…"} · {state}
         {mode === "trace" ? ` · ${samples}/${spp} spp` : ""}
       </p>
     </div>

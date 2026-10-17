@@ -3187,13 +3187,28 @@ it as it was, and a move, a colour or a lamp changes it.
   textures: measured, left as JPG"); nothing new to measure until the
   scans are in.
 
+### Part 4, first: the product studio view
+
+`/rounded?studio=<product id>` (with the same `view`, `mode` and `spp`)
+is the proof's page for any Furnishes recipe (`proof/product-piece.ts`):
+the recipe's form as the room builds it (furnishes-forms.ts), its square
+birch boards drawn in the scanned sets (the stand-in until they come)
+and baked for their occlusion, the base a shade under the body
+(`BASE_TONE`, 0.72, as the room's base is), a turned leaf (a folding
+screen's) in birch without the bake, and the hardware, castors and the
+house's orange marks plain in what each is made of (Furniture3D's
+`finishFor`). The camera frames the piece by its size: its height in
+the frame's height, its run across (corner to corner from 45°) in the
+frame's width, with a margin. `data-proof-piece` says which piece the
+stage holds. `product-piece.test.ts`: every recipe gives its boards
+inside its own box, every board its own cut, and an unknown id none.
+
 ### Not done in this round, and why
 
 - **Retiring the grown wood and parquet**: needs the scans and the
   blind test's answer.
 - **Metered exposure for the room planner** (Part 4): the fixed 2.15 is
   the owner's choice; it stays until they choose the metered one.
-- **Product studio view, settle-to-photo, `?check=gi` on the proof**
-  (Part 4), **scanned floor, plaster relief, textile limits** (Part 5),
+- **Settle-to-photo and `?check=gi` on the proof** (Part 4), **scanned floor, plaster relief, textile limits** (Part 5),
   **the fal.ai to Meshy/Rodin move** (Part 6, needs keys and a budget):
   not started.

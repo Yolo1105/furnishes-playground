@@ -42,7 +42,8 @@ const ResetPassword = dynamic(() =>
  * or one of the readings: help, the terms, the privacy note (?read=,
  * where /help, /terms and /privacy lead). And round 10's proof, one
  * bookcase in a product studio (?proof=bookcase, with view=45|front,
- * mode=raster|trace and spp), never with the studio.
+ * mode=raster|trace and spp), and the same studio for any Furnishes
+ * recipe (?studio=<product id>), never with the studio.
  */
 export function RoundedEntry() {
   const params = useSearchParams();
@@ -52,12 +53,14 @@ export function RoundedEntry() {
   if (order) return <OrderPage id={order} orderKey={params.get("key") ?? ""} />;
   if (params.has("token") || params.get("error") === "INVALID_TOKEN")
     return <ResetPassword />;
-  if (params.get("proof") === "bookcase")
+  const studio = params.get("studio");
+  if (params.get("proof") === "bookcase" || studio)
     return (
       <ProofPage
         view={params.get("view") === "front" ? "front" : "45"}
         mode={params.get("mode") === "trace" ? "trace" : "raster"}
         spp={Math.max(1, Number(params.get("spp")) || 512)}
+        product={studio ?? undefined}
       />
     );
   const read = params.get("read");
