@@ -53,6 +53,17 @@ export default defineConfig({
       },
     },
     {
+      // round 10's performance budget on the software renderer: the
+      // first picture, the Corner settled, and no bake again by itself
+      name: "budget",
+      testMatch: /budget\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1440, height: 900 },
+        ...chromium,
+      },
+    },
+    {
       name: "tablet",
       testMatch: /touch\.spec\.ts/,
       use: { ...devices["iPad (gen 7)"], browserName: "chromium", ...chromium },

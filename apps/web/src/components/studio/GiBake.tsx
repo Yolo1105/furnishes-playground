@@ -81,6 +81,10 @@ export const useGi = create<{
   state: GiState;
   /** the bakes laid whole, all rooms, since the page opened */
   version: number;
+  /** the room bakes worked out (not laid again from what was kept),
+      since the bake was turned on: a piece's bake arriving or the
+      probes being taken must never add one (round 10) */
+  runs: number;
   /** ms from the first read of the flat to its first light, and to
       every room's whole bake */
   first: number | null;
@@ -93,6 +97,7 @@ export const useGi = create<{
 }>(() => ({
   state: "off",
   version: 0,
+  runs: 0,
   first: null,
   full: null,
   bytes: 0,
@@ -404,6 +409,7 @@ export function GiBake({
     s.began = 0;
     useGi.setState({
       state: "baking",
+      runs: 0,
       first: null,
       full: null,
       work: { first: null, most: 0, all: 0 },
@@ -643,6 +649,7 @@ export function GiBake({
           s.lay!(doneOf(had, true));
           continue;
         }
+        useGi.setState((g) => ({ runs: g.runs + 1 }));
         const first = r.layout === null;
         if (first)
           void pool.run({ ...job, ...COARSE }).then(({ half, ms }) => {

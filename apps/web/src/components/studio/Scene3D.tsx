@@ -3133,6 +3133,7 @@ export default function Scene3D() {
   const giFirst = useGi((s) => s.first);
   const giFull = useGi((s) => s.full);
   const giWork = useGi((s) => s.work);
+  const giRuns = useGi((s) => s.runs);
   // what the probes see: the shell, its finish and its light (and its
   // bounce, once baked)
   const probeStamp = JSON.stringify([
@@ -3173,7 +3174,12 @@ export default function Scene3D() {
   // twice more (unlit, then lit) once the probes caught up: three
   // pictures for every change of look, the first always wrong (A4)
   const [probesFor, setProbesFor] = useState("");
+  // how many times the probes have been taken since the page opened
+  // (each "pending" after a "ready" is one more), for the budget test
+  const [probeRuns, setProbeRuns] = useState(0);
   const onProbes = useEvent((state: StillState) => {
+    if (state === "pending" && probeState === "ready")
+      setProbeRuns((n) => n + 1);
     setProbeState(state);
     setProbesFor(state === "ready" ? probeStamp : "");
   });
@@ -3374,6 +3380,10 @@ export default function Scene3D() {
       data-probes={probes ? probeState : "off"}
       data-reflection={probes ? reflectState : "off"}
       data-gi={gi ? giState : "off"}
+      // the room bakes worked out and the probes' retakes (round 10's
+      // budget: none after the room has settled)
+      data-gi-runs={gi ? giRuns : 0}
+      data-probe-runs={probeRuns}
       // the bake's times, ms: to its first light and to every room's
       // whole bake (the report reads them)
       data-gi-ms={gi ? `${giFirst ?? "-"}/${giFull ?? "-"}` : "off"}
