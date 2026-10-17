@@ -115,6 +115,7 @@ import { boxRaycast, budgetModel } from "./model-budget";
 import { BakeScope, useBakeMembers } from "./Bake";
 import { withBakeDefaults } from "./bake-defaults";
 import { bakedOcclusion, CONTACT } from "./lightmap-nodes";
+import { baseShareOf } from "./model-base";
 import { takesScreenAo } from "./screen-ao";
 import { RUG_H, rugContactGeometry, rugGeometry } from "./rug";
 import { MeshStandardNodeMaterial } from "three/webgpu";
@@ -376,7 +377,7 @@ function Model({
   // the item's long side across or along: a generated mesh is turned a
   // quarter when its own long side runs the other way
   const across = size[0] >= size[2];
-  const { object, box } = useMemo(() => {
+  const { object, box, base } = useMemo(() => {
     const pattern = names ? new RegExp(names, "i") : null;
     // a generated mesh's strays dropped and its picture de-lit, before
     // it is brought within what any model may cost, stock or generated,
@@ -410,7 +411,8 @@ function Model({
     });
     o.rotation.y = turned ? Math.PI / 2 : 0;
     o.updateMatrixWorld(true);
-    return { object: o, box: new Box3().setFromObject(o) };
+    const box = new Box3().setFromObject(o);
+    return { object: o, box, base: baseShareOf(o, box) };
   }, [scene, colour, names, fit?.turned, made, material, across, dithered]);
   useEffect(
     () => () => {
@@ -449,8 +451,9 @@ function Model({
       ]
     : [even, even, even];
   const centre = box.getCenter(new Vector3());
-  // its footprint: a base low and narrow, and its body above, inside
-  // its box (a plant's pot and its leaves, a chair's legs and its seat)
+  // its footprint: a base low, as wide as the model's own base is
+  // (model-base.ts: a sofa's fills it, a plant's pot does not), and its
+  // body above, inside its box (a plant's leaves, a chair's seat)
   const anchor = useRef<Group>(null);
   const [w, h, d] = size;
   useBakeMembers(() => {
@@ -467,10 +470,10 @@ function Model({
       points: false,
     });
     return [
-      at([0, h * 0.15, 0], [w * 0.3, h * 0.15, d * 0.3]),
+      at([0, h * 0.15, 0], [(w * base[0]) / 2, h * 0.15, (d * base[1]) / 2]),
       at([0, h * 0.6, 0], [w * 0.4, h * 0.3, d * 0.4]),
     ];
-  }, [w, h, d]);
+  }, [w, h, d, base]);
   return (
     <group ref={anchor} userData={GI_ITEM}>
       <group
