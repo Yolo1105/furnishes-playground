@@ -64,6 +64,44 @@ not switched on. To use one, move its folder up to
 `public/materials/tiles/` and add a `tiles` entry to `index.json` with
 a tile of 1.2.
 
+## Round 10, Part 1: the downloads the bookcase proof waits on
+
+The proof (one 800 × 2000 × 400 mm birch bookcase, rasterised and path
+traced, for a blind test) is built from scanned sets only. The build
+sandbox cannot reach polyhaven.com or ambientcg.com (checked 2026-10-17:
+both refuse the connection), so these come from the owner. Put them
+exactly here, with these names, and the proof can start:
+
+1. **Birch face: Poly Haven `plywood`** (CC0), https://polyhaven.com/a/plywood,
+   resolution **4K**, format **JPG** (the glTF/ARM pack is fine too).
+   Into `scan/birch-face/`:
+   - `color.jpg` ← `plywood_diff_4k.jpg` (sRGB)
+   - `normal.jpg` ← `plywood_nor_gl_4k.jpg` (the **GL** normal, not DX)
+   - `roughness.jpg` ← `plywood_rough_4k.jpg`
+   - `arm.jpg` ← `plywood_arm_4k.jpg` (if the ARM pack was taken; its AO
+     channel is not used, the piece's own bake is the one AO)
+   - a note of the real-world width Poly Haven gives on the asset page
+     (the brief has it as 0.5 m; the UVs are set from it).
+2. **Birch edge: ambientCG `Wood087`** (CC0, "Plywood Side"),
+   https://ambientcg.com/view?id=Wood087, **2K-JPG**. Into
+   `scan/birch-edge/`:
+   - `color.jpg` ← `Wood087_2K-JPG_Color.jpg`
+   - `normal.jpg` ← `Wood087_2K-JPG_NormalGL.jpg`
+   - `roughness.jpg` ← `Wood087_2K-JPG_Roughness.jpg`
+3. **A studio HDRI: nothing to download.** `public/sky/studio.hdr` is
+   Poly Haven's *Studio Small 03* (CC0, see `public/sky/LICENSES.md`);
+   the proof's studio view uses it unless a softer one is wanted.
+4. **One real product photo** for the side-by-side: a Furnishes
+   birch-ply bookcase or shelf (any angle near 45°, daylight or
+   studio). Put it at `scan/reference/bookcase.jpg`; it is only read for
+   the comparison sheet and is not committed unless the owner says so.
+5. **Nothing for the handle:** a CC0 handle glTF can be fetched from
+   GitHub by the sandbox.
+
+Then say "go" (or re-run the round 10 prompt). The proof stops after the
+four images and the side-by-side, for the 5-second blind test by 3–5
+people; nothing in Parts 2–7 starts before its result.
+
 ## Owner tasks: the sets only a camera can make
 
 Three surfaces are still grown in the shader because no free scan
