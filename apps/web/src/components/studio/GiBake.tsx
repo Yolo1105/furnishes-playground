@@ -44,6 +44,7 @@ import {
   patchGi,
 } from "./gi-material";
 import type { Tier } from "./Post";
+import { useBakes } from "./lightmap";
 import { isWindow, OPENINGS } from "./room-data";
 import { openingCentre } from "./room-health";
 import { inward, type LitRoom, WINDOW_LIGHT } from "./window-light";
@@ -603,6 +604,11 @@ export function GiBake({
         );
       });
       const lk = s.lookKey;
+      // the bakes in their order (round 10): the pieces' own light first,
+      // then the rooms' bounce, then the probes (which wait on it): a
+      // bounce worked out beside the pieces' bakes slowed both, and the
+      // pieces in view are what a first picture needs
+      if (useBakes.getState().pending > 0) return;
       if (!s.began) s.began = at;
       for (const [id, p] of order) {
         const r = s.rooms.get(id);
