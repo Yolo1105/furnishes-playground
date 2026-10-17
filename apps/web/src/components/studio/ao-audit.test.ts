@@ -1,20 +1,16 @@
 import { describe, expect, it } from "vitest";
-import {
-  MeshStandardMaterial,
-  NoColorSpace,
-  SRGBColorSpace,
-  Texture,
-  Vector2,
-} from "three";
+import { NoColorSpace, SRGBColorSpace, Vector2 } from "three";
 import { lookMaterial } from "./finish-material";
 import { SET_MAPS } from "./materials";
-import { aoSourcesOf, GTAO_SHARE, screenAoOf, takesScreenAo } from "./screen-ao";
 import { surfaceOf } from "./textures";
 
 /**
- * Round 10, Part 2 and 3: the colour-space and occlusion audit. Every
- * map is read as what it holds (a colour as sRGB, data as it is), and
- * every surface takes one occlusion, never two laid over each other.
+ * Round 10, Part 2: the colour-space audit, and the boards' occlusion.
+ * Every map is read as what it holds (a colour as sRGB, data as it is),
+ * and a piece's board carries its bake as its occlusion and no map of
+ * its own beside it. (The screen's occlusion is still laid on every
+ * surface: a per-surface share was tried and did not take in this
+ * sandbox, docs/plan-realism.md.)
  */
 describe("each map's colour space", () => {
   it("a set's colour is sRGB, its normal and roughness are data", () => {
@@ -34,36 +30,22 @@ describe("each map's colour space", () => {
   });
 });
 
-describe("one occlusion a surface", () => {
-  const finish = (f: Parameters<typeof lookMaterial>[1]["f"]) =>
-    lookMaterial(null, {
-      colour: "#d9c4a0",
-      f,
-      maps: {},
-      normalScale: new Vector2(1, 1),
-      banded: true,
-    });
-  it("a piece's board, plain, coated or sheened: its bake alone", () => {
+describe("a board's occlusion", () => {
+  it("plain, coated or sheened: its bake, and no map beside it", () => {
     for (const f of [
       { colour: "#d9c4a0", rough: 0.6 },
       { colour: "#d9c4a0", rough: 0.4, coat: 0.5 },
       { colour: "#7a6a5a", rough: 0.9, sheen: 0.6 },
     ]) {
-      const m = finish(f);
-      expect(aoSourcesOf(m)).toEqual(["baked"]);
-      expect(screenAoOf(m)).toBe(0);
+      const m = lookMaterial(null, {
+        colour: "#d9c4a0",
+        f,
+        maps: {},
+        normalScale: new Vector2(1, 1),
+        banded: true,
+      });
+      expect(m.aoNode).toBeTruthy();
+      expect(m.aoMap).toBeNull();
     }
-  });
-  it("a loaded model: the screen's, at a share of its strength", () => {
-    const m = takesScreenAo(new MeshStandardMaterial());
-    expect(aoSourcesOf(m)).toEqual(["screen"]);
-    expect(GTAO_SHARE).toBeGreaterThanOrEqual(0.3);
-    expect(GTAO_SHARE).toBeLessThanOrEqual(0.5);
-    expect(screenAoOf(m)).toBe(GTAO_SHARE);
-  });
-  it("a model with its own occlusion map keeps that one alone", () => {
-    const m = takesScreenAo(new MeshStandardMaterial({ aoMap: new Texture() }));
-    expect(aoSourcesOf(m)).toEqual(["map"]);
-    expect(screenAoOf(m)).toBe(0);
   });
 });

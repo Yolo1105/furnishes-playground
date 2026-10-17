@@ -75,9 +75,6 @@ export type Finish = {
   mirror?: boolean;
   /** birch plywood: its boards' edges show the plies (ply.ts) */
   ply?: boolean;
-  /** a surface things stand on (a rug): its contact with them is the
-      screen's occlusion's, as the floor's is (screen-ao.ts) */
-  ground?: boolean;
 };
 export const cloth = (colour: string): Finish => ({
   colour: clothColour(colour),

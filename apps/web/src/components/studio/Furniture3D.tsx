@@ -116,7 +116,6 @@ import { BakeScope, useBakeMembers } from "./Bake";
 import { withBakeDefaults } from "./bake-defaults";
 import { bakedOcclusion, CONTACT } from "./lightmap-nodes";
 import { baseShareOf } from "./model-base";
-import { takesScreenAo } from "./screen-ao";
 import { RUG_H, rugContactGeometry, rugGeometry } from "./rug";
 import { MeshStandardNodeMaterial } from "three/webgpu";
 import { attribute, float, normalView, positionViewDirection } from "three/tsl";
@@ -406,8 +405,6 @@ function Model({
         mesh.material = m;
       }
       if (dithered) (mesh.material as MeshStandardMaterial).alphaHash = true;
-      // a model has no bake of its own: the screen's occlusion is its one
-      takesScreenAo(mesh.material as MeshStandardMaterial);
     });
     o.rotation.y = turned ? Math.PI / 2 : 0;
     o.updateMatrixWorld(true);
@@ -2079,7 +2076,7 @@ function Rug({ w, d, colour }: { w: number; d: number; colour: string }) {
   return (
     <group>
       <mesh ref={mesh} geometry={geometry} receiveShadow>
-        <Mat f={{ ...cloth(rugColour(colour)), ground: true }} banded />
+        <Mat f={cloth(rugColour(colour))} banded />
       </mesh>
       <mesh
         geometry={contact}

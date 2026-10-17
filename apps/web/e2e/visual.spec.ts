@@ -437,10 +437,9 @@ test("day, evening and day again: the floor's picture settles each time", async 
  *   table's top) spans at least 1.15 from its 10th to its 90th
  *   percentile, not one even tone;
  * - the top of the sofa's front catches the light, 3.5 % over its face
- *   (4 % until round 10: the screen's full occlusion on every surface
- *   and the black point after the tone map both darkened the face more
- *   than the top; with the occlusion on a model at 0.4 and no black
- *   point it reads 3.7–3.8 %, at 0.5 the same, the sofa unchanged);
+ *   (4 % until round 10, which took the black point away: it stretched
+ *   the shade under the top more than the top; without it the edge
+ *   reads 3.7–3.8 %, the sofa unchanged);
  * - a bookwall bay's back is at least 25 % darker than the boards' front
  *   edges (35 % until Part 4: with every shelf full of books the back was
  *   seen only in the gaps between them; dressed, a shelf in three is left

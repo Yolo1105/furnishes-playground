@@ -9,7 +9,6 @@ import type { Finish } from "./finish";
 import { bakedOcclusion, bakedSky } from "./lightmap-nodes";
 import { plyColour } from "./ply";
 import { filtered } from "./spec-aa";
-import { takesScreenAo } from "./screen-ao";
 import { shade } from "./textures";
 
 /** a coated or sheened finish's layers: the cloth's sheen soft and a
@@ -87,7 +86,6 @@ export const lookMaterial = (env: Node | null, p: MatProps) => {
     p.f.sheen ?? "",
     p.f.coat ?? "",
     p.f.metal ?? "",
-    p.f.ground ? "ground" : "",
     p.banded,
     p.maps.map?.uuid ?? "",
     p.maps.normalMap?.uuid ?? "",
@@ -122,9 +120,6 @@ export const lookMaterial = (env: Node | null, p: MatProps) => {
   if (env) m.envNode = env;
   m.colorNode = p.f.ply ? PLY_COLOUR : FACE_COLOUR;
   m.aoNode = bakedOcclusion;
-  // a rug's own bake knows nothing of the sofa standing on it: its
-  // contact is the screen's (screen-ao.ts), as the floor's is
-  if (p.f.ground) takesScreenAo(m);
   m.roughnessNode = roughness;
   skyLit(m);
   if (looks.size >= LOOKS_KEPT) looks.delete(looks.keys().next().value!);

@@ -406,9 +406,6 @@ const build = (
   // stays within the bytes a sample may hold on any device
   const extras = tier === "desktop" && (effects.reflections || effects.bounce);
   const fits = bytesPerSample >= MRT_BYTES;
-  // the motion's fourth channel holds how much of the screen's occlusion
-  // a surface takes: none here, a model's, the floor's and a rug's share
-  // written by their own materials over it (screen-ao.ts)
   const wantSsr = extras && effects.reflections && fits && !devFlag("nossr");
   const wantSsgi = extras && effects.bounce && fits && !devFlag("nossgi");
   if (extras && fits)
@@ -420,12 +417,7 @@ const build = (
       }),
     );
   else
-    scenePass.setMRT(
-      mrt({
-        output,
-        velocity: vec4(velocity as unknown as Node<"vec2">, 0, 0),
-      }),
-    );
+    scenePass.setMRT(mrt({ output, velocity }));
   // the occlusion from the depth alone (its normals are read back from
   // it), so the room is drawn once a frame
   // the occlusion can be switched off for diagnosis (dev-flags.ts)
@@ -512,11 +504,9 @@ const build = (
     depth,
     smoothed
       ? (mix(
-          float(1),
           (smoothed as unknown as Node<"vec4">).r,
-          scenePass
-            .getTextureNode("velocity")
-            .a.mul(float(1).sub(MOVING)),
+          float(1),
+          MOVING,
         ) as unknown as Node<"float">)
       : null,
     backdrop,

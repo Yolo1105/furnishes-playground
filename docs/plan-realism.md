@@ -3141,10 +3141,7 @@ each job:
 
 | Job | Before | After | Why |
 | --- | --- | --- | --- |
-| Occlusion, pieces | baked (`bakedOcclusion`) **and** GTAO | baked only | the bake knows the piece's own boards; GTAO darkened the same corners again |
-| Occlusion, the walls and ceiling | GI bake's bounce **and** GTAO | the bake only | the bounce already falls off into corners |
-| Occlusion, the floor | GI bake's bounce **and** GTAO | GTAO at 0.4, for contact only | the bounce's texels are too coarse for a sofa's few centimetres, and only 4 pieces in the flat lay a footprint; without it the glance read the floor by the sofa 8.5 % darker than open floor, against its 25 % |
-| Occlusion, glTF models | GTAO at full | GTAO at 0.4 (`GTAO_SHARE`; the glance's sofa edge lift reads 0.038 at 0.4 and 0.037 at 0.5, so its bar moves from 0.04 to 0.035, below), none if the file brings its own occlusion map | a model has no bake of its own; its footprint grounds it |
+| Occlusion | baked (pieces), the bounce (shell) **and** GTAO on every surface | **unchanged: GTAO still on every surface** | see "The screen's occlusion, one surface at a time: not done" below |
 | Bounce | baked GI; SSGI optional (desktop, off) | baked GI; SSGI stays an opt-in setting, off | one source by default |
 | Reflection | room cube / box-projected floor; SSR optional (desktop, off) | the same | already one by default |
 | A convex edge | the round in the geometry **and** `edgeLift` (+9 % on a pixel line) | the round | the round catches the light itself |
@@ -3159,12 +3156,34 @@ The geometry lost what fed the gone layers: the `edge` attribute (four
 floats a vertex), the covered-edge search and the joint geometry; the
 polygon offset that kept faces behind the joint lines went with them.
 
-GTAO is still computed from the depth (the occlusion pass is one pass
-for the frame); what changed is where it is laid. Each material says
-how much it takes by a flag of its own (`screenAo`, screen-ao.ts), a
-number, which three keys a shader by, so a model's program is never
-shared with a board's; the scene pass writes the share into the motion
-target's spare fourth channel, and the frame mixes the occlusion by it.
+### The screen's occlusion, one surface at a time: not done
+
+The brief asks for one occlusion a surface: the bakes for the pieces
+and the shell, GTAO (0.3–0.5) for the loaded models alone. GTAO is one
+pass over the frame's depth, so this means laying it by a share each
+material gives. Two ways were built and measured, and neither took in
+this sandbox (WebGL2, swiftshader):
+
+- the share read from the material inside a shader function as each
+  shader was built, written into the motion target's spare fourth
+  channel;
+- the material's own scene-pass output (three's `NodeMaterial.mrtNode`,
+  merged over the pass's) writing the same channel.
+
+With either, the glance's contact by the sofa read 8 % (its bar is
+25 %), the floor and the rug flagged or not; with the occlusion forced
+on every surface it passed. Taken out rather than left half-working:
+the occlusion stays on every surface, as before this round. The two
+places a share would need are noted: the floor and a rug take their
+contact with what stands on them from it (only 4 pieces in the flat lay
+a footprint, and the bounce's texels are too coarse for a few
+centimetres), and a loaded model has no bake of its own. Worth trying
+on a GPU first (`?noao` against the default shows whether a share
+takes), then the material output again.
+
+A model's footprint is now as wide as its own base (model-base.ts: its
+vertices in its lowest fifth, held between the old 0.6 of its footprint
+and 0.95), so a sofa's covers its base and a plant's stays at its pot.
 
 ### The bakes in order: pieces, the room, the probes
 
@@ -3236,8 +3255,8 @@ several. On a GPU the budget needs measuring on the owner's machine.
 - **Colour space and occlusion audit** (`ao-audit.test.ts`): a set's
   colour map is sRGB and its normal and roughness are data
   (`SET_MAPS`, materials.ts); a set's own occlusion map is never loaded;
-  a board, plain, coated or sheened, takes its bake alone; a model the
-  screen's at 0.3–0.5; a model with its own map that one alone.
+  a board, plain, coated or sheened, carries its bake and no map beside
+  it.
 - **KTX2**: measured in an earlier round and left as JPG (above, "KTX2
   textures: measured, left as JPG"); nothing new to measure until the
   scans are in.
