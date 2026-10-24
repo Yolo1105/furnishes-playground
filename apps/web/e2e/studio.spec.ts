@@ -267,6 +267,20 @@ test("rails collapse into the toolbar and come back", async ({ page }) => {
   await expect
     .poll(async () => (await main.boundingBox())!.width, { timeout: 20_000 })
     .toBeGreaterThan(wide + 100);
+  // and the panel has gone past the window's edge, not left over the
+  // stage (it once slid by its shut column's width: nothing)
+  await expect
+    .poll(
+      async () => {
+        const p = (await page
+          .locator(".shell-rail-left > .shell-panel")
+          .first()
+          .boundingBox())!;
+        return p.x + p.width;
+      },
+      { timeout: 20_000 },
+    )
+    .toBeLessThanOrEqual(0);
   // the restore button stands in the toolbar's left half, once the
   // column has finished widening
   const restore = page.getByRole("button", { name: "Show project panel" });
