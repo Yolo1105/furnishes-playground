@@ -129,9 +129,14 @@
   flex-basis: 8px;
   margin: -4px 0;
 }
+/* its column is shut, so the rail's own box is none wide: it slides by
+   its panel's width and the edge, out past the window */
 .shell[data-left="collapsed"] .shell-rail-left {
-  transform: translateX(calc(-100% - var(--shell-gap)));
+  transform: translateX(
+    calc(-1 * (var(--shell-left) + var(--shell-edge) + var(--shell-gap)))
+  );
   margin-right: 0;
+  pointer-events: none;
 }
 
 /* the content keeps the rail's width while the column animates shut */
@@ -796,6 +801,15 @@ body > .shell-menu {
   left: var(--stage-l);
   right: var(--stage-r);
 }
+/* but the room in 3D is drawn on under the panels, to the window's
+   edges: the camera frames it in the gap and moves the picture's middle
+   to the gap's (Scene3D.tsx, useGap); a picture of it does the same */
+.stage-room > .stage-3d-slot,
+.preview-stage :is(.preview-was, .preview-lens) {
+  left: calc(-1 * var(--stage-l));
+  right: calc(-1 * var(--stage-r));
+  width: auto;
+}
 .shell-rail,
 .shell-main {
   position: relative;
@@ -936,8 +950,11 @@ body > .shell-menu {
   .shell-stage {
     --stage-l: 0px;
   }
+  /* a drawer here, collapsed or not: it has its own width to slide by */
   .shell[data-left="collapsed"] .shell-rail-left {
     margin-right: 0;
+    transform: translateX(calc(-100% - var(--shell-gap)));
+    pointer-events: auto;
   }
   .shell-rail-left .shell-collapse {
     display: none;

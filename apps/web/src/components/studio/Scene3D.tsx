@@ -910,26 +910,111 @@ const setLens = (camera: Camera, fov: number) => {
     and sets and clears it every frame */
 const shiftOf = (camera: Camera) =>
   (camera.userData.shift as number | undefined) ?? 0;
+/** and across, a share of its width: the canvas runs on under the
+    panels, and the picture's middle stands in the gap between them */
+const acrossOf = (camera: Camera) =>
+  (camera.userData.across as number | undefined) ?? 0;
 const shifting = new WeakSet<PerspectiveCamera>();
+const lensShifts = (c: PerspectiveCamera) => {
+  if (shifting.has(c)) return;
+  shifting.add(c);
+  const made = c.updateProjectionMatrix.bind(c);
+  c.updateProjectionMatrix = () => {
+    made();
+    const s = shiftOf(c);
+    const a = acrossOf(c);
+    if (!s && !a) return;
+    // a frustum moved down by `s` of its height: its top and bottom
+    // both lower, so (top + bottom) / (top - bottom) less 2s; and the
+    // picture moved right by `a` of its width: the frustum's left and
+    // right both go left, (right + left) / (right - left) less 2a
+    c.projectionMatrix.elements[9]! -= 2 * s;
+    c.projectionMatrix.elements[8]! -= 2 * a;
+    c.projectionMatrixInverse.copy(c.projectionMatrix).invert();
+  };
+};
 const setShift = (camera: Camera, shift: number) => {
   const c = camera as PerspectiveCamera;
   if (!c.isPerspectiveCamera || Math.abs(shiftOf(c) - shift) < 1e-4) return;
-  if (!shifting.has(c)) {
-    shifting.add(c);
-    const made = c.updateProjectionMatrix.bind(c);
-    c.updateProjectionMatrix = () => {
-      made();
-      const s = shiftOf(c);
-      if (!s) return;
-      // a frustum moved down by `s` of its height: its top and bottom
-      // both lower, so (top + bottom) / (top - bottom) less 2s
-      c.projectionMatrix.elements[9]! -= 2 * s;
-      c.projectionMatrixInverse.copy(c.projectionMatrix).invert();
-    };
-  }
+  lensShifts(c);
   c.userData.shift = shift;
   c.updateProjectionMatrix();
 };
+const setAcross = (camera: Camera, across: number) => {
+  const c = camera as PerspectiveCamera;
+  if (!c.isPerspectiveCamera || acrossOf(c) === across) return;
+  lensShifts(c);
+  c.userData.across = across;
+  c.updateProjectionMatrix();
+};
+
+/** the gap between the panels the canvas runs on under, px in from its
+    left and right (the main stage's room box against the canvas; none
+    for a canvas elsewhere): the room is framed in it, and the picture's
+    middle moved to its middle, easing there as a panel opens or shuts */
+type Gap = { l: number; r: number };
+const gapOf = (canvas: HTMLCanvasElement): Gap => {
+  const room = canvas.closest(".stage-room");
+  if (!room) return { l: 0, r: 0 };
+  const c = canvas.getBoundingClientRect();
+  const g = room.getBoundingClientRect();
+  return {
+    l: Math.max(0, Math.round(g.left - c.left)),
+    r: Math.max(0, Math.round(c.right - g.right)),
+  };
+};
+/** the gap's aspect, the frame the room is fitted to */
+const gapAspect = (width: number, height: number, gap: Gap) =>
+  height ? Math.max(1, width - gap.l - gap.r) / height : 1.5;
+function useGap() {
+  const gl = useThree((s) => s.gl);
+  const camera = useThree((s) => s.camera);
+  const invalidate = useThree((s) => s.invalidate);
+  const width = useThree((s) => s.size.width);
+  const [gap, setGap] = useState(() => gapOf(gl.domElement));
+  useEffect(() => {
+    const canvas = gl.domElement;
+    const measure = () =>
+      setGap((was) => {
+        const now = gapOf(canvas);
+        return now.l === was.l && now.r === was.r ? was : now;
+      });
+    measure();
+    const room = canvas.closest(".stage-room");
+    if (!room) return;
+    const seen = new ResizeObserver(measure);
+    seen.observe(canvas);
+    seen.observe(room);
+    return () => seen.disconnect();
+  }, [gl]);
+  useEffect(() => {
+    gl.domElement
+      .closest<HTMLElement>(".stage-3d")
+      ?.setAttribute("data-gap", `${gap.l} ${gap.r}`);
+  }, [gl, gap]);
+  const target = width ? (gap.l - gap.r) / 2 / width : 0;
+  const to = useRef(target);
+  const last = useRef(0);
+  useEffect(() => {
+    to.current = target;
+    // the first frame stands in the middle already; later, it eases
+    if (!last.current || reduced()) setAcross(camera, target);
+    last.current = performance.now();
+    invalidate();
+  }, [target, camera, invalidate]);
+  useFrame(() => {
+    const a = acrossOf(camera);
+    const t = to.current;
+    if (a === t) return;
+    const now = performance.now();
+    const dt = Math.min(1 / 30, (now - last.current) / 1000);
+    last.current = now;
+    const next = a + (t - a) * Math.min(1, dt * 10);
+    setAcross(camera, Math.abs(t - next) < 1e-4 ? t : next);
+    invalidate();
+  });
+  return gap;
+}
 
 /** the camera glides to the angle's place */
 function Rig({
@@ -963,6 +1048,7 @@ function Rig({
   const controls = useThree((s) => s.controls) as Controls;
   const invalidate = useThree((s) => s.invalidate);
   const size = useThree((s) => s.size);
+  const gap = useGap();
   const glide = useRef<{
     from: Vector3;
     fromAt: Vector3;
@@ -1046,7 +1132,7 @@ function Rig({
     if (key === placed.current && moved.current) return;
     placed.current = key;
     moved.current = false;
-    const aspect = size.height ? size.width / size.height : 1.5;
+    const aspect = gapAspect(size.width, size.height, gap);
     const {
       pos,
       at,
@@ -1144,6 +1230,7 @@ function Rig({
     controls,
     invalidate,
     size,
+    gap,
   ]);
   // the cube's drag: the camera goes round its target at its distance
   const turn = useStudio((s) => s.turn);
@@ -1431,6 +1518,7 @@ function Walker({
   const camera = useThree((s) => s.camera);
   const gl = useThree((s) => s.gl);
   const invalidate = useThree((s) => s.invalidate);
+  useGap();
   const touring = useStudio((s) => s.touring);
   const view = useStudio((s) => s.walkView);
   const goal = useStudio((s) => s.walkGoal);
@@ -1451,7 +1539,11 @@ function Walker({
     const start = walkStart(
       w,
       d,
-      gl.domElement.clientWidth / Math.max(1, gl.domElement.clientHeight),
+      gapAspect(
+        gl.domElement.clientWidth,
+        gl.domElement.clientHeight,
+        gapOf(gl.domElement),
+      ),
       corner,
     );
     [s.x, , s.z] = start.pos;
