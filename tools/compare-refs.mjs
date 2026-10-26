@@ -247,8 +247,100 @@ export const compare = (studio, ref) => {
   };
 };
 
+/* ---------- the tones (the numbers a lighting round reports) ---------- */
+const toLinear = (v) => {
+  const c = v / 255;
+  return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+};
+const LINEAR = Float32Array.from({ length: 256 }, (_, v) => toLinear(v));
+const toSrgb = (l) =>
+  l <= 0.0031308 ? 12.92 * l : 1.055 * l ** (1 / 2.4) - 0.055;
+/** a box given in the studio's 1440 x 900 frame, in this picture's pixels */
+const boxIn = (p, [x0, y0, x1, y1]) => {
+  const sx = p.width / 1440;
+  const sy = p.height / 900;
+  return [
+    Math.round(x0 * sx),
+    Math.round(y0 * sy),
+    Math.round(x1 * sx),
+    Math.round(y1 * sy),
+  ];
+};
+/** the mean linear R, G, B over a box */
+const meanLinear = (p, box) => {
+  const [x0, y0, x1, y1] = boxIn(p, box);
+  const sum = [0, 0, 0];
+  let n = 0;
+  for (let y = y0; y < y1; y++)
+    for (let x = x0; x < x1; x++) {
+      const o = (y * p.width + x) * 3;
+      for (let c = 0; c < 3; c++) sum[c] += LINEAR[p.rgb[o + c]];
+      n++;
+    }
+  return sum.map((s) => s / Math.max(n, 1));
+};
+const lumOf = ([r, g, b]) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
+/**
+ * A picture's tones, as a lighting round reports them: the median of
+ * its lightness (luminance taken to linear light and back to the sRGB
+ * scale, 0-1, so 0.5 is a mid grey on the screen), the share of dark
+ * pixels (under 0.25) and of highlights (over 0.85); with the boxes,
+ * how many times brighter the window is than the wall beside it (mean
+ * linear luminance) and the wall's colour as R:G:B over G (linear).
+ */
+export const tones = (p, { window: win, wall } = {}) => {
+  const n = p.width * p.height;
+  const light = new Float32Array(n);
+  for (let i = 0; i < n; i++)
+    light[i] = toSrgb(
+      0.2126 * LINEAR[p.rgb[i * 3]] +
+        0.7152 * LINEAR[p.rgb[i * 3 + 1]] +
+        0.0722 * LINEAR[p.rgb[i * 3 + 2]],
+    );
+  const sorted = Float32Array.from(light).sort();
+  let dark = 0;
+  let bright = 0;
+  for (const v of light) {
+    if (v < 0.25) dark++;
+    if (v > 0.85) bright++;
+  }
+  const out = {
+    median: sorted[Math.floor(n / 2)],
+    dark: dark / n,
+    highlights: bright / n,
+  };
+  if (win && wall) {
+    const w = meanLinear(p, wall);
+    out.windowToWall = lumOf(meanLinear(p, win)) / Math.max(lumOf(w), 1e-6);
+    out.wallColour = w.map((c) => c / Math.max(w[1], 1e-6));
+  }
+  return out;
+};
+const boxArg = (name) => {
+  const v = arg(name, null);
+  return v ? v.split(",").map(Number) : null;
+};
+/** the Corner frame's window glass and the wall beside it, in the
+    1440 x 900 frame (--window and --wall to give others) */
+const CORNER = { window: [885, 305, 1135, 465], wall: [1240, 250, 1340, 480] };
+const describe = (t) =>
+  `median ${t.median.toFixed(2)}, dark ${(t.dark * 100).toFixed(1)} %, highlights ${(t.highlights * 100).toFixed(1)} %` +
+  (t.windowToWall === undefined
+    ? ""
+    : `, window/wall ${t.windowToWall.toFixed(2)}, wall R:G:B ${t.wallColour.map((c) => c.toFixed(2)).join(":")}`);
+
 const main = () => {
   mkdirSync(outDir, { recursive: true });
+  const boxes = {
+    window: boxArg("window") ?? CORNER.window,
+    wall: boxArg("wall") ?? CORNER.wall,
+  };
+  if (process.argv.includes("--tones")) {
+    // the tones of single pictures, no pair: node compare-refs.mjs --tones a.png b.png
+    for (const f of process.argv.filter((a) => a.endsWith(".png")))
+      console.log(`${basename(f)}: ${describe(tones(readPng(f), boxes))}`);
+    return;
+  }
   const studio = new Set(
     readdirSync(studioDir).filter((f) => f.endsWith(".png")),
   );
@@ -259,12 +351,21 @@ const main = () => {
       console.log(`${basename(f, ".png")}: no studio picture, skipped`);
       continue;
     }
-    const r = compare(readPng(join(studioDir, f)), readPng(join(refsDir, f)));
+    const shot = readPng(join(studioDir, f));
+    const ref = readPng(join(refsDir, f));
+    const r = compare(shot, ref);
     writePng(join(outDir, `${basename(f, ".png")}-side.png`), r.side);
-    rows.push({ view: basename(f, ".png"), ...r });
+    // the window and the wall are the Corner frame's; another view
+    // reports its tones without them
+    const own = basename(f, ".png") === "corner" || boxArg("window");
+    const toneStudio = tones(shot, own ? boxes : {});
+    const toneRef = tones(ref, own ? boxes : {});
+    rows.push({ view: basename(f, ".png"), ...r, toneStudio, toneRef });
     console.log(
       `${basename(f, ".png")}: SSIM ${r.ssim.toFixed(3)}, mean luminance studio ${r.meanStudio.toFixed(3)} vs reference ${r.meanRef.toFixed(3)} (${(r.meanDiff * 100).toFixed(1)}% off)`,
     );
+    console.log(`  studio     ${describe(toneStudio)}`);
+    console.log(`  reference  ${describe(toneRef)}`);
   }
   writeFileSync(
     join(outDir, "report.json"),

@@ -48,12 +48,19 @@ import { CLIP, FRAME_ASPECT } from "./camera-bookmarks";
  * tags, never a name. `userData.name` on the tagged ancestor names the
  * copy's node.
  *
+ * Roles: `userData.role` on a mesh or an ancestor goes with its copy
+ * (and out as the glTF node's extras), so a renderer handed the file
+ * finds a part by what it is, not by guessing from its name or its
+ * glow: "outside" is a window's outside plane, "sheer" a voile.
+ *
  * Materials are new instances the copy owns (dispose them with it);
  * geometries and the live scene's picture textures are shared by
  * reference and never disposed here; the sky pictures and the canvas
  * copies of the grown surfaces' raw maps are the copy's own.
  */
 export type ExportTag = "room" | "piece" | "prop" | "helper" | "outlook";
+/** what a part is, for a renderer handed the copy */
+export type ExportRole = "outside" | "sheer";
 export type CopyPurpose = "gltf" | "trace";
 /** a camera to carry in the copy: where it stands and what it looks at */
 export type Bookmark = {
@@ -62,6 +69,10 @@ export type Bookmark = {
   at: Vector3Tuple;
   /** the lens, vertical degrees */
   fov: number;
+  /** the frame's shift down, a share of its height (a shift lens, as
+      the stage's Corner view has it); out as the camera's extras, since
+      a glTF camera has no shift of its own */
+  shift?: number;
 };
 /** the sun to carry in a glTF copy */
 export type Sun = { position: Vector3Tuple; colour: string; intensity: number };
@@ -106,6 +117,14 @@ const tagOf = (o: Object3D): ExportTag | null => {
   for (let at: Object3D | null = o; at; at = at.parent) {
     const t = at.userData.export as ExportTag | undefined;
     if (t) return t;
+  }
+  return null;
+};
+/** the nearest role given above or on an object */
+const roleOf = (o: Object3D): ExportRole | null => {
+  for (let at: Object3D | null = o; at; at = at.parent) {
+    const r = at.userData.role as ExportRole | undefined;
+    if (r) return r;
   }
   return null;
 };
@@ -398,6 +417,7 @@ export const copyForExport = (
       made.push(m);
       const copy = new Mesh(mesh.geometry, m);
       copy.name = uniqueName("Window outside");
+      copy.userData.role = "outside" satisfies ExportRole;
       place(copy, o);
       roomGroup.add(copy);
       if (options.purpose === "trace" && data) {
@@ -437,6 +457,8 @@ export const copyForExport = (
     );
     copy.castShadow = mesh.castShadow;
     copy.receiveShadow = mesh.receiveShadow;
+    const role = roleOf(o);
+    if (role) copy.userData.role = role;
     const base =
       givenName(o) ??
       (tag === "room" ? "Room part" : tag === "prop" ? "Prop" : "Piece");
@@ -457,6 +479,7 @@ export const copyForExport = (
           CLIP.far,
         );
         cam.name = b.name;
+        if (b.shift) cam.userData.shift = b.shift;
         cam.position.set(...b.position);
         cam.lookAt(new Vector3(...b.at));
         cameras.add(cam);

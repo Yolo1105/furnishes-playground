@@ -1415,6 +1415,9 @@ function Curtains({
         geometry={geometry.sheer}
         position={[0, 0, -PANEL.sheer]}
         raycast={unpickable}
+        // a renderer handed the export makes it a see-through cloth
+        // (its glow here stands in for the light behind it)
+        userData={{ role: "sheer" }}
       >
         {/* the voile: the outside through it softly, and glowing with
             the window's light behind it, never a grey stripe */}

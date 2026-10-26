@@ -248,8 +248,8 @@ back, each with a Copy JSON, and `/rounded?check=webgpu` walks a
 checklist of the WebGPU look with a Copy report; `tools/blender/
 reference.py` renders the exported room in Cycles, `tools/studio-
 shots.mjs` takes the studio's own pictures of the same views and
-`tools/compare-refs.mjs` scores them against each other (SSIM and
-mean luminance). The gear's Board
+`tools/compare-refs.mjs` scores them against each other (SSIM, mean
+luminance and the tones a lighting round reports). The gear's Board
 keeps pictures with a title and a note, uploaded (sized down in the
 browser first) or saved from a generated room item's tile, with the
 starred room items beside them; it is mirrored to the account as a

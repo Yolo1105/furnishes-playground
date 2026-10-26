@@ -80,14 +80,14 @@ export const exportRoomGlb = async () => {
   if (!live) return false;
   const cameras = [
     ...BOOKMARKS.map((name) => {
-      const { pos, at, fov } = cameraFor(
+      const { pos, at, fov, shift } = cameraFor(
         name,
         live.span.w,
         live.span.d,
         live.h,
         live.centre,
         // the Corner view from the corner the stage takes it from; a
-        // glTF camera has no shift lens, so it comes level, unshifted
+        // glTF camera has no shift lens, so the shift goes as its extras
         {
           w: live.w,
           d: live.d,
@@ -95,7 +95,7 @@ export const exportRoomGlb = async () => {
           ...(name === "Corner" ? { framing: live.shot.framing } : {}),
         },
       );
-      return { name, position: pos, at, fov };
+      return { name, position: pos, at, fov, ...(shift ? { shift } : {}) };
     }),
     (() => {
       const { pos, at, fov } = walkStart(

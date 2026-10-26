@@ -1,0 +1,5 @@
+# Third-party files in tools/blender/sky
+
+| File       | Source                                                                                                                                                                   | Licence | Changes                                                                                                                          |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `city.exr` | Poly Haven HDRI, as resized by `@pmndrs/assets` 1.7.0 (`hdri/city.exr.js`, npm; drei's "city" preset): <https://polyhaven.com/hdris>, <https://github.com/pmndrs/assets> | CC0 1.0 | Base64 in the package decoded to the EXR as it ships (512 × 256, DWAB); otherwise unchanged. The reference render's outdoor sky. |

@@ -160,6 +160,46 @@ describe("the copy for export", () => {
     expect(root.isScene).toBe(true);
     expect(root.environment).toBe(env);
   });
+  it("says what a part is, for a renderer, and carries a camera's shift", () => {
+    const live = room();
+    const sheer = new Mesh(
+      new PlaneGeometry(1, 1),
+      new MeshStandardMaterial({ transparent: true, opacity: 0.55 }),
+    );
+    sheer.userData.role = "sheer";
+    // hung in the room's shell, as a window's curtains are
+    live.children[0]!.add(sheer);
+    const { root } = copyForExport(live, {
+      purpose: "gltf",
+      cameras: [
+        { name: "Corner", position: [2, 1.15, 3], at: [0, 1.15, 0], fov: 42 },
+        {
+          name: "Front",
+          position: [0, 3, 6],
+          at: [0, 1, 0],
+          fov: 42,
+          shift: 0,
+        },
+        {
+          name: "Shifted",
+          position: [0, 1, 6],
+          at: [0, 1, 0],
+          fov: 42,
+          shift: 0.15,
+        },
+      ],
+    });
+    expect(root.getObjectByName("Window outside")!.userData.role).toBe(
+      "outside",
+    );
+    const cloth = meshesOf(root).find((m) => m.userData.role === "sheer")!;
+    // the voile keeps its see-through: the exporter writes it as alpha
+    expect((cloth.material as MeshStandardMaterial).opacity).toBe(0.55);
+    expect((cloth.material as MeshStandardMaterial).transparent).toBe(true);
+    expect(root.getObjectByName("Floor")!.userData.role).toBeUndefined();
+    expect(root.getObjectByName("Shifted")!.userData.shift).toBe(0.15);
+    expect(root.getObjectByName("Front")!.userData.shift).toBeUndefined();
+  });
   it("makes a window's outside glow", () => {
     const { root } = copyForExport(room(), { purpose: "gltf" });
     const outside = root.getObjectByName("Window outside") as Mesh;

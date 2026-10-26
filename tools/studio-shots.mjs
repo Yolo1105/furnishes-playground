@@ -63,6 +63,9 @@ const main = async () => {
   await page.waitForSelector('html[data-arrived="true"]', { timeout: 60000 });
   const stage = page.locator(".shell-stage .stage-3d");
   console.log("backend", await stage.getAttribute("data-backend"));
+  // the room runs on under the panels: hidden, the stage is the whole
+  // window, the frame the references are rendered at
+  await page.getByRole("button", { name: "Hide panels" }).click();
   for (const name of BOOKMARKS) {
     await page.getByRole("radio", { name }).click();
     await page.waitForTimeout(1200);
@@ -71,6 +74,12 @@ const main = async () => {
     await stage.screenshot({ path: file });
     console.log("wrote", file);
   }
+  // the room's corner shot, the frame the lighting is judged in
+  await page.getByRole("button", { name: "Corner" }).first().click();
+  await page.waitForTimeout(1200);
+  await settled(stage);
+  await stage.screenshot({ path: join(out, "corner.png") });
+  console.log("wrote", join(out, "corner.png"));
   await page.getByRole("radio", { name: "Perspective" }).click();
   await page.waitForTimeout(1200);
   await page.getByRole("button", { name: "Walk the room" }).click();

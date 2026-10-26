@@ -754,30 +754,45 @@ WebGL backend too (the suite covers them there):
 
 ## Reference renders
 
-A ground truth to judge the live view against, made on a machine with
-Blender 4.x (the sandbox has none):
+A ground truth to judge the live view against. It runs in Blender 4.2+
+or with the `bpy` module (`pip install bpy==5.2.3` on Python 3.13, no
+Blender app; the sandbox renders this way on its CPU):
 
 1. In the studio, Export > 3D model writes `<room>-room.glb`: the
    shell, the pieces, each window's outside as a glowing plane, the
-   named cameras (Perspective, Front, Back, Left, Right, Top, Walk) and
-   the sun.
-2. `blender -b -P tools/blender/reference.py -- --glb room.glb --out refs/ --samples 512`
-   renders one PNG per camera at the stage's size with Cycles (the GPU
-   when there is one, OpenImageDenoise), the same HDRI file the studio
-   uses (`--hdri`, default `apps/web/public/sky/apartment.hdr`) plus the
-   exported sun, AgX and the studio's exposure (`--exposure`, default
-   1.1).
+   named cameras (Perspective, Corner, Front, Back, Left, Right, Top,
+   Walk) and the sun. Parts a renderer must treat apart carry glTF
+   extras: `role: "outside"` on each outside plane, `role: "sheer"` on
+   each voile; a camera with the studio's shift lens carries `shift`
+   (a share of the frame's height, down; the Corner view's 0.15).
+2. `python tools/blender/reference.py --glb room.glb --out refs/`
+   (or `blender -b -P tools/blender/reference.py -- ...`) renders the
+   Corner camera (`--cameras all` for every one) at 1440 x 900, lit the
+   way a real room is: the outside planes hidden, an outdoor HDRI as
+   the sky (`--sky`, default `tools/blender/sky/city.exr`), the sun set
+   to 6x the sky's measured horizontal irradiance (`--sun-ratio`; the
+   glTF importer read three.js's 11 as lux and divided by 683, which
+   left no sun at all), each sheer made a cloth that lets 55 % of the
+   light straight through and scatters the rest both ways, and the
+   camera's shift put back. It writes the linear EXR and a PNG developed
+   as the studio draws: metered so the room's median sits at 0.18, plus
+   one stop (`--stops`), Khronos PBR Neutral, sRGB.
 3. `node tools/studio-shots.mjs --url http://localhost:3000/rounded --out shots/`
    takes the studio's own views in headed Chrome on WebGPU at Full
-   quality, one PNG of `.stage-3d` per bookmark and the walk, named
-   like the references (`perspective.png`, `front.png`...), each once
-   the stage says its probes, its reflection and its edges have
-   settled.
+   quality with the panels hidden, one PNG of `.stage-3d` per bookmark,
+   the Corner view and the walk, named like the references
+   (`corner.png`, `perspective.png`...), each once the stage says its
+   probes, its reflection and its edges have settled.
 4. `node tools/compare-refs.mjs --studio shots/ --refs refs/ --out compare/`
-   prints, per view, the SSIM (over 8 px windows of luminance) and the
-   mean luminance difference, writes a side-by-side PNG per view and a
-   `report.json`. Plain Node, no dependency: it reads and writes PNGs
-   itself.
+   prints, per view, the SSIM (over 8 px windows of luminance), the
+   mean luminance difference and each picture's tones: the median
+   lightness, the share of dark pixels (under 0.25) and of highlights
+   (over 0.85), and for the Corner frame the window's brightness over
+   the wall beside it and the wall's colour (R:G:B over G, linear;
+   `--window` and `--wall` give other boxes in the 1440 x 900 frame).
+   It writes a side-by-side PNG per view and a `report.json`;
+   `--tones a.png b.png` measures single pictures. Plain Node, no
+   dependency: it reads and writes PNGs itself.
 
 Starting targets: SSIM at least 0.80 for the live day view and 0.90
 for a path-traced photo; mean luminance within 10% of the reference.
