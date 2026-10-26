@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Vector3 } from "three";
-import { CURTAIN, curtainGeometry } from "./curtain";
+import { CURTAIN, curtainGeometry, waveAmplitude } from "./curtain";
 import {
   cameraFor,
   cornerOf,
@@ -15,7 +15,23 @@ import { roomItemHex, ROOM_ITEM_HEX } from "./piece-detail";
 import { WOOD_M } from "./surface-paint";
 
 describe("the look: a curtain's cloth", () => {
-  it("hangs from its rail in folds, both faces built", () => {
+  it("makes a wave as deep as its fullness wants", () => {
+    // a 100 % fullness ripple fold at a 10 cm pitch is about 8 cm deep
+    expect(2 * waveAmplitude(0.1, 2)).toBeGreaterThan(0.07);
+    expect(2 * waveAmplitude(0.1, 2)).toBeLessThan(0.09);
+    expect(waveAmplitude(0.1, 1)).toBe(0);
+    // fuller cloth, deeper waves
+    expect(waveAmplitude(0.1, 2.6)).toBeGreaterThan(waveAmplitude(0.1, 2));
+  });
+  it("hangs its cloth at its fullness: the weave runs twice the width across", () => {
+    const g = curtainGeometry(3.3, 2.5, { faces: 1 });
+    const uv = g.getAttribute("uv");
+    let most = 0;
+    for (let i = 0; i < uv.count; i++) most = Math.max(most, uv.getX(i));
+    // the top row's run along the cloth, over the width it covers
+    expect((most * WOOD_M) / 3.3).toBeGreaterThan(CURTAIN.fullness * 0.97);
+  });
+  it("hangs from its rail in waves, both faces built", () => {
     const g = curtainGeometry(0.42, 1.5);
     g.computeBoundingBox();
     const b = g.boundingBox!;
@@ -23,8 +39,10 @@ describe("the look: a curtain's cloth", () => {
     expect(b.max.x - b.min.x).toBeCloseTo(0.42, 5);
     expect(b.max.y).toBeCloseTo(0, 5);
     expect(b.min.y).toBeCloseTo(-1.5, 5);
-    // the folds stand fuller at the hem than at the rail
-    expect(b.max.z - b.min.z).toBeGreaterThan(CURTAIN.fold);
+    // the waves are geometry: as deep as a 2x cloth's, fuller at the hem
+    expect(b.max.z - b.min.z).toBeGreaterThan(
+      2 * waveAmplitude(CURTAIN.pitch, CURTAIN.fullness) * 0.85,
+    );
     // the front and the back each have their vertices and white tones
     const n = g.getAttribute("position").count;
     expect(n % 2).toBe(0);

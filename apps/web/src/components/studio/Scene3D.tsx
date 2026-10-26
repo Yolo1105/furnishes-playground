@@ -327,6 +327,7 @@ function FirstFrame({ onDrawn }: { onDrawn: () => void }) {
 /** the export's tags: what a copy of the scene keeps and what it
     drops (scene-copy.ts) */
 const PIECES_TAG = { export: "piece" } as const;
+const PROPS_TAG = { export: "prop" } as const;
 const HELPER_TAG = { export: "helper" } as const;
 
 /** the live scene handed to code outside the canvas (the glTF export)
@@ -2740,7 +2741,13 @@ function FlatRoom({
           reflection={working?.reflection ?? null}
         />
       )}
-      {!focus && <WallItems3D r={wallShape} items={items} shared={shared} />}
+      {!focus && (
+        // the room's things on its walls go out with the room (the
+        // air-conditioner, the clock, the pictures)
+        <group userData={PROPS_TAG}>
+          <WallItems3D r={wallShape} items={items} shared={shared} />
+        </group>
+      )}
       {!focus && corner && (
         <group
           position={[
