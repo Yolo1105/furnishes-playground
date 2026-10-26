@@ -130,10 +130,14 @@ const FADE_MS = 400;
 const KEEP = 32;
 
 /** the bake by tier: texels a metre, rays a texel a gather, gathers,
-    and the texture's side */
+    the texture's side, and the texels either side the light is
+    smoothed over (about half a metre each way: the bounce of a sunlit
+    patch on the floor, a small bright mark seen from the ceiling, was
+    a blotch at the desktop's 5 × 5, and bounced light has no edges a
+    metre's smoothing would lose) */
 export const TIERS = {
-  fine: { density: 8, rays: 32, bounces: 2, side: GI_SIDE.fine },
-  plain: { density: 4, rays: 24, bounces: 1, side: GI_SIDE.plain },
+  fine: { density: 8, rays: 32, bounces: 2, side: GI_SIDE.fine, blur: 4 },
+  plain: { density: 4, rays: 24, bounces: 1, side: GI_SIDE.plain, blur: 2 },
 } as const;
 /** a room's first, quick look */
 const COARSE = { rays: 12, bounces: 1 } as const;
@@ -643,6 +647,7 @@ export function GiBake({
           lamps: lamps.map((x) => (x.reach ? x : { ...x, reach: 12 })),
           rays: set.rays,
           bounces: set.bounces,
+          blur: set.blur,
         };
         const layout = JSON.stringify([
           p.job.size,

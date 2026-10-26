@@ -570,7 +570,14 @@ const failPost = (set: (failed: boolean) => void) => (error: unknown) => {
     `SCENE_DEFAULT.exposure`, one for each light) */
 const LIGHTS = {
   day: {
-    sun: 11,
+    // a clear day's sun against the sky through the glass, as the
+    // Cycles reference has it (tools/blender/reference.py: the sun 6x
+    // the sky's horizontal irradiance, so 51x the mean radiance a
+    // window sees): 51 x the window's mean, (2.4 + 2.4 x 0.35) / 2
+    // (WINDOW_LIGHT, the bake's ground outside). At 11 the sky was the
+    // room's light and the sun a patch: a flat, cool room the same
+    // brightness from the window to the far wall
+    sun: 83,
     colour: "#fff3e2",
     // the sky's fill only lifts the deepest shade a hair: the windows
     // carry the soft light now, and lit from every side at once a room

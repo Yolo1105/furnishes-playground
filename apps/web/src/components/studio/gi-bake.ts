@@ -72,6 +72,9 @@ export type GiJob = {
   away: V3;
   rays: number;
   bounces: number;
+  /** the texels either side a texel's light is smoothed over, within
+      its chart (2 when not given: 5 × 5) */
+  blur?: number;
 };
 export type GiResult = {
   /** RGBA, the irradiance in RGB and in A whether the texel is a
@@ -555,7 +558,7 @@ export const bakeGi = (job: GiJob): GiResult => {
     mean = n ? [m[0] / n, m[1] / n, m[2] / n] : [0, 0, 0];
   }
   // smoothed within each chart, then the empty texels round each filled
-  const smooth = smoothCharts(indirect, used, job.charts, W);
+  const smooth = smoothCharts(indirect, used, job.charts, W, job.blur ?? 2);
   const irradiance = new Float32Array(tex * 4);
   for (let k = 0; k < tex; k++) {
     irradiance[k * 4] = smooth[k * 3]!;
@@ -570,13 +573,15 @@ export const bakeGi = (job: GiJob): GiResult => {
 /** how many texels the charts' borders are filled outward */
 export const GI_PAD = 2;
 
-/** each chart's texels blurred over 5 × 5 among its own used texels
-    (a texel never takes a neighbour chart's light, nor an empty one's) */
+/** each chart's texels blurred over (2 `r` + 1)² among its own used
+    texels (a texel never takes a neighbour chart's light, nor an empty
+    one's) */
 const smoothCharts = (
   v: Float32Array,
   used: Uint8Array,
   charts: GiChart[],
   W: number,
+  r: number,
 ) => {
   const out = Float32Array.from(v);
   for (const c of charts)
@@ -586,8 +591,8 @@ const smoothCharts = (
         if (!used[k]) continue;
         const s: V3 = [0, 0, 0];
         let n = 0;
-        for (let dj = -2; dj <= 2; dj++)
-          for (let di = -2; di <= 2; di++) {
+        for (let dj = -r; dj <= r; dj++)
+          for (let di = -r; di <= r; di++) {
             const ii = i + di;
             const jj = j + dj;
             if (ii < 0 || jj < 0 || ii >= c.w || jj >= c.h) continue;
@@ -808,6 +813,7 @@ export const giKey = (job: GiJob) => {
   job.away.forEach(mix);
   mix(job.rays);
   mix(job.bounces);
+  mix(job.blur ?? 2);
   return h.toString(36);
 };
 
