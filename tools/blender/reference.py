@@ -62,6 +62,9 @@ SUN_ANGLE = math.radians(0.53)
 MIDDLE_GREY = 0.18
 # Rec. 709 luminance
 LUMA = np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
+# the Corner frame's window glass and the wall beside it, in the
+# 1440 x 900 frame (tools/compare-refs.mjs measures the same boxes)
+CORNER = {"window": (890, 170, 1130, 335), "wall": (1250, 110, 1340, 360)}
 
 
 def args_given() -> list[str]:
@@ -278,15 +281,25 @@ def write_png(path: str, srgb: np.ndarray) -> None:
         f.write(chunk(b"IEND", b""))
 
 
-def develop(exr: str, png: str, stops: float) -> float:
-    """the linear render to a PNG: metered exposure plus `stops`, PBR
-    Neutral, sRGB; returns the exposure used"""
+def box_mean(lum: np.ndarray, box: tuple[int, int, int, int]) -> float:
+    h, w = lum.shape
+    x0, y0, x1, y1 = box
+    return float(lum[round(y0 * h / 900) : round(y1 * h / 900), round(x0 * w / 1440) : round(x1 * w / 1440)].mean())
+
+
+def read_exr(exr: str) -> np.ndarray:
+    """a linear render as rows top to bottom of RGB"""
     image = bpy.data.images.load(exr)
     w, h = image.size
     px = np.empty(w * h * 4, dtype=np.float32)
     image.pixels.foreach_get(px)
     bpy.data.images.remove(image)
-    rgb = np.nan_to_num(px.reshape(h, w, 4)[::-1, :, :3], nan=0.0, posinf=0.0)
+    return np.nan_to_num(px.reshape(h, w, 4)[::-1, :, :3], nan=0.0, posinf=0.0)
+
+
+def develop(rgb: np.ndarray, png: str, stops: float) -> float:
+    """the linear render to a PNG: metered exposure plus `stops`, PBR
+    Neutral, sRGB; returns the exposure used"""
     ev = metered(rgb) + stops
     t = np.clip(pbr_neutral(rgb * 2.0**ev), 0, 1)
     s = np.where(t <= 0.0031308, 12.92 * t, 1.055 * np.power(t, 1 / 2.4) - 0.055)
@@ -322,8 +335,15 @@ def main() -> None:
         print(f"reference: rendering {cam.name} -> {exr}", flush=True)
         bpy.ops.render.render(write_still=True)
         png = os.path.join(a.out, f"{name}.png")
-        ev = develop(exr, png, a.stops)
+        rgb = read_exr(exr)
+        ev = develop(rgb, png, a.stops)
         print(f"reference: {png} at {ev:+.2f} stops (metered {ev - a.stops:+.2f}, then {a.stops:+.1f})")
+        if cam.name == "Corner":
+            # the window over the wall in light itself, before the
+            # exposure and the tone mapping squeeze the window
+            lum = rgb @ LUMA
+            ratio = box_mean(lum, CORNER["window"]) / max(box_mean(lum, CORNER["wall"]), 1e-9)
+            print(f"reference: Corner window/wall {ratio:.2f} in linear light")
 
 
 if __name__ == "__main__":

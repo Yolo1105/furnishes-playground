@@ -322,7 +322,7 @@ const boxArg = (name) => {
 };
 /** the Corner frame's window glass and the wall beside it, in the
     1440 x 900 frame (--window and --wall to give others) */
-const CORNER = { window: [885, 305, 1135, 465], wall: [1240, 250, 1340, 480] };
+const CORNER = { window: [890, 170, 1130, 335], wall: [1250, 110, 1340, 360] };
 const describe = (t) =>
   `median ${t.median.toFixed(2)}, dark ${(t.dark * 100).toFixed(1)} %, highlights ${(t.highlights * 100).toFixed(1)} %` +
   (t.windowToWall === undefined
