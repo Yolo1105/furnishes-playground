@@ -34,3 +34,7 @@ blob-report/
 
 # the owner's product photo for the round 10 blind test (not committed)
 apps/web/public/materials/scan/reference/
+
+# python
+__pycache__/
+*.pyc
