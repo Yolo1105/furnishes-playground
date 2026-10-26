@@ -5,6 +5,7 @@ import type { RectAreaLight } from "three";
 import { RectAreaLightTexturesLib } from "three/examples/jsm/lights/RectAreaLightTexturesLib.js";
 import { RectAreaLightNode } from "three/webgpu";
 import { type Pane, WINDOW_LIGHT } from "./window-light";
+import { devNumber } from "./dev-flags";
 
 /**
  * The windows' soft light in the live view (window-light.ts lays it
@@ -75,7 +76,9 @@ export function WindowLights({
           key={i}
           pane={panes[i]}
           colour={look.colour}
-          intensity={look.intensity}
+          intensity={
+            evening ? look.intensity : (devNumber("win") ?? look.intensity)
+          }
         />
       ))}
     </>

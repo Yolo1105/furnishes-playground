@@ -2,6 +2,7 @@ import {
   BoxGeometry,
   Color,
   DirectionalLight,
+  Float32BufferAttribute,
   Group,
   LineSegments,
   type Material,
@@ -199,6 +200,31 @@ describe("the copy for export", () => {
     expect(root.getObjectByName("Floor")!.userData.role).toBeUndefined();
     expect(root.getObjectByName("Shifted")!.userData.shift).toBe(0.15);
     expect(root.getObjectByName("Front")!.userData.shift).toBeUndefined();
+  });
+  it("hands over a wall without the shading the raster paints into its colours", () => {
+    const live = room();
+    const wallGeometry = new BoxGeometry(2, 2.6, 0.1);
+    const n = wallGeometry.getAttribute("position").count;
+    wallGeometry.setAttribute(
+      "color",
+      new Float32BufferAttribute(new Array<number>(n * 3).fill(0.9), 3),
+    );
+    const paint = new MeshStandardMaterial({ vertexColors: true });
+    paint.userData.lightInColours = true;
+    const wall = new Mesh(wallGeometry, paint);
+    wall.userData.name = "Shaded wall";
+    live.children[0]!.add(wall);
+    const glb = copyForExport(live, { purpose: "gltf" });
+    const copy = glb.root.getObjectByName("Shaded wall") as Mesh;
+    expect(copy.geometry.getAttribute("color")).toBeUndefined();
+    expect((copy.material as MeshStandardMaterial).vertexColors).toBe(false);
+    // the live wall keeps its shading
+    expect(wallGeometry.getAttribute("color")).toBeDefined();
+    glb.dispose();
+    // the tracer's copy is the live view's light, as it was
+    const traced = copyForExport(live, { purpose: "trace" });
+    const t = traced.root.getObjectByName("Shaded wall") as Mesh;
+    expect(t.geometry.getAttribute("color")).toBeDefined();
   });
   it("makes a window's outside glow", () => {
     const { root } = copyForExport(room(), { purpose: "gltf" });

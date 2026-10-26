@@ -54,3 +54,12 @@ export const devParam = (name: string): string | null => {
     return null;
   return new URLSearchParams(window.location.search).get(name);
 };
+/** a number given in the page's query in development, for trying a
+    light's strength without a rebuild (`?hemi=0.3`, `?exp=1.8`); null
+    otherwise, or when it is not a number */
+export const devNumber = (name: string): number | null => {
+  const v = devParam(name);
+  if (v === null || v.trim() === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};

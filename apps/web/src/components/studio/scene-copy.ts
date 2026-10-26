@@ -55,8 +55,11 @@ import { CLIP, FRAME_ASPECT } from "./camera-bookmarks";
  *
  * Materials are new instances the copy owns (dispose them with it);
  * geometries and the live scene's picture textures are shared by
- * reference and never disposed here; the sky pictures and the canvas
- * copies of the grown surfaces' raw maps are the copy's own.
+ * reference and never disposed here (but for a wall's, copied without
+ * its shading's vertex colours for a glTF copy: a material says
+ * `userData.lightInColours` when its colours are a raster's light);
+ * the sky pictures and the canvas copies of the grown surfaces' raw
+ * maps are the copy's own.
  */
 export type ExportTag = "room" | "piece" | "prop" | "helper" | "outlook";
 /** what a part is, for a renderer handed the copy */
@@ -451,8 +454,21 @@ export const copyForExport = (
       : [mesh.material];
     const materials = sources.map((m) => classicOf(m, own));
     for (const m of materials) made.push(m);
+    // a wall's shading in its vertex colours is the raster's stand-in
+    // for light: a glTF copy, lit by whatever opens it, goes without it
+    let geometry = mesh.geometry;
+    if (
+      options.purpose === "gltf" &&
+      sources.some((m) => m.userData.lightInColours) &&
+      geometry.getAttribute("color")
+    ) {
+      geometry = geometry.clone();
+      geometry.deleteAttribute("color");
+      made.push(geometry);
+      for (const m of materials) m.vertexColors = false;
+    }
     const copy = new Mesh(
-      mesh.geometry,
+      geometry,
       materials.length === 1 ? materials[0]! : materials,
     );
     copy.castShadow = mesh.castShadow;

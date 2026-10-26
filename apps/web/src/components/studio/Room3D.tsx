@@ -3,7 +3,7 @@
 import { useGi } from "./GiBake";
 import { FOOT_HEIGHT } from "./bake-defaults";
 import { unpickable } from "./no-pick";
-import { devFlag } from "./dev-flags";
+import { devFlag, devNumber } from "./dev-flags";
 import { inward, WINDOW_LIGHT } from "./window-light";
 import { seedOf } from "./seed";
 import { toMetres } from "@furnishes/scene";
@@ -204,8 +204,10 @@ const CAP_LINE_HEX = "#b3a89b";
 const PLASTER_ROUGH = 0.72;
 /** how strongly the floor's relief bends the light */
 const FLOOR_RELIEF = new Vector2(0.5, 0.5);
-/** how strongly the plaster's relief bends the light */
-const PLASTER_RELIEF = new Vector2(0.35, 0.35);
+/** how strongly the plaster's relief bends the light: an emulsion
+    painted wall's, near flat (at 0.35 the scan's relief read under the
+    window's raking light as a rough, uneven wall in the reference) */
+const PLASTER_RELIEF = new Vector2(0.12, 0.12);
 const CEILING_HEX = "#f8f5f0";
 /** how much light a ceiling has of its own: a trace only. Its light
     is the bounce off the sunlit floor, which the probes carry; a
@@ -312,7 +314,13 @@ function Outside({
   tall: number;
   at: [number, number, number];
 }) {
-  const look = evening ? OUTLOOK.evening : OUTLOOK.day;
+  const drawn = evening ? OUTLOOK.evening : OUTLOOK.day;
+  // `?out=` tries another strength for the outlook, in development
+  const out = devNumber("out");
+  const look = useMemo(
+    () => (out === null ? drawn : { ...drawn, light: out }),
+    [drawn, out],
+  );
   const invalidate = useThree((s) => s.invalidate);
   // a photographed backplate in place of the drawn outlook, once one is
   // installed and in (backplate.ts)
@@ -718,6 +726,10 @@ const holesOf = (
     });
 };
 
+/** a material whose vertex colours carry a raster's stand-in for light
+    (the wall's shading below), which a renderer that lights the room
+    itself is handed without (scene-copy.ts) */
+const SHADED = { lightInColours: true } as const;
 /** the shading of a wall's plaster by where a point is on it: the
     room's light falls off towards the floor, where the floor's tone
     bounces up into the lower metre; it eases off again at the head;
@@ -757,7 +769,10 @@ const shadingOf = (
 };
 
 /** a wall's solid as a geometry: the faces grouped by material, the
-    shading as vertex colours, and the cut faces' lines */
+    shading as vertex colours, and the cut faces' lines. `u0` is where
+    the solid starts along its line, m, so the plaster runs on from one
+    solid into the next in line with it (from 0 on each, a pier's few
+    centimetres showed the same corner of the map, a darker strip) */
 const wallGeometry = (
   len: number,
   height: number,
@@ -766,6 +781,7 @@ const wallGeometry = (
   holes: ReturnType<typeof holesOf>,
   shading: Shading,
   joints: readonly [boolean, boolean],
+  u0 = 0,
 ) => {
   const blocks = blocksOf(
     len,
@@ -778,6 +794,7 @@ const wallGeometry = (
     })),
   );
   const tri = wallTriangles(blocks, len, t, ends, -1, height, shading, joints);
+  if (u0) for (let i = 0; i < tri.uvs.length; i += 2) tri.uvs[i]! += u0;
   const g = new BufferGeometry();
   g.setAttribute("position", new BufferAttribute(tri.positions, 3));
   g.setAttribute("normal", new BufferAttribute(tri.normals, 3));
@@ -961,6 +978,10 @@ function WallRun({
   const bz = toMetres(e.b[1]) - d / 2;
   const len = Math.hypot(bx - ax, bz - az);
   const yaw = yawOf(e.wall);
+  // where the solid starts along its line (its local x runs along
+  // cos yaw, -sin yaw from its middle less half its length)
+  const u0 =
+    ((ax + bx) / 2) * Math.cos(yaw) - ((az + bz) / 2) * Math.sin(yaw) - len / 2;
   const [nx, nz] = inward(e.wall);
   const shading = useMemo(
     () => shadingOf(len, h, floorHex, both),
@@ -988,6 +1009,7 @@ function WallRun({
             holes,
             shading,
             joints,
+            u0,
           );
           made.set(k, g);
         }
@@ -995,7 +1017,7 @@ function WallRun({
       },
       made,
     };
-  }, [len, h, t, corners, holes, shading, joints]);
+  }, [len, h, t, corners, holes, shading, joints, u0]);
   const full = variants.get(false, false);
   useEffect(
     () => () => {
@@ -1037,8 +1059,9 @@ function WallRun({
           .map((o) => ({ ...o, y1: Math.min(o.y1, STUB_H) })),
         shadingOf(len, STUB_H, floorHex, both),
         joints,
+        u0,
       ),
-    [len, t, corners, holes, floorHex, both, joints],
+    [len, t, corners, holes, floorHex, both, joints, u0],
   );
   useEffect(
     () => () => {
@@ -1131,14 +1154,16 @@ function WallRun({
         {...tileFace}
         roughness={1}
         vertexColors
+        userData={SHADED}
       />
     ) : (
       <meshStandardMaterial
         {...behind}
         attach={`material-${group}`}
         color={wallColour}
-        // the paint's own tone under the plaster, for the bounce bake
-        userData={{ giAlbedo: wallHex }}
+        // the paint's own tone under the plaster, for the bounce bake;
+        // the shading in its vertex colours is the raster's light
+        userData={{ giAlbedo: wallHex, ...SHADED }}
         map={plasterMaps.map}
         normalMap={devFlag("noplaster") ? null : plasterMaps.normalMap}
         normalScale={PLASTER_RELIEF}
@@ -1400,7 +1425,9 @@ const sheerMaterial = (evening: boolean) => {
   const m = new MeshStandardNodeMaterial({
     color: SHEER_HEX,
     emissive: WINDOW_LIGHT.day.colour,
-    emissiveIntensity: evening ? SHEER_GLOW.evening : SHEER_GLOW.day,
+    emissiveIntensity: evening
+      ? SHEER_GLOW.evening
+      : (devNumber("glow") ?? SHEER_GLOW.day),
     roughness: 0.9,
     transparent: true,
     opacity: SHEER_OPACITY,
@@ -2653,6 +2680,7 @@ export function RoomLight({ evening, sky }: { evening: boolean; sky: Sky }) {
   // them, and they light the room's walls only faintly, as the sky
   // through a window does; the window's sun carries the room
   const intensity =
+    devNumber("env") ??
     SURROUND[sky === "panels" ? "panels" : "map"][evening ? "evening" : "day"];
   useEffect(() => {
     const { scene, invalidate } = get();

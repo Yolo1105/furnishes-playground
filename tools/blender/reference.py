@@ -52,6 +52,7 @@ import sys
 import zlib
 
 import bpy  # type: ignore[import-not-found]
+from mathutils import Vector  # type: ignore[import-not-found]
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -108,6 +109,65 @@ def hide_outside() -> int:
             o.hide_render = True
             n += 1
     return n
+
+
+def part_walls(gap: float = 0.001) -> int:
+    """where one room's wall runs through another's to its inner face,
+    the two solids' faces lie in one plane, one over the other: the live
+    view draws them as one, but a path tracer's rays leaving the one
+    strike the other at once, and the wall by a doorway came out a grey
+    strip. The wall with the less of that plane steps back `gap` into
+    its solid (the other covers it); returns the faces moved"""
+    walls = [o for o in bpy.context.scene.objects if o.type == "MESH" and o.name.startswith("Wall")]
+    planes: dict[tuple[int, int, float], list] = {}
+    for o in walls:
+        if o.data.users > 1:
+            o.data = o.data.copy()
+        m = o.matrix_world
+        rot = m.to_3x3()
+        for p in o.data.polygons:
+            n = (rot @ p.normal).normalized()
+            axis = max(range(3), key=lambda i: abs(n[i]))
+            if abs(n[axis]) < 0.999:
+                continue
+            pts = [m @ o.data.vertices[v].co for v in p.vertices]
+            key = (axis, 1 if n[axis] > 0 else -1, round(pts[0][axis], 4))
+            a, b = [i for i in range(3) if i != axis]
+            box = (min(q[a] for q in pts), max(q[a] for q in pts), min(q[b] for q in pts), max(q[b] for q in pts))
+            planes.setdefault(key, []).append((o, p.index, box, p.area))
+    moved: dict = {}
+    for (axis, sign, _), faces in planes.items():
+        by = {}
+        for f in faces:
+            by.setdefault(f[0].name, []).append(f)
+        if len(by) < 2:
+            continue
+        area = {k: sum(f[3] for f in v) for k, v in by.items()}
+        names = sorted(by)
+        for i, x in enumerate(names):
+            for y in names[i + 1 :]:
+                # the faces of the one over the other's, by more than a hair
+                over = [
+                    (f, g)
+                    for f in by[x]
+                    for g in by[y]
+                    if min(f[2][1], g[2][1]) - max(f[2][0], g[2][0]) > 1e-3
+                    and min(f[2][3], g[2][3]) - max(f[2][2], g[2][2]) > 1e-3
+                ]
+                if not over:
+                    continue
+                gives = y if (area[y], y) <= (area[x], x) else x
+                for f, g in over:
+                    face = f if f[0].name == gives else g
+                    moved.setdefault((face[0].name, axis, sign), (face[0], axis, sign, set()))[3].add(face[1])
+    for o, axis, sign, polys in moved.values():
+        step = [0.0, 0.0, 0.0]
+        step[axis] = -sign * gap
+        local = o.matrix_world.to_3x3().inverted() @ Vector(step)
+        for v in {v for i in polys for v in o.data.polygons[i].vertices}:
+            o.data.vertices[v].co += local
+        o.data.update()
+    return sum(len(v[3]) for v in moved.values())
 
 
 def principled(m):
@@ -311,6 +371,7 @@ def main() -> None:
     a = parse()
     import_room(a.glb)
     print(f"reference: {hide_outside()} outside planes hidden, {sheers(a.sheer)} sheer materials made cloth")
+    print(f"reference: {part_walls()} wall faces stepped back from a wall's face they lay on")
     sky = set_world(a.sky)
     e = sky_irradiance(sky)
     sun = a.sun if a.sun is not None else a.sun_ratio * e

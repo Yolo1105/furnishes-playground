@@ -142,7 +142,7 @@ import {
 import { shownNow } from "./last-frame";
 import { setLive } from "./scene-handle";
 import { recordFrame, recorder } from "./bench";
-import { devFlag, devParam } from "./dev-flags";
+import { devFlag, devNumber, devParam } from "./dev-flags";
 import { SUN_TIMES, sunDirection } from "./sun-position";
 import { type LitRoom, lightCount, panesOf } from "./window-light";
 import { WindowLights } from "./WindowLights";
@@ -3538,7 +3538,7 @@ export default function Scene3D() {
             stage={stage}
           />
         )}
-        <Exposure value={exposureOf(scene)} />
+        <Exposure value={devNumber("exp") ?? exposureOf(scene)} />
         <WhiteBalance evening={scene.light === "evening"} />
         <Backend />
         <LastFrame />
@@ -3575,7 +3575,7 @@ export default function Scene3D() {
           />
         )}
         <hemisphereLight
-          intensity={light.sky}
+          intensity={devNumber("hemi") ?? light.sky}
           color={light.fill}
           groundColor={GROUND_HEX}
         />
@@ -3584,7 +3584,7 @@ export default function Scene3D() {
           from={sunFrom}
           centre={centre}
           reach={sunReach}
-          intensity={devFlag("nosun") ? 0 : light.sun}
+          intensity={devFlag("nosun") ? 0 : (devNumber("sun") ?? light.sun)}
           colour={light.colour}
           cascaded={cascaded}
           soft={!devFlag("nosoft")}
