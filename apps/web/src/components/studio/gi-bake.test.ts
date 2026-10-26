@@ -6,6 +6,7 @@ import {
   buildTree,
   copyLayer,
   fadeOn,
+  waitBehindFade,
   giKey,
   halfOf,
   layoutGi,
@@ -258,6 +259,21 @@ describe("the room's bounced light (round 9, Part 1)", () => {
       ).toBeLessThanOrEqual(
         Math.abs(DataUtils.fromHalfFloat(DataUtils.toHalfFloat(x)) - x),
       );
+  });
+
+  it("keeps a room's whole bake waiting when its quick first look comes after it", () => {
+    const whole = { id: "a", whole: true, n: 1 };
+    const quick = { id: "a", whole: false, n: 2 };
+    const other = { id: "b", whole: false, n: 3 };
+    // the first look second: the whole bake stays
+    expect(waitBehindFade([whole], quick)).toEqual([whole]);
+    // another room's bake waits beside it
+    expect(waitBehindFade([whole], other)).toEqual([whole, other]);
+    // a newer whole bake takes the place of the room's last one
+    const newer = { id: "a", whole: true, n: 4 };
+    expect(waitBehindFade([whole, other], newer)).toEqual([other, newer]);
+    // and a whole bake takes the place of a first look
+    expect(waitBehindFade([quick], whole)).toEqual([whole]);
   });
 
   it("lays a bake in its layer and fades the next one in only while the camera is still", () => {

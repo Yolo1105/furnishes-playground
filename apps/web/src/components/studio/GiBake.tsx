@@ -16,6 +16,7 @@ import {
   bakeGi,
   copyLayer,
   fadeOn,
+  waitBehindFade,
   giKey,
   halves,
   type GiChart,
@@ -503,8 +504,7 @@ export function GiBake({
     s.lay = (d: Done) => {
       if (s.fade) {
         // one fade at a time: the newest bake of a room waits
-        s.waiting = s.waiting.filter((w) => w.id !== d.id);
-        s.waiting.push(d);
+        s.waiting = waitBehindFade(s.waiting, d);
         return;
       }
       lay(d);

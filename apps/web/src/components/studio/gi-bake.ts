@@ -872,6 +872,21 @@ export const copyLayer = (
   const n = side * side * 4;
   data.copyWithin(to * n, from * n, from * n + n);
 };
+/** the bakes waiting for a fade, with one more come: a room's newest
+    bake waits in place of the one before it, but a room's quick first
+    look (`whole` false) never takes the place of its whole bake. The
+    two are asked for together and come back in either order: a first
+    look that came second dropped the whole bake from the queue, laid
+    itself, and the room stood unbaked for ever (the stage "baking",
+    data-gi-hold 1/1/0/0) */
+export const waitBehindFade = <D extends { id: string; whole: boolean }>(
+  waiting: readonly D[],
+  d: D,
+): D[] =>
+  !d.whole && waiting.some((w) => w.id === d.id && w.whole)
+    ? [...waiting]
+    : [...waiting.filter((w) => w.id !== d.id), d];
+
 /** a fade's next share: on by the frame's time while the camera is
     still, held while it moves */
 export const fadeOn = (
