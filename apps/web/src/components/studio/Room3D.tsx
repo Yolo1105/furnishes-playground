@@ -219,12 +219,14 @@ const CEILING_GLOW = 0.12;
     they flickered through it as a dotted line along the cornice) */
 const CEILING_DROP = 0.002;
 /** the room's ceiling light: a flush round diffuser in the middle of
-    the room's box, m, glowing a little by day and lit in the evening
-    (a bare ceiling read as a set's) */
+    the room's box, m (a bare ceiling read as a set's), lit in the
+    evening; by day it is off, as a room's light is: its glow of 0.35
+    stood at 9.6 times the ceiling beside it in the Cycles reference,
+    a lamp left on, where off it stands at 1.06 */
 const LAMP = {
   radius: 0.2,
   drop: 0.025,
-  day: 0.35,
+  day: 0,
   evening: 2.2,
   /** the housing's ring outside the diffuser */
   rim: 0.012,

@@ -35,7 +35,8 @@ import {
  *   still stands in it; a mesh over `MESH_TRIS` triangles counts as its
  *   box.
  * - Glass, sheers, decals and footprints let the light through (a
- *   transparent material), and lines and helpers are not surfaces. A
+ *   transparent material), and lines, helpers and a window's drawn
+ *   outside (the sky the bake stands for) are not surfaces. A
  *   wall's foot (`STUB`), shown where the wall has gone from the
  *   picture, is left out: the wall itself still stands for the bake,
  *   since the light is the room's and not the view's (and so the bake
@@ -275,7 +276,13 @@ export const bakeIgnores = (mesh: Mesh) => {
   if ((mesh as Mesh & { isInstancedMesh?: boolean }).isInstancedMesh)
     return true;
   const ud = mesh.userData as { export?: string; name?: string };
-  return ud.export === "helper" || ud.name === "Footprint";
+  // a window's drawn outside is the picture of what the bake's sky
+  // stands for: opaque, a hand's width past the glass, it caught every
+  // ray that left by a window, so no sun came in and the sky came back
+  // as a dim grey wall
+  return (
+    ud.export === "helper" || ud.export === "outlook" || ud.name === "Footprint"
+  );
 };
 
 /** a room's signature: where its meshes stand and their colours, and

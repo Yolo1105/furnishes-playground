@@ -2,6 +2,7 @@ import {
   BoxGeometry,
   Group,
   Mesh,
+  MeshBasicMaterial,
   MeshStandardMaterial,
   PlaneGeometry,
   PointLight,
@@ -115,5 +116,24 @@ describe("the flat as the bounce bake reads it (round 9, Part 1)", () => {
       expect(uv.getX(i)).toBeGreaterThanOrEqual(0);
       expect(uv.getX(i)).toBeLessThanOrEqual(1);
     }
+  });
+
+  it("lets the light through a window's drawn outside: the picture beyond the glass is the sky the bake stands for, not a wall", () => {
+    const g = roomGroup(0, false);
+    const count = () =>
+      collectFlat([{ id: "a", group: g, windows: [] }], 4, 256).rooms.get("a")!
+        .job.tris.length;
+    const without = count();
+    // the outlook, opaque, a hand's width past where the glass would be
+    const outside = new Mesh(
+      new PlaneGeometry(1.2, 1.2),
+      new MeshBasicMaterial({ color: "#88aadd" }),
+    );
+    outside.userData = { export: "outlook" };
+    outside.position.set(1.9, 1.4, 0);
+    outside.rotation.y = -Math.PI / 2;
+    g.add(outside);
+    g.updateMatrixWorld(true);
+    expect(count()).toBe(without);
   });
 });

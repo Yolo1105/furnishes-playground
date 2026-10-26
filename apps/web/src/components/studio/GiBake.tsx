@@ -46,7 +46,7 @@ import {
 import type { Tier } from "./Post";
 import { isWindow, OPENINGS } from "./room-data";
 import { openingCentre } from "./room-health";
-import { inward, type LitRoom, WINDOW_LIGHT } from "./window-light";
+import { inward, type LitRoom, skyThrough } from "./window-light";
 
 /**
  * The room's bounced light, baked whenever the room stops changing
@@ -194,7 +194,10 @@ type Done = {
     (its script did not load: a development server still compiling it
     on a first visit) leaves the pool and its job goes back to the queue,
     so a bake is never waited on for ever */
-type Task = { job: GiJob; done: (r: { half: Uint16Array; ms: number }) => void };
+type Task = {
+  job: GiJob;
+  done: (r: { half: Uint16Array; ms: number }) => void;
+};
 const pool = (() => {
   let workers: { w: Worker; busy: Task | null }[] | null = null;
   let id = 0;
@@ -226,7 +229,9 @@ const pool = (() => {
         };
         w.onerror = (e) => {
           e.preventDefault();
-          console.warn(`bounce bake: a worker failed (${e.message || "it did not load"}); its work goes on without it`);
+          console.warn(
+            `bounce bake: a worker failed (${e.message || "it did not load"}); its work goes on without it`,
+          );
           w.terminate();
           workers = workers!.filter((x) => x !== slot);
           if (slot.busy) queue.unshift(slot.busy);
@@ -321,7 +326,7 @@ export function GiBake({
   const set = plain ? TIERS.plain : TIERS.fine;
   // the bake's light, as numbers: a change of it bakes every room again
   const light = useRef<Pick<GiJob, "sky" | "sun" | "away"> | null>(null);
-  const sky = WINDOW_LIGHT[evening ? "evening" : "day"];
+  const sky = skyThrough(evening);
   const radiance = linear(sky.colour, sky.intensity);
   const sunLin = linear(sun.colour, sun.intensity);
   const l = Math.hypot(...sun.dir) || 1;
@@ -736,8 +741,11 @@ export function GiBake({
     arr[f.slot] = 0;
     s.fade = null;
     invalidate();
-    const w = s.waiting.shift();
-    if (w) s.lay?.(w);
+    // the bakes that waited, in turn, until one fades in: one laid out
+    // anew (a room's first) goes straight in with no fade, and when the
+    // queue waited on that fade the rest stood for ever ("baking", the
+    // stage held at 1/1/0/1)
+    while (!s.fade && s.waiting.length) s.lay?.(s.waiting.shift()!);
   });
   return null;
 }

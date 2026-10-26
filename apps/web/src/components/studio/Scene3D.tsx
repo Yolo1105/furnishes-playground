@@ -3101,7 +3101,17 @@ export default function Scene3D() {
   );
   const grid = scene.grid && !rendered;
   const edges = scene.edges && !rendered;
-  const light = LIGHTS[scene.light];
+  // `?sun=` and `?hemi=` try other day strengths, in development: here,
+  // so the bounce bake takes them with the live lights
+  const light = useMemo(() => {
+    const l = LIGHTS[scene.light];
+    if (scene.light !== "day") return l;
+    return {
+      ...l,
+      sun: devNumber("sun") ?? l.sun,
+      sky: devNumber("hemi") ?? l.sky,
+    };
+  }, [scene.light]);
   // one sun for the flat, turned by the plan's north: it stays where it
   // is as the active room changes
   const north = useRoom((s) => s.north);
@@ -3575,7 +3585,7 @@ export default function Scene3D() {
           />
         )}
         <hemisphereLight
-          intensity={devNumber("hemi") ?? light.sky}
+          intensity={light.sky}
           color={light.fill}
           groundColor={GROUND_HEX}
         />
@@ -3584,7 +3594,7 @@ export default function Scene3D() {
           from={sunFrom}
           centre={centre}
           reach={sunReach}
-          intensity={devFlag("nosun") ? 0 : (devNumber("sun") ?? light.sun)}
+          intensity={devFlag("nosun") ? 0 : light.sun}
           colour={light.colour}
           cascaded={cascaded}
           soft={!devFlag("nosoft")}

@@ -2,6 +2,7 @@ import type { Vector3Tuple } from "three";
 import { isWindow, type Opening, OPENINGS, type Wall } from "./room-data";
 import { openingCentre } from "./room-health";
 import { toMetres } from "@furnishes/scene";
+import { devNumber } from "./dev-flags";
 
 /**
  * The soft daylight a window lets in, as a light in its opening: an
@@ -36,6 +37,17 @@ export const WINDOW_LIGHT = {
   /** how far inside the pane, m */
   inset: 0.04,
 } as const;
+
+/** the sky through the glass for a look, as the live lights and the
+    bounce bake both take it (`?win=` tries another day strength, in
+    development) */
+export const skyThrough = (evening: boolean) =>
+  evening
+    ? WINDOW_LIGHT.evening
+    : {
+        ...WINDOW_LIGHT.day,
+        intensity: devNumber("win") ?? WINDOW_LIGHT.day.intensity,
+      };
 
 /** a wall's inward normal, in the scene's x and z */
 export const inward = (wall: Wall): [number, number] =>

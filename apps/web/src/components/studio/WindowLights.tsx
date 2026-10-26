@@ -4,8 +4,7 @@ import { useLayoutEffect, useRef } from "react";
 import type { RectAreaLight } from "three";
 import { RectAreaLightTexturesLib } from "three/examples/jsm/lights/RectAreaLightTexturesLib.js";
 import { RectAreaLightNode } from "three/webgpu";
-import { type Pane, WINDOW_LIGHT } from "./window-light";
-import { devNumber } from "./dev-flags";
+import { type Pane, skyThrough } from "./window-light";
 
 /**
  * The windows' soft light in the live view (window-light.ts lays it
@@ -68,7 +67,7 @@ export function WindowLights({
   evening: boolean;
 }) {
   withTables();
-  const look = evening ? WINDOW_LIGHT.evening : WINDOW_LIGHT.day;
+  const look = skyThrough(evening);
   return (
     <>
       {Array.from({ length: count }, (_, i) => (
@@ -76,9 +75,7 @@ export function WindowLights({
           key={i}
           pane={panes[i]}
           colour={look.colour}
-          intensity={
-            evening ? look.intensity : (devNumber("win") ?? look.intensity)
-          }
+          intensity={look.intensity}
         />
       ))}
     </>
