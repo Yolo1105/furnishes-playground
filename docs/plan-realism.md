@@ -3322,3 +3322,121 @@ started.
   (`PLASTER_RELIEF`, 0.35) is left until the walls can be judged beside
   a scanned floor.
 - **The rest of Part 6** (above): not started.
+
+## Measured against Cycles (2026-10-26)
+
+The owner's brief: the room tries hard to be real and is not, and the
+cause is the light and some geometry; no more post effects, one change a
+round, each round judged beside the Cycles reference of the same Corner
+camera, with numbers (`tools/compare-refs.mjs`: median lightness, the
+dark share under 0.25, highlights over 0.85, the window over the wall
+beside it, the wall's colour, SSIM).
+
+### Step 1: a reference that can be trusted
+
+`tools/blender/reference.py` (see Reference renders) hides the outside
+planes, lights the room with an outdoor HDRI and a sun at 6x its
+measured horizontal irradiance (city.exr: 4.22 W/m2, so 25 W/m2),
+makes each sheer a cloth (55 % straight through), renders linear EXR
+and develops it with PBR Neutral at the metered exposure +1 stop, and
+puts the Corner camera's shift back. Parts are tagged in glTF extras
+(`role`), and the copy for glTF drops a wall's shading vertex colours
+(`userData.lightInColours`: the raster's stand-in for light, which a
+path tracer lit twice). Two geometry faults it showed, both fixed:
+
+- grey strips beside the doorway: a wall solid's UVs began at 0 on
+  every solid, so each 0.3 m pier showed the same corner of the plaster
+  map (`wallGeometry`'s `u0` now runs the plaster on from one solid to
+  the next);
+- the same strips in Cycles alone: a neighbouring room's wall runs
+  through to this room's inner face, so two solids' faces lie on one
+  plane and a ray leaving one strikes the other at once.
+  `part_walls()` steps the wall with less of that plane back 1 mm.
+  The live bake starts its rays 4 mm off a surface and does not see it.
+
+### Step 2: curtains
+
+Sheer and drapes hang from one ceiling track, to the floor, 17.5 cm
+past the window each side (clamped by the corner and the next
+opening), at 2x fullness in real wave folds (`curtainGeometry`: whole
+sine waves at a 0.1 m pitch, the depth solved from the fullness, about
+8 cm), drapes included, so the window side of each fold catches the
+light. The sheer is drawn flat-normalled with its opacity rising with
+the slant it is seen at, so it reads as voile and not as blinds.
+
+### Step 3: the plaster
+
+Under raking light in Cycles the "cracks" were in the colour map, not
+the normal: a normal at 0.1 left them. The scan's hairline cracks are
+taken out of `plaster/color.jpg` (LICENSES.md) and the relief turned
+down to 0.12, a near-flat emulsion.
+
+### Step 4: the light, by numbers
+
+The sandbox draws on a software renderer, so its absolute level is not
+the owner's GPU's (the owner measured a median of 0.71 there; here it
+was 0.36). What it measures the same way on both is the bounce bake
+(GiBake, on the CPU), and what was wrong was there:
+
+- **The outlook stood in the bake as a wall.** The window's drawn
+  outside (export "outlook") is opaque and a hand's width past the
+  glass; the bake took it as a surface, so every ray that left by a
+  window struck it: no sun came in at all and the sky came back as a
+  dim grey. `bakeIgnores` skips it. Walls +25-40 %.
+- **The bake could stall for ever** ("baking", `data-gi-hold`
+  1/1/0/1 and 1/1/0/0), two ways: after a fade only one waiting bake
+  was laid, and one that starts no fade left the rest standing; and a
+  room's quick first look, coming back after its whole bake, took the
+  whole bake's place in the queue (`waitBehindFade`, tested).
+- **The sun was a patch, the sky the room's light.** The reference's
+  sun is 51x the mean radiance a window sees; the live view's was
+  4.6x, so the room was lit evenly and coolly from the window to the
+  far wall. The day sun goes from 11 to 83 (51x the window's mean,
+  (2.4 + 0.84) / 2); the exposure (2.15, the owner's), the window's sky
+  and the outlook are unchanged.
+- **The ceiling light was on by day.** At 0.35 its glow stood at 9.6x
+  the ceiling beside it in Cycles; off, a real diffuser stands at
+  1.06x. `LAMP.day` is 0.
+- The bake's light is smoothed over about half a metre each way on the
+  desktop (9 x 9 texels): the sun's bounce off a small bright patch of
+  floor came out on the ceiling in blotches at 5 x 5.
+
+The Corner view, desktop tier, against the reference rendered from the
+same export:
+
+|                        | before          | after           | Cycles          |
+| ---------------------- | --------------- | --------------- | --------------- |
+| median                 | 0.36            | 0.49            | 0.61            |
+| dark < 0.25            | 28.2 %          | 8.9 %           | 6.3 %           |
+| highlights > 0.85      | 10.4 %          | 14.9 %          | 22.8 %          |
+| window / wall (screen) | 4.90            | 2.55            | 1.23            |
+| wall R:G:B             | 1.05 : 1 : 0.91 | 1.14 : 1 : 0.83 | 1.24 : 1 : 0.74 |
+| SSIM                   | 0.478           | 0.539           |                 |
+| mean luminance         | 33.6 % under    | 13.5 % under    |                 |
+
+Depth fall-off along the walls, each over the wall by the window (the
+back wall, the left wall by the bookcase, the far wall over the dining
+table): before 0.65, 0.70, 0.89; after 0.62, 0.63, 0.63; Cycles 0.50,
+0.62, 0.42.
+
+To try a light without a rebuild, in development: `?sun=`, `?hemi=`,
+`?win=` (the sky through the glass, live lights and bake alike),
+`?env=`, `?out=` (the outlook), `?glow=` (the sheer), `?exp=`.
+
+### Checked, not changed
+
+- **The doorway**: black in Cycles (0.01 of the window wall), bright
+  in the live view (0.47). Cycles is right in direction: no daylight
+  reaches the hall. The live hall is lit because each doorway gives
+  back `AWAY` (0.2) of the window's sky in its bake, as a dim window
+  would; lowering it is a change for the whole flat, left for its own
+  round. It is also part of why the far wall stays too bright.
+- **The remaining gap**: the room is still a third of a stop under the
+  reference's metered +1 stop, and its walls a little cooler. The
+  exposure is the owner's; confirm on a GPU with `?exp=`.
+- **Outdoor HDRIs**: Poly Haven, jsdelivr and unpkg are not reachable
+  from the sandbox, and the one outdoor sky that is (city.exr, 512 px)
+  is too coarse to look through. The drawn outlook stays.
+- **Not looked at this time**: the unmodified floor scan at its scale,
+  photographs of the boards' finishes (the owner's), the mixed detail
+  of the AC and TV boxes, and whether Lived-in adds enough.
