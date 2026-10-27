@@ -3437,6 +3437,17 @@ To try a light without a rebuild, in development: `?sun=`, `?hemi=`,
 - **Outdoor HDRIs**: Poly Haven, jsdelivr and unpkg are not reachable
   from the sandbox, and the one outdoor sky that is (city.exr, 512 px)
   is too coarse to look through. The drawn outlook stays.
+- **Two visual checks below their bars** (run on a development server,
+  which they need for `window.__scene`): the wall 1 m from the window
+  over the wall at 3.5 m reads 1.10 on screen (bar 1.14), the floor by
+  the sofa's base 18 % darker than open floor (bar 25 %), a bookwall
+  bay's back 12 % darker than its front edges (bar 25 %). Each still
+  goes the right way; the room is brighter now, higher on the tone
+  map's shoulder, which squeezes contrast on screen, and the bars were
+  set on the old, dimmer room. Left for the owner: retune the bars to
+  the reference, or the light. The ten pictures were taken again; the
+  sunset and evening ones take about nine minutes to settle after the
+  change of look on a software renderer (`VISUAL_SLOW=5`).
 - **Not looked at this time**: the unmodified floor scan at its scale,
   photographs of the boards' finishes (the owner's), the mixed detail
   of the AC and TV boxes, and whether Lived-in adds enough.
