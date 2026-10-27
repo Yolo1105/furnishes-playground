@@ -44,6 +44,7 @@ import {
   guardShape,
   patchGi,
 } from "./gi-material";
+import { giFromDisk, giToDisk } from "./gi-store";
 import type { Tier } from "./Post";
 import { isWindow, OPENINGS } from "./room-data";
 import { openingCentre } from "./room-health";
@@ -66,8 +67,12 @@ import { inward, type LitRoom, skyThrough } from "./window-light";
  *   and then whole; a bake laid out as the last one was (the shell
  *   unchanged, a piece moved) fades in over `FADE_MS` on the spare
  *   layer, and only while the camera is still.
- * - A bake is kept by its key (`giKey`): a room put back as it was finds
- *   its light again at once.
+ * - A bake is kept by its key (`giKey`), in memory and in the browser
+ *   (gi-store.ts): a room put back as it was, or as it was on the last
+ *   visit, finds its light again at once, whole, with no quick look.
+ * - The active room is worked out alone: the other rooms' bakes wait
+ *   until its whole bake is laid (one kept is laid at once all the
+ *   same), so the room in view is not sharing the workers.
  * - A phone or a software renderer bakes at half the density, with one
  *   bounce, on a smaller texture (`TIERS.plain`).
  *
@@ -183,8 +188,15 @@ type Room = {
   layout: string | null;
   /** the bake whole on the room's layer, by its key (giKey) */
   laid: string | null;
+  /** the signature held back while the active room bakes alone */
+  held: number | null;
   slot: number;
 };
+
+/** whether the active room bakes alone: until it has a whole bake laid,
+    and while one is on its way (the rest would share the workers) */
+const aloneFor = (r: Room | undefined) =>
+  !!r && (r.laid === null || (r.going === r.sig && r.baked !== r.sig));
 
 /** a bake done: the room's atlas, half floats */
 type Done = {
@@ -382,6 +394,9 @@ export function GiBake({
     /** a bake laid since the bake was last ready: the probes are taken
         again only then */
     laidSince: false,
+    /** the keys the browser's store did not have, so a room waiting on
+        the active one is not looked up again each poll */
+    missed: new Set<string>(),
   });
   // what the poll reads as it is now, without starting it again
   const now = useRef({ active, downlight, set });
@@ -546,6 +561,7 @@ export function GiBake({
             ]
           : null;
       let due = false;
+      const holding = found.has(active) && aloneFor(s.rooms.get(active));
       for (const [id, g] of found) {
         const sig = roomSignature(
           g,
@@ -565,6 +581,7 @@ export function GiBake({
             going: null,
             layout: null,
             laid: null,
+            held: null,
             slot,
           };
           s.rooms.set(id, r);
@@ -573,7 +590,12 @@ export function GiBake({
           r.sig = sig;
           r.at = at;
         }
-        if (r.baked !== r.sig && r.going !== r.sig && at - r.at >= QUIET_MS)
+        if (
+          r.baked !== r.sig &&
+          r.going !== r.sig &&
+          !(holding && id !== active && r.held === r.sig) &&
+          at - r.at >= QUIET_MS
+        )
           due = true;
       }
       const left = [...s.rooms.entries()].some(([, r]) => r.baked !== r.sig);
@@ -633,6 +655,7 @@ export function GiBake({
       });
       const lk = s.lookKey;
       if (!s.began) s.began = at;
+      const alone = flat.rooms.has(active) && aloneFor(s.rooms.get(active));
       for (const [id, p] of order) {
         const r = s.rooms.get(id);
         if (!r || r.baked === r.sig || r.going === r.sig) continue;
@@ -688,19 +711,46 @@ export function GiBake({
           s.lay!(doneOf(had, true));
           continue;
         }
-        useGi.setState((g) => ({ runs: g.runs + 1 }));
-        const first = r.layout === null;
-        if (first)
-          void pool.run({ ...job, ...COARSE }).then(({ half, ms }) => {
+        const waits = alone && id !== active;
+        if (waits && s.missed.has(key)) {
+          r.going = null;
+          r.held = sig;
+          continue;
+        }
+        const bake = () => {
+          useGi.setState((g) => ({ runs: g.runs + 1 }));
+          if (r.layout === null)
+            void pool.run({ ...job, ...COARSE }).then(({ half, ms }) => {
+              worked(ms);
+              if (s.lookKey !== lk || r.layout !== null) return;
+              s.lay!(doneOf(half, false));
+            });
+          void pool.run(job).then(({ half, ms }) => {
             worked(ms);
-            if (s.lookKey !== lk || r.layout !== null) return;
-            s.lay!(doneOf(half, false));
+            keep(key, half);
+            void giToDisk(key, half);
+            if (s.lookKey !== lk || r.going !== sig) return;
+            s.lay!(doneOf(half, true));
           });
-        void pool.run(job).then(({ half, ms }) => {
-          worked(ms);
-          keep(key, half);
+        };
+        // the browser's store first: a bake kept from before is laid
+        // whole, with no quick look and nothing for the workers
+        const length = p.job.size[0] * p.job.size[1] * 4;
+        void giFromDisk(key, length).then((saved) => {
           if (s.lookKey !== lk || r.going !== sig) return;
-          s.lay!(doneOf(half, true));
+          if (saved) {
+            s.missed.delete(key);
+            keep(key, saved);
+            s.lay!(doneOf(saved, true));
+            return;
+          }
+          s.missed.add(key);
+          // not kept, and the active room still baking: asked again
+          // once it is laid
+          if (waits) {
+            r.going = null;
+            r.held = sig;
+          } else bake();
         });
       }
     };
@@ -717,6 +767,7 @@ export function GiBake({
       s.rooms.clear();
       s.fade = null;
       s.waiting = [];
+      s.missed.clear();
       s.give = null;
       s.lay = null;
       (GI_FADE.array as number[]).fill(0);

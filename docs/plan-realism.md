@@ -3518,3 +3518,35 @@ flat, where the 3D drew it and the plan, which frames the rooms with a
 room's box (`withinReach`, room-layout.ts): a drag stops there, and a
 piece saved further out comes back to that edge when the room is read
 (tested).
+
+### Faster light: the rooms' bakes kept in the browser (2026-10-27)
+
+The room bakes were kept in memory only (`giKey`), so every visit
+worked every room out again on the CPU; the pieces' own bakes were
+already kept in IndexedDB (lightmap.ts).
+
+- **Kept in the browser** (gi-store.ts): a room's whole bake is put in
+  IndexedDB under its key (which holds everything the bake reads and
+  `GI_VERSION`), and looked up there before the workers are asked. One
+  found is laid whole at once: no quick first look, no fade. At most
+  `GI_KEPT` (240) are held, the least recently used let go first; a
+  browser without the store bakes as before.
+- **The active room alone**: the other rooms' bakes wait until the
+  active room has a whole bake laid (and while a new one of it is on
+  its way), so the room in view does not share the workers; a room
+  whose bake is kept is laid at once all the same. A room held back is
+  not counted as due, so the flat is not read again every poll.
+
+Measured here (software renderer, desktop tier, all ten rooms of the
+showcase flat): cold, every room lit 333 s after the page opened (10
+bakes worked out); reloaded, 96 s (none worked out). The first ~75 s
+both times is the software renderer building its shaders before the
+3D is first drawn.
+
+**Not done, and why**: shipping ready-made bakes for the showcase
+projects. A bake's key holds every triangle, and the pieces are built
+in more detail on the desktop tier and one differs by backend (WebGPU
+or WebGL), so bakes made here, on a software renderer, would miss on
+most visitors' machines and only add to the download. Ordering the
+furniture models by distance was not done either: each model already
+loads on its own behind a stand-in.
