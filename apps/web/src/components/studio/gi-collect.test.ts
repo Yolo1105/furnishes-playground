@@ -136,4 +136,53 @@ describe("the flat as the bounce bake reads it (round 9, Part 1)", () => {
     g.updateMatrixWorld(true);
     expect(count()).toBe(without);
   });
+
+  it("gives a skirting the light of the wall it stands on, not a bake of its own", () => {
+    const g = roomGroup(0, true);
+    // a skirting on the wall's room side, 10 cm tall, 16 mm proud
+    const skirting = named(
+      "Skirting",
+      new Mesh(
+        new BoxGeometry(0.016, 0.1, 3.8).toNonIndexed(),
+        new MeshStandardMaterial({ color: "#f7f3ec" }),
+      ),
+    );
+    skirting.position.set(1.992, 0.05, 0);
+    g.add(skirting);
+    g.updateMatrixWorld(true);
+    const flat = collectFlat([{ id: "a", group: g, windows: [] }], 4, 256);
+    expect(flat.borrowers).toContain(skirting);
+    expect(flat.shells).not.toContain(skirting);
+    const p = flat.rooms.get("a")!;
+    const places = new Map([
+      ["a", { slot: 0, charts: p.charts, size: p.job.size }],
+    ]);
+    expect(
+      applyGiUv(skirting, skirting.geometry, flat.floors, places, 256),
+    ).toBe(true);
+    // its front reads the wall's chart (facing −x), its top the floor's
+    const uv = skirting.geometry.getAttribute("giuv");
+    const nrm = skirting.geometry.getAttribute("normal");
+    const at = (x: number, y: number) => {
+      for (let i = 0; i < nrm.count; i++)
+        if (Math.round(nrm.getX(i)) === x && Math.round(nrm.getY(i)) === y)
+          return [uv.getX(i) * 256, uv.getY(i) * 256, uv.getZ(i)];
+      return null;
+    };
+    const within = (pt: number[] | null, n: number[]) => {
+      const ch = p.charts.find(
+        (c) => c.n.map((x) => Math.round(x) + 0).join() === n.join(),
+      )!;
+      return (
+        pt !== null &&
+        pt[0]! >= ch.x &&
+        pt[0]! <= ch.x + ch.w &&
+        pt[1]! >= ch.y &&
+        pt[1]! <= ch.y + ch.h &&
+        pt[2] === 0
+      );
+    };
+    expect(within(at(-1, 0), [-1, 0, 0])).toBe(true);
+    expect(within(at(0, 1), [0, 1, 0])).toBe(true);
+  });
 });

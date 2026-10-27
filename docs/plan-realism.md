@@ -3498,9 +3498,23 @@ from the bake alone. Without the bake a wall and the door frame by it
 stand alike (153 and 161); with it the frame stands near white (251)
 over a wall at 164, where Cycles has the frame at 141, darker than its
 wall at 198. White trim that bright makes any wall beside it look
-grey. The fix is for the joinery to take the bake too (its parts are
-a few centimetres across, finer than the bake's texels, so it needs
-its own look), left for its own round.
+grey.
+
+**Fixed the same day: the joinery borrows the shell's light.** The
+skirting, the cornice and a door's lining and architrave (`BORROWS`,
+gi-collect.ts) take the baked light of the shell face they stand on
+(the nearest facing their way: a skirting's front the wall's, its top
+the floor's, a lining the reveal's) instead of the live lights; they
+are not baked themselves (their parts are a few centimetres across,
+finer than the texels). Each takes its own copy of its geometry, since
+a skirting's or an architrave's is shared by every one of its size.
+The frame by the door went from (251, 233, 213) to (180, 174, 168),
+beside its wall at (162, 149, 130): a white a little lighter than the
+cream beside it, as a painted frame stands, no longer glowing. The
+linings in the doorway stand at 94-126 (Cycles: 141). Median 0.58,
+highlights 21.1 % to 18.3 % (the trim no longer blown), wall colour
+unchanged. Window joinery keeps its live light: it stands in the
+opening, where no wall face is behind it.
 
 ### The settling
 

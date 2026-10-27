@@ -57,7 +57,9 @@ import { inward, type LitRoom, skyThrough } from "./window-light";
  * the shell of every room of the flat (gi-bake.ts, in workers) and laid
  * on its floors, walls and ceilings as a light map (gi-material.ts),
  * where it takes the place of the sky's fill, the windows' area lights
- * and the probes. The sun and every highlight stay live.
+ * and the probes. The sun and every highlight stay live. The joinery on
+ * the shell (skirting, cornice, a door's lining and architrave) takes
+ * the light of the shell face it stands on (gi-collect.ts, `BORROWS`).
  *
  * - Each room's group is read for a signature (its meshes' places and
  *   colours, its lamps) every `POLL_MS`; `QUIET_MS` after its last
@@ -373,6 +375,12 @@ export function GiBake({
     places: new Map<string, GiPlace>(),
     floors: [] as GiFloor[],
     shells: [] as Mesh[],
+    /** the joinery that takes the light of the shell it stands on, and
+        each one's own copy of its geometry (a skirting's or an
+        architrave's is shared by every one of its size, and its light's
+        coordinates are its own place's) */
+    borrowers: [] as Mesh[],
+    own: new WeakMap<Mesh, Mesh["geometry"]>(),
     /** the geometries given their light's coordinates, by the version
         of the places they were given them for */
     given: new WeakMap<object, number>(),
@@ -506,7 +514,14 @@ export function GiBake({
     };
     const give = () => {
       if (!s.places.size) return;
-      for (const m of s.shells) {
+      for (const m of s.borrowers) {
+        const mine = s.own.get(m);
+        if (m.geometry === mine) continue;
+        mine?.dispose();
+        m.geometry = m.geometry.clone();
+        s.own.set(m, m.geometry);
+      }
+      for (const m of [...s.shells, ...s.borrowers]) {
         guardShape(m);
         const g = m.geometry;
         if (s.given.get(g) === s.placed) continue;
@@ -636,6 +651,7 @@ export function GiBake({
       const flat = collectFlat(ins, set.density, set.side, from);
       s.floors = flat.floors;
       s.shells = flat.shells;
+      s.borrowers = flat.borrowers;
       const centre = flat.rooms.get(active)?.box;
       const mid = (b: { lo: V3; hi: V3 }) => [
         (b.lo[0] + b.hi[0]) / 2,
