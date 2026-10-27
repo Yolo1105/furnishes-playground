@@ -3451,3 +3451,70 @@ To try a light without a rebuild, in development: `?sun=`, `?hemi=`,
 - **Not looked at this time**: the unmodified floor scan at its scale,
   photographs of the boards' finishes (the owner's), the mixed detail
   of the AC and TV boxes, and whether Lived-in adds enough.
+
+## Cream walls, a smooth bake, pieces kept on the sheet (2026-10-27)
+
+The owner, on the live view: the walls read grey, parts go dark and
+blink while the room settles, and a piece stood off by itself outside
+the flat, missing from the 2D plan.
+
+### The walls
+
+- **The paint now goes on in full.** A wall laid its paint over the
+  plaster set lightly (`tintOver`, 30 %), as a floor's tone is: the
+  plaster's own off-white decided the colour, the paint chosen hardly
+  showed, and in shade a white wall read grey-blue. A wall now takes
+  its paint in full, divided by the plaster colour map's mean
+  (`PLASTER_MEAN`, linear 0.845 / 0.837 / 0.798), so the map's grain
+  lies over the paint without darkening it and the wall's albedo on
+  average is the paint the bounce bake already used (`giAlbedo`).
+  Floors keep the light tint. The recorded decision (Prompt 1's tint
+  notes) changes for walls only.
+- **White is a cream white**: `#f6ecdc` (was `#f6f1ea`, near neutral).
+- **The light, changed on purpose**: the window's sky by day 2.4 to
+  3.84, the shaded walls having stood at about half the reference's
+  light; the sun with it, 83 to 132 (still 51x the window's mean
+  radiance). The exposure (2.15) is unchanged.
+
+Corner view, desktop tier, software renderer:
+
+|              | 2026-10-26      | now             | Cycles          |
+| ------------ | --------------- | --------------- | --------------- |
+| median       | 0.49            | 0.59            | 0.61            |
+| dark < 0.25  | 8.9 %           | 4.1 %           | 6.3 %           |
+| highlights   | 14.9 %          | 21.1 %          | 22.8 %          |
+| wall R:G:B   | 1.14 : 1 : 0.83 | 1.27 : 1 : 0.70 | 1.24 : 1 : 0.74 |
+
+A mid wall's pixel went from (129, 125, 120), grey, to (164, 150, 131);
+Cycles has (198, 180, 158). With the window's sky at 5.5 instead
+(`?win=5.5`) the back wall meets the reference (0.426 against 0.413)
+but the median overshoots (0.66) and the left wall and ceiling stand a
+third over theirs, so 3.84 stays.
+
+**What still makes the walls read darker than they are**: the joinery
+(skirting, linings, architraves, doors) is lit live (the windows' area
+lights, unshadowed, and the probes), while the walls take their light
+from the bake alone. Without the bake a wall and the door frame by it
+stand alike (153 and 161); with it the frame stands near white (251)
+over a wall at 164, where Cycles has the frame at 141, darker than its
+wall at 198. White trim that bright makes any wall beside it look
+grey. The fix is for the joinery to take the bake too (its parts are
+a few centimetres across, finer than the bake's texels, so it needs
+its own look), left for its own round.
+
+### The settling
+
+- A bake fades in over a second (`FADE_MS`, was 0.4 s): a room's light
+  eases in instead of blinking.
+- The quick first bake is smoothed wide (`COARSE.blur` 6): with the
+  sun in the bake, its 12 rays read as grain.
+
+### A piece outside the flat
+
+A piece moves past the walls freely, but a drag in 3D at a low angle
+meets the floor's plane far off and could fling it metres out of the
+flat, where the 3D drew it and the plan, which frames the rooms with a
+1.1 m margin, did not. A piece now stands within `REACH` (0.9 m) of its
+room's box (`withinReach`, room-layout.ts): a drag stops there, and a
+piece saved further out comes back to that edge when the room is read
+(tested).

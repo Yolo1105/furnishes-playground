@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { CORNER_PLANT, freeCorner, layoutPlans } from "./room-layout";
+import {
+  CORNER_PLANT,
+  freeCorner,
+  layoutPlans,
+  layoutRoom,
+  REACH,
+  settle,
+} from "./room-layout";
 import { defaultProps } from "./piece-detail";
 import { rulesFor } from "./room-data";
 import { WALL_MM } from "./room-geometry";
@@ -256,5 +263,26 @@ describe("along the walls, more pieces than the walls take", () => {
           apart(boxes[i]!, boxes[j]!),
           `${items[i]!.name} and ${items[j]!.name}`,
         ).toBeGreaterThanOrEqual(big.rules.walkway);
+  });
+});
+
+describe("past the walls, within reach", () => {
+  const f = { w: 800, d: 400 };
+  it("a drag flung far off stops within reach of the room", () => {
+    // a 3D drag near the horizon meets the floor's plane metres away
+    const to = settle({ x: 40000, y: -25000 }, f, room, false);
+    expect(to.x + f.w).toBeLessThanOrEqual(room.W + REACH);
+    expect(to.y).toBeGreaterThanOrEqual(-REACH);
+  });
+  it("a move just past a wall stands where it was put", () => {
+    expect(settle({ x: 3700, y: 1000 }, f, room, false)).toEqual({
+      x: 3700,
+      y: 1000,
+    });
+  });
+  it("a piece saved far outside comes back to the reach's edge", () => {
+    const p = { ...piece("b", "Bench", f.w, f.d, 450), x: 9000, y: 1000 };
+    const [at] = layoutRoom([p], room, 600);
+    expect(at).toEqual({ x: room.W + REACH - f.w, y: 1000 });
   });
 });

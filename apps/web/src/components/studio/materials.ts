@@ -37,8 +37,10 @@ import type { Floor } from "./room-data";
  * `cloth` set must be light grain values, near white, or every piece
  * is tinted twice (`warnIfDark` says so in development). A room
  * surface (Room3D.tsx, the walls and floors) lays the Room tab's tone
- * over the set lightly (`tintOver`, `TINT`), so `plaster` and the
- * floors carry their own colour and the tone still tells. The probes'
+ * over the set lightly (`tintOver`, `TINT`), so the floors carry their
+ * own colour and the tone still tells; but a wall takes its paint in
+ * full, the `plaster` set a light neutral texture under it (since
+ * 2026-10-27: lightly, the paint chosen hardly showed). The probes'
  * stamp (Scene3D.tsx) reads `pending` while any set is on its way, so
  * the bake runs again once they are all in: the room's light never
  * depends on which arrived first.

@@ -130,9 +130,13 @@ export const FLOOR_TONES: Record<Floor, string> = {
   Parquet: "#bfa482",
   Concrete: "#b9b4ad",
 };
+/** the walls' paints, which a wall takes in full (Room3D): White a
+    cream white, as a flat's walls are painted (#f6f1ea until
+    2026-10-27, near neutral: lit by the window's cool sky it read
+    grey-blue in shade) */
 export const WALL_TONES = [
-  { id: "white", name: "White", hex: "#f6f1ea" },
-  { id: "warm", name: "Warm white", hex: "#f3e9dc" },
+  { id: "white", name: "White", hex: "#f6ecdc" },
+  { id: "warm", name: "Warm white", hex: "#f1e3cc" },
   { id: "sand", name: "Sand", hex: "#e6d5bf" },
   { id: "sage", name: "Sage", hex: "#c9cfb8" },
 ] as const;

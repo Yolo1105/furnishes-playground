@@ -73,6 +73,7 @@ import { useRoom } from "./room-store";
 import {
   BufferAttribute,
   BufferGeometry,
+  Color,
   DoubleSide,
   EquirectangularReflectionMapping,
   FrontSide,
@@ -208,6 +209,12 @@ const FLOOR_RELIEF = new Vector2(0.5, 0.5);
     painted wall's, near flat (at 0.35 the scan's relief read under the
     window's raking light as a rough, uneven wall in the reference) */
 const PLASTER_RELIEF = new Vector2(0.12, 0.12);
+/** the plaster set's colour map at its mean, in linear light (measured
+    2026-10-26 over public/materials/plaster/color.jpg): an off-white a
+    little warm. A wall's paint is divided by it, so the map's grain
+    lies over the paint without darkening it: the wall's albedo on
+    average is the paint's, as the bounce bake (giAlbedo) takes it */
+const PLASTER_MEAN = [0.845, 0.837, 0.798] as const;
 const CEILING_HEX = "#f8f5f0";
 /** how much light a ceiling has of its own: a trace only. Its light
     is the bounce off the sunlit floor, which the probes carry; a
@@ -1136,7 +1143,18 @@ function WallRun({
     if (fullLines.current) fullLines.current.geometry = g.lines;
     invalidate();
   });
-  const wallColour = plaster.photo ? tintOver(wallHex) : wallHex;
+  // the paint in full: the plaster set is a light neutral texture, the
+  // paint's colour is the wall's (divided by the set's mean, so on
+  // average the wall is the paint). Laid over lightly (tintOver, as a
+  // floor's tone is) the paint chosen hardly showed, and a white wall in
+  // shade read grey-blue; in full but not divided, a cream white read
+  // taupe. The grown stand-in is light values and takes the paint as is
+  const wallColour = useMemo(() => {
+    const c = new Color(wallHex);
+    if (!plaster.photo) return c;
+    const [r, g, b] = PLASTER_MEAN;
+    return c.setRGB(c.r / r, c.g / g, c.b / b);
+  }, [wallHex, plaster.photo]);
   // the faces stand a hair behind their own cut lines: a line on a face
   // fought it for depth and flickered into dashes as the camera moved;
   // and a later room's a hair behind an earlier's, where two rooms'

@@ -576,8 +576,9 @@ const LIGHTS = {
     // window sees): 51 x the window's mean, (2.4 + 2.4 x 0.35) / 2
     // (WINDOW_LIGHT, the bake's ground outside). At 11 the sky was the
     // room's light and the sun a patch: a flat, cool room the same
-    // brightness from the window to the far wall
-    sun: 83,
+    // brightness from the window to the far wall. With the window's sky
+    // at 3.84: 51 x (3.84 + 3.84 x 0.35) / 2
+    sun: 132,
     colour: "#fff3e2",
     // the sky's fill only lifts the deepest shade a hair: the windows
     // carry the soft light now, and lit from every side at once a room

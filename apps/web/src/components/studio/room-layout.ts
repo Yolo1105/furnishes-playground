@@ -7,7 +7,7 @@ import {
 } from "./piece-detail";
 import { ARCHETYPES, type Placement, type Rule } from "./archetypes";
 import { DESIGN, isFloorLamp } from "./design-rules";
-import { edgesOf, rectInside, type Edge } from "./room-geometry";
+import { boxOf, edgesOf, rectInside, type Edge } from "./room-geometry";
 import type { Point } from "./room-templates";
 import {
   keepOff,
@@ -132,14 +132,40 @@ const loose = (
 
 const big = (p: Item) => !isSmall(p) && !isRug(p);
 
+/** how far past its room's walls a piece may stand, mm. Past the walls
+    is free (into the wall's band, out onto the plan's margin), but no
+    further than the plan's sheet shows (Plan2D's margin round the flat
+    is 1100 mm): a drag in 3D at a low angle meets the floor's plane far
+    off, and flung a piece metres out of the flat, drawn in 3D where
+    the plan never showed it */
+export const REACH = 900;
+/** a spot kept within REACH of its room's box */
+export const withinReach = (
+  at: Spot,
+  f: { w: number; d: number },
+  outline: readonly Point[],
+): Spot => {
+  const b = boxOf(outline);
+  const clamp = (v: number, lo: number, hi: number) =>
+    Math.min(Math.max(v, lo), hi);
+  return {
+    x: clamp(at.x, b.x - REACH, b.x + b.w + REACH - f.w),
+    y: clamp(at.y, b.y - REACH, b.y + b.h + REACH - f.d),
+  };
+};
+
 export const layoutRoom = (
   items: readonly Item[],
   room: Pick<Room, "W" | "D" | "outline">,
   gap: number,
 ): Spot[] => {
   const { W, outline } = room;
+  // a piece placed by hand stands where it was put, within reach (one
+  // saved before the reach was kept comes back to its edge)
   const spots: (Spot | null)[] = items.map((p) =>
-    p.x !== undefined && p.y !== undefined ? { x: p.x, y: p.y } : null,
+    p.x !== undefined && p.y !== undefined
+      ? withinReach({ x: p.x, y: p.y }, footprint(p), outline)
+      : null,
   );
   const taken: Rect[] = items.flatMap((p, i) =>
     spots[i] ? [{ ...spots[i]!, ...footprint(p) }] : [],
@@ -733,7 +759,7 @@ const MAGNET = 150;
 
 /**
  * Where a moved or dropped piece comes to rest: on the placing grid,
- * free to stand anywhere, past the walls too. With the magnet on, a
+ * free to stand anywhere, past the walls too, within REACH of them. With the magnet on, a
  * side within MAGNET of a wall goes flush to it: inside the room
  * against the wall's face, outside against the band's far face. The
  * nearest wall wins on each axis; a wall only draws a piece that
@@ -741,12 +767,13 @@ const MAGNET = 150;
  * goes against a neighbour's side, or in line with it.
  */
 export const settle = (
-  at: Spot,
+  wanted: Spot,
   f: { w: number; d: number },
   room: Pick<Room, "outline" | "thickness">,
   magnet: boolean,
   others: readonly Rect[] = [],
 ): Spot => {
+  const at = withinReach(wanted, f, room.outline);
   const grid = (v: number) => Math.round(v / PLACE_SNAP) * PLACE_SNAP;
   const spot = { x: grid(at.x), y: grid(at.y) };
   if (!magnet) return spot;

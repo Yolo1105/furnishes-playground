@@ -124,8 +124,10 @@ const worked = (ms: number) => {
     last change a room is baked */
 const POLL_MS = 300;
 const QUIET_MS = 600;
-/** the fade from one bake to the next */
-const FADE_MS = 400;
+/** the fade from one bake to the next: slow enough that a bake coming
+    in eases the light over rather than blinking it (at 0.4 s, each of
+    a flat's rooms arriving in turn read as a flicker) */
+const FADE_MS = 1000;
 /** the bakes kept by their key */
 const KEEP = 32;
 
@@ -139,8 +141,11 @@ export const TIERS = {
   fine: { density: 8, rays: 32, bounces: 2, side: GI_SIDE.fine, blur: 4 },
   plain: { density: 4, rays: 24, bounces: 1, side: GI_SIDE.plain, blur: 2 },
 } as const;
-/** a room's first, quick look */
-const COARSE = { rays: 12, bounces: 1 } as const;
+/** a room's first, quick look: few rays, so smoothed wide (about
+    1.5 m each way on the phone's 4 texels a metre): with the sun in
+    the bake, its bounce at 12 rays a texel was grain until the whole
+    bake came */
+const COARSE = { rays: 12, bounces: 1, blur: 6 } as const;
 /** what a doorway gives back, of the windows' radiance */
 const AWAY = 0.2;
 /** the ground outside, of the sky's radiance */

@@ -28,7 +28,11 @@ import { devNumber } from "./dev-flags";
  */
 export const WINDOW_LIGHT = {
   /** the sky's radiance through the glass, and its colour */
-  day: { colour: "#eef3ff", intensity: 2.4 },
+  // 2.4 until 2026-10-27: the walls in shade, lit by what the window
+  // and the sun's patch give back, stood at half the Cycles
+  // reference's light and read grey; the sun keeps its ratio to it
+  // (Scene3D's LIGHTS)
+  day: { colour: "#eef3ff", intensity: 3.84 },
   evening: { colour: "#8d9cc0", intensity: 0.25 },
   /** the photo's copy is traced and gathers its own bounce: it takes
       the glass's light at this many times the live view's */
