@@ -3564,3 +3564,14 @@ or WebGL), so bakes made here, on a software renderer, would miss on
 most visitors' machines and only add to the download. Ordering the
 furniture models by distance was not done either: each model already
 loads on its own behind a stand-in.
+
+### The gates after these changes (2026-10-27)
+
+Lint, typecheck and the 337 unit tests pass. The visual project's
+seven pictures were taken again on purpose (brighter daylight, cream
+walls, the trim on the walls' light). Of its three measured checks,
+the day-evening-day one passes; the two already under their bars on
+2026-10-26 (see "Checked, not changed") still are, a little nearer:
+the wall by the window over the wall across the room 1.12 (was 1.10,
+bar 1.14), the floor by the sofa's base 18.5 % darker than open floor
+(was 18 %, bar 25 %). The bars are left as they are, for the owner.
