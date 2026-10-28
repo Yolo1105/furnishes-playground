@@ -4,18 +4,15 @@ import { useGi } from "./GiBake";
 import { FOOT_HEIGHT } from "./bake-defaults";
 import { unpickable } from "./no-pick";
 import { devFlag, devNumber } from "./dev-flags";
-import { inward, WINDOW_LIGHT } from "./window-light";
+import { inward } from "./window-light";
 import { seedOf } from "./seed";
 import { toMetres } from "@furnishes/scene";
 import { HDRLoader } from "three/examples/jsm/loaders/HDRLoader.js";
 import {
-  abs,
   cameraPosition,
-  dot,
   equirectUV,
   float,
   mix,
-  normalGeometry,
   mx_fractal_noise_float,
   normalView,
   positionViewDirection,
@@ -23,7 +20,6 @@ import {
   pow,
   smoothstep,
   texture,
-  transformNormalToView,
   uniform,
   vec2,
   vec3,
@@ -32,7 +28,6 @@ import { askBackplate, BACKPLATE_TURN, useBackplate } from "./backplate";
 import {
   MeshBasicNodeMaterial,
   MeshPhysicalNodeMaterial,
-  MeshStandardNodeMaterial,
   type Node,
 } from "three/webgpu";
 import {
@@ -1383,21 +1378,18 @@ const useShared = (r: RoomShape, o: Opening) =>
   });
 
 /** a window's curtains, in a room that is not tiled (a kitchen's or a
-    bathroom's window has none), as a room is dressed: a double track on
-    the ceiling, the sheer on the back one drawn across the whole window
-    and past it each side, the drapes on the front one drawn back into a
-    stack at each end, all of it floor length, hung in wave folds. The
-    sheer is a voile the day comes through as a glow; the drapes a lined
-    cloth whose waves catch the window's light on the side facing it */
+    bathroom's window has none), as a room is dressed: a track on the
+    ceiling, the drapes on it drawn back into a stack at each end, floor
+    length, hung in wave folds, a lined cloth whose waves catch the
+    window's light on the side facing it. No sheer across the glass
+    (2026-10-28, the owner's choice): a voile lit by the day stood as a
+    white sheet over the whole window, and the outside never showed */
 const CURTAIN_HEX = "#e3d9ca";
-const SHEER_HEX = "#f6f3ee";
-const SHEER_OPACITY = 0.55;
-/** the tracks, m: how far each stands off the wall (the sheer's clear of
-    the sill and the skirting, the drapes' clear of the sheer's waves),
-    how far under the ceiling they sit, their section, and how far they
-    run past the window each side (as the cloth does) */
+/** the track, m: how far it stands off the wall (the drapes' waves clear
+    of the sill and the skirting), how far under the ceiling it sits,
+    its section, and how far it runs past the window each side (as the
+    cloth does) */
 const TRACK = {
-  sheer: 0.075,
   drape: 0.17,
   under: 0.004,
   wide: 0.032,
@@ -1429,55 +1421,12 @@ const curtainPast = (
 /** how far a drape's hem stands off the floor, m (its stack's width:
     curtain-fit.ts) */
 const HEM_OFF = 0.015;
-/** how much of the window's light comes through the sheer as its own
-    glow, by day and in the evening (the voile lit from behind) */
-const SHEER_GLOW = { day: 0.55, evening: 0.04 };
-/** the least slant the voile's density is reckoned at: seen edge on, as
-    good as opaque */
-const SHEER_EDGE = 0.2;
-/**
- * The voile: lit as the flat cloth it hangs as, a sheet facing the room
- * (lit wave by wave as a solid, each wave's two sides came out light
- * and dark, a vertical blind), and as dense as the cloth the eye looks
- * through: `SHEER_OPACITY` face on, more where a wave turns away and
- * the eye crosses more of it (1 - (1 - opacity)^(1 / slant)), so the
- * waves show as a backlit voile's do, by its density, softly. Its glow
- * goes with its density: more cloth, more of the window's light
- * scattered towards the eye.
- */
-const sheerMaterial = (evening: boolean) => {
-  const m = new MeshStandardNodeMaterial({
-    color: SHEER_HEX,
-    emissive: WINDOW_LIGHT.day.colour,
-    emissiveIntensity: evening
-      ? SHEER_GLOW.evening
-      : (devNumber("glow") ?? SHEER_GLOW.day),
-    roughness: 0.9,
-    transparent: true,
-    opacity: SHEER_OPACITY,
-    depthWrite: false,
-    side: DoubleSide,
-    vertexColors: true,
-  });
-  m.normalNode = transformNormalToView(vec3(0, 0, 1)).normalize();
-  const slant = abs(
-    dot(
-      transformNormalToView(normalGeometry).normalize(),
-      positionViewDirection,
-    ),
-  ).max(SHEER_EDGE);
-  m.opacityNode = float(1).sub(
-    pow(float(1 - SHEER_OPACITY), float(1).div(slant)),
-  );
-  return m;
-};
 function Curtains({
   width,
   past,
   drapes,
   height,
   seed,
-  evening,
 }: {
   width: number;
   /** how far the tracks and the cloth run past the window each side */
@@ -1488,7 +1437,6 @@ function Curtains({
   height: number;
   /** each window's curtains hang their own way */
   seed: number;
-  evening: boolean;
 }) {
   // the cloth hangs from the tracks' underside to just off the floor
   const top = height - TRACK.under - TRACK.tall;
@@ -1503,33 +1451,17 @@ function Curtains({
     return {
       left: curtainGeometry(stack, drop, { ...drape, seed }),
       right: curtainGeometry(stack, drop, { ...drape, seed: seed + 7 }),
-      sheer: curtainGeometry(run, drop, { seed: seed + 13, faces: 1 }),
     };
-  }, [stack, run, drop, seed]);
+  }, [stack, drop, seed]);
   useEffect(
     () => () => {
       geometry.left.dispose();
       geometry.right.dispose();
-      geometry.sheer.dispose();
     },
     [geometry],
   );
-  const sheer = useMemo(() => sheerMaterial(evening), [evening]);
-  useEffect(() => () => sheer.dispose(), [sheer]);
   return (
     <group position={[0, top, 0]}>
-      <mesh
-        geometry={geometry.sheer}
-        position={[0, 0, TRACK.sheer]}
-        raycast={unpickable}
-        // a renderer handed the export makes it a see-through cloth
-        // (its glow here stands in for the light behind it)
-        userData={{ role: "sheer" }}
-      >
-        {/* the voile: the outside through it softly, and glowing with
-            the window's light behind it, never a grey stripe */}
-        <primitive object={sheer} attach="material" />
-      </mesh>
       {([-1, 1] as const).map((s) =>
         !drapes[s < 0 ? 0 : 1] ? null : (
           <mesh
@@ -1544,15 +1476,12 @@ function Curtains({
           </mesh>
         ),
       )}
-      {/* the two tracks on the ceiling, a little longer than the cloth */}
-      {[TRACK.sheer, TRACK.drape].map((z) => (
-        <Member
-          key={z}
-          at={[0, TRACK.tall / 2, z]}
-          size={[run + 0.03, TRACK.tall, TRACK.wide]}
-          f={ALU}
-        />
-      ))}
+      {/* the track on the ceiling, a little longer than the cloth */}
+      <Member
+        at={[0, TRACK.tall / 2, TRACK.drape]}
+        size={[run + 0.03, TRACK.tall, TRACK.wide]}
+        f={ALU}
+      />
     </group>
   );
 }
@@ -1754,7 +1683,6 @@ function Window({ r, o }: { r: RoomShape; o: Opening }) {
             drapes={drapes}
             height={toMetres(r.height)}
             seed={seedOf(o.id)}
-            evening={r.evening}
           />
         )}
         {/* the sill: stone, from the frame out past the wall's face,

@@ -22,8 +22,7 @@ export type Block = { x: number; y: number; w: number; d: number };
  * as the room sees it (the window's own -x), then its right. One is
  * left off where a piece stands against the wall within the drape's
  * reach (a television's unit by the window, a cabinet, a plant), as it
- * would be in a home: hung, it fell through the piece. The sheer stays,
- * close to the glass.
+ * would be in a home: hung, it fell through the piece.
  */
 export const drapesFree = (
   r: { W: number; D: number; outline: readonly Point[] },
