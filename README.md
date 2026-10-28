@@ -452,7 +452,7 @@ on (Settings), a side within 150 mm of a wall or of another piece goes
 flush to it, inside or out, and the room's rules say when a piece
 stands past a wall. Clashes are outlined; a view cube turned as the camera is glides it to
 a named angle from a face (the room worked on, from that side) and turns it to any angle by a drag; there is a
-walk mode, a figure followed from behind (or seen through its eyes)
+walk mode, a mark on the floor followed from behind (or seen through the walker's eyes)
 that goes where the floor or the plan is clicked, by a way found round
 the walls and the pieces through the doorways, the plan drawing it and
 its way; a tour (stops set on the plan, numbered and joined; Play

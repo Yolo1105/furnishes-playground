@@ -1944,18 +1944,17 @@ room, or within half a metre of it (`SIGHT_CLEAR`: a wall in line with
 the camera hid as much), goes to its foot, so the rooms in front never
 cut across it.
 
-**The walk has a walker.** A figure 1.7 m tall, built of a few rounded
-parts (WalkFigure.tsx), its legs and arms swinging with the ground it
-covers, followed from behind and above (pulled in short of a wall
-behind it); Eyes sees through its eyes, at 1.6 m, as the walk did. A
+**The walk has a walker.** Shown in the room as the plan's own mark
+laid on the floor (WalkMarker.tsx; a 1.7 m figure until 2026-10-28,
+taken out at the owner's word: it read as a mannequin), followed from
+behind and above (pulled in short of a wall behind it); Eyes sees
+through the walker's eyes, at 1.6 m, as the walk did. A
 click on the floor of any room, or on the plan (the small one beside
 the 3D view included), sends it there by a way found round the walls
 and every room's pieces, through the doorways (walk-path.ts: A* on
 10 cm cells, a body's width kept clear, pulled straight where a line
 is clear; walk-blocks.ts for the pieces). The plan draws the walker,
-the way it faces and the way it is taking. It casts no shadow map of
-its own (a moving caster draws every map again each frame); a soft
-disc sets it on the floor.
+the way it faces and the way it is taking. The mark casts no shadow.
 
 **Why the box pieces read fake from across the room.** Cropped from the
 Leisure project's overview: every board of a Furnishes piece finished
@@ -3596,3 +3595,21 @@ bars are left as they are, for the owner.
   footprint (a TV unit, a cabinet beside the window) overlaps that,
   that side's drape is left off rather than drawn through the piece;
   the other side still hangs (tested).
+
+## The walker as a mark on the floor (2026-10-28)
+
+The walk's figure (a 1.7 m pictogram in the round, rounded body, head
+and swinging limbs) is gone, at the owner's word: seen from just behind
+it, filling the picture, it read as a mannequin however plain it was
+drawn. In its place the plan's own mark (`.plan-walker`) lies on the
+floor (WalkMarker.tsx): an orange disc in a pale rim with a point the
+way the walk faces, flat and unlit in the studio's colour, 2 cm up so
+a rug never covers it. Nothing human-shaped stands in the room.
+
+The camera behind it looks lower (`FOLLOW`: 2.4 m back, looking at
+0.6 m, 0.5 rad down, so about 1.75 m up), so the mark stands a third
+of the way up the picture, clear of the shelf over the stage's foot,
+where with the figure's look (at 1.3 m) it would sit under the shelf.
+The walk test reads the camera above 1.7 m (was 1.9 m) to tell
+following from Eyes (1.6 m). The picture "walking, the figure
+followed" (walk-follow.png) changes on purpose.

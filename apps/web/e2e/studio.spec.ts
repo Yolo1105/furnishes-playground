@@ -3255,15 +3255,15 @@ test("in 3D a piece is dragged over the floor, the camera glides between angles,
   // the piece goes back (the walk below starts where it now stands)
   await page.keyboard.press("Control+z");
   await expect(page.getByRole("button", { name: "Undo" })).toBeDisabled();
-  // Walk: a figure, followed from behind and above it; W moves it
-  // north; Eyes brings the camera to its eye height; Esc leaves
+  // Walk: a mark on the floor, followed from behind and above it; W
+  // moves it north; Eyes brings the camera to eye height; Esc leaves
   await page.getByRole("button", { name: "Walk the room" }).click();
   await expect(stage).toHaveAttribute("data-walk", "true");
   await expect
     .poll(async () =>
       Number((await stage.getAttribute("data-cam"))!.split(",")[1]),
     )
-    .toBeGreaterThan(1.9);
+    .toBeGreaterThan(1.7);
   const walker = async () =>
     ((await stage.getAttribute("data-walker")) ?? "0,0").split(",").map(Number);
   // the figure placed (until it stands, the attribute is not there)

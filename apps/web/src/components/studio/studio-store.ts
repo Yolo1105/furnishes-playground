@@ -155,8 +155,8 @@ export const ANGLES: Record<View, readonly string[]> = {
   "2d": ["Plan", "Front", "Back", "Left", "Right"],
 };
 export type Angle = (typeof ANGLES)[View][number];
-/** how the walk is seen: the figure followed from behind it, or through
-    its own eyes */
+/** how the walk is seen: its mark on the floor followed from behind,
+    or through the walker's own eyes */
 export type WalkView = "follow" | "eyes";
 
 /** what the line under the toolbar is waiting for: a view swap is quick,

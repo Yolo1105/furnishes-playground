@@ -146,7 +146,7 @@ import { devFlag, devNumber, devParam } from "./dev-flags";
 import { SUN_TIMES, sunDirection } from "./sun-position";
 import { type LitRoom, lightCount, panesOf } from "./window-light";
 import { WindowLights } from "./WindowLights";
-import { WalkFigure } from "./WalkFigure";
+import { WalkMarker } from "./WalkMarker";
 import {
   alongPath,
   type Bounds,
@@ -772,7 +772,7 @@ const stepOf = (last: { at: number }) => {
   return dt;
 };
 const WALK_SPEED = 1.6; // m/s
-/** the room a walking figure keeps from the walls and the pieces, m:
+/** the room a walker keeps from the walls and the pieces, m:
     half a body's width */
 const WALK_CLEAR = 0.24;
 const TOUR_SPEED = 0.9; // m/s, a slow walk to look about
@@ -796,10 +796,10 @@ type WalkState = {
   look: { yaw: number; pitch: number } | null;
   /** ask the scene for a frame: set by the walker while it is mounted */
   wake: () => void;
-  /** which way the figure faces (yaw, as the camera's): the way it
+  /** which way the walker faces (yaw, as the camera's): the way it
       last went, turned to as it goes */
   face: number;
-  /** how far behind the figure the camera stands, m, as it follows */
+  /** how far behind the walker the camera stands, m, as it follows */
   back: number;
   /** the way found to where the walker was sent, and how far along it */
   path: { pts: Spot[]; gone: number; total: number } | null;
@@ -1471,37 +1471,39 @@ function Rig({
   return null;
 }
 
-/** the walk seen from behind the figure: how far back the camera
-    stands, m, the height it looks at, and how far down it looks, rad
-    (its least and most) */
+/** the walk seen from behind its mark on the floor: how far back the
+    camera stands, m, the height it looks at, and how far down it looks,
+    rad (its least and most). Low enough a look that the mark stands a
+    third of the way up the picture, clear of the shelf over its foot,
+    with the camera at about eye height (1.75 m) */
 const FOLLOW = {
-  back: 2.6,
-  at: 1.3,
-  pitch: -0.38,
+  back: 2.4,
+  at: 0.6,
+  pitch: -0.5,
   min: -1.1,
   max: -0.08,
-  /** the line behind the figure is tried at this many points; the
+  /** the line behind the walker is tried at this many points; the
       camera stands this far short of a wall it meets, and never nearer
-      the figure than `least`, m */
+      the walker than `least`, m */
   steps: 16,
   clear: 0.25,
   least: 0.9,
   /** brought in, the camera rises this much a metre it gave up, to no
       higher than `top` (under the ceiling), and looks down at the
-      figure */
+      walker */
   rise: 0.45,
   top: 2.35,
-  /** the figure starts this far into the room from the walk's corner,
+  /** the walker starts this far into the room from the walk's corner,
       so the camera has room behind it, m */
   ahead: 1.8,
 };
-/** how quickly the figure turns to the way it goes, and the camera
-    behind it to the way the figure faces, per second */
+/** how quickly the walker turns to the way it goes, and the camera
+    behind it to the way the walker faces, per second */
 const TURN_EASE = { face: 10, follow: 2.2 };
 /** how often the plan hears where the walker is, s */
 const WALKER_EVERY = 0.1;
 
-/** the walk: a figure moved by the keys, along a way found to a point
+/** the walk: a walker moved by the keys, along a way found to a point
     clicked on the floor or on the plan, and followed from behind it (or
     seen through its eyes); a drag turns the view */
 function Walker({
@@ -1525,7 +1527,7 @@ function Walker({
   outline: readonly (readonly [number, number])[];
   /** standing room: the rooms' floors and the doorways between them */
   walkable: (x: number, z: number) => boolean;
-  /** room for the figure: standing room with a body's width to spare,
+  /** room for the walker: standing room with a body's width to spare,
       clear of every room's pieces */
   free: (x: number, z: number) => boolean;
   /** the flat's box, m about the room's middle: where a way is looked for */
@@ -1579,7 +1581,7 @@ function Walker({
     s.wake = invalidate;
     // the start where there is room to stand: a piece in the corner
     // moves it to the nearest clear floor; followed from behind, the
-    // figure stands a step into the room, the camera in the corner
+    // walker stands a step into the room, the camera in the corner
     const { free: room, bounds: box } = ways.current;
     if (useStudio.getState().walkView === "follow") {
       // the furthest of a few steps in that is clear of the pieces
@@ -1644,7 +1646,7 @@ function Walker({
       const k =
         ((lens.fov ?? 60) * Math.PI) / 180 / Math.max(1, el.clientHeight);
       const to = s.look ?? { yaw: s.yaw, pitch: s.pitch };
-      // behind the figure the view stays above it, looking down at it
+      // behind the walker the view stays above it, looking down at it
       const follow = useStudio.getState().walkView === "follow";
       const lo = follow ? FOLLOW.min : -LOOK_PITCH;
       const hi = follow ? FOLLOW.max : LOOK_PITCH;
@@ -1682,7 +1684,7 @@ function Walker({
       el.removeEventListener("contextmenu", menu);
     };
   }, [camera, gl, w, d, corner, invalidate]);
-  // behind the figure the view looks down at it; through its eyes, level
+  // behind the walker the view looks down at it; through its eyes, level
   useEffect(() => {
     const s = WALK;
     s.look = null;
@@ -1897,14 +1899,14 @@ function Walker({
     const moving = s.x !== was.x || s.z !== was.z;
     if (heading !== null && moving) {
       s.face = turnTo(s.face, heading, TURN_EASE.face);
-      // the camera comes round behind the figure as it follows a way,
+      // the camera comes round behind the walker as it follows a way,
       // unless a hand is turning the view
       if (s.path && !s.look && view === "follow")
         s.yaw = turnTo(s.yaw, s.face, TURN_EASE.follow);
     }
     if (s.keys.size || s.path) invalidate();
     if (view === "follow") {
-      // behind the figure and above it, looking down at it; brought in
+      // behind the walker and above it, looking down at it; brought in
       // short of a wall behind it, so the view is never from inside one
       const cp = Math.cos(s.pitch);
       const bx = Math.sin(s.yaw) * cp;
@@ -1959,9 +1961,9 @@ function Walker({
       });
     }
   });
-  // the figure, when it is followed (through its eyes, or on the tour,
-  // the camera stands where it would)
-  return view === "follow" && !touring ? <WalkFigure at={figureAt} /> : null;
+  // the mark on the floor, when it is followed (through its eyes, or on
+  // the tour, the camera stands where it would)
+  return view === "follow" && !touring ? <WalkMarker at={walkerAt} /> : null;
 }
 
 /** where the walker stands, m about the room's middle, written on the
@@ -1981,8 +1983,8 @@ const sendWalker = (x: number, z: number) => {
   WALK.wake();
 };
 
-/** where the figure stands, read every frame */
-const figureAt = () => ({ x: WALK.x, z: WALK.z, yaw: WALK.face });
+/** where the walker stands, read every frame */
+const walkerAt = () => ({ x: WALK.x, z: WALK.z, yaw: WALK.face });
 
 type PieceArgs = {
   /** it stands on a rug: its footprint lies on the rug, not under it */
@@ -3019,7 +3021,7 @@ export default function Scene3D() {
     }),
     [room.width, room.depth, room.pos],
   );
-  // room for the walking figure: standing room a body's width each side,
+  // room for the walker: standing room a body's width each side,
   // clear of every room's pieces by as much (read as the walk asks, so a
   // piece moved since is gone round)
   const walkFree = useCallback(
