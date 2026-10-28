@@ -65,13 +65,6 @@ const OFF = 0.05;
 const NEAR = 0.35;
 
 const RECEIVES = new Set(["Floor", "Wall", "Ceiling"]);
-/** the joinery on the shell, which takes the light of the shell face it
-    stands on (the nearest facing its way: a skirting's front the wall's,
-    its top the floor's) rather than baking its own: its parts are a few
-    centimetres across, finer than the bake's texels. Lit live instead,
-    by the windows' unshadowed area lights and the probes, white trim
-    stood near white beside a wall at half that (2026-10-27) */
-const BORROWS = new Set(["Skirting", "Cornice", "Door"]);
 /** the name a wall's foot carries (Room3D's STUB_NAME) */
 export const STUB = "Wall foot";
 
@@ -230,8 +223,6 @@ export type GiFlat = {
   rooms: Map<string, GiPlaced>;
   /** every shell mesh, for its light's coordinates once baked */
   shells: Mesh[];
-  /** the joinery that takes the light of the shell it stands on */
-  borrowers: Mesh[];
   floors: GiFloor[];
 };
 
@@ -350,7 +341,6 @@ export const collectFlat = (
   const floors = floorsOf(rooms);
   const tris: Tri[] = [];
   const shells: Mesh[] = [];
-  const borrowers: Mesh[] = [];
   const lampsOf = new Map<string, GiLamp[]>();
   for (const r of rooms) {
     const lamps: GiLamp[] = [];
@@ -380,7 +370,6 @@ export const collectFlat = (
       if (mats.every((m) => !m || clear(m))) return;
       const name = nameOf(mesh, r.group);
       if (name === STUB) return;
-      if (BORROWS.has(name)) borrowers.push(mesh);
       const shell = RECEIVES.has(name);
       const g = mesh.geometry;
       const { n, vert, groupOf } = triangles(g);
@@ -497,7 +486,7 @@ export const collectFlat = (
       box: { lo, hi },
     });
   }
-  return { rooms: placed, shells, borrowers, floors };
+  return { rooms: placed, shells, floors };
 };
 
 /** where a room's light lies: its slot, its charts and its atlas */

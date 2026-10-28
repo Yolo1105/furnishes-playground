@@ -32,6 +32,10 @@ const db = () =>
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => resolve(null);
+      // held open at an older version elsewhere: baked as if nothing
+      // were kept, never waited on (no timer: the page's own first
+      // seconds, building its shaders, would outlast any)
+      req.onblocked = () => resolve(null);
     } catch {
       resolve(null);
     }
@@ -47,13 +51,17 @@ export const overflow = (
     .slice(0, Math.max(0, entries.length - max))
     .map((e) => e.key);
 
-/** a bake kept under its key, of the length its atlas needs, or null */
+/** a bake kept under its key, of the length its atlas needs, or null
+    (a failed or aborted look as well: the room is then baked) */
 export const giFromDisk = async (key: string, length: number) => {
   const d = await db();
   if (!d) return null;
   return new Promise<Uint16Array | null>((resolve) => {
     try {
-      const store = d.transaction(STORE, "readwrite").objectStore(STORE);
+      const tx = d.transaction(STORE, "readwrite");
+      tx.onabort = () => resolve(null);
+      tx.onerror = () => resolve(null);
+      const store = tx.objectStore(STORE);
       const req = store.get(key);
       req.onsuccess = () => {
         const e = req.result as Entry | undefined;

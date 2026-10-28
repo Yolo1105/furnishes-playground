@@ -3500,21 +3500,15 @@ over a wall at 164, where Cycles has the frame at 141, darker than its
 wall at 198. White trim that bright makes any wall beside it look
 grey.
 
-**Fixed the same day: the joinery borrows the shell's light.** The
-skirting, the cornice and a door's lining and architrave (`BORROWS`,
-gi-collect.ts) take the baked light of the shell face they stand on
-(the nearest facing their way: a skirting's front the wall's, its top
-the floor's, a lining the reveal's) instead of the live lights; they
-are not baked themselves (their parts are a few centimetres across,
-finer than the texels). Each takes its own copy of its geometry, since
-a skirting's or an architrave's is shared by every one of its size.
-The frame by the door went from (251, 233, 213) to (180, 174, 168),
-beside its wall at (162, 149, 130): a white a little lighter than the
-cream beside it, as a painted frame stands, no longer glowing. The
-linings in the doorway stand at 94-126 (Cycles: 141). Median 0.58,
-highlights 21.1 % to 18.3 % (the trim no longer blown), wall colour
-unchanged. Window joinery keeps its live light: it stands in the
-opening, where no wall face is behind it.
+**Tried and taken out (2026-10-28): the joinery borrowing the shell's
+light.** The skirting, cornice and a door's lining and architrave took
+the baked light of the shell face they stand on. It looked right (the
+frame by the door 251 to 180, beside its wall at 162), but laying it
+held the page: measured from the 3D's first frame to every room lit,
+a first visit took 194 s against 165 s without it, and a reload 241 s
+against 115 s. The owner found the studio stuck; it was taken out. The
+trim is lit live again, and stands brighter than the walls. A second
+try must measure no slower than without it before it goes in.
 
 ### The settling
 
@@ -3545,11 +3539,18 @@ already kept in IndexedDB (lightmap.ts).
   found is laid whole at once: no quick first look, no fade. At most
   `GI_KEPT` (240) are held, the least recently used let go first; a
   browser without the store bakes as before.
-- **The active room alone**: the other rooms' bakes wait until the
-  active room has a whole bake laid (and while a new one of it is on
-  its way), so the room in view does not share the workers; a room
-  whose bake is kept is laid at once all the same. A room held back is
-  not counted as due, so the flat is not read again every poll.
+- **Tried and taken out (2026-10-28): the active room alone.** The
+  other rooms' bakes waited until the active room had a whole bake
+  laid. The whole flat then took longer (250-285 s against 167 s), and
+  a room whose signature keeps changing (each piece's own bake coming
+  in changes it) has its whole bake started again and again, so the
+  rest could wait on it without end. The rooms bake as before: the
+  active first, the rest by distance, side by side.
+- **The store never stalls a bake**: a look in it that fails, is
+  aborted, or finds the store held open elsewhere (`onblocked`) bakes
+  the room as if nothing were kept. No timer: the page's own first
+  seconds, building its shaders, outlast any, and a timer firing then
+  turned the store off for the whole visit.
 
 Measured here (software renderer, desktop tier, all ten rooms of the
 showcase flat): cold, every room lit 333 s after the page opened (10
@@ -3565,13 +3566,14 @@ most visitors' machines and only add to the download. Ordering the
 furniture models by distance was not done either: each model already
 loads on its own behind a stand-in.
 
-### The gates after these changes (2026-10-27)
+### The gates after these changes (2026-10-27, 2026-10-28)
 
-Lint, typecheck and the 337 unit tests pass. The visual project's
-seven pictures were taken again on purpose (brighter daylight, cream
-walls, the trim on the walls' light). Of its three measured checks,
-the day-evening-day one passes; the two already under their bars on
-2026-10-26 (see "Checked, not changed") still are, a little nearer:
-the wall by the window over the wall across the room 1.12 (was 1.10,
-bar 1.14), the floor by the sofa's base 18.5 % darker than open floor
-(was 18 %, bar 25 %). The bars are left as they are, for the owner.
+Lint, typecheck and the unit tests pass. Measured from the 3D's first
+frame to every room lit (software renderer, desktop tier, the showcase
+flat), as it now stands: see the table in the 2026-10-28 commit.
+Of the visual project's three measured checks, the day-evening-day one
+passes; the two already under their bars on 2026-10-26 (see "Checked,
+not changed") still are, a little nearer: the wall by the window over
+the wall across the room 1.12 (was 1.10, bar 1.14), the floor by the
+sofa's base 18.5 % darker than open floor (was 18 %, bar 25 %). The
+bars are left as they are, for the owner.
