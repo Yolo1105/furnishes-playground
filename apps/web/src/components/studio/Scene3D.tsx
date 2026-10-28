@@ -385,7 +385,21 @@ function LiveHandle({
         __three: get,
       });
     return () => setLive(null);
-  }, [scene, camera, gl, get, w, d, h, spanW, spanD, centre, corner, shot, sun]);
+  }, [
+    scene,
+    camera,
+    gl,
+    get,
+    w,
+    d,
+    h,
+    spanW,
+    spanD,
+    centre,
+    corner,
+    shot,
+    sun,
+  ]);
   return null;
 }
 
@@ -2688,6 +2702,18 @@ function FlatRoom({
   });
   // the pieces on the sheet, for the walk to go round
   const rectsKey = JSON.stringify(rects.map((r) => [r.x, r.y, r.w, r.d]));
+  // the same, for the room's windows: a drape is not hung where a piece
+  // stands in its way (Room3D's drapesFree)
+  const blocks = useMemo(
+    () =>
+      (JSON.parse(rectsKey) as number[][]).map(([x, y, rw, rd]) => ({
+        x: x!,
+        y: y!,
+        w: rw!,
+        d: rd!,
+      })),
+    [rectsKey],
+  );
   // a lived-in room with no plant of its own has one in a free corner
   const lived = useStudio((s) => s.scene.livedIn);
   const corner = useMemo(
@@ -2738,6 +2764,7 @@ function FlatRoom({
             shared,
             order: st.rooms.findIndex((x) => x.id === rm.id),
             wet,
+            blocks,
           }}
           // any room's floor sends the walker there: the way is found
           // through the doorways

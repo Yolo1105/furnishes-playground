@@ -55,6 +55,7 @@ import {
 } from "./wear";
 import { LAMP_BULB } from "./white-balance";
 import { CURTAIN, curtainGeometry } from "./curtain";
+import { type Block, drapesFree, stackOf } from "./curtain-fit";
 import {
   Built,
   cloth,
@@ -502,6 +503,10 @@ type RoomShape = {
       id: this room's walls are tiled inside when it is one, a wall it
       shares with one is tiled on that room's side */
   wet?: readonly string[];
+  /** what stands on the floor, mm from the room's north-west corner (the
+      pieces, not the rugs): a window's drawn-back drape is not hung on a
+      side where one stands against the wall in its way */
+  blocks?: readonly Block[];
 };
 type Stretch = {
   wall: Wall;
@@ -1421,9 +1426,8 @@ const curtainPast = (
   }
   return Math.max(0, Math.min(TRACK.past, toMetres(room)));
 };
-/** a drape's stack, drawn back: a share of the window's width within
-    bounds, m; and how far its hem stands off the floor */
-const STACK = { share: 0.16, least: 0.3, most: 0.45 };
+/** how far a drape's hem stands off the floor, m (its stack's width:
+    curtain-fit.ts) */
 const HEM_OFF = 0.015;
 /** how much of the window's light comes through the sheer as its own
     glow, by day and in the evening (the voile lit from behind) */
@@ -1470,6 +1474,7 @@ const sheerMaterial = (evening: boolean) => {
 function Curtains({
   width,
   past,
+  drapes,
   height,
   seed,
   evening,
@@ -1477,6 +1482,8 @@ function Curtains({
   width: number;
   /** how far the tracks and the cloth run past the window each side */
   past: number;
+  /** whether each drawn-back drape hangs, its left and its right */
+  drapes: readonly [boolean, boolean];
   /** the room's height, m */
   height: number;
   /** each window's curtains hang their own way */
@@ -1487,10 +1494,7 @@ function Curtains({
   const top = height - TRACK.under - TRACK.tall;
   const drop = top - HEM_OFF;
   const run = width + 2 * past;
-  const stack = Math.min(
-    STACK.most,
-    Math.max(STACK.least, width * STACK.share),
-  );
+  const stack = stackOf(width);
   const geometry = useMemo(() => {
     const drape = {
       pitch: CURTAIN.stackPitch,
@@ -1526,18 +1530,20 @@ function Curtains({
             the window's light behind it, never a grey stripe */}
         <primitive object={sheer} attach="material" />
       </mesh>
-      {[-1, 1].map((s) => (
-        <mesh
-          key={s}
-          geometry={s < 0 ? geometry.left : geometry.right}
-          position={[s * (run / 2 - stack / 2), 0, TRACK.drape]}
-          castShadow
-          receiveShadow
-          raycast={unpickable}
-        >
-          <Mat f={cloth(CURTAIN_HEX)} banded />
-        </mesh>
-      ))}
+      {([-1, 1] as const).map((s) =>
+        !drapes[s < 0 ? 0 : 1] ? null : (
+          <mesh
+            key={s}
+            geometry={s < 0 ? geometry.left : geometry.right}
+            position={[s * (run / 2 - stack / 2), 0, TRACK.drape]}
+            castShadow
+            receiveShadow
+            raycast={unpickable}
+          >
+            <Mat f={cloth(CURTAIN_HEX)} banded />
+          </mesh>
+        ),
+      )}
       {/* the two tracks on the ceiling, a little longer than the cloth */}
       {[TRACK.sheer, TRACK.drape].map((z) => (
         <Member
@@ -1564,6 +1570,8 @@ function Window({ r, o }: { r: RoomShape; o: Opening }) {
   const mid = sill + tall / 2;
   const [x, z] = placeOf(r, o);
   const yaw = yawOf(o.wall);
+  const past = curtainPast(r, o);
+  const drapes = drapesFree(r, o, past, r.blocks ?? []);
   const t = toMetres(r.thickness);
   // the frame's plane stands in the outer half of the wall
   const zf = -Math.max(t * 0.6, WINDOW.depth / 2 + 0.01);
@@ -1742,7 +1750,8 @@ function Window({ r, o }: { r: RoomShape; o: Opening }) {
         {r.floor !== "Tiles" && (
           <Curtains
             width={width}
-            past={curtainPast(r, o)}
+            past={past}
+            drapes={drapes}
             height={toMetres(r.height)}
             seed={seedOf(o.id)}
             evening={r.evening}
