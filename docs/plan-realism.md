@@ -1944,8 +1944,8 @@ room, or within half a metre of it (`SIGHT_CLEAR`: a wall in line with
 the camera hid as much), goes to its foot, so the rooms in front never
 cut across it.
 
-**The walk has a walker.** Shown in the room as the plan's own mark
-laid on the floor (WalkMarker.tsx; a 1.7 m figure until 2026-10-28,
+**The walk has a walker.** Shown in the room as a map's "you are
+here" on the floor (WalkMarker.tsx; a 1.7 m figure until 2026-10-28,
 taken out at the owner's word: it read as a mannequin), followed from
 behind and above (pulled in short of a wall behind it); Eyes sees
 through the walker's eyes, at 1.6 m, as the walk did. A
@@ -3601,10 +3601,14 @@ bars are left as they are, for the owner.
 The walk's figure (a 1.7 m pictogram in the round, rounded body, head
 and swinging limbs) is gone, at the owner's word: seen from just behind
 it, filling the picture, it read as a mannequin however plain it was
-drawn. In its place the plan's own mark (`.plan-walker`) lies on the
-floor (WalkMarker.tsx): an orange disc in a pale rim with a point the
-way the walk faces, flat and unlit in the studio's colour, 2 cm up so
-a rug never covers it. Nothing human-shaped stands in the room.
+drawn. In its place lies a map's "you are here" on the floor
+(WalkMarker.tsx): a small orange dot (17 cm) in a white rim with a soft
+beam fanning ±34° the way the walk looks, fading out over 1.1 m, one
+flat unlit picture 2 cm up so a rug never covers it. The plan draws
+the same dot and beam (`.plan-walker`). Nothing human-shaped stands in
+the room. Tried first and taken out the same day: a 40 cm, then a
+24 cm, flat disc with a hard point, which read as a sticker on the
+floor, not as a sign of where one stands.
 
 The camera behind it looks lower (`FOLLOW`: 2.4 m back, looking at
 0.6 m, 0.5 rad down, so about 1.75 m up), so the mark stands a third
