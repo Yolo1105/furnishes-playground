@@ -2,57 +2,99 @@
 
 import { unpickable } from "./no-pick";
 import { useFrame } from "@react-three/fiber";
-import { useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
-  CircleGeometry,
+  CanvasTexture,
   type Group,
   MeshBasicMaterial,
-  RingGeometry,
-  Shape,
-  ShapeGeometry,
+  PlaneGeometry,
+  SRGBColorSpace,
 } from "three";
 
 /**
- * Where the walker is, as a sign and not a person: the plan's own mark
- * (`.plan-walker` in Plan2D) laid on the floor, an orange disc in a pale
- * rim with a point ahead of it the way the walk faces. Flat and unlit,
- * in the studio's colour, so it reads as "you are here" and never as a
- * thing in the room; it casts no shadow. It stands where `at` says, read
- * every frame, so the walk moves it without a render of React.
+ * Where the walker is, as a map shows it and not as a person: the "you
+ * are here" of a phone's map laid on the floor, a small dot in a white
+ * rim with a soft beam fanning out the way the walk looks, fading to
+ * nothing. The plan draws the same (`.plan-walker` in Plan2D). One flat
+ * picture on one square, unlit and casting nothing, so it reads as a
+ * sign over the room and never as a thing in it. It stands where `at`
+ * says, read every frame, so the walk moves it without a render of
+ * React.
  */
 
-/** the mark's sizes, m: the plan's shape (a dot, its point from just
-    inside it to half again its width ahead) about a footprint across,
-    so it reads from the camera behind it without filling the picture
-    when that camera is brought in close */
-const MARK = { dot: 0.12, rim: 0.022, tip: 0.27, base: 0.1, half: 0.085 };
+/** the mark, m: the dot and its rim, the beam's reach and its half
+    angle (rad), and the square the picture is drawn on */
+export const BEAM = {
+  dot: 0.085,
+  rim: 0.025,
+  reach: 1.1,
+  half: 0.6,
+  side: 2.4,
+};
 /** how far it lies over the floor, m: clear of a rug's pile
     (`RUG_H`, rug.ts) */
 const LIFT = 0.02;
+/** the studio's orange (`--color-accent`), the dot's and the beam's */
+const ACCENT = "233,120,63";
+const tint = (a = 1) => `rgba(${ACCENT},${a})`;
+/** the picture's size, px */
+const PX = 512;
 
-const flat = (color: string, opacity = 1) =>
-  new MeshBasicMaterial({
-    color,
-    transparent: opacity < 1,
-    opacity,
-    depthWrite: false,
-    toneMapped: false,
-  });
-/** the studio's orange (`--color-accent`) and the plan's pale rim */
-const DOT = flat("#e9783f");
-const RIM = flat("#fffaf3", 0.95);
+/** the mark drawn once: ahead is up the picture */
+const draw = () => {
+  const c = document.createElement("canvas");
+  c.width = c.height = PX;
+  const g = c.getContext("2d")!;
+  const k = PX / BEAM.side;
+  const o = PX / 2;
+  // the beam: a fan the way it looks, the colour fading out to its reach
+  const fade = g.createRadialGradient(o, o, 0, o, o, BEAM.reach * k);
+  fade.addColorStop(0, tint(0.55));
+  fade.addColorStop(0.35, tint(0.28));
+  fade.addColorStop(1, tint(0));
+  g.fillStyle = fade;
+  g.beginPath();
+  g.moveTo(o, o);
+  g.arc(
+    o,
+    o,
+    BEAM.reach * k,
+    -Math.PI / 2 - BEAM.half,
+    -Math.PI / 2 + BEAM.half,
+  );
+  g.closePath();
+  g.fill();
+  // a soft shade under the dot, so it sits on a pale floor too
+  const shade = g.createRadialGradient(
+    o,
+    o,
+    BEAM.dot * k,
+    o,
+    o,
+    (BEAM.dot + BEAM.rim) * k * 1.8,
+  );
+  shade.addColorStop(0, "rgba(0,0,0,0.22)");
+  shade.addColorStop(1, "rgba(0,0,0,0)");
+  g.fillStyle = shade;
+  g.beginPath();
+  g.arc(o, o, (BEAM.dot + BEAM.rim) * k * 1.8, 0, Math.PI * 2);
+  g.fill();
+  // the rim, then the dot
+  g.fillStyle = "#ffffff";
+  g.beginPath();
+  g.arc(o, o, (BEAM.dot + BEAM.rim) * k, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = tint();
+  g.beginPath();
+  g.arc(o, o, BEAM.dot * k, 0, Math.PI * 2);
+  g.fill();
+  const t = new CanvasTexture(c);
+  t.colorSpace = SRGBColorSpace;
+  t.anisotropy = 4;
+  return t;
+};
 
-// the shapes, made once; a point drawn up its +y, which lies ahead (−z)
-// once laid flat
-const POINT = new ShapeGeometry(
-  new Shape()
-    .moveTo(0, MARK.tip)
-    .lineTo(MARK.half, MARK.base)
-    .lineTo(-MARK.half, MARK.base)
-    .closePath(),
-);
-const DISC = new CircleGeometry(MARK.dot, 40);
-const EDGE = new RingGeometry(MARK.dot, MARK.dot + MARK.rim, 40);
+const SQUARE = new PlaneGeometry(BEAM.side, BEAM.side);
 
 /** where the walker stands and which way it faces (yaw, as the camera's:
     0 faces −z) */
@@ -60,6 +102,23 @@ export type MarkerAt = { x: number; z: number; yaw: number };
 
 export function WalkMarker({ at }: { at: () => MarkerAt }) {
   const root = useRef<Group>(null);
+  const material = useMemo(
+    () =>
+      new MeshBasicMaterial({
+        map: draw(),
+        transparent: true,
+        depthWrite: false,
+        toneMapped: false,
+      }),
+    [],
+  );
+  useEffect(
+    () => () => {
+      material.map?.dispose();
+      material.dispose();
+    },
+    [material],
+  );
   useFrame(() => {
     const g = root.current;
     if (!g) return;
@@ -67,29 +126,17 @@ export function WalkMarker({ at }: { at: () => MarkerAt }) {
     g.position.set(p.x, LIFT, p.z);
     g.rotation.y = p.yaw;
   });
-  // laid flat; drawn after the floor and the rugs, rim under the dot
+  // laid flat, the picture's top ahead (−z); drawn after the floor and
+  // the rugs
   return (
     <group ref={root} userData={{ name: "Walker" }}>
-      <group rotation={[-Math.PI / 2, 0, 0]}>
-        <mesh
-          geometry={POINT}
-          material={DOT}
-          raycast={unpickable}
-          renderOrder={2}
-        />
-        <mesh
-          geometry={EDGE}
-          material={RIM}
-          raycast={unpickable}
-          renderOrder={2}
-        />
-        <mesh
-          geometry={DISC}
-          material={DOT}
-          raycast={unpickable}
-          renderOrder={3}
-        />
-      </group>
+      <mesh
+        geometry={SQUARE}
+        material={material}
+        rotation={[-Math.PI / 2, 0, 0]}
+        raycast={unpickable}
+        renderOrder={2}
+      />
     </group>
   );
 }

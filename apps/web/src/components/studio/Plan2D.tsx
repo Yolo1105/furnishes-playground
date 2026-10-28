@@ -80,6 +80,15 @@ const BAND_PAD = 15; // mm, an opening's gap past the band's faces
 const GRIP_PAD = 60; // mm, a grip past the band's faces
 const LABEL_IN = 260; // mm, an opening's label inside the band
 const MARGIN = 1100; // mm, room for the dimensions, the arrow, the title
+/** the walker's beam on the plan: its reach, mm, and half its angle
+    (as the 3D mark's, `BEAM` in WalkMarker.tsx), drawn up the sheet */
+const PLAN_BEAM_REACH = 1100;
+const PLAN_BEAM = (() => {
+  const h = 0.6;
+  const x = Math.round(PLAN_BEAM_REACH * Math.sin(h));
+  const y = Math.round(PLAN_BEAM_REACH * Math.cos(h));
+  return `M 0 0 L ${-x} ${-y} A ${PLAN_BEAM_REACH} ${PLAN_BEAM_REACH} 0 0 1 ${x} ${-y} Z`;
+})();
 /** the share of the open stage a framed room takes, across or down, and
     the most a frame zooms */
 const FRAME_SHARE = 0.8;
@@ -920,6 +929,17 @@ export function Plan2D({
         onMouseMove={onPlanMove}
       >
         <defs>
+          {/* the walker's beam: its colour fading out to its reach */}
+          <radialGradient
+            id="plan-walker-beam"
+            gradientUnits="userSpaceOnUse"
+            cx="0"
+            cy="0"
+            r={PLAN_BEAM_REACH}
+          >
+            <stop offset="0" className="plan-walker-beam-near" />
+            <stop offset="1" className="plan-walker-beam-far" />
+          </radialGradient>
           <pattern
             id="plan-hatch"
             width="110"
@@ -1268,15 +1288,12 @@ export function Plan2D({
                 />
               </>
             )}
-            {/* the walker, its point the way it faces (yaw 0 faces north,
-                up the sheet) */}
+            {/* the walker as a map shows it: a dot, and a beam fading
+                out the way it faces (yaw 0 faces north, up the sheet) */}
             <g
               transform={`translate(${walker.x} ${walker.y}) rotate(${(-walker.yaw * 180) / Math.PI})`}
             >
-              <path
-                className="plan-walker-heading"
-                d="M 0 -330 L 120 -150 L -120 -150 Z"
-              />
+              <path className="plan-walker-heading" d={PLAN_BEAM} />
               <circle className="plan-walker-dot" r={170} />
             </g>
           </g>

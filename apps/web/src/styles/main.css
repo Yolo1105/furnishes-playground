@@ -2700,7 +2700,15 @@
   stroke-width: 36;
 }
 .plan-walker-heading {
-  fill: var(--color-accent);
+  fill: url(#plan-walker-beam);
+}
+.plan-walker-beam-near {
+  stop-color: var(--color-accent);
+  stop-opacity: 0.55;
+}
+.plan-walker-beam-far {
+  stop-color: var(--color-accent);
+  stop-opacity: 0;
 }
 .tour-strip,
 .tour-run {
