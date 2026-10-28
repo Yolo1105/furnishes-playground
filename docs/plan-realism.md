@@ -3577,3 +3577,22 @@ not changed") still are, a little nearer: the wall by the window over
 the wall across the room 1.12 (was 1.10, bar 1.14), the floor by the
 sofa's base 18.5 % darker than open floor (was 18 %, bar 25 %). The
 bars are left as they are, for the owner.
+
+## The windows: no sheer, and drapes kept clear of pieces (2026-10-28)
+
+- **No sheer** (undoes the sheer of "Step 2: curtains", 2026-10-26, at
+  the owner's choice): the sheer hung across every window and, lit by
+  the daylight behind it, read as a flat bright panel rather than a
+  view; with bloom it was the brightest thing in the room. The windows
+  now show the outlook through the glass. The drapes stay, on one
+  ceiling track (`TRACK`, Room3D.tsx), floor-length, 17 cm off the
+  wall; the light coming in is unchanged (window-light.ts, the bake),
+  only the cloth in front of it is gone. `?glow=` no longer does
+  anything.
+- **A drape is not hung where a piece stands in its way**
+  (curtain-fit.ts, `drapesFree`): a drape's stack, drawn back beside
+  the window, takes the wall from the track's end inward by its stack
+  width and `DRAPE_REACH` (0.25 m) into the room. Where a piece's
+  footprint (a TV unit, a cabinet beside the window) overlaps that,
+  that side's drape is left off rather than drawn through the piece;
+  the other side still hangs (tested).
