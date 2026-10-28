@@ -21,10 +21,11 @@ import {
  * every frame, so the walk moves it without a render of React.
  */
 
-/** the mark's sizes, m: the plan's (a 170 mm dot, its point from 150 to
-    330 mm ahead, 120 mm each side) a little larger, to read from the
-    camera behind it */
-const MARK = { dot: 0.2, rim: 0.035, tip: 0.4, base: 0.17, half: 0.14 };
+/** the mark's sizes, m: the plan's shape (a dot, its point from just
+    inside it to half again its width ahead) about a footprint across,
+    so it reads from the camera behind it without filling the picture
+    when that camera is brought in close */
+const MARK = { dot: 0.12, rim: 0.022, tip: 0.27, base: 0.1, half: 0.085 };
 /** how far it lies over the floor, m: clear of a rug's pile
     (`RUG_H`, rug.ts) */
 const LIFT = 0.02;
